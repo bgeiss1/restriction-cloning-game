@@ -178,14 +178,18 @@ class PlasmidRenderer {
         this._layout = {
             cx,
             cy,
-            outerRadius:    minDim * 0.38,   // outer DNA ring
-            innerRadius:    minDim * 0.30,   // inner DNA ring
-            featureRadius:  minDim * 0.43,   // arcs drawn outside DNA ring
-            labelRadius:    minDim * 0.50,   // feature labels
-            tickRadius:     minDim * 0.26,   // restriction-site tick inner end
-            tickOuterR:     minDim * 0.29,   // restriction-site tick outer end
-            rsLabelRadius:  minDim * 0.22,   // restriction-site labels
-            featureWidth:   minDim * 0.055   // arc thickness
+            outerRadius:    minDim * 0.30,   // outer DNA ring (reduced to free label space)
+            innerRadius:    minDim * 0.23,   // inner DNA ring
+            featureWidth:   minDim * 0.048,  // arc thickness
+            // Feature label leader lines: radial elbow then horizontal arm
+            featureLabelElbowR: minDim * 0.38,  // end of radial segment
+            featureLabelArmLen: minDim * 0.035, // length of horizontal arm
+            // Restriction site label tiers (staggered to avoid overlap)
+            rsTiers: [
+                minDim * 0.355,
+                minDim * 0.395,
+                minDim * 0.435,
+            ],
         };
     }
 
@@ -266,7 +270,8 @@ class PlasmidRenderer {
     // -------------------------------------------------------------------------
     _drawFeatures() {
         const ctx = this.ctx;
-        const { cx, cy, outerRadius, featureWidth, labelRadius } = this._layout;
+        const { cx, cy, outerRadius, featureWidth,
+                featureLabelElbowR, featureLabelArmLen } = this._layout;
         const featureR = outerRadius + featureWidth * 0.3;
 
         for (const feature of this.plasmid.features) {
@@ -302,79 +307,129 @@ class PlasmidRenderer {
                 ctx.restore();
             }
 
-            // Label — placed radially outward at the midpoint of the feature
+            // Label with bent leader line — horizontal text, no rotation
             const midBp    = (feature.start + feature.end) / 2;
             const midAngle = this._bpToAngle(midBp);
-            const lx = cx + labelRadius * Math.cos(midAngle);
-            const ly = cy + labelRadius * Math.sin(midAngle);
+            const cos      = Math.cos(midAngle);
+            const sin      = Math.sin(midAngle);
 
-            ctx.save();
-            ctx.translate(lx, ly);
-            // Rotate text so it reads outward
-            let textAngle = midAngle + Math.PI / 2;
-            if (midAngle > Math.PI / 2 && midAngle < 3 * Math.PI / 2) {
-                textAngle += Math.PI;
-            }
-            ctx.rotate(textAngle);
-            ctx.font        = isHL ? 'bold 12px monospace' : '11px sans-serif';
-            ctx.fillStyle   = isHL ? '#FFFFFF' : color;
-            ctx.textAlign   = 'center';
+            // Start of leader: outer edge of feature arc
+            const lx0 = cx + (featureR + featureWidth * 0.6) * cos;
+            const ly0 = cy + (featureR + featureWidth * 0.6) * sin;
+
+            // Elbow: end of radial segment
+            const ex  = cx + featureLabelElbowR * cos;
+            const ey  = cy + featureLabelElbowR * sin;
+
+            // Horizontal arm — direction depends on left/right half of map
+            const goRight = cos >= 0;
+            const tx = ex + (goRight ? featureLabelArmLen : -featureLabelArmLen);
+            const ty = ey;
+
+            // Draw leader + arm
+            ctx.beginPath();
+            ctx.moveTo(lx0, ly0);
+            ctx.lineTo(ex, ey);
+            ctx.lineTo(tx, ty);
+            ctx.strokeStyle = color;
+            ctx.lineWidth   = isHL ? 1.5 : 0.9;
+            ctx.setLineDash(isHL ? [] : [3, 2]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Text — horizontal, anchored at end of arm
+            ctx.font         = isHL ? 'bold 11px sans-serif' : '10px sans-serif';
+            ctx.fillStyle    = isHL ? '#FFFFFF' : color;
+            ctx.textAlign    = goRight ? 'left' : 'right';
             ctx.textBaseline = 'middle';
-            ctx.fillText(feature.name, 0, 0);
-            ctx.restore();
+            ctx.fillText(feature.name, tx + (goRight ? 3 : -3), ty);
         }
     }
 
     // -------------------------------------------------------------------------
-    // Draw restriction site tick marks and labels
+    // Draw restriction site tick marks and labels (bent leader lines, outside ring)
     // -------------------------------------------------------------------------
     _drawRestrictionSites() {
         const ctx = this.ctx;
-        const { cx, cy, outerRadius, innerRadius, rsLabelRadius } = this._layout;
+        const { cx, cy, outerRadius, innerRadius, rsTiers } = this._layout;
 
         // Colours for enzyme labels — cycle through a palette
         const palette = [
             '#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#C77DFF',
-            '#FF9F43','#54A0FF','#5F27CD','#01CBC6','#FD7272'
+            '#FF9F43','#54A0FF','#01CBC6','#FD7272','#A8E063'
         ];
         const enzymeColorMap = {};
         let colorIdx = 0;
 
-        for (const site of this._restrictionSites) {
+        // Assign a stagger tier to each site so nearby labels don't overlap.
+        // Sort by angle, then assign tier 0/1/2 cycling within each tight cluster.
+        const sitesWithMeta = this._restrictionSites.map(site => {
             const name = site.enzymeName || site.enzyme;
             if (!enzymeColorMap[name]) {
                 enzymeColorMap[name] = palette[colorIdx++ % palette.length];
             }
+            return {
+                site,
+                name,
+                angle: this._bpToAngle(site.topStrandCut),
+                color: enzymeColorMap[name],
+                tier:  0
+            };
+        }).sort((a, b) => a.angle - b.angle);
 
-            const angle = this._bpToAngle(site.topStrandCut);
-            const cos   = Math.cos(angle);
-            const sin   = Math.sin(angle);
+        // Assign tiers: if a site is within 0.35 rad (~20°) of the previous one,
+        // increment tier (mod 3) so elbow radii are staggered.
+        let lastAngle = -Infinity;
+        let tierCtr   = 0;
+        for (const m of sitesWithMeta) {
+            if (m.angle - lastAngle < 0.35) {
+                tierCtr = (tierCtr + 1) % rsTiers.length;
+            } else {
+                tierCtr = 0;
+            }
+            m.tier   = tierCtr;
+            lastAngle = m.angle;
+        }
+
+        for (const { site, name, angle, color, tier } of sitesWithMeta) {
+            const cos     = Math.cos(angle);
+            const sin     = Math.sin(angle);
+            const elbowR  = rsTiers[tier];
+            const armLen  = this._layout.featureLabelArmLen * 0.85;
+            const goRight = cos >= 0;
 
             // Tick mark spanning the DNA rings
             ctx.beginPath();
-            ctx.moveTo(cx + (innerRadius - 6) * cos, cy + (innerRadius - 6) * sin);
-            ctx.lineTo(cx + (outerRadius + 6) * cos, cy + (outerRadius + 6) * sin);
-            ctx.strokeStyle = enzymeColorMap[name];
-            ctx.lineWidth   = 2.5;
+            ctx.moveTo(cx + (innerRadius - 5) * cos, cy + (innerRadius - 5) * sin);
+            ctx.lineTo(cx + (outerRadius + 5) * cos, cy + (outerRadius + 5) * sin);
+            ctx.strokeStyle = color;
+            ctx.lineWidth   = 2;
             ctx.stroke();
 
-            // Enzyme name label
-            const lx = cx + rsLabelRadius * cos;
-            const ly = cy + rsLabelRadius * sin;
+            // Radial leader from outer ring edge to elbow
+            const tickEndX = cx + (outerRadius + 5) * cos;
+            const tickEndY = cy + (outerRadius + 5) * sin;
+            const elbowX   = cx + elbowR * cos;
+            const elbowY   = cy + elbowR * sin;
 
-            ctx.save();
-            ctx.translate(lx, ly);
-            let textAngle = angle + Math.PI / 2;
-            if (angle > Math.PI / 2 && angle < 3 * Math.PI / 2) {
-                textAngle += Math.PI;
-            }
-            ctx.rotate(textAngle);
-            ctx.font        = 'bold 10px monospace';
-            ctx.fillStyle   = enzymeColorMap[name];
-            ctx.textAlign   = 'center';
+            // Horizontal arm from elbow
+            const armX = elbowX + (goRight ? armLen : -armLen);
+            const armY = elbowY;
+
+            ctx.beginPath();
+            ctx.moveTo(tickEndX, tickEndY);
+            ctx.lineTo(elbowX,   elbowY);
+            ctx.lineTo(armX,     armY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth   = 1;
+            ctx.stroke();
+
+            // Label at end of arm
+            ctx.font         = 'bold 9px monospace';
+            ctx.fillStyle    = color;
+            ctx.textAlign    = goRight ? 'left' : 'right';
             ctx.textBaseline = 'middle';
-            ctx.fillText(name, 0, 0);
-            ctx.restore();
+            ctx.fillText(name, armX + (goRight ? 3 : -3), armY);
         }
     }
 
@@ -396,13 +451,13 @@ class PlasmidRenderer {
         ctx.lineWidth   = 3;
         ctx.stroke();
 
-        // Small "ORI" label
-        const lx = cx + (outerRadius + 18) * cos;
-        const ly = cy + (outerRadius + 18) * sin;
-        ctx.font      = 'bold 10px sans-serif';
+        // Small "1" label (position 0 = bp 1)
+        const lx = cx + (outerRadius + 14) * cos;
+        const ly = cy + (outerRadius + 14) * sin;
+        ctx.font      = 'bold 9px sans-serif';
         ctx.fillStyle = '#ECEFF1';
         ctx.textAlign = 'center';
-        ctx.fillText('ORI', lx, ly);
+        ctx.fillText('1', lx, ly);
     }
 
     // -------------------------------------------------------------------------
