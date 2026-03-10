@@ -268,6 +268,7 @@
     .canvas-area {
       flex: 1;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       padding: 16px;
@@ -280,6 +281,21 @@
       cursor: crosshair;
       max-width: 100%;
       max-height: 100%;
+    }
+
+    .size-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      user-select: none;
+    }
+    .size-slider-row input[type=range] {
+      width: 140px;
+      accent-color: var(--accent);
+      cursor: pointer;
     }
 
     /* ------------------------------------------------------------------ */
@@ -690,6 +706,11 @@
       <!-- Canvas -->
       <div class="canvas-area">
         <canvas id="plasmidCanvas" width="560" height="560"></canvas>
+        <div class="size-slider-row">
+          <span>&#128269;</span>
+          <input type="range" id="sizeSlider" min="300" max="900" value="560" step="10" title="Resize plasmid map">
+          <span id="sizeLabel">560 px</span>
+        </div>
       </div>
 
       <!-- Info / log panel at the bottom -->
@@ -1365,15 +1386,26 @@ function showToast(message, type = 'info') {
 }
 
 // ---------------------------------------------------------------------------
-// Window resize — re-layout canvas
+// Size slider — manual resize of the plasmid canvas
 // ---------------------------------------------------------------------------
-window.addEventListener('resize', () => {
-  const area = canvas.parentElement;
-  const size = Math.min(area.clientWidth, area.clientHeight) - 32;
+const sizeSlider = document.getElementById('sizeSlider');
+const sizeLabel  = document.getElementById('sizeLabel');
+
+function applyCanvasSize(size) {
   canvas.width  = size;
   canvas.height = size;
+  sizeLabel.textContent = size + ' px';
   renderer._computeLayout();
   renderer.render(state.allSitesVisible ? ALL_ENZYMES : MCS_ENZYMES);
+}
+
+sizeSlider.addEventListener('input', () => applyCanvasSize(parseInt(sizeSlider.value)));
+
+// ---------------------------------------------------------------------------
+// Window resize — re-layout canvas (keep current slider value)
+// ---------------------------------------------------------------------------
+window.addEventListener('resize', () => {
+  applyCanvasSize(parseInt(sizeSlider.value));
 });
 
 // ---------------------------------------------------------------------------
