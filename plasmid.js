@@ -674,3 +674,219 @@ class PlasmidRenderer {
 window.Plasmid         = Plasmid;
 window.PlasmidRenderer = PlasmidRenderer;
 window.FEATURE_COLORS  = FEATURE_COLORS;
+
+// ---------------------------------------------------------------------------
+// renderOpenVector(cutSites, dropZoneActive)
+//
+// Draw the vector as a circle with a gap (the excised region between the
+// first and last cut site).  If dropZoneActive, the gap glows as a DnD target.
+// cutSites: array of site objects with .topStrandCut and .enzymeName
+// ---------------------------------------------------------------------------
+PlasmidRenderer.prototype.renderOpenVector = function(cutSites, dropZoneActive) {
+    const ctx = this.ctx;
+    const { cx, cy, outerRadius, innerRadius } = this._layout;
+    const seqLen = this.plasmid.length;
+
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    if (!cutSites || cutSites.length === 0) { this.render(); return; }
+
+    const sorted = [...cutSites].sort((a, b) => a.topStrandCut - b.topStrandCut);
+    const gapStartBp = sorted[0].topStrandCut;
+    const gapEndBp   = sorted[sorted.length - 1].topStrandCut;
+    const singleCut  = sorted.length === 1 || gapStartBp === gapEndBp;
+
+    const toAngle = bp => (bp / seqLen) * 2 * Math.PI - Math.PI / 2;
+    const gapA = toAngle(gapStartBp);
+    const gapB = singleCut ? gapA + 0.18 : toAngle(gapEndBp);
+
+    // ---- backbone arc (keeper) ----
+    const drawArc = (r, lw, color, from, to) => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, to, from + 2 * Math.PI, false);
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = lw;
+        ctx.stroke();
+    };
+
+    drawArc(outerRadius, 8, '#37474F', gapA, gapB);
+    drawArc(innerRadius, 4, '#546E7A', gapA, gapB);
+
+    // ---- drop zone arc ----
+    if (dropZoneActive) {
+        const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+        const glowColor = `rgba(79,195,247,${0.4 + 0.4 * pulse})`;
+        ctx.beginPath();
+        ctx.arc(cx, cy, (outerRadius + innerRadius) / 2, gapA, gapB, false);
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth   = outerRadius - innerRadius + 12;
+        ctx.stroke();
+
+        // label
+        const midA   = (gapA + gapB) / 2;
+        const labelR = outerRadius + 28;
+        ctx.font      = 'bold 11px sans-serif';
+        ctx.fillStyle = '#4FC3F7';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('drop here', cx + labelR * Math.cos(midA), cy + labelR * Math.sin(midA));
+    }
+
+    // ---- features ----
+    this._drawFeatures();
+    this._drawCenterLabel();
+    this._drawOriginMark();
+
+    // ---- sticky-end labels at gap edges ----
+    const drawEndLabel = (angle, enzName, isLeft) => {
+        const r   = outerRadius + 14;
+        const ex  = cx + r * Math.cos(angle);
+        const ey  = cy + r * Math.sin(angle);
+        const enz = EnzymeDB[enzName] || {};
+        const oh  = enz.overhangSeq || 'blunt';
+        ctx.font         = 'bold 9px monospace';
+        ctx.fillStyle    = '#FFD54F';
+        ctx.textAlign    = isLeft ? 'right' : 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${enzName}(${oh})`, ex + (isLeft ? -4 : 4), ey);
+    };
+    drawEndLabel(gapA, sorted[0].enzymeName, true);
+    if (!singleCut) drawEndLabel(gapB, sorted[sorted.length - 1].enzymeName, false);
+
+    // Store gap info for hit testing
+    this._gapAngleA  = gapA;
+    this._gapAngleB  = gapB;
+    this._dropActive = dropZoneActive;
+};
+
+// ---------------------------------------------------------------------------
+// isInDropZone(clientX, clientY) — returns true if the pointer is over the gap
+// ---------------------------------------------------------------------------
+PlasmidRenderer.prototype.isInDropZone = function(clientX, clientY) {
+    if (!this._dropActive) return false;
+    const rect = this.canvas.getBoundingClientRect();
+    const { cx, cy, outerRadius, innerRadius } = this._layout;
+    const dx   = clientX - rect.left - cx;
+    const dy   = clientY - rect.top  - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < innerRadius - 10 || dist > outerRadius + 10) return false;
+
+    let angle = Math.atan2(dy, dx);
+    // Normalize to [gapAngleA, gapAngleA + 2π)
+    while (angle < this._gapAngleA) angle += 2 * Math.PI;
+    return angle <= this._gapAngleB + 0.1;
+};
+
+// ---------------------------------------------------------------------------
+// animateDigest(fragments, trayEl, onComplete)
+//
+// Phase 1 (0-30f)  : fragments slide radially outward (still as arcs)
+// Phase 2 (30-80f) : arcs morph to horizontal pills, fall toward trayEl
+// Phase 3 (80-110f): spring settle, then call onComplete
+// ---------------------------------------------------------------------------
+PlasmidRenderer.prototype.animateDigest = function(fragments, trayEl, onComplete) {
+    const ctx = this.ctx;
+    const { cx, cy, outerRadius, innerRadius, featureWidth } = this._layout;
+    const featureR = outerRadius + featureWidth * 0.3;
+    const TOTAL_FRAMES = 110;
+    let frame = 0;
+
+    // Target positions — spread out horizontally in the tray
+    const trayRect  = trayEl.getBoundingClientRect();
+    const canvRect  = this.canvas.getBoundingClientRect();
+    const trayRelY  = trayRect.top - canvRect.top + trayRect.height * 0.5;
+    const trayRelX0 = trayRect.left - canvRect.left;
+    const trayW     = trayRect.width;
+    const n = fragments.length;
+
+    const targets = fragments.map((f, i) => ({
+        x: trayRelX0 + trayW * (i + 0.5) / n,
+        y: trayRelY,
+        rot: (Math.random() - 0.5) * 0.25
+    }));
+
+    const drawFragmentPill = (f, t, idx) => {
+        // t=0 → at circle position, t=1 → at tray target
+        const midCos  = Math.cos(f.midAngle);
+        const midSin  = Math.sin(f.midAngle);
+
+        // Phase 1: explode
+        const explodeT   = Math.min(1, frame / 30);
+        const explodeDist = featureR * 0.35 * explodeT;
+        const arcCx = cx + midCos * explodeDist;
+        const arcCy = cy + midSin * explodeDist;
+
+        // Phase 2: fall (frame 30-80)
+        const fallT  = Math.max(0, Math.min(1, (frame - 30) / 50));
+        const ease   = fallT < 0.5 ? 2 * fallT * fallT : -1 + (4 - 2 * fallT) * fallT;
+        const px     = arcCx + (targets[idx].x - arcCx) * ease;
+        const py     = arcCy + (targets[idx].y - arcCy) * ease;
+        const rot    = targets[idx].rot * ease;
+
+        // Arc span → pill width
+        const arcSpan = Math.abs(f.angleEnd - f.angleStart);
+        const pillW   = Math.max(60, arcSpan * featureR * 1.1);
+        const pillH   = featureWidth * 1.2;
+
+        // Choose color from features or default
+        const color = f.features.length > 0
+            ? featureColor(f.features[0])
+            : FEATURE_COLORS.default;
+
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(rot);
+        ctx.globalAlpha = 0.92;
+
+        // Pill body
+        ctx.beginPath();
+        ctx.roundRect(-pillW / 2, -pillH / 2, pillW, pillH, pillH / 2);
+        ctx.fillStyle   = color + '44';
+        ctx.strokeStyle = color;
+        ctx.lineWidth   = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        // Size label
+        ctx.font         = `bold ${Math.round(pillH * 0.55)}px monospace`;
+        ctx.fillStyle    = '#E8EDF2';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${(f.size / 1000).toFixed(1)} kb`, 0, 0);
+
+        ctx.restore();
+    };
+
+    const animate = () => {
+        ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+        // Draw backbone (fades out after frame 30)
+        if (frame < 40) {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, 1 - (frame - 20) / 20);
+            this._drawBackbone();
+            this._drawFeatures();
+            ctx.restore();
+        }
+
+        for (let i = 0; i < fragments.length; i++) {
+            drawFragmentPill(fragments[i], frame / TOTAL_FRAMES, i);
+        }
+
+        frame++;
+        if (frame <= TOTAL_FRAMES) {
+            requestAnimationFrame(animate);
+        } else {
+            // Clear canvas — fragment cards now live in HTML
+            ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            ctx.font      = '13px sans-serif';
+            ctx.fillStyle = 'rgba(79,195,247,0.3)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('digested', cx, cy);
+            if (typeof onComplete === 'function') onComplete();
+        }
+    };
+
+    requestAnimationFrame(animate);
+};

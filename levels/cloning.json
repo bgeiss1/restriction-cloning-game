@@ -1,0 +1,122 @@
+[
+  {
+    "id": "clone_01",
+    "title": "Clone GFP into pUC19",
+    "description": "The donor plasmid carries a GFP gene flanked by EcoRI and BamHI sites. Cut both plasmids with the same two enzymes, then drag the GFP fragment into the vector backbone.",
+    "teaching_point": "Using two different enzymes (EcoRI + BamHI) creates incompatible ends on each side — the insert can only ligate in one orientation.",
+    "vector": {
+      "use_pUC19": true,
+      "name": "pUC19"
+    },
+    "donor": {
+      "name": "pDonor-GFP",
+      "sequence_note": "synthetic 3200 bp donor with GFP flanked by EcoRI and BamHI in the MCS",
+      "length": 3200,
+      "mcs_enzymes": ["EcoRI", "BamHI"],
+      "features": [
+        { "name": "GFP",      "start": 800,  "end": 1520, "type": "gene",       "strand": 1 },
+        { "name": "kanR",     "start": 1800, "end": 2660, "type": "resistance", "strand": -1 },
+        { "name": "pSC101 ori","start": 100, "end": 550,  "type": "ori",        "strand": 1  }
+      ],
+      "cut_sites": [
+        { "enzyme": "EcoRI",  "position": 760  },
+        { "enzyme": "BamHI",  "position": 1540 }
+      ]
+    },
+    "objectives": {
+      "vector_enzymes":    ["EcoRI", "BamHI"],
+      "donor_enzymes":     ["EcoRI", "BamHI"],
+      "correct_fragment":  "GFP",
+      "correct_orientation": "forward"
+    }
+  },
+  {
+    "id": "clone_02",
+    "title": "Directional cloning with KpnI / HindIII",
+    "description": "Clone a luciferase reporter into pUC19 using KpnI and HindIII. These enzymes create different overhangs, guaranteeing a single orientation.",
+    "teaching_point": "KpnI leaves a 3' overhang (GTAC) while HindIII leaves a 5' overhang (AGCT). Incompatible end types prevent reverse-orientation ligation.",
+    "vector": {
+      "use_pUC19": true,
+      "name": "pUC19"
+    },
+    "donor": {
+      "name": "pLuc-donor",
+      "length": 4100,
+      "features": [
+        { "name": "Luciferase", "start": 900,  "end": 2600, "type": "gene",       "strand": 1 },
+        { "name": "ampR",       "start": 2900, "end": 3760, "type": "resistance", "strand": -1 },
+        { "name": "ColE1 ori",  "start": 200,  "end": 650,  "type": "ori",        "strand": 1  }
+      ],
+      "cut_sites": [
+        { "enzyme": "KpnI",    "position": 860  },
+        { "enzyme": "HindIII", "position": 2640 }
+      ]
+    },
+    "objectives": {
+      "vector_enzymes":    ["KpnI", "HindIII"],
+      "donor_enzymes":     ["KpnI", "HindIII"],
+      "correct_fragment":  "Luciferase",
+      "correct_orientation": "forward"
+    }
+  },
+  {
+    "id": "clone_03",
+    "title": "Single-enzyme cloning (non-directional)",
+    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation — predict how many ligation products are possible.",
+    "teaching_point": "Single-enzyme cloning with a palindromic site creates two possible insert orientations and one self-ligation product. Colony screening by PCR or restriction digest is required.",
+    "vector": {
+      "use_pUC19": true,
+      "name": "pUC19"
+    },
+    "donor": {
+      "name": "pTet-donor",
+      "length": 2900,
+      "features": [
+        { "name": "tetR",      "start": 600,  "end": 1700, "type": "resistance", "strand": 1 },
+        { "name": "ampR",      "start": 2000, "end": 2860, "type": "resistance", "strand": -1 },
+        { "name": "pMB1 ori",  "start": 100,  "end": 550,  "type": "ori",        "strand": 1  }
+      ],
+      "cut_sites": [
+        { "enzyme": "EcoRI", "position": 560  },
+        { "enzyme": "EcoRI", "position": 1720 }
+      ]
+    },
+    "objectives": {
+      "vector_enzymes":      ["EcoRI"],
+      "donor_enzymes":       ["EcoRI"],
+      "correct_fragment":    "tetR",
+      "correct_orientation": null
+    }
+  },
+  {
+    "id": "clone_04",
+    "title": "Three-fragment digest",
+    "description": "The donor plasmid has three EcoRI sites. Select the fragment containing mCherry and discard the rest.",
+    "teaching_point": "Partial digests and multi-fragment gels require careful identification of the fragment of interest by size and position.",
+    "vector": {
+      "use_pUC19": true,
+      "name": "pUC19"
+    },
+    "donor": {
+      "name": "pMulti-donor",
+      "length": 5400,
+      "features": [
+        { "name": "mCherry",  "start": 1200, "end": 2000, "type": "gene",       "strand": 1 },
+        { "name": "kanR",     "start": 3000, "end": 3860, "type": "resistance", "strand": -1 },
+        { "name": "tetR",     "start": 4200, "end": 5100, "type": "resistance", "strand": 1  },
+        { "name": "pSC101 ori","start": 200, "end": 700,  "type": "ori",        "strand": 1  }
+      ],
+      "cut_sites": [
+        { "enzyme": "EcoRI", "position": 1140 },
+        { "enzyme": "EcoRI", "position": 2060 },
+        { "enzyme": "EcoRI", "position": 3900 }
+      ]
+    },
+    "objectives": {
+      "vector_enzymes":    ["EcoRI"],
+      "donor_enzymes":     ["EcoRI"],
+      "correct_fragment":  "mCherry",
+      "correct_orientation": null
+    }
+  }
+]

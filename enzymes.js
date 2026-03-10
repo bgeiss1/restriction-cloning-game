@@ -636,9 +636,90 @@ function predictVariants(vectorEnds, insertEnds) {
 // ---------------------------------------------------------------------------
 // Attach everything to window so other scripts can use these without modules
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// digestPlasmid(plasmid, enzymeNames)
+//
+// Cut a circular plasmid with one or more enzymes and return an array of
+// Fragment objects sorted by cut position.
+//
+// Fragment: { id, size, sequence, features[], leftEnd, rightEnd,
+//             angleStart, angleEnd, midAngle }
+// leftEnd / rightEnd: { enzyme, overhang, type }
+// ---------------------------------------------------------------------------
+function digestPlasmid(plasmid, enzymeNames) {
+    const allSites = [];
+    for (const name of enzymeNames) {
+        if (!EnzymeDB[name]) continue;
+        const sites = findCutSites(plasmid.sequence, name, /* circular= */ true);
+        for (const site of sites) allSites.push({ ...site, enzymeName: name });
+    }
+    allSites.sort((a, b) => a.topStrandCut - b.topStrandCut);
+
+    const n      = allSites.length;
+    const seqLen = plasmid.length;
+    if (n === 0) return [];
+
+    const toAngle = bp => (bp / seqLen) * 2 * Math.PI - Math.PI / 2;
+
+    const fragments = [];
+    for (let i = 0; i < n; i++) {
+        const lSite = allSites[i];
+        const rSite = allSites[(i + 1) % n];
+
+        const cutStart = lSite.topStrandCut;
+        const cutEnd   = rSite.topStrandCut;
+
+        let seq;
+        if (cutEnd > cutStart) {
+            seq = plasmid.sequence.slice(cutStart, cutEnd);
+        } else {
+            seq = plasmid.sequence.slice(cutStart) + plasmid.sequence.slice(0, cutEnd);
+        }
+
+        // Features whose midpoint falls within this fragment
+        const fragFeatures = plasmid.features.filter(f => {
+            const mid = ((f.start + f.end) / 2 + seqLen) % seqLen;
+            if (cutEnd > cutStart) return mid >= cutStart && mid <= cutEnd;
+            return mid >= cutStart || mid <= cutEnd;
+        });
+
+        const lEnz = EnzymeDB[lSite.enzymeName] || {};
+        const rEnz = EnzymeDB[rSite.enzymeName] || {};
+
+        const aStart = toAngle(cutStart);
+        // If fragment wraps around, aEnd > 2π — keep it continuous for arc math
+        const aEnd   = cutEnd > cutStart
+            ? toAngle(cutEnd)
+            : toAngle(cutEnd) + 2 * Math.PI;
+        const midAngle = (aStart + aEnd) / 2;
+
+        fragments.push({
+            id:        i,
+            sequence:  seq,
+            size:      seq.length,
+            features:  fragFeatures,
+            leftEnd:  {
+                enzyme:   lSite.enzymeName,
+                overhang: lEnz.overhangSeq  || '',
+                type:     lEnz.overhangType || 'blunt'
+            },
+            rightEnd: {
+                enzyme:   rSite.enzymeName,
+                overhang: rEnz.overhangSeq  || '',
+                type:     rEnz.overhangType || 'blunt'
+            },
+            angleStart: aStart,
+            angleEnd:   aEnd,
+            midAngle:   midAngle
+        });
+    }
+    return fragments;
+}
+
 window.EnzymeDB          = EnzymeDB;
 window.reverseComplement = reverseComplement;
 window.findCutSites      = findCutSites;
 window.cutDNA            = cutDNA;
 window.areEndsCompatible = areEndsCompatible;
 window.predictVariants   = predictVariants;
+window.digestPlasmid     = digestPlasmid;
