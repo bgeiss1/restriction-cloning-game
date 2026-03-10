@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Restriction Cloning Game</title>
+
+  <!--
+    Restriction Cloning Educational Game
+    =====================================
+    Module 1 — Enzyme database & logic  : enzymes.js
+    Module 2 — Plasmid model & renderer : plasmid.js
+    Module 3 — Game UI                  : this file
+
+    No external dependencies — pure vanilla JS / HTML / CSS.
+  -->
+
+  <style>
+    /* ------------------------------------------------------------------ */
+    /* Reset & base                                                         */
+    /* ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-dark:     #1A2332;
+      --bg-mid:      #243447;
+      --bg-light:    #2D4060;
+      --accent:      #4FC3F7;
+      --accent2:     #81C784;
+      --text-main:   #E8EDF2;
+      --text-muted:  #8FA8C0;
+      --danger:      #EF5350;
+      --warn:        #FFB300;
+      --success:     #66BB6A;
+      --border:      #354A63;
+      --font-mono:   'Courier New', Courier, monospace;
+      --font-sans:   'Segoe UI', system-ui, sans-serif;
+      --radius:      8px;
+      --shadow:      0 4px 24px rgba(0,0,0,0.5);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Layout                                                               */
+    /* ------------------------------------------------------------------ */
+    .app-wrapper {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      background: var(--bg-mid);
+      border-bottom: 1px solid var(--border);
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 56px;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.04em;
+    }
+
+    header h1 span {
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 0.9em;
+    }
+
+    .score-bar {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .score-item {
+      text-align: center;
+    }
+    .score-item .label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+    .score-item .value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+      font-family: var(--font-mono);
+    }
+    .score-item.streak .value { color: var(--warn); }
+    .score-item.correct .value { color: var(--success); }
+
+    /* ------------------------------------------------------------------ */
+    /* Main content area                                                    */
+    /* ------------------------------------------------------------------ */
+    .content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Sidebar                                                              */
+    /* ------------------------------------------------------------------ */
+    .sidebar {
+      width: 260px;
+      min-width: 220px;
+      background: var(--bg-mid);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      padding: 12px 16px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-section h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .enzyme-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 0;
+    }
+
+    .enzyme-item {
+      display: flex;
+      align-items: center;
+      padding: 6px 16px;
+      cursor: pointer;
+      border-radius: 0;
+      transition: background 0.15s;
+      border-left: 3px solid transparent;
+      gap: 10px;
+    }
+    .enzyme-item:hover {
+      background: var(--bg-light);
+      border-left-color: var(--accent);
+    }
+    .enzyme-item.selected {
+      background: var(--bg-light);
+      border-left-color: var(--accent);
+    }
+
+    .enzyme-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      min-width: 70px;
+    }
+
+    .overhang-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .overhang-badge.five-prime  { background: #1565C0; color: #90CAF9; }
+    .overhang-badge.three-prime { background: #6A1B9A; color: #CE93D8; }
+    .overhang-badge.blunt       { background: #37474F; color: #90A4AE; }
+
+    .overhang-seq {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Main panel                                                           */
+    /* ------------------------------------------------------------------ */
+    .main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .toolbar {
+      background: var(--bg-mid);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .toolbar-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    button {
+      background: var(--bg-light);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover { background: #3A5070; border-color: var(--accent); }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button:disabled:hover { background: var(--bg-light); border-color: var(--border); }
+
+    button.primary {
+      background: var(--accent);
+      color: #0D1B2A;
+      font-weight: 700;
+      border-color: var(--accent);
+    }
+    button.primary:hover { background: #81D4FA; }
+
+    button.danger {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+    button.danger:hover { background: rgba(239,83,80,0.15); }
+
+    select {
+      background: var(--bg-light);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      cursor: pointer;
+    }
+    select:focus { outline: 1px solid var(--accent); }
+
+    /* ------------------------------------------------------------------ */
+    /* Canvas area                                                          */
+    /* ------------------------------------------------------------------ */
+    .canvas-area {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    #plasmidCanvas {
+      border-radius: 50%;
+      cursor: crosshair;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Info / log panel                                                     */
+    /* ------------------------------------------------------------------ */
+    .info-panel {
+      height: 160px;
+      background: var(--bg-mid);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .info-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .info-tab {
+      padding: 6px 16px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .info-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .info-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 16px;
+    }
+
+    #logPanel, #analysisPanel, #helpPanel {
+      display: none;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      line-height: 1.7;
+    }
+    #logPanel.active, #analysisPanel.active, #helpPanel.active { display: block; }
+
+    .log-entry { color: var(--text-muted); }
+    .log-entry.info   { color: var(--accent); }
+    .log-entry.warn   { color: var(--warn); }
+    .log-entry.error  { color: var(--danger); }
+    .log-entry.success{ color: var(--success); }
+
+    /* ------------------------------------------------------------------ */
+    /* Overhang visualiser widget in the analysis panel                    */
+    /* ------------------------------------------------------------------ */
+    .overhang-visual {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: 4px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: #1A2332;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      margin: 4px 0;
+    }
+    .strand-top    { color: #90CAF9; }
+    .strand-bottom { color: #F48FB1; }
+    .strand-overhang { color: #FFD54F; font-weight: bold; }
+
+    /* ------------------------------------------------------------------ */
+    /* Toast notifications                                                  */
+    /* ------------------------------------------------------------------ */
+    #toastContainer {
+      position: fixed;
+      bottom: 180px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+    }
+
+    .toast {
+      background: var(--bg-mid);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--text-main);
+      box-shadow: var(--shadow);
+      animation: slideIn 0.25s ease, fadeOut 0.4s 2.6s ease forwards;
+      max-width: 280px;
+    }
+    .toast.success { border-color: var(--success); }
+    .toast.warn    { border-color: var(--warn); }
+    .toast.error   { border-color: var(--danger); }
+
+    @keyframes slideIn {
+      from { transform: translateX(40px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+    @keyframes fadeOut {
+      to { opacity: 0; transform: translateY(10px); }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Enzyme detail popover (bottom of sidebar)                           */
+    /* ------------------------------------------------------------------ */
+    .enzyme-detail {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px;
+      min-height: 100px;
+      background: #1D2E40;
+    }
+    .enzyme-detail h3 {
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .enzyme-detail .recog {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      letter-spacing: 0.12em;
+    }
+    .enzyme-detail .recog .cut-mark {
+      color: var(--danger);
+      font-weight: bold;
+    }
+    .detail-row { margin: 3px 0; color: var(--text-muted); }
+    .detail-row strong { color: var(--text-main); }
+
+    /* ------------------------------------------------------------------ */
+    /* Mode-selection screen                                               */
+    /* ------------------------------------------------------------------ */
+    #modeSelectScreen {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-dark);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+    }
+
+    #modeSelectScreen h1 {
+      font-size: 2rem;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      text-align: center;
+    }
+    #modeSelectScreen p {
+      color: var(--text-muted);
+      font-size: 1rem;
+      text-align: center;
+      max-width: 480px;
+      line-height: 1.7;
+    }
+
+    .mode-buttons {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .mode-btn {
+      background: var(--bg-mid);
+      border: 2px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 36px;
+      cursor: pointer;
+      text-align: center;
+      width: 180px;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+    }
+    .mode-btn:hover {
+      border-color: var(--accent);
+      background: var(--bg-light);
+      transform: translateY(-3px);
+    }
+    .mode-btn .mode-icon {
+      font-size: 2.4rem;
+      margin-bottom: 10px;
+    }
+    .mode-btn .mode-label {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+    .mode-btn .mode-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Game area wrapper                                                    */
+    /* ------------------------------------------------------------------ */
+    #gameArea {
+      display: none;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Level info banner                                                    */
+    /* ------------------------------------------------------------------ */
+    #levelInfo {
+      display: none;
+      background: var(--bg-mid);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 24px;
+      font-size: 12px;
+    }
+    .level-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin-bottom: 2px;
+    }
+    .level-desc       { color: var(--text-muted); margin-bottom: 3px; }
+    .level-teaching   { color: var(--accent2); font-style: italic; margin-bottom: 3px; }
+    .level-objective  { color: var(--warn); }
+
+    /* ------------------------------------------------------------------ */
+    /* Timer bar (challenge mode)                                           */
+    /* ------------------------------------------------------------------ */
+    #timerBar {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-mid);
+      border-bottom: 1px solid var(--border);
+      padding: 4px 24px;
+    }
+    .timer-track {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .timer-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 3px;
+      transition: width 1s linear, background 0.5s;
+    }
+    .timer-label {
+      min-width: 36px;
+      text-align: right;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Score summary overlay                                                */
+    /* ------------------------------------------------------------------ */
+    #scoreSummary {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 18, 30, 0.88);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Ligation workspace & colony plate panels                             */
+    /* ------------------------------------------------------------------ */
+    #ligationWorkspace,
+    #colonyPlate,
+    #variantPredictor {
+      display: none;
+      padding: 12px 20px;
+      background: var(--bg-mid);
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .ligation-diagram   { font-family: var(--font-mono); }
+    .colony-plate-wrapper { font-family: var(--font-sans); }
+
+    /* ------------------------------------------------------------------ */
+    /* Scrollbar styling                                                    */
+    /* ------------------------------------------------------------------ */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ===== MODE SELECTION SCREEN ===== -->
+<div id="modeSelectScreen">
+  <h1>Restriction Cloning Game</h1>
+  <p>Learn the principles of molecular cloning through interactive cut-and-paste experiments. Select a mode to begin.</p>
+  <div class="mode-buttons">
+    <button class="mode-btn" id="btnTutorial">
+      <div class="mode-icon">&#x1F9EC;</div>
+      <div class="mode-label">Tutorial</div>
+      <div class="mode-desc">5 guided levels teaching core cloning concepts step by step.</div>
+    </button>
+    <button class="mode-btn" id="btnChallenge">
+      <div class="mode-icon">&#x23F1;</div>
+      <div class="mode-label">Challenge</div>
+      <div class="mode-desc">3 timed scenarios — no hints, full scoring. Test your knowledge.</div>
+    </button>
+    <button class="mode-btn" id="btnSandbox">
+      <div class="mode-icon">&#x1F9EA;</div>
+      <div class="mode-label">Sandbox</div>
+      <div class="mode-desc">Free exploration of pUC19 with all enzymes. No objectives.</div>
+    </button>
+  </div>
+</div>
+
+<!-- ===== SCORE SUMMARY OVERLAY ===== -->
+<div id="scoreSummary"></div>
+
+<!-- ===== GAME AREA (hidden until mode selected) ===== -->
+<div id="gameArea">
+
+<div class="app-wrapper">
+
+  <!-- ===== LEVEL INFO BANNER ===== -->
+  <div id="levelInfo"></div>
+
+  <!-- ===== TIMER BAR (challenge mode) ===== -->
+  <div id="timerBar">
+    <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Time</span>
+    <div class="timer-track"><div class="timer-fill" style="width:100%"></div></div>
+    <span class="timer-label">120s</span>
+  </div>
+
+  <!-- ===== HEADER ===== -->
+  <header>
+    <h1>Restriction Cloning Game <span>— Learn Molecular Cloning</span></h1>
+    <div class="score-bar">
+      <div class="score-item">
+        <div class="label">Score</div>
+        <div class="value" id="scoreValue">0</div>
+      </div>
+      <div class="score-item correct">
+        <div class="label">Correct</div>
+        <div class="value" id="correctValue">0</div>
+      </div>
+      <div class="score-item streak">
+        <div class="label">Streak</div>
+        <div class="value" id="streakValue">0</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== CONTENT ===== -->
+  <div class="content">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <h2>Restriction Enzymes</h2>
+      </div>
+
+      <div class="enzyme-list" id="enzymeList">
+        <!-- Populated by JS -->
+      </div>
+
+      <!-- Enzyme detail pane at bottom of sidebar -->
+      <div class="enzyme-detail" id="enzymeDetail">
+        <div style="color:var(--text-muted);font-size:12px;">
+          Click an enzyme to see details.
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN PANEL -->
+    <div class="main-panel">
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <span class="toolbar-label">Enzyme</span>
+          <select id="enzymeSelect">
+            <option value="">— select enzyme —</option>
+          </select>
+        </div>
+        <div class="toolbar-group">
+          <button class="primary" id="btnCut" disabled>✂ Cut Plasmid</button>
+          <button id="btnReset">↺ Reset</button>
+          <button id="btnShowAllSites">Show All Sites</button>
+        </div>
+        <div class="toolbar-group" style="margin-left:auto;">
+          <span class="toolbar-label" id="plasmidInfo">pUC19 — 2686 bp</span>
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-area">
+        <canvas id="plasmidCanvas" width="560" height="560"></canvas>
+      </div>
+
+      <!-- Info / log panel at the bottom -->
+      <div class="info-panel">
+        <div class="info-tabs">
+          <div class="info-tab active" data-panel="logPanel">Log</div>
+          <div class="info-tab" data-panel="analysisPanel">Analysis</div>
+          <div class="info-tab" data-panel="helpPanel">How to Play</div>
+        </div>
+        <div class="info-content">
+          <div id="logPanel" class="active"></div>
+          <div id="analysisPanel"></div>
+          <div id="helpPanel">
+            <p><strong>How to play:</strong></p>
+            <p>1. Select a restriction enzyme from the sidebar or dropdown.</p>
+            <p>2. Click <em>Cut Plasmid</em> to cut pUC19 at that enzyme's recognition site(s).</p>
+            <p>3. Click <em>Show All Sites</em> to display all MCS enzyme recognition sites on the map.</p>
+            <p>4. Click on a feature or restriction site in the circular map for details.</p>
+            <p>5. Use the Analysis tab to see overhang details and ligation predictions.</p>
+            <p><strong>Scoring:</strong> +10 points for cuts that are directional (different 5' and 3' ends),
+               +5 for any valid cut. Bonus for consecutive cuts without resetting.</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end main-panel -->
+  </div><!-- end content -->
+
+  <!-- Ligation workspace panel (shown after cutting) -->
+  <div id="ligationWorkspace"></div>
+
+  <!-- Colony plate panel (shown after ligation) -->
+  <div id="colonyPlate"></div>
+
+  <!-- Variant predictor panel -->
+  <div id="variantPredictor"></div>
+
+</div><!-- end app-wrapper -->
+
+<!-- Toast container -->
+<div id="toastContainer"></div>
+
+</div><!-- end #gameArea -->
+
+<!-- =====================================================================
+     Scripts
+     ===================================================================== -->
+<script src="enzymes.js"></script>
+<script src="plasmid.js"></script>
+<script src="scoring.js"></script>
+<script src="game.js"></script>
+<script src="ui.js"></script>
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// pUC19-like demo plasmid (~2686 bp)
+// We use a representative sequence (not a true full pUC19 sequence — for
+// educational purposes, key restriction sites are placed at realistic
+// positions within the MCS, and the backbone length is authentic).
+//
+// MCS (multiple cloning site) is embedded within lacZ-alpha and runs from
+// approximately position 396 to 452 in the real pUC19 numbering.
+// We build a synthetic backbone sequence that places the enzyme recognition
+// sequences at the correct relative positions.
+// ---------------------------------------------------------------------------
+
+// Helper: build a sequence string of given length padded with a repetitive
+// backbone motif (for educational demo — not the real pUC19 sequence)
+function buildPUC19Sequence() {
+  // Real pUC19 key positions (approx, pUC19 numbering):
+  //   EcoRI  : 396
+  //   SacI   : 399  (not in our DB — skip)
+  //   KpnI   : 407
+  //   AvaI   : 413  (not in our DB — skip)
+  //   XmaI   : 413  (not in our DB — skip)
+  //   SmaI   : 415
+  //   BamHI  : 421
+  //   XbaI   : 431
+  //   AccI   : 437  (not in our DB — skip)
+  //   SalI   : 435
+  //   HindIII: 447
+  //   SphI   : 454  (not in our DB — skip)
+  //   PstI   : 453
+  //   ori    : ~858
+  //   ampR   : ~1629 – 2489
+  //   lacZ   : ~149 – 507
+
+  // We'll build: ~395 bp filler + MCS region + filler to 2686
+  const TOTAL = 2686;
+
+  // MCS sequence block containing all our enzyme sites in order
+  // Real MCS (from pUC19 GenBank L09137): positions 396–453 (top strand)
+  // GAATTCGAGCTCGGTACCCGGGGATCCTCTAGAGTCGACCTGCAGGCATGCAAGCTTGGCGTAATCAT
+  // We strip non-DB enzymes and keep a representative version:
+  const mcsBlock =
+    'GAATTC' +   // EcoRI  (position 0 within MCS)
+    'GGTACC' +   // KpnI   (+6)
+    'CCCGGG' +   // SmaI   (+12)
+    'GGATCC' +   // BamHI  (+18)
+    'TCTAGA' +   // XbaI   (+24)
+    'GTCGAC' +   // SalI   (+30)
+    'CTGCAG' +   // PstI   (+36)
+    'AAGCTT';    // HindIII (+42)
+  // mcsBlock = 48 bp
+
+  const mcsStart = 396;
+  // Filler sequences — simple synthetic repeats (not real sequence)
+  const fillA = 'ACGTACGT'; // 8-bp repeat unit for filler regions
+
+  function repeat(unit, n) {
+    let s = '';
+    while (s.length < n) s += unit;
+    return s.slice(0, n);
+  }
+
+  // lacZ region filler (around MCS, from ~149 to ~507)
+  const lacZFill  = repeat('ATGCATGCATGCATGCATGCATGCATGCATGCATGC', 100);
+  const beforeMCS = lacZFill.slice(0, mcsStart);        // 0..395
+  const afterMCS  = lacZFill.slice(0, 507 - mcsStart - mcsBlock.length); // 507-444=63
+
+  // Origin region (858..1300) — synthetic filler with AT-rich character
+  const oriRegion = repeat('AATTAATTAATTAAGCGCGCGCGCTATATATATATAGCGCGCGC', 50);
+
+  // ampR region (~1629..2489) — GC-rich coding sequence filler
+  const ampRRegion = repeat('ATGAGTATTCAACATTTCCGTGTCGCCCTTATTCCCTTTTTTGCGG', 50);
+
+  // Assemble the full 2686 bp sequence
+  let seq = '';
+  seq += beforeMCS;                               // 0..395   (396 bp)
+  seq += mcsBlock;                                // 396..443 (48 bp)
+  seq += afterMCS;                                // 444..506 (63 bp)
+  // pad to ori start (~858)
+  seq += repeat(fillA, 858 - seq.length);
+  seq += oriRegion.slice(0, 443);                 // ori region 858..1300
+  // pad to ampR start
+  seq += repeat(fillA, 1629 - seq.length);
+  seq += ampRRegion.slice(0, 861);                // ampR 1629..2489
+  // pad to full length
+  seq += repeat(fillA, TOTAL - seq.length);
+
+  return seq.slice(0, TOTAL).toUpperCase();
+}
+
+// ---------------------------------------------------------------------------
+// Build the pUC19 Plasmid object
+// ---------------------------------------------------------------------------
+const pUC19seq = buildPUC19Sequence();
+
+const pUC19 = new Plasmid({
+  name: 'pUC19',
+  sequence: pUC19seq,
+  features: [
+    {
+      name:   'lacZ-α',
+      start:  149,
+      end:    506,
+      type:   'lacZ',
+      strand: 1,
+      color:  FEATURE_COLORS.lacZ
+    },
+    {
+      name:   'MCS',
+      start:  396,
+      end:    453,
+      type:   'mcs',
+      strand: 1,
+      color:  FEATURE_COLORS.mcs
+    },
+    {
+      name:   'pMB1 ori',
+      start:  858,
+      end:   1300,
+      type:   'ori',
+      strand: 1,
+      color:  FEATURE_COLORS.ori
+    },
+    {
+      name:   'ampR',
+      start:  1629,
+      end:    2489,
+      type:   'resistance',
+      strand: -1,
+      color:  FEATURE_COLORS.ampR
+    },
+    {
+      name:   'ampR prom',
+      start:  2489,
+      end:    2593,
+      type:   'promoter',
+      strand: -1,
+      color:  FEATURE_COLORS.promoter
+    },
+    {
+      name:   'lacZ prom',
+      start:  55,
+      end:    148,
+      type:   'promoter',
+      strand: 1,
+      color:  FEATURE_COLORS.promoter
+    }
+  ]
+});
+
+// ---------------------------------------------------------------------------
+// Enzyme list to display — all enzymes in EnzymeDB
+// ---------------------------------------------------------------------------
+const MCS_ENZYMES = ['EcoRI','KpnI','SmaI','BamHI','XbaI','SalI','PstI','HindIII'];
+const ALL_ENZYMES = Object.keys(EnzymeDB);
+
+// ---------------------------------------------------------------------------
+// Game state
+// ---------------------------------------------------------------------------
+const state = {
+  score:         0,
+  correct:       0,
+  streak:        0,
+  selectedEnzyme: null,
+  cutHistory:    [],
+  allSitesVisible: false
+};
+
+// ---------------------------------------------------------------------------
+// DOM refs
+// ---------------------------------------------------------------------------
+const enzymeList   = document.getElementById('enzymeList');
+const enzymeSelect = document.getElementById('enzymeSelect');
+const enzymeDetail = document.getElementById('enzymeDetail');
+const btnCut       = document.getElementById('btnCut');
+const btnReset     = document.getElementById('btnReset');
+const btnShowAll   = document.getElementById('btnShowAllSites');
+const logPanel     = document.getElementById('logPanel');
+const analysisPanel= document.getElementById('analysisPanel');
+const scoreEl      = document.getElementById('scoreValue');
+const correctEl    = document.getElementById('correctValue');
+const streakEl     = document.getElementById('streakValue');
+const plasmidInfo  = document.getElementById('plasmidInfo');
+
+// ---------------------------------------------------------------------------
+// Canvas and renderer setup
+// ---------------------------------------------------------------------------
+const canvas = document.getElementById('plasmidCanvas');
+
+// Make canvas square and responsive
+(function resizeCanvas() {
+  const area  = canvas.parentElement;
+  const size  = Math.min(area.clientWidth, area.clientHeight) - 32;
+  canvas.width  = size;
+  canvas.height = size;
+})();
+
+const renderer = new PlasmidRenderer(canvas, pUC19);
+
+// Initial render — show all MCS sites
+renderer.render(MCS_ENZYMES);
+
+// ---------------------------------------------------------------------------
+// Populate enzyme sidebar list
+// ---------------------------------------------------------------------------
+function buildEnzymeList() {
+  enzymeList.innerHTML = '';
+  enzymeSelect.innerHTML = '<option value="">— select enzyme —</option>';
+
+  for (const name of ALL_ENZYMES) {
+    const enz = EnzymeDB[name];
+
+    // --- Sidebar item ---
+    const item = document.createElement('div');
+    item.className = 'enzyme-item';
+    item.dataset.enzyme = name;
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'enzyme-name';
+    nameEl.textContent = name;
+
+    const badge = document.createElement('span');
+    badge.className = 'overhang-badge ' + (
+      enz.overhangType === '5prime'  ? 'five-prime'  :
+      enz.overhangType === '3prime'  ? 'three-prime' : 'blunt'
+    );
+    badge.textContent =
+      enz.overhangType === '5prime'  ? "5'" :
+      enz.overhangType === '3prime'  ? "3'" : '⊟';
+
+    const seqEl = document.createElement('span');
+    seqEl.className = 'overhang-seq';
+    seqEl.textContent = enz.overhangSeq || 'blunt';
+
+    item.appendChild(nameEl);
+    item.appendChild(badge);
+    item.appendChild(seqEl);
+
+    item.addEventListener('click', () => selectEnzyme(name));
+    enzymeList.appendChild(item);
+
+    // --- Dropdown option ---
+    const opt = document.createElement('option');
+    opt.value       = name;
+    opt.textContent = `${name}  [${enz.recognitionSeq}]`;
+    enzymeSelect.appendChild(opt);
+  }
+}
+
+buildEnzymeList();
+
+// ---------------------------------------------------------------------------
+// Select enzyme
+// ---------------------------------------------------------------------------
+function selectEnzyme(name) {
+  state.selectedEnzyme = name;
+
+  // Update sidebar highlight
+  document.querySelectorAll('.enzyme-item').forEach(el => {
+    el.classList.toggle('selected', el.dataset.enzyme === name);
+  });
+
+  // Update dropdown
+  enzymeSelect.value = name;
+
+  // Update Cut button
+  btnCut.disabled = !name;
+
+  // Show detail pane
+  showEnzymeDetail(name);
+
+  // Highlight sites for this enzyme on the map
+  renderer._restrictionSites = pUC19.findRestrictionSites(
+    state.allSitesVisible ? ALL_ENZYMES : MCS_ENZYMES
+  );
+  renderer.render(
+    state.allSitesVisible ? ALL_ENZYMES : MCS_ENZYMES
+  );
+
+  // Log
+  const sites = pUC19.findRestrictionSites([name]);
+  log(`Selected ${name} — found ${sites.length} site(s) in pUC19.`, 'info');
+
+  // Update analysis panel
+  showAnalysis(name, sites);
+}
+
+// ---------------------------------------------------------------------------
+// Enzyme detail pane
+// ---------------------------------------------------------------------------
+function showEnzymeDetail(name) {
+  const enz = EnzymeDB[name];
+  if (!enz) { enzymeDetail.innerHTML = ''; return; }
+
+  // Build a "cut arrow" representation of the recognition sequence
+  const seq    = enz.recognitionSeq;
+  const topCut = enz.cutPositionTop;
+  const topStr = seq.slice(0, topCut) +
+                 '<span class="cut-mark">↓</span>' +
+                 seq.slice(topCut);
+
+  // Bottom strand = reverse complement, cut shown
+  const rcSeq  = reverseComplement(seq);
+  const botCut = seq.length - enz.cutPositionBottom;
+  const botStr = rcSeq.slice(0, botCut) +
+                 '<span class="cut-mark">↑</span>' +
+                 rcSeq.slice(botCut);
+
+  const compat = (enz.compatibleWith || [enz.name])
+    .filter(n => n !== name)
+    .join(', ') || 'self only';
+
+  enzymeDetail.innerHTML = `
+    <h3>${name}</h3>
+    <div class="recog">
+      5'—${topStr}—3'<br>
+      3'—${botStr}—5'
+    </div>
+    <div class="detail-row">Type: <strong>${enz.overhangType.replace('prime', "' overhang")}</strong></div>
+    <div class="detail-row">Overhang: <strong style="font-family:var(--font-mono)">${enz.overhangSeq || '(blunt)'}</strong></div>
+    <div class="detail-row">Compatible: <strong>${compat}</strong></div>
+    ${enz.destroysSiteWith && enz.destroysSiteWith.length ?
+      `<div class="detail-row" style="color:var(--warn)">
+        ⚠ Hybrid ligation with ${enz.destroysSiteWith.join('/')} destroys both sites
+      </div>` : ''}
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Analysis panel — overhang visualisation + ligation prediction
+// ---------------------------------------------------------------------------
+function showAnalysis(enzymeName, sites) {
+  if (!sites || sites.length === 0) {
+    analysisPanel.innerHTML = `<span style="color:var(--text-muted)">No sites found for ${enzymeName} in pUC19.</span>`;
+    return;
+  }
+
+  const enz    = EnzymeDB[enzymeName];
+  const site   = sites[0];
+
+  // Build overhang diagram
+  const seq    = enz.recognitionSeq;
+  const ovSeq  = enz.overhangSeq;
+  const topCut = enz.cutPositionTop;
+  const botCut = seq.length - enz.cutPositionBottom;
+
+  let diagram = '';
+
+  if (enz.overhangType === '5prime') {
+    // Left fragment: top ends at topCut, bottom extends to botCut
+    const topLeft  = seq.slice(0, topCut);
+    const botLeft  = reverseComplement(seq).slice(0, botCut);
+    // Right fragment: top starts at topCut (with overhang), bottom starts at botCut
+    const topRight = seq.slice(topCut);
+    const botRight = reverseComplement(seq).slice(botCut);
+
+    diagram = `
+      <div class="overhang-visual">
+        <span class="strand-top">${topLeft}&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        <span class="strand-overhang">${topRight}</span>
+        &nbsp;&nbsp;&nbsp;
+        <span style="color:var(--text-muted)">← 5' overhang</span>
+      </div><br>
+      <div class="overhang-visual">
+        <span class="strand-bottom">${botLeft}</span>
+        <span class="strand-overhang">&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        <span class="strand-bottom">${botRight}</span>
+      </div>
+    `;
+  } else if (enz.overhangType === '3prime') {
+    diagram = `
+      <div class="overhang-visual">
+        <span class="strand-top">${seq.slice(0, topCut)}</span>
+        <span class="strand-overhang">&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        <span class="strand-top">${seq.slice(topCut)}</span>
+        &nbsp;&nbsp;
+        <span style="color:var(--text-muted)">← 3' overhang</span>
+      </div><br>
+      <div class="overhang-visual">
+        <span class="strand-bottom">${reverseComplement(seq).slice(0, botCut)}</span>
+        <span class="strand-overhang">${reverseComplement(seq).slice(botCut)}&nbsp;&nbsp;&nbsp;&nbsp;</span>
+      </div>
+    `;
+  } else {
+    diagram = `
+      <div class="overhang-visual">
+        <span class="strand-top">${seq.slice(0, topCut)}</span>
+        <span style="color:var(--danger)"> | </span>
+        <span class="strand-top">${seq.slice(topCut)}</span>
+        &nbsp;&nbsp;<span style="color:var(--text-muted)">← blunt end</span>
+      </div>
+    `;
+  }
+
+  // Ligation prediction: what if we use the same enzyme on both ends?
+  const end = { type: enz.overhangType, overhangSeq: enz.overhangSeq, enzyme: enzymeName };
+  const rcEnd = {
+    type: enz.overhangType,
+    overhangSeq: reverseComplement(enz.overhangSeq || ''),
+    enzyme: enzymeName
+  };
+  const compat = areEndsCompatible(end, rcEnd);
+
+  // --- predictVariants: model a directional cloning scenario ---
+  // Simulate inserting a fragment with the selected enzyme on one side
+  // and EcoRI on the other (or the same enzyme on both sides if only one chosen)
+  const pairedEnzyme = (enzymeName !== 'EcoRI') ? 'EcoRI' : 'BamHI';
+  const pairedEnz    = EnzymeDB[pairedEnzyme];
+  const vectorEnds   = {
+    left:  { type: enz.overhangType,       overhangSeq: reverseComplement(enz.overhangSeq || ''),       enzyme: enzymeName   },
+    right: { type: pairedEnz.overhangType, overhangSeq: reverseComplement(pairedEnz.overhangSeq || ''), enzyme: pairedEnzyme }
+  };
+  const insertEnds   = {
+    left:  { type: enz.overhangType,       overhangSeq: enz.overhangSeq       || '', enzyme: enzymeName   },
+    right: { type: pairedEnz.overhangType, overhangSeq: pairedEnz.overhangSeq || '', enzyme: pairedEnzyme }
+  };
+  const pvResult = predictVariants(vectorEnds, insertEnds);
+
+  const variantHTML = pvResult.variants.map((v, i) =>
+    `<div style="color:${v.selfLigation ? 'var(--warn)' : v.destroysSite ? 'var(--danger)' : 'var(--success)'}">
+      ${i + 1}. ${v.description}${v.destroysSite ? ' ⚠ site destroyed' : ''}${v.selfLigation ? ' [background]' : ''}
+    </div>`
+  ).join('');
+
+  analysisPanel.innerHTML = `
+    <strong style="color:var(--accent)">${enzymeName}</strong>
+    — ${sites.length} site(s) in pUC19 at position(s):
+    ${sites.map(s => s.topStrandCut).join(', ')} bp<br><br>
+    <strong>Cut diagram (recognition sequence region):</strong><br>
+    ${diagram}<br>
+    <strong>Self-ligation after single-enzyme cut:</strong>
+    <span style="color:${compat.compatible ? 'var(--warn)' : 'var(--success)'}">
+      ${compat.compatible ? 'Possible (background colonies!) — use two different enzymes for directional cloning' : 'Not possible (blunt or incompatible overhangs)'}
+    </span><br>
+    <span style="color:var(--text-muted)">${compat.note}</span><br><br>
+    <strong>Directional cloning prediction (${enzymeName} + ${pairedEnzyme}):</strong>
+    <span style="color:${pvResult.directional ? 'var(--success)' : 'var(--text-muted)'}">
+      ${pvResult.directional ? 'Directional — insert goes in one orientation only' : 'Non-directional or no insert ligation'}
+    </span><br>
+    ${variantHTML}
+  `;
+}
+
+// ---------------------------------------------------------------------------
+// Cut button handler
+// ---------------------------------------------------------------------------
+btnCut.addEventListener('click', () => {
+  const name = state.selectedEnzyme;
+  if (!name) return;
+
+  const sites = pUC19.findRestrictionSites([name]);
+  if (sites.length === 0) {
+    log(`${name} has no recognition site in pUC19!`, 'warn');
+    showToast(`${name} — no site found`, 'warn');
+    return;
+  }
+
+  // Use the first site found
+  const site = sites[0];
+
+  log(`Cutting pUC19 with ${name} at position ${site.topStrandCut} bp…`, 'info');
+  btnCut.disabled  = true;
+  btnReset.disabled = true;
+
+  // Run the animation
+  renderer.renderCutAnimation(name, site.topStrandCut, () => {
+    // Animation done — update game state
+    state.cutHistory.push(name);
+    awardPoints(name, site, sites.length);
+    btnReset.disabled = false;
+    log(`Cut complete. Use ↺ Reset to restore the circular map.`, 'success');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scoring logic
+// ---------------------------------------------------------------------------
+function awardPoints(enzymeName, site, siteCount) {
+  const enz = EnzymeDB[enzymeName];
+  let pts   = 5;
+  let reason = 'valid cut';
+
+  // Bonus: unique cutter (only 1 site → more useful for cloning)
+  if (siteCount === 1) {
+    pts += 5;
+    reason = 'unique site';
+  }
+
+  // Bonus: 4-base 5' overhang — most useful for cloning
+  if (enz.overhangType === '5prime' && enz.overhangLength === 4) {
+    pts += 5;
+    reason += ' + 5\' sticky end';
+  }
+
+  // Bonus: MCS enzyme
+  if (MCS_ENZYMES.includes(enzymeName)) {
+    pts += 5;
+    reason += ' + MCS enzyme';
+  }
+
+  // Streak bonus
+  state.streak++;
+  if (state.streak > 1) {
+    const streakBonus = (state.streak - 1) * 2;
+    pts += streakBonus;
+    reason += ` + streak×${state.streak}`;
+  }
+
+  state.score   += pts;
+  state.correct += 1;
+
+  updateScoreDisplay();
+  log(`+${pts} points — ${reason}`, 'success');
+  showToast(`✂ ${enzymeName} cut! +${pts} pts`, 'success');
+}
+
+function updateScoreDisplay() {
+  scoreEl.textContent   = state.score;
+  correctEl.textContent = state.correct;
+  streakEl.textContent  = state.streak;
+}
+
+// ---------------------------------------------------------------------------
+// Reset button
+// ---------------------------------------------------------------------------
+btnReset.addEventListener('click', () => {
+  state.selectedEnzyme = null;
+  state.streak = 0;
+  updateScoreDisplay();
+
+  document.querySelectorAll('.enzyme-item').forEach(el => el.classList.remove('selected'));
+  enzymeSelect.value = '';
+  btnCut.disabled    = true;
+
+  renderer._cutAnimState = null;
+  renderer.render(state.allSitesVisible ? ALL_ENZYMES : MCS_ENZYMES);
+
+  log('Plasmid reset to circular form.', 'info');
+  showToast('Reset — plasmid restored', 'info');
+  enzymeDetail.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Click an enzyme to see details.</div>';
+  analysisPanel.innerHTML = '';
+});
+
+// ---------------------------------------------------------------------------
+// Show all sites toggle
+// ---------------------------------------------------------------------------
+btnShowAll.addEventListener('click', () => {
+  state.allSitesVisible = !state.allSitesVisible;
+  btnShowAll.textContent = state.allSitesVisible ? 'Show MCS Only' : 'Show All Sites';
+  const enzymeSet = state.allSitesVisible ? ALL_ENZYMES : MCS_ENZYMES;
+  renderer.render(enzymeSet);
+  log(`Displaying ${state.allSitesVisible ? 'all enzyme' : 'MCS-only'} sites.`, 'info');
+});
+
+// ---------------------------------------------------------------------------
+// Enzyme dropdown sync
+// ---------------------------------------------------------------------------
+enzymeSelect.addEventListener('change', () => {
+  const name = enzymeSelect.value;
+  if (name) selectEnzyme(name);
+});
+
+// ---------------------------------------------------------------------------
+// Canvas click handler — show feature/site info
+// ---------------------------------------------------------------------------
+renderer.onClick(({ type, data, bp }) => {
+  if (type === 'feature') {
+    log(`Feature: ${data.name} | type: ${data.type} | ${data.start}–${data.end} bp | strand: ${data.strand === 1 ? '+' : '-'}`, 'info');
+    renderer.setHighlight(data.name);
+    setTimeout(() => renderer.setHighlight(null), 2000);
+  } else if (type === 'restriction_site') {
+    const name = data.enzymeName || data.enzyme;
+    log(`Restriction site: ${name} at ${data.topStrandCut} bp (${data.overhangType} overhang: ${data.overhangSeq || 'none'})`, 'info');
+    selectEnzyme(name);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Info tab switching
+// ---------------------------------------------------------------------------
+document.querySelectorAll('.info-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const targetId = tab.dataset.panel;
+    document.querySelectorAll('#logPanel, #analysisPanel, #helpPanel').forEach(p => {
+      p.classList.toggle('active', p.id === targetId);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Log helper
+// ---------------------------------------------------------------------------
+function log(message, type = 'log') {
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  const time = new Date().toLocaleTimeString('en-GB', { hour12: false });
+  entry.textContent = `[${time}] ${message}`;
+  logPanel.prepend(entry);
+
+  // Keep log manageable
+  while (logPanel.children.length > 60) {
+    logPanel.removeChild(logPanel.lastChild);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Toast notifications
+// ---------------------------------------------------------------------------
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) container.removeChild(toast); }, 3200);
+}
+
+// ---------------------------------------------------------------------------
+// Window resize — re-layout canvas
+// ---------------------------------------------------------------------------
+window.addEventListener('resize', () => {
+  const area = canvas.parentElement;
+  const size = Math.min(area.clientWidth, area.clientHeight) - 32;
+  canvas.width  = size;
+  canvas.height = size;
+  renderer._computeLayout();
+  renderer.render(state.allSitesVisible ? ALL_ENZYMES : MCS_ENZYMES);
+});
+
+// ---------------------------------------------------------------------------
+// Initial log
+// ---------------------------------------------------------------------------
+log('Loaded pUC19 (2686 bp) — MCS restriction sites displayed.', 'info');
+log('Select an enzyme from the sidebar and click ✂ Cut Plasmid to begin.', 'info');
+plasmidInfo.textContent = `pUC19 — ${pUC19.length.toLocaleString()} bp`;
+</script>
+
+<script>
+'use strict';
+// ---------------------------------------------------------------------------
+// Level data inlined to avoid fetch() issues with file:// protocol.
+// Works both when opened directly and when served over HTTP.
+// ---------------------------------------------------------------------------
+const TUTORIAL_LEVELS = [{"id":"tut_01","title":"Simple Insertion with EcoRI","description":"A GFP fragment arrives with EcoRI sites at both ends. Cut pUC19 at its EcoRI site in the MCS and ligate the insert in.","mode":"tutorial","hints":["EcoRI cuts G^AATTC, leaving a 4-base 5' AATT overhang. Because the same enzyme was used on both ends of the insert, the fragment can go in either direction.","Expect 2 recombinant orientations plus 1 vector self-ligation background — 3 products total, but only 2 distinct recombinant types."],"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS region contains a single EcoRI site at ~position 396."},"insert":{"name":"GFP fragment","size":720,"description":"GFP coding sequence flanked by EcoRI sites on both ends (GAATTC...GFP...GAATTC).","ends":{"left":"EcoRI","right":"EcoRI"}},"objectives":{"correct_enzyme":"EcoRI","expected_variants":3,"orientation_matters":false,"select_antibiotic":"ampicillin"},"teaching_point":"When the same enzyme cuts both ends of an insert, the fragment can ligate in either orientation — giving 2 possible recombinant products plus the self-ligated (background) vector. Use blue-white selection or sequencing to identify the correct clone."},{"id":"tut_02","title":"Directional Cloning with BamHI + HindIII","description":"Clone a luciferase reporter directionally between BamHI and HindIII sites in the pUC19 MCS. The insert has a BamHI site on the left and a HindIII site on the right.","mode":"tutorial","hints":["BamHI leaves a GATC 5' overhang; HindIII leaves an AGCT 5' overhang. These two overhangs are NOT complementary to each other, so the insert can only go in one orientation.","Cut the vector first with BamHI (or HindIII) — you need to cut with both enzymes, but for this level start with BamHI.","Self-ligation of the vector is impossible when the two ends are incompatible, which is a key advantage of dual-enzyme directional cloning."],"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS has BamHI at ~421 and HindIII at ~447."},"insert":{"name":"Luciferase reporter","size":1653,"description":"Firefly luciferase coding sequence with BamHI (left end) and HindIII (right end).","ends":{"left":"BamHI","right":"HindIII"}},"objectives":{"correct_enzyme":"BamHI","expected_variants":1,"orientation_matters":true,"select_antibiotic":"ampicillin"},"teaching_point":"Using two different restriction enzymes creates incompatible ends on the vector: BamHI (GATC) and HindIII (AGCT) cannot self-ligate and force the insert into a single orientation — the hallmark of directional cloning."},{"id":"tut_03","title":"Blunt-End Cloning with EcoRV","description":"A PCR product with blunt ends must be cloned into the pUC19 EcoRV site. Understand why blunt-end ligation is inefficient and why self-ligation is a major problem.","mode":"tutorial","hints":["EcoRV (GAT^ATC) generates blunt ends — no overhang to guide ligation.","Any blunt end can ligate with any other blunt end, so vector self-ligation is possible and common. The number of ligation products is higher than with sticky ends.","Blunt-end ligation requires more T4 ligase and longer reaction times. PEG or DMSO additives are often used."],"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS region contains an EcoRV site (GATATC)."},"insert":{"name":"PCR product (blunt)","size":500,"description":"A 500 bp PCR product with Klenow-polished blunt ends.","ends":{"left":"EcoRV","right":"EcoRV"}},"objectives":{"correct_enzyme":"EcoRV","expected_variants":4,"orientation_matters":false,"select_antibiotic":"ampicillin"},"teaching_point":"Blunt ends are compatible with all other blunt ends. This means the vector can self-ligate (background), the insert can circularise, and the insert can go in either orientation — giving up to 4 ligation products. Phosphatase treatment of the vector reduces self-ligation background."},{"id":"tut_04","title":"Compatible but Site-Destroying Ends: SalI + XhoI","description":"The vector is cut with SalI (GTCGAC, TCGA overhang) and the insert has XhoI ends (CTCGAG, also TCGA overhang). The ends are compatible, but ligation creates a hybrid sequence that is cut by neither enzyme.","mode":"tutorial","hints":["SalI (G^TCGAC) and XhoI (C^TCGAG) both leave the same 5' TCGA overhang, so they can ligate together.","After ligation, the junction sequence is GTCGAG — this is neither a SalI (GTCGAC) nor an XhoI (CTCGAG) site. The restriction site is permanently destroyed.","This trick is useful for multi-fragment cloning, but means you cannot excise the insert later with either enzyme."],"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS contains a SalI site at ~435. SalI and XhoI share a compatible TCGA overhang."},"insert":{"name":"Synthetic gene with XhoI ends","size":900,"description":"A codon-optimised gene with XhoI (CTCGAG) sites on both ends.","ends":{"left":"XhoI","right":"XhoI"}},"objectives":{"correct_enzyme":"SalI","expected_variants":3,"orientation_matters":false,"select_antibiotic":"ampicillin"},"teaching_point":"SalI and XhoI generate the same 5'-TCGA overhang and can co-ligate. The resulting hybrid junction (GTCGAG) is not recognised by either enzyme — the site is 'destroyed'. This feature is intentionally used in multi-gene assembly but must be planned carefully."},{"id":"tut_05","title":"Multi-Insert Prediction: Two Inserts, Compatible Ends","description":"Two separate DNA fragments (Insert A: BamHI/XbaI ends; Insert B: BamHI/XbaI ends) are mixed with a BamHI+XbaI-cut vector. Predict all possible ligation products — it's more than you think!","mode":"tutorial","hints":["Each insert can go in independently, but inserts can also ligate to each other before joining the vector — creating concatamers.","When two inserts have identical ends, they can form dimers (A+B, B+A, A+A, B+B) which can then insert into the vector.","The correct single-insert products (forward orientation only, since ends are asymmetric) plus concatamers gives many possible colonies.","Focus on the single-insert, directional products — these are the ones you want. Screen by colony PCR."],"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS has BamHI at ~421 and XbaI at ~431. The vector is cut with both enzymes."},"insert":{"name":"Insert A (promoter fragment)","size":380,"description":"Promoter fragment with BamHI (left) and XbaI (right) ends. A second insert (Insert B, 580 bp) with the same end types is also present in the ligation reaction.","ends":{"left":"BamHI","right":"XbaI"}},"objectives":{"correct_enzyme":"BamHI","expected_variants":5,"orientation_matters":true,"select_antibiotic":"ampicillin"},"teaching_point":"In multi-insert ligation reactions, fragments can ligate to each other as well as to the vector. Asymmetric ends (BamHI + XbaI) ensure directional insertion but cannot prevent insert concatamerisation. Screen many colonies by PCR to find single-insert clones."}];
+
+const CHALLENGE_LEVELS = [{"id":"chal_01","title":"Speed Clone: GFP in 120 Seconds","description":"Clone a GFP fragment directionally between KpnI and HindIII. No hints. The clock is running.","mode":"challenge","time_limit_seconds":120,"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS contains KpnI (~407) and HindIII (~447). Both are unique cutters."},"insert":{"name":"GFP-2A-mCherry","size":1440,"description":"Bicistronic GFP-2A-mCherry cassette with KpnI (left) and HindIII (right) ends.","ends":{"left":"KpnI","right":"HindIII"}},"objectives":{"correct_enzyme":"KpnI","expected_variants":1,"orientation_matters":true,"select_antibiotic":"ampicillin"},"teaching_point":"KpnI (3' GTAC overhang) and HindIII (5' AGCT overhang) have incompatible end types — perfect for directional cloning with zero self-ligation risk."},{"id":"chal_02","title":"Mystery Enzyme Challenge","description":"An insert has NotI ends (GGCC overhang). Identify the correct enzyme, cut the vector, perform ligation, and select the right antibiotic — all before time runs out.","mode":"challenge","time_limit_seconds":120,"vector":{"name":"pBluescript SK+","size":2961,"features":[{"name":"lacZ-α","start":175,"end":530,"type":"lacZ","strand":1},{"name":"MCS","start":420,"end":520,"type":"mcs","strand":1},{"name":"ColE1 ori","start":900,"end":1350,"type":"ori","strand":1},{"name":"ampR","start":1700,"end":2560,"type":"resistance","strand":-1}],"sequence_hint":"This vector's MCS contains NotI, XbaI, SpeI, and BamHI. The insert has an 8-base recognition site — rare cutters leave large fragments intact."},"insert":{"name":"Genomic library clone","size":8200,"description":"A large genomic DNA fragment with NotI ends. NotI (GC^GGCCGC) is an 8-cutter — very rare in genomic DNA, ideal for large-insert cloning.","ends":{"left":"NotI","right":"NotI"}},"objectives":{"correct_enzyme":"NotI","expected_variants":3,"orientation_matters":false,"select_antibiotic":"ampicillin"},"teaching_point":"NotI recognises an 8-base sequence (GCGGCCGC) and therefore cuts genomic DNA very rarely (~1 site per 65 kb). This makes it ideal for cloning large genomic fragments without unwanted internal cuts."},{"id":"chal_03","title":"Site-Destroyer Trap","description":"A collaborator sends you a construct with SpeI ends, but your vector only has an XbaI site in the MCS. Under time pressure, decide whether to proceed and predict all ligation outcomes — including the hybrid site trap.","mode":"challenge","time_limit_seconds":120,"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"The pUC19 MCS has a single XbaI site at ~431 (TCTAGA). XbaI and SpeI share the CTAG overhang — but ligation destroys both sites."},"insert":{"name":"Fluorescent protein with SpeI ends","size":714,"description":"mVenus coding sequence with SpeI (ACTAGT) sites on both ends. SpeI and XbaI are isoschizomers for ligation purposes (both generate 5'-CTAG), but the ligated product is not cut by either enzyme.","ends":{"left":"SpeI","right":"SpeI"}},"objectives":{"correct_enzyme":"XbaI","expected_variants":3,"orientation_matters":false,"select_antibiotic":"ampicillin"},"teaching_point":"XbaI (T^CTAGA) and SpeI (A^CTAGT) leave identical CTAG 5' overhangs and can co-ligate. However, the ligation product contains neither an XbaI nor a SpeI site — both are permanently destroyed."}];
+
+// Initialise the game state machine and UI
+Game.init(TUTORIAL_LEVELS, CHALLENGE_LEVELS);
+UI.init();
+UI.showFeedback('pUC19 loaded (2686 bp). Select a mode to start playing!', 'info');
+UI.showFeedback(`${TUTORIAL_LEVELS.length} tutorial level(s) and ${CHALLENGE_LEVELS.length} challenge(s) loaded.`, 'info');
+</script>
+
+</body>
+</html>

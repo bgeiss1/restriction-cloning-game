@@ -1,0 +1,97 @@
+[
+  {
+    "id": "chal_01",
+    "title": "Speed Clone: GFP in 120 Seconds",
+    "description": "Clone a GFP fragment directionally between KpnI and HindIII. No hints. The clock is running.",
+    "mode": "challenge",
+    "time_limit_seconds": 120,
+    "vector": {
+      "name": "pUC19",
+      "size": 2686,
+      "features": [
+        { "name": "lacZ-α",   "start": 149,  "end": 506,  "type": "lacZ",       "strand":  1 },
+        { "name": "MCS",      "start": 396,  "end": 453,  "type": "mcs",        "strand":  1 },
+        { "name": "pMB1 ori", "start": 858,  "end": 1300, "type": "ori",        "strand":  1 },
+        { "name": "ampR",     "start": 1629, "end": 2489, "type": "resistance", "strand": -1 }
+      ],
+      "sequence_hint": "MCS contains KpnI (~407) and HindIII (~447). Both are unique cutters."
+    },
+    "insert": {
+      "name": "GFP-2A-mCherry",
+      "size": 1440,
+      "description": "Bicistronic GFP-2A-mCherry cassette with KpnI (left) and HindIII (right) ends.",
+      "ends": { "left": "KpnI", "right": "HindIII" }
+    },
+    "objectives": {
+      "correct_enzyme": "KpnI",
+      "expected_variants": 1,
+      "orientation_matters": true,
+      "select_antibiotic": "ampicillin"
+    },
+    "teaching_point": "KpnI (3' GTAC overhang) and HindIII (5' AGCT overhang) have incompatible end types — perfect for directional cloning with zero self-ligation risk."
+  },
+
+  {
+    "id": "chal_02",
+    "title": "Mystery Enzyme Challenge",
+    "description": "An insert has NotI ends (GGCC overhang). Identify the correct enzyme, cut the vector, perform ligation, and select the right antibiotic — all before time runs out.",
+    "mode": "challenge",
+    "time_limit_seconds": 120,
+    "vector": {
+      "name": "pBluescript SK+",
+      "size": 2961,
+      "features": [
+        { "name": "lacZ-α",   "start": 175,  "end": 530,  "type": "lacZ",       "strand":  1 },
+        { "name": "MCS",      "start": 420,  "end": 520,  "type": "mcs",        "strand":  1 },
+        { "name": "ColE1 ori","start": 900,  "end": 1350, "type": "ori",        "strand":  1 },
+        { "name": "ampR",     "start": 1700, "end": 2560, "type": "resistance", "strand": -1 }
+      ],
+      "sequence_hint": "This vector's MCS contains NotI, XbaI, SpeI, and BamHI. The insert has an 8-base recognition site — rare cutters leave large fragments intact."
+    },
+    "insert": {
+      "name": "Genomic library clone",
+      "size": 8200,
+      "description": "A large genomic DNA fragment with NotI ends. NotI (GC^GGCCGC) is an 8-cutter — very rare in genomic DNA, ideal for large-insert cloning.",
+      "ends": { "left": "NotI", "right": "NotI" }
+    },
+    "objectives": {
+      "correct_enzyme": "NotI",
+      "expected_variants": 3,
+      "orientation_matters": false,
+      "select_antibiotic": "ampicillin"
+    },
+    "teaching_point": "NotI recognises an 8-base sequence (GCGGCCGC) and therefore cuts genomic DNA very rarely (~1 site per 65 kb). This makes it ideal for cloning large genomic fragments without unwanted internal cuts."
+  },
+
+  {
+    "id": "chal_03",
+    "title": "Site-Destroyer Trap",
+    "description": "A collaborator sends you a construct with SpeI ends, but your vector only has an XbaI site in the MCS. Under time pressure, decide whether to proceed and predict all ligation outcomes — including the hybrid site trap.",
+    "mode": "challenge",
+    "time_limit_seconds": 120,
+    "vector": {
+      "name": "pUC19",
+      "size": 2686,
+      "features": [
+        { "name": "lacZ-α",   "start": 149,  "end": 506,  "type": "lacZ",       "strand":  1 },
+        { "name": "MCS",      "start": 396,  "end": 453,  "type": "mcs",        "strand":  1 },
+        { "name": "pMB1 ori", "start": 858,  "end": 1300, "type": "ori",        "strand":  1 },
+        { "name": "ampR",     "start": 1629, "end": 2489, "type": "resistance", "strand": -1 }
+      ],
+      "sequence_hint": "The pUC19 MCS has a single XbaI site at ~431 (TCTAGA). XbaI and SpeI share the CTAG overhang — but ligation destroys both sites."
+    },
+    "insert": {
+      "name": "Fluorescent protein with SpeI ends",
+      "size": 714,
+      "description": "mVenus coding sequence with SpeI (ACTAGT) sites on both ends. SpeI and XbaI are isoschizomers for ligation purposes (both generate 5'-CTAG), but the ligated product is not cut by either enzyme.",
+      "ends": { "left": "SpeI", "right": "SpeI" }
+    },
+    "objectives": {
+      "correct_enzyme": "XbaI",
+      "expected_variants": 3,
+      "orientation_matters": false,
+      "select_antibiotic": "ampicillin"
+    },
+    "teaching_point": "XbaI (T^CTAGA) and SpeI (A^CTAGT) leave identical CTAG 5' overhangs and can co-ligate. However, the ligation product (TCTAGTAGT) contains neither an XbaI nor a SpeI site — both are permanently destroyed. This is a critical consideration when planning multi-step cloning strategies."
+  }
+]

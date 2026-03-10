@@ -1,0 +1,181 @@
+[
+  {
+    "id": "tut_01",
+    "title": "Simple Insertion with EcoRI",
+    "description": "A GFP fragment arrives with EcoRI sites at both ends. Cut pUC19 at its EcoRI site in the MCS and ligate the insert in.",
+    "mode": "tutorial",
+    "hints": [
+      "EcoRI cuts G^AATTC, leaving a 4-base 5' AATT overhang. Because the same enzyme was used on both ends of the insert, the fragment can go in either direction.",
+      "Expect 2 recombinant orientations plus 1 vector self-ligation background — 3 products total, but only 2 distinct recombinant types."
+    ],
+    "vector": {
+      "name": "pUC19",
+      "size": 2686,
+      "features": [
+        { "name": "lacZ-α",   "start": 149,  "end": 506,  "type": "lacZ",       "strand":  1 },
+        { "name": "MCS",      "start": 396,  "end": 453,  "type": "mcs",        "strand":  1 },
+        { "name": "pMB1 ori", "start": 858,  "end": 1300, "type": "ori",        "strand":  1 },
+        { "name": "ampR",     "start": 1629, "end": 2489, "type": "resistance", "strand": -1 }
+      ],
+      "sequence_hint": "MCS region contains a single EcoRI site at ~position 396."
+    },
+    "insert": {
+      "name": "GFP fragment",
+      "size": 720,
+      "description": "GFP coding sequence flanked by EcoRI sites on both ends (GAATTC...GFP...GAATTC).",
+      "ends": { "left": "EcoRI", "right": "EcoRI" }
+    },
+    "objectives": {
+      "correct_enzyme": "EcoRI",
+      "expected_variants": 3,
+      "orientation_matters": false,
+      "select_antibiotic": "ampicillin"
+    },
+    "teaching_point": "When the same enzyme cuts both ends of an insert, the fragment can ligate in either orientation — giving 2 possible recombinant products plus the self-ligated (background) vector. Use blue-white selection or sequencing to identify the correct clone."
+  },
+
+  {
+    "id": "tut_02",
+    "title": "Directional Cloning with BamHI + HindIII",
+    "description": "Clone a luciferase reporter directionally between BamHI and HindIII sites in the pUC19 MCS. The insert has a BamHI site on the left and a HindIII site on the right.",
+    "mode": "tutorial",
+    "hints": [
+      "BamHI leaves a GATC 5' overhang; HindIII leaves an AGCT 5' overhang. These two overhangs are NOT complementary to each other, so the insert can only go in one orientation.",
+      "Cut the vector first with BamHI (or HindIII) — you need to cut with both enzymes, but for this level start with BamHI.",
+      "Self-ligation of the vector is impossible when the two ends are incompatible, which is a key advantage of dual-enzyme directional cloning."
+    ],
+    "vector": {
+      "name": "pUC19",
+      "size": 2686,
+      "features": [
+        { "name": "lacZ-α",   "start": 149,  "end": 506,  "type": "lacZ",       "strand":  1 },
+        { "name": "MCS",      "start": 396,  "end": 453,  "type": "mcs",        "strand":  1 },
+        { "name": "pMB1 ori", "start": 858,  "end": 1300, "type": "ori",        "strand":  1 },
+        { "name": "ampR",     "start": 1629, "end": 2489, "type": "resistance", "strand": -1 }
+      ],
+      "sequence_hint": "MCS has BamHI at ~421 and HindIII at ~447."
+    },
+    "insert": {
+      "name": "Luciferase reporter",
+      "size": 1653,
+      "description": "Firefly luciferase coding sequence with BamHI (left end) and HindIII (right end).",
+      "ends": { "left": "BamHI", "right": "HindIII" }
+    },
+    "objectives": {
+      "correct_enzyme": "BamHI",
+      "expected_variants": 1,
+      "orientation_matters": true,
+      "select_antibiotic": "ampicillin"
+    },
+    "teaching_point": "Using two different restriction enzymes creates incompatible ends on the vector: BamHI (GATC) and HindIII (AGCT) cannot self-ligate and force the insert into a single orientation — the hallmark of directional cloning."
+  },
+
+  {
+    "id": "tut_03",
+    "title": "Blunt-End Cloning with EcoRV",
+    "description": "A PCR product with blunt ends must be cloned into the pUC19 EcoRV site. Understand why blunt-end ligation is inefficient and why self-ligation is a major problem.",
+    "mode": "tutorial",
+    "hints": [
+      "EcoRV (GAT^ATC) generates blunt ends — no overhang to guide ligation.",
+      "Any blunt end can ligate with any other blunt end, so vector self-ligation is possible and common. The number of ligation products is higher than with sticky ends.",
+      "Blunt-end ligation requires more T4 ligase and longer reaction times. PEG or DMSO additives are often used."
+    ],
+    "vector": {
+      "name": "pUC19",
+      "size": 2686,
+      "features": [
+        { "name": "lacZ-α",   "start": 149,  "end": 506,  "type": "lacZ",       "strand":  1 },
+        { "name": "MCS",      "start": 396,  "end": 453,  "type": "mcs",        "strand":  1 },
+        { "name": "pMB1 ori", "start": 858,  "end": 1300, "type": "ori",        "strand":  1 },
+        { "name": "ampR",     "start": 1629, "end": 2489, "type": "resistance", "strand": -1 }
+      ],
+      "sequence_hint": "MCS region contains an EcoRV site (GATATC)."
+    },
+    "insert": {
+      "name": "PCR product (blunt)",
+      "size": 500,
+      "description": "A 500 bp PCR product with Klenow-polished blunt ends.",
+      "ends": { "left": "EcoRV", "right": "EcoRV" }
+    },
+    "objectives": {
+      "correct_enzyme": "EcoRV",
+      "expected_variants": 4,
+      "orientation_matters": false,
+      "select_antibiotic": "ampicillin"
+    },
+    "teaching_point": "Blunt ends are compatible with all other blunt ends. This means the vector can self-ligate (background), the insert can circularise, and the insert can go in either orientation — giving up to 4 ligation products. Phosphatase treatment of the vector reduces self-ligation background."
+  },
+
+  {
+    "id": "tut_04",
+    "title": "Compatible but Site-Destroying Ends: SalI + XhoI",
+    "description": "The vector is cut with SalI (GTCGAC, TCGA overhang) and the insert has XhoI ends (CTCGAG, also TCGA overhang). The ends are compatible, but ligation creates a hybrid sequence that is cut by neither enzyme.",
+    "mode": "tutorial",
+    "hints": [
+      "SalI (G^TCGAC) and XhoI (C^TCGAG) both leave the same 5' TCGA overhang, so they can ligate together.",
+      "After ligation, the junction sequence is GTCGAG — this is neither a SalI (GTCGAC) nor an XhoI (CTCGAG) site. The restriction site is permanently destroyed.",
+      "This trick is useful for multi-fragment cloning, but means you cannot excise the insert later with either enzyme."
+    ],
+    "vector": {
+      "name": "pUC19",
+      "size": 2686,
+      "features": [
+        { "name": "lacZ-α",   "start": 149,  "end": 506,  "type": "lacZ",       "strand":  1 },
+        { "name": "MCS",      "start": 396,  "end": 453,  "type": "mcs",        "strand":  1 },
+        { "name": "pMB1 ori", "start": 858,  "end": 1300, "type": "ori",        "strand":  1 },
+        { "name": "ampR",     "start": 1629, "end": 2489, "type": "resistance", "strand": -1 }
+      ],
+      "sequence_hint": "MCS contains a SalI site at ~435. SalI and XhoI share a compatible TCGA overhang."
+    },
+    "insert": {
+      "name": "Synthetic gene with XhoI ends",
+      "size": 900,
+      "description": "A codon-optimised gene with XhoI (CTCGAG) sites on both ends.",
+      "ends": { "left": "XhoI", "right": "XhoI" }
+    },
+    "objectives": {
+      "correct_enzyme": "SalI",
+      "expected_variants": 3,
+      "orientation_matters": false,
+      "select_antibiotic": "ampicillin"
+    },
+    "teaching_point": "SalI and XhoI generate the same 5'-TCGA overhang and can co-ligate. The resulting hybrid junction (GTCGAG) is not recognised by either enzyme — the site is 'destroyed'. This feature is intentionally used in multi-gene assembly but must be planned carefully."
+  },
+
+  {
+    "id": "tut_05",
+    "title": "Multi-Insert Prediction: Two Inserts, Compatible Ends",
+    "description": "Two separate DNA fragments (Insert A: BamHI/XbaI ends; Insert B: BamHI/XbaI ends) are mixed with a BamHI+XbaI-cut vector. Predict all possible ligation products — it's more than you think!",
+    "mode": "tutorial",
+    "hints": [
+      "Each insert can go in independently, but inserts can also ligate to each other before joining the vector — creating concatamers.",
+      "When two inserts have identical ends, they can form dimers (A+B, B+A, A+A, B+B) which can then insert into the vector.",
+      "The correct single-insert products (forward orientation only, since ends are asymmetric) plus concatamers gives many possible colonies.",
+      "Focus on the single-insert, directional products — these are the ones you want. Screen by colony PCR."
+    ],
+    "vector": {
+      "name": "pUC19",
+      "size": 2686,
+      "features": [
+        { "name": "lacZ-α",   "start": 149,  "end": 506,  "type": "lacZ",       "strand":  1 },
+        { "name": "MCS",      "start": 396,  "end": 453,  "type": "mcs",        "strand":  1 },
+        { "name": "pMB1 ori", "start": 858,  "end": 1300, "type": "ori",        "strand":  1 },
+        { "name": "ampR",     "start": 1629, "end": 2489, "type": "resistance", "strand": -1 }
+      ],
+      "sequence_hint": "MCS has BamHI at ~421 and XbaI at ~431. The vector is cut with both enzymes."
+    },
+    "insert": {
+      "name": "Insert A (promoter fragment)",
+      "size": 380,
+      "description": "Promoter fragment with BamHI (left) and XbaI (right) ends. A second insert (Insert B, 580 bp) with the same end types is also present in the ligation reaction.",
+      "ends": { "left": "BamHI", "right": "XbaI" }
+    },
+    "objectives": {
+      "correct_enzyme": "BamHI",
+      "expected_variants": 5,
+      "orientation_matters": true,
+      "select_antibiotic": "ampicillin"
+    },
+    "teaching_point": "In multi-insert ligation reactions, fragments can ligate to each other as well as to the vector. Asymmetric ends (BamHI + XbaI) ensure directional insertion but cannot prevent insert concatamerisation. Screen many colonies by PCR to find single-insert clones."
+  }
+]
