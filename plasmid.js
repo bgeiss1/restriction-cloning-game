@@ -384,11 +384,11 @@ class PlasmidRenderer {
         }).sort((a, b) => a.angle - b.angle);
 
         // ---- Cluster nearby sites so labels can be fanned out vertically ----
-        const CLUSTER_GAP = 0.45;             // rad — sites closer than this are grouped
-        const ROW_H       = 13;               // px between label rows within a cluster
-        const SPINE_R     = outerRadius * 1.28; // radial distance of the label column
-        const INNER_ELBOW = outerRadius * 1.08; // short radial hop before the diagonal
-        const ARM_LEN     = outerRadius * 0.055; // horizontal arm at end of leader
+        const CLUSTER_GAP = 0.45;              // rad — sites closer than this are grouped
+        const ROW_H       = 20;               // px between label rows within a cluster
+        const SPINE_R     = outerRadius * 1.32; // radial distance of the label column
+        const INNER_ELBOW = outerRadius * 1.10; // short radial hop before the diagonal
+        const ARM_LEN     = outerRadius * 0.10; // horizontal arm at end of leader
 
         const clusters = [];
         let group = [sites[0]];

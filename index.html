@@ -1128,7 +1128,11 @@ function onLigationResult(e) {
     const recomb = new Plasmid({ name: recombName, sequence: recombSeq, features: allFeatures });
     const rCanvas = document.getElementById('ligResultCanvas');
     const rRenderer = new PlasmidRenderer(rCanvas, recomb);
-    rRenderer.render([]);
+    const enzymesUsed = [...new Set([
+      ...CloningWorkspace.ws.vectorEnzymes,
+      ...CloningWorkspace.ws.donorEnzymes
+    ])];
+    rRenderer.render(enzymesUsed);
 
     const dirNote = result.orientationCorrect ? '' : ' (insert reversed — partial score)';
     resultTxt.innerHTML = '<strong style="color:var(--success)">Ligation successful!</strong>'
