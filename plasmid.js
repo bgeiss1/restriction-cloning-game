@@ -270,7 +270,7 @@ class PlasmidRenderer {
     // -------------------------------------------------------------------------
     _drawFeatures() {
         const ctx = this.ctx;
-        const { cx, cy, outerRadius, featureWidth,
+        const { cx, cy, outerRadius, innerRadius, featureWidth,
                 featureLabelElbowR, featureLabelArmLen } = this._layout;
         const featureR = outerRadius + featureWidth * 0.3;
 
@@ -310,42 +310,58 @@ class PlasmidRenderer {
                 ctx.restore();
             }
 
-            // Label with bent leader line — horizontal text, no rotation
+            // Label placement
             const midBp    = (feature.start + feature.end) / 2;
             const midAngle = this._bpToAngle(midBp);
             const cos      = Math.cos(midAngle);
             const sin      = Math.sin(midAngle);
 
-            // Start of leader: outer edge of feature arc
-            const lx0 = cx + (featureR + featureWidth * 0.6) * cos;
-            const ly0 = cy + (featureR + featureWidth * 0.6) * sin;
+            if (feature.type === 'lacZ') {
+                // Draw label inside the inner circle, above the plasmid name
+                // Leader: from inner ring inward to label position
+                const leaderR  = innerRadius * 0.92;
+                const leaderX  = cx + leaderR * cos;
+                const leaderY  = cy + leaderR * sin;
+                const labelY   = cy - innerRadius * 0.62; // above center name text
+                ctx.beginPath();
+                ctx.moveTo(leaderX, leaderY);
+                ctx.lineTo(cx, labelY);
+                ctx.strokeStyle = color;
+                ctx.lineWidth   = isHL ? 1.5 : 0.8;
+                ctx.setLineDash([2, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.font         = isHL ? 'bold 12px sans-serif' : '11px sans-serif';
+                ctx.fillStyle    = isHL ? '#FFFFFF' : color;
+                ctx.textAlign    = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(feature.name, cx, labelY - 7);
+            } else {
+                // Standard outward bent leader line
+                const lx0 = cx + (featureR + featureWidth * 0.6) * cos;
+                const ly0 = cy + (featureR + featureWidth * 0.6) * sin;
+                const ex  = cx + featureLabelElbowR * cos;
+                const ey  = cy + featureLabelElbowR * sin;
+                const goRight = cos >= 0;
+                const tx = ex + (goRight ? featureLabelArmLen : -featureLabelArmLen);
+                const ty = ey;
 
-            // Elbow: end of radial segment
-            const ex  = cx + featureLabelElbowR * cos;
-            const ey  = cy + featureLabelElbowR * sin;
+                ctx.beginPath();
+                ctx.moveTo(lx0, ly0);
+                ctx.lineTo(ex, ey);
+                ctx.lineTo(tx, ty);
+                ctx.strokeStyle = color;
+                ctx.lineWidth   = isHL ? 1.5 : 0.9;
+                ctx.setLineDash(isHL ? [] : [3, 2]);
+                ctx.stroke();
+                ctx.setLineDash([]);
 
-            // Horizontal arm — direction depends on left/right half of map
-            const goRight = cos >= 0;
-            const tx = ex + (goRight ? featureLabelArmLen : -featureLabelArmLen);
-            const ty = ey;
-
-            // Draw leader + arm
-            ctx.beginPath();
-            ctx.moveTo(lx0, ly0);
-            ctx.lineTo(ex, ey);
-            ctx.lineTo(tx, ty);
-            ctx.strokeStyle = color;
-            ctx.lineWidth   = isHL ? 1.5 : 0.9;
-            ctx.setLineDash(isHL ? [] : [3, 2]);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            // Text — horizontal, anchored at end of arm
-            ctx.font         = isHL ? 'bold 14px sans-serif' : '13px sans-serif';
-            ctx.fillStyle    = isHL ? '#FFFFFF' : color;
-            ctx.textAlign    = goRight ? 'left' : 'right';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(feature.name, tx + (goRight ? 3 : -3), ty);
+                ctx.font         = isHL ? 'bold 14px sans-serif' : '13px sans-serif';
+                ctx.fillStyle    = isHL ? '#FFFFFF' : color;
+                ctx.textAlign    = goRight ? 'left' : 'right';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(feature.name, tx + (goRight ? 3 : -3), ty);
+            }
         }
     }
 

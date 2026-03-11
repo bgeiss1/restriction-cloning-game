@@ -15,7 +15,7 @@ const Game = (function () {
     // ------------------------------------------------------------------
     // Constants
     // ------------------------------------------------------------------
-    const MCS_ENZYMES = ['EcoRI','KpnI','SmaI','BamHI','XbaI','SalI','PstI','HindIII'];
+    const MCS_ENZYMES = ['EcoRI','KpnI','SmaI','BamHI','HindIII'];
     const ALL_ENZYMES = Object.keys(EnzymeDB);
 
     // pUC19 canonical sequence builder (re-used from index.html inline script)
