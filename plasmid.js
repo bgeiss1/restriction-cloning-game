@@ -348,12 +348,21 @@ class PlasmidRenderer {
 
     // -------------------------------------------------------------------------
     // Draw restriction site tick marks and labels (bent leader lines, outside ring)
+    //
+    // Sites that are angularly close are grouped into clusters. Within each
+    // cluster the label rows are spread vertically so they don't overlap,
+    // connected to their tick mark with a 3-segment leader:
+    //   outer-ring tip → radial hop → diagonal to label row → horizontal arm
+    // The arm direction (left/right) is determined by which half of the map
+    // the cluster sits in (cos of mid-angle ≥ 0 → right, < 0 → left).
     // -------------------------------------------------------------------------
     _drawRestrictionSites() {
         const ctx = this.ctx;
-        const { cx, cy, outerRadius, innerRadius, rsTiers } = this._layout;
+        const { cx, cy, outerRadius, innerRadius } = this._layout;
 
-        // Colours for enzyme labels — cycle through a palette
+        if (this._restrictionSites.length === 0) return;
+
+        // Colour palette — cycle through for each unique enzyme
         const palette = [
             '#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#C77DFF',
             '#FF9F43','#54A0FF','#01CBC6','#FD7272','#A8E063'
@@ -361,9 +370,7 @@ class PlasmidRenderer {
         const enzymeColorMap = {};
         let colorIdx = 0;
 
-        // Assign a stagger tier to each site so nearby labels don't overlap.
-        // Sort by angle, then assign tier 0/1/2 cycling within each tight cluster.
-        const sitesWithMeta = this._restrictionSites.map(site => {
+        const sites = this._restrictionSites.map(site => {
             const name = site.enzymeName || site.enzyme;
             if (!enzymeColorMap[name]) {
                 enzymeColorMap[name] = palette[colorIdx++ % palette.length];
@@ -373,30 +380,49 @@ class PlasmidRenderer {
                 name,
                 angle: this._bpToAngle(site.topStrandCut),
                 color: enzymeColorMap[name],
-                tier:  0
             };
         }).sort((a, b) => a.angle - b.angle);
 
-        // Assign tiers: if a site is within 0.35 rad (~20°) of the previous one,
-        // increment tier (mod 3) so elbow radii are staggered.
-        let lastAngle = -Infinity;
-        let tierCtr   = 0;
-        for (const m of sitesWithMeta) {
-            if (m.angle - lastAngle < 0.35) {
-                tierCtr = (tierCtr + 1) % rsTiers.length;
+        // ---- Cluster nearby sites so labels can be fanned out vertically ----
+        const CLUSTER_GAP = 0.45;             // rad — sites closer than this are grouped
+        const ROW_H       = 13;               // px between label rows within a cluster
+        const SPINE_R     = outerRadius * 1.28; // radial distance of the label column
+        const INNER_ELBOW = outerRadius * 1.08; // short radial hop before the diagonal
+        const ARM_LEN     = outerRadius * 0.055; // horizontal arm at end of leader
+
+        const clusters = [];
+        let group = [sites[0]];
+        for (let i = 1; i < sites.length; i++) {
+            if (sites[i].angle - group[0].angle < CLUSTER_GAP) {
+                group.push(sites[i]);
             } else {
-                tierCtr = 0;
+                clusters.push(group);
+                group = [sites[i]];
             }
-            m.tier   = tierCtr;
-            lastAngle = m.angle;
+        }
+        clusters.push(group);
+
+        for (const cluster of clusters) {
+            // Spine anchored to the cluster's mid-angle
+            const midAngle = cluster[Math.floor(cluster.length / 2)].angle;
+            const spineX   = cx + SPINE_R * Math.cos(midAngle);
+            const spineY   = cy + SPINE_R * Math.sin(midAngle);
+            // Left/right determined by which half of the map the cluster sits in
+            const goRight  = Math.cos(midAngle) >= 0;
+
+            cluster.forEach((m, i) => {
+                const offset = (i - (cluster.length - 1) / 2) * ROW_H;
+                m.spineX  = spineX;
+                m.labelY  = spineY + offset;
+                m.labelX  = spineX + (goRight ? ARM_LEN : -ARM_LEN);
+                m.goRight = goRight;
+            });
         }
 
-        for (const { site, name, angle, color, tier } of sitesWithMeta) {
-            const cos     = Math.cos(angle);
-            const sin     = Math.sin(angle);
-            const elbowR  = rsTiers[tier];
-            const armLen  = this._layout.featureLabelArmLen * 0.85;
-            const goRight = cos >= 0;
+        // ---- Draw each site ----
+        for (const { name, angle, color, labelX, labelY, spineX, goRight } of sites) {
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
 
             // Tick mark spanning the DNA rings
             ctx.beginPath();
@@ -406,20 +432,17 @@ class PlasmidRenderer {
             ctx.lineWidth   = 2;
             ctx.stroke();
 
-            // Radial leader from outer ring edge to elbow
-            const tickEndX = cx + (outerRadius + 5) * cos;
-            const tickEndY = cy + (outerRadius + 5) * sin;
-            const elbowX   = cx + elbowR * cos;
-            const elbowY   = cy + elbowR * sin;
-
-            // Horizontal arm from elbow
-            const armX = elbowX + (goRight ? armLen : -armLen);
-            const armY = elbowY;
+            // 3-segment leader: tip → radial hop → diagonal to label row → arm
+            const tipX   = cx + (outerRadius + 5) * cos;
+            const tipY   = cy + (outerRadius + 5) * sin;
+            const elbowX = cx + INNER_ELBOW * cos;
+            const elbowY = cy + INNER_ELBOW * sin;
 
             ctx.beginPath();
-            ctx.moveTo(tickEndX, tickEndY);
-            ctx.lineTo(elbowX,   elbowY);
-            ctx.lineTo(armX,     armY);
+            ctx.moveTo(tipX,   tipY);    // outer ring tip
+            ctx.lineTo(elbowX, elbowY);  // short radial hop
+            ctx.lineTo(spineX, labelY);  // diagonal to this site's label row
+            ctx.lineTo(labelX, labelY);  // horizontal arm
             ctx.strokeStyle = color;
             ctx.lineWidth   = 1;
             ctx.stroke();
@@ -429,7 +452,7 @@ class PlasmidRenderer {
             ctx.fillStyle    = color;
             ctx.textAlign    = goRight ? 'left' : 'right';
             ctx.textBaseline = 'middle';
-            ctx.fillText(name, armX + (goRight ? 3 : -3), armY);
+            ctx.fillText(name, labelX + (goRight ? 2 : -2), labelY);
         }
     }
 

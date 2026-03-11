@@ -989,7 +989,8 @@ function onCloningLevelLoaded(e) {
   _vectorRenderer._computeLayout();
   _donorRenderer._computeLayout();
   _vectorRenderer.render(MCS_ENZYMES);
-  _donorRenderer.render([]);
+  const donorEnzymes = [...new Set((level.donor.cut_sites || []).map(s => s.enzyme))];
+  _donorRenderer.render(donorEnzymes);
 
   clog('Level loaded: ' + level.title, 'info');
 }
