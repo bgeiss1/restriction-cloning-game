@@ -142,6 +142,24 @@
     @keyframes fadeOut { to { opacity: 0; transform: translateY(10px); } }
 
     /* ------------------------------------------------------------------ */
+    /* Canvas overlay flash messages                                        */
+    /* ------------------------------------------------------------------ */
+    .canvas-flash {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(13,27,42,0.88); border-radius: 10px;
+      padding: 11px 20px; font-size: 13px; font-weight: 600;
+      pointer-events: none; z-index: 20; text-align: center; max-width: 82%;
+      animation: cfIn 0.18s ease, cfOut 0.45s var(--cf-delay, 1.8s) ease forwards;
+    }
+    .canvas-flash.success { color: var(--success); border: 1px solid var(--success); }
+    .canvas-flash.error   { color: var(--danger);  border: 1px solid var(--danger); }
+    .canvas-flash.warn    { color: var(--warn);    border: 1px solid var(--warn); }
+    .canvas-flash.info    { color: var(--accent);  border: 1px solid var(--accent); }
+    @keyframes cfIn  { from { opacity: 0; transform: translate(-50%, -58%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+    @keyframes cfOut { to   { opacity: 0; transform: translate(-50%, -42%); } }
+
+    /* ------------------------------------------------------------------ */
     /* Score summary overlay                                                */
     /* ------------------------------------------------------------------ */
     #scoreSummary {
@@ -194,7 +212,7 @@
     }
     .canvas-wrap {
       flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-      width: 100%; max-height: 416px;
+      width: 100%; max-height: 416px; position: relative;
     }
     .canvas-wrap canvas {
       max-width: 100%; max-height: 100%;
@@ -388,11 +406,24 @@
     /* ------------------------------------------------------------------ */
     /* Cloning log                                                          */
     /* ------------------------------------------------------------------ */
+    #logBar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg-mid); border-top: 1px solid var(--border);
+      padding: 2px 10px; flex-shrink: 0;
+    }
+    #logBar span { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    #btnToggleLog {
+      background: none; border: none; color: var(--text-muted); font-size: 11px;
+      cursor: pointer; padding: 2px 6px; line-height: 1;
+    }
+    #btnToggleLog:hover { color: var(--accent); }
     #cloningLog {
-      background: #131e2d; border-top: 1px solid var(--border);
+      background: #131e2d;
       padding: 6px 16px; height: 60px; overflow-y: auto; flex-shrink: 0;
       font-size: 11px; font-family: var(--font-mono);
+      transition: height 0.2s ease, padding 0.2s ease;
     }
+    #cloningLog.log-collapsed { height: 0; padding: 0; overflow: hidden; }
     .clog-entry { color: var(--text-muted); }
     .clog-entry.info    { color: var(--accent); }
     .clog-entry.warn    { color: var(--warn); }
@@ -624,7 +655,11 @@
 
   </div><!-- end cloning-main -->
 
-  <!-- Log -->
+  <!-- Log bar + collapsible log -->
+  <div id="logBar">
+    <span>Activity Log</span>
+    <button id="btnToggleLog" onclick="toggleLog()" title="Show/hide log">▼</button>
+  </div>
   <div id="cloningLog"></div>
 
 </div><!-- end #cloningWorkspace -->
@@ -928,7 +963,10 @@ function initCloningWorkspace() {
   document.addEventListener('cloning:vectorCut',     onVectorCut);
   document.addEventListener('cloning:donorCut',      onDonorCut);
   document.addEventListener('cloning:ligationResult',onLigationResult);
-  document.addEventListener('cloning:feedback',      e => clog(e.detail.message, e.detail.type));
+  document.addEventListener('cloning:feedback', e => {
+    clog(e.detail.message, e.detail.type);
+    if (e.detail.side) showCanvasFlash(e.detail.side, e.detail.message, e.detail.type, 2600);
+  });
 
   loadCloningLevel(0);
 }
@@ -1019,6 +1057,7 @@ function onVectorCut(e) {
     });
   });
 
+  showCanvasFlash('vector', '✂ Cut with ' + names.join(' + '), 'success', 1800);
   clog('Vector cut with ' + names.join('+') + '.', 'success');
 }
 
@@ -1037,6 +1076,7 @@ function onDonorCut(e) {
     clog(fragments.length + ' donor fragment(s) — drag to ligation zone.', 'success');
   });
 
+  showCanvasFlash('donor', '✂ ' + fragments.length + ' fragment(s)', 'success', 1800);
   clog('Donor digested into ' + fragments.length + ' fragment(s).', 'success');
 }
 
@@ -1470,6 +1510,38 @@ function clearEnzymeTags(side) {
 function getEnzymeTags(side) {
   const tagsEl = document.getElementById(side + 'EnzymeTags');
   return [...tagsEl.children].map(t => t.dataset.enzyme);
+}
+
+// ---------------------------------------------------------------------------
+// Canvas overlay flash messages
+// ---------------------------------------------------------------------------
+function showCanvasFlash(side, message, type = 'info', durationMs = 2200) {
+  const col  = document.getElementById(side === 'vector' ? 'vectorCol' : 'donorCol');
+  if (!col) return;
+  const wrap = col.querySelector('.canvas-wrap');
+  if (!wrap) return;
+  // Remove any existing flash on this canvas
+  const old = wrap.querySelector('.canvas-flash');
+  if (old) old.remove();
+
+  const el = document.createElement('div');
+  el.className = 'canvas-flash ' + type;
+  el.textContent = message;
+  // Set the CSS variable that controls when the fade-out starts
+  const fadeDelay = Math.max(0, durationMs - 450) + 'ms';
+  el.style.setProperty('--cf-delay', fadeDelay);
+  wrap.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, durationMs + 50);
+}
+
+// ---------------------------------------------------------------------------
+// Collapsible log
+// ---------------------------------------------------------------------------
+function toggleLog() {
+  const log = document.getElementById('cloningLog');
+  const btn = document.getElementById('btnToggleLog');
+  const collapsed = log.classList.toggle('log-collapsed');
+  btn.textContent = collapsed ? '▶' : '▼';
 }
 
 // ---------------------------------------------------------------------------

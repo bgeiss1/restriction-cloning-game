@@ -37,8 +37,8 @@ const CloningWorkspace = (function () {
         document.dispatchEvent(new CustomEvent(name, { detail, bubbles: true }));
     }
 
-    function _feedback(msg, type = 'info') {
-        _emit('cloning:feedback', { message: msg, type });
+    function _feedback(msg, type = 'info', side = null) {
+        _emit('cloning:feedback', { message: msg, type, side });
     }
 
     // -------------------------------------------------------------------------
@@ -84,12 +84,12 @@ const CloningWorkspace = (function () {
      */
     function cutVector() {
         if (_ws.vectorEnzymes.length === 0) {
-            _feedback('Select at least one enzyme for the vector.', 'warning');
+            _feedback('Select at least one enzyme for the vector.', 'warning', 'vector');
             return false;
         }
         const sites = _ws.vectorPlasmid.findRestrictionSites(_ws.vectorEnzymes);
         if (sites.length === 0) {
-            _feedback('No recognition site(s) found in vector for those enzymes.', 'error');
+            _feedback('No recognition site(s) found in vector.', 'error', 'vector');
             return false;
         }
         _ws.vectorCutSites  = sites;
@@ -107,12 +107,12 @@ const CloningWorkspace = (function () {
      */
     function cutDonor() {
         if (_ws.donorEnzymes.length === 0) {
-            _feedback('Select at least one enzyme for the donor plasmid.', 'warning');
+            _feedback('Select at least one enzyme for the donor plasmid.', 'warning', 'donor');
             return false;
         }
         const fragments = digestPlasmid(_ws.donorPlasmid, _ws.donorEnzymes);
         if (fragments.length === 0) {
-            _feedback('No recognition site(s) found in donor plasmid.', 'error');
+            _feedback('No recognition site(s) found in donor plasmid.', 'error', 'donor');
             return false;
         }
         _ws.donorFragments = fragments;
