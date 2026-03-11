@@ -201,17 +201,7 @@
       background: #131e2d; border-radius: 8px;
     }
 
-    /* Drop overlay on vector canvas */
-    .drop-overlay {
-      position: absolute; inset: 0; border-radius: 8px;
-      transition: background 0.2s;
-      pointer-events: none;
-    }
-    .drop-overlay.active { pointer-events: all; cursor: copy; }
-    .drop-overlay.dragover {
-      background: rgba(79,195,247,0.12);
-      box-shadow: inset 0 0 0 2px var(--accent);
-    }
+    /* (drop-overlay removed — vector now uses animateDigest like the donor) */
 
     /* Enzyme picker row */
     .enzyme-picker-row {
@@ -249,16 +239,21 @@
     /* ------------------------------------------------------------------ */
     #fragmentTray {
       background: var(--bg-mid); border-top: 1px solid var(--border);
-      padding: 10px 16px; flex-shrink: 0; min-height: 100px; max-height: 140px;
-      display: flex; align-items: center; gap: 12px;
+      padding: 6px 12px; flex-shrink: 0; min-height: 90px; max-height: 130px;
+      display: flex; align-items: stretch; gap: 0;
       overflow-x: auto; overflow-y: hidden;
     }
-    #fragmentTray .tray-label {
-      font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
-      color: var(--text-muted); white-space: nowrap; flex-shrink: 0;
+    .frag-tray-section {
+      display: flex; flex-direction: column; gap: 2px;
+      border-right: 1px solid var(--border); padding: 4px 10px 4px 6px;
+      min-width: 0;
     }
-    #fragmentCardContainer {
-      display: flex; gap: 10px; align-items: center; flex: 1;
+    .tray-section-label {
+      font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
+      color: var(--text-muted); white-space: nowrap;
+    }
+    .frag-card-row {
+      display: flex; gap: 8px; align-items: center; flex: 1;
       overflow-x: auto;
     }
 
@@ -324,16 +319,103 @@
     #trashCan .trash-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-top: 2px; }
 
     /* ------------------------------------------------------------------ */
-    /* Cloning result panel                                                 */
+    /* Ligation assembly panel                                              */
     /* ------------------------------------------------------------------ */
-    #cloningResult {
-      background: var(--bg-mid); border-top: 1px solid var(--border);
-      padding: 10px 20px; flex-shrink: 0; font-size: 12px;
-      display: flex; align-items: center; gap: 16px;
+    #ligationPanel {
+      background: #131e2d; border-top: 1px solid var(--border);
+      flex-shrink: 0; display: flex; flex-direction: column;
     }
-    #cloningResult .result-icon { font-size: 1.8rem; }
-    #cloningResult .result-msg  { flex: 1; }
-    #cloningResult .result-score { font-family: var(--font-mono); font-size: 1.1rem; color: var(--accent); font-weight: 700; }
+    .ligation-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 6px 14px; border-bottom: 1px solid var(--border);
+      background: var(--bg-mid);
+    }
+    .ligation-title { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+    .ligation-hint  { font-size: 11px; color: var(--text-muted); }
+
+    #ligDropZone {
+      padding: 8px 14px; min-height: 64px;
+      transition: background 0.2s;
+    }
+    #ligDropZone.dragover { background: rgba(79,195,247,0.07); }
+
+    #ligAssembly {
+      display: flex; align-items: center; gap: 0; flex-wrap: nowrap;
+      min-height: 48px;
+    }
+    .lig-drop-hint {
+      font-size: 11px; color: var(--text-muted); font-style: italic; padding: 4px 8px;
+    }
+
+    /* A single fragment in the ligation assembly */
+    .lig-slot {
+      display: flex; align-items: center; gap: 0;
+      background: var(--bg-mid); border: 1.5px solid var(--border);
+      border-radius: 8px; padding: 4px 6px 4px 8px;
+      flex-shrink: 0; position: relative;
+      transition: border-color 0.2s;
+    }
+    .lig-slot.compat-ok  { border-color: var(--success); }
+    .lig-slot.compat-fail{ border-color: var(--danger); }
+
+    .lig-slot-ends {
+      display: flex; flex-direction: column; gap: 2px;
+      font-size: 9px; font-family: var(--font-mono);
+    }
+    .lig-slot-name {
+      font-size: 11px; font-weight: 700; color: var(--text-main);
+      padding: 0 8px; max-width: 100px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lig-slot-source {
+      font-size: 9px; color: var(--text-muted); padding: 0 6px; text-transform: uppercase;
+    }
+    .lig-orient-btn {
+      background: var(--bg-light); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 6px; font-size: 11px; cursor: pointer; color: var(--text-muted);
+      transition: background 0.15s;
+    }
+    .lig-orient-btn.fwd { color: var(--accent2); border-color: var(--accent2); }
+    .lig-orient-btn.rev { color: var(--warn);    border-color: var(--warn); }
+    .lig-remove {
+      font-size: 14px; cursor: pointer; color: var(--text-muted);
+      padding: 0 2px 0 6px; line-height: 1;
+    }
+    .lig-remove:hover { color: var(--danger); }
+
+    /* Arrow / junction connector between slots */
+    .lig-junction {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 4px; font-size: 18px; color: var(--text-muted);
+      flex-shrink: 0; gap: 2px;
+    }
+    .lig-junction.ok   { color: var(--success); }
+    .lig-junction.fail { color: var(--danger); }
+    .lig-junction-label {
+      font-size: 8px; font-family: var(--font-mono);
+      color: var(--text-muted); text-align: center; white-space: nowrap;
+    }
+    .lig-junction.ok   .lig-junction-label { color: var(--success); }
+    .lig-junction.fail .lig-junction-label { color: var(--danger); }
+
+    /* Wrap-around indicator (last→first junction) */
+    .lig-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 0 4px; font-size: 13px; color: var(--text-muted); flex-shrink: 0;
+      gap: 2px;
+    }
+    .lig-wrap.ok   { color: var(--success); }
+    .lig-wrap.fail { color: var(--danger); }
+
+    /* Ligation result */
+    #ligResult {
+      display: flex; align-items: center; gap: 16px;
+      padding: 8px 16px; background: var(--bg-mid);
+      border-top: 1px solid var(--border);
+    }
+    #ligResultCanvas { border-radius: 8px; background: #131e2d; flex-shrink: 0; }
+    #ligResultText  { flex: 1; font-size: 12px; }
+    #ligResultScore { font-family: var(--font-mono); font-size: 1.2rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
 
     /* ------------------------------------------------------------------ */
     /* Cloning log                                                          */
@@ -492,20 +574,12 @@
     <div class="plasmid-col">
       <div class="plasmid-col-label">Vector</div>
       <div class="plasmid-name" id="vectorName">pUC19</div>
-
       <div class="canvas-wrap" id="vectorCanvasWrap">
         <canvas id="vectorCanvas" width="420" height="420"></canvas>
-        <div class="drop-overlay" id="vectorDropOverlay"
-             ondragover="handleVectorDragOver(event)"
-             ondragleave="handleVectorDragLeave(event)"
-             ondrop="handleVectorDrop(event)"></div>
       </div>
-
-      <div class="enzyme-picker-row" id="vectorEnzymeRow">
+      <div class="enzyme-picker-row">
         <span class="picker-label">Enzymes:</span>
-        <select id="vectorEnzymeSelect">
-          <option value="">— add enzyme —</option>
-        </select>
+        <select id="vectorEnzymeSelect"><option value="">— add enzyme —</option></select>
         <div id="vectorEnzymeTags" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
       </div>
       <div class="col-actions">
@@ -518,16 +592,12 @@
     <div class="plasmid-col">
       <div class="plasmid-col-label">Donor Plasmid</div>
       <div class="plasmid-name" id="donorName"></div>
-
       <div class="canvas-wrap" id="donorCanvasWrap">
         <canvas id="donorCanvas" width="420" height="420"></canvas>
       </div>
-
-      <div class="enzyme-picker-row" id="donorEnzymeRow">
+      <div class="enzyme-picker-row">
         <span class="picker-label">Enzymes:</span>
-        <select id="donorEnzymeSelect">
-          <option value="">— add enzyme —</option>
-        </select>
+        <select id="donorEnzymeSelect"><option value="">— add enzyme —</option></select>
         <div id="donorEnzymeTags" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
       </div>
       <div class="col-actions">
@@ -538,10 +608,19 @@
 
   </div><!-- end cloning-main -->
 
-  <!-- Fragment tray -->
+  <!-- Fragment trays: one section per plasmid, revealed after cutting -->
   <div id="fragmentTray">
-    <span class="tray-label">Fragments</span>
-    <div id="fragmentCardContainer"></div>
+    <!-- Vector fragments -->
+    <div class="frag-tray-section" id="vectorFragSection" style="display:none">
+      <span class="tray-section-label">Vector</span>
+      <div class="frag-card-row" id="vectorFragContainer"></div>
+    </div>
+    <!-- Donor fragments -->
+    <div class="frag-tray-section" id="donorFragSection" style="display:none">
+      <span class="tray-section-label">Donor</span>
+      <div class="frag-card-row" id="donorFragContainer"></div>
+    </div>
+    <!-- Trash -->
     <div id="trashCan"
          ondragover="handleTrashDragOver(event)"
          ondragleave="handleTrashDragLeave(event)"
@@ -551,11 +630,33 @@
     </div>
   </div>
 
-  <!-- Result panel (hidden until ligation attempted) -->
-  <div id="cloningResult" style="display:none">
-    <div class="result-icon" id="cloningResultIcon">&#x2753;</div>
-    <div class="result-msg" id="cloningResultMsg"></div>
-    <div class="result-score" id="cloningResultScore"></div>
+  <!-- Ligation assembly panel -->
+  <div id="ligationPanel">
+    <div class="ligation-header">
+      <span class="ligation-title">&#x1F9EC; Ligation Assembly</span>
+      <span class="ligation-hint" id="ligHint">Cut both plasmids, then drag fragments here</span>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <button id="btnClearLig">Clear</button>
+        <button class="primary" id="btnLigate" disabled>&#x2295; Ligate!</button>
+      </div>
+    </div>
+
+    <!-- Drop zone that holds the ordered fragment slots -->
+    <div id="ligDropZone"
+         ondragover="handleLigDragOver(event)"
+         ondragleave="handleLigDragLeave(event)"
+         ondrop="handleLigDrop(event)">
+      <div id="ligAssembly">
+        <span id="ligDropHint" class="lig-drop-hint">drag fragments here to assemble</span>
+      </div>
+    </div>
+
+    <!-- Result: circular canvas OR linear bar -->
+    <div id="ligResult" style="display:none">
+      <canvas id="ligResultCanvas" width="180" height="180"></canvas>
+      <div id="ligResultText"></div>
+      <div id="ligResultScore"></div>
+    </div>
   </div>
 
   <!-- Log -->
@@ -797,13 +898,14 @@ const CLONING_LEVELS_INLINE = [
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
-let _cloningLevels    = CLONING_LEVELS_INLINE;
-let _cloningLevelIdx  = 0;
+let _cloningLevels     = CLONING_LEVELS_INLINE;
+let _cloningLevelIdx   = 0;
 let _cloningTotalScore = 0;
-let _vectorRenderer   = null;
-let _donorRenderer    = null;
-let _dragFragmentId   = null;   // fragment being dragged
-let _dropPulseTimer   = null;   // for pulsing the drop zone
+let _vectorRenderer    = null;
+let _donorRenderer     = null;
+let _dragFragId        = null;   // {id, source} of card being dragged
+let _ligationItems     = [];     // [{fragment, orientation, source}] in assembly order
+let _wsInited          = false;  // guard: only wire up listeners once
 
 const ALL_ENZYME_NAMES = Object.keys(EnzymeDB);
 const MCS_ENZYMES = ['EcoRI','KpnI','SmaI','BamHI','XbaI','SalI','PstI','HindIII'];
@@ -822,6 +924,9 @@ function showScreen(id) {
 // Cloning workspace init
 // ---------------------------------------------------------------------------
 function initCloningWorkspace() {
+  if (_wsInited) { loadCloningLevel(_cloningLevelIdx); return; }
+  _wsInited = true;
+
   // Initialise renderers
   const vCanvas = document.getElementById('vectorCanvas');
   const dCanvas = document.getElementById('donorCanvas');
@@ -844,9 +949,13 @@ function initCloningWorkspace() {
   document.getElementById('btnCutDonor').addEventListener('click',  doCutDonor);
   document.getElementById('btnCloningReset').addEventListener('click', resetCloningLevel);
   document.getElementById('btnCloningNext').addEventListener('click', nextCloningLevel);
-  document.getElementById('btnCloningMenu').addEventListener('click', () => {
-    stopDropPulse();
-    showScreen('modeSelectScreen');
+  document.getElementById('btnCloningMenu').addEventListener('click', () => showScreen('modeSelectScreen'));
+  document.getElementById('btnLigate').addEventListener('click', ligateAssembly);
+  document.getElementById('btnClearLig').addEventListener('click', () => {
+    _ligationItems = [];
+    renderLigationAssembly();
+    document.getElementById('btnLigate').disabled = true;
+    document.getElementById('ligResult').style.display = 'none';
   });
 
   // CloningWorkspace events
@@ -866,38 +975,37 @@ function loadCloningLevel(idx) {
   _cloningLevelIdx = idx;
   const level = _cloningLevels[idx];
 
-  // Build donor sequence
+  // Build donor sequence and embed it into the level so CloningWorkspace.loadLevel
+  // builds the Plasmid with the correct sequence (the event fires synchronously).
   const donorSeq = buildDonorSequence(level.donor);
-  const donorPlasmid = new Plasmid({
-    name:     level.donor.name,
-    sequence: donorSeq,
-    features: level.donor.features || []
-  });
-
-  // Patch level so CloningWorkspace can build it
   const patchedLevel = {
     ...level,
-    donor: { ...level.donor, _builtPlasmid: donorPlasmid }
+    donor: { ...level.donor, sequence: donorSeq }
   };
 
-  // Override CloningWorkspace.loadLevel to use pre-built donor
-  CloningWorkspace.loadLevel(level);
-
-  // Manually set the donor plasmid (bypass sequence re-build in cloning.js)
-  CloningWorkspace.ws.donorPlasmid = donorPlasmid;
+  CloningWorkspace.loadLevel(patchedLevel);
 
   document.getElementById('cloningLevelNum').textContent = (idx + 1) + '/' + _cloningLevels.length;
   document.getElementById('btnCloningNext').disabled = true;
 
-  // Reset enzyme tag UI
+  // Reset enzyme tags and cut status
   clearEnzymeTags('vector');
   clearEnzymeTags('donor');
   document.getElementById('vectorCutStatus').textContent = '';
   document.getElementById('donorCutStatus').textContent  = '';
-  document.getElementById('vectorDropOverlay').classList.remove('active');
-  document.getElementById('cloningResult').style.display = 'none';
-  document.getElementById('fragmentCardContainer').innerHTML = '';
-  stopDropPulse();
+
+  // Reset fragment trays
+  document.getElementById('vectorFragSection').style.display = 'none';
+  document.getElementById('donorFragSection').style.display  = 'none';
+  document.getElementById('vectorFragContainer').innerHTML   = '';
+  document.getElementById('donorFragContainer').innerHTML    = '';
+
+  // Reset ligation panel
+  _ligationItems = [];
+  renderLigationAssembly();
+  document.getElementById('btnLigate').disabled = true;
+  document.getElementById('ligHint').textContent = 'Cut both plasmids, then drag fragments here';
+  document.getElementById('ligResult').style.display = 'none';
 }
 
 // ---------------------------------------------------------------------------
@@ -922,37 +1030,29 @@ function onCloningLevelLoaded(e) {
   clog('Level loaded: ' + level.title, 'info');
 }
 
+// ---------------------------------------------------------------------------
+// CloningWorkspace event handlers
+// ---------------------------------------------------------------------------
+
 function onVectorCut(e) {
-  const { sites } = e.detail;
+  const { sites, fragments } = e.detail;
   const names = [...new Set(sites.map(s => s.enzymeName))];
-  document.getElementById('vectorCutStatus').textContent = '✓ cut at ' + sites.length + ' site(s)';
+  document.getElementById('vectorCutStatus').textContent = '✓ ' + fragments.length + ' fragment(s)';
   document.getElementById('vectorCutStatus').className   = 'cut-status done';
 
-  // Animate: show open vector with drop zone, then start pulsing
+  const trayEl = document.getElementById('vectorFragSection');
+
+  // Cut animation, then explode fragments into the vector tray
   _vectorRenderer.renderCutAnimation(names[0], sites[0].topStrandCut, () => {
-    _vectorRenderer.renderOpenVector(sites, false);
-    startDropPulse(sites);
+    _vectorRenderer.animateDigest(fragments, trayEl, () => {
+      document.getElementById('vectorFragSection').style.display = 'flex';
+      buildFragmentCards('vector', fragments);
+      updateLigHint();
+      clog(fragments.length + ' vector fragment(s) in tray.', 'success');
+    });
   });
 
-  clog('Vector cut with ' + names.join('+') + ' (' + sites.length + ' site(s)).', 'success');
-}
-
-function startDropPulse(sites) {
-  // Only activate drop zone when both cuts are done
-  if (CloningWorkspace.state === 'placing') {
-    const overlay = document.getElementById('vectorDropOverlay');
-    overlay.classList.add('active');
-    _dropPulseTimer = setInterval(() => {
-      _vectorRenderer.renderOpenVector(sites, true);
-    }, 400);
-  } else {
-    // Vector cut but donor not cut yet — just show static open vector
-    _dropPulseTimer = null;
-  }
-}
-
-function stopDropPulse() {
-  if (_dropPulseTimer) { clearInterval(_dropPulseTimer); _dropPulseTimer = null; }
+  clog('Vector cut with ' + names.join('+') + '.', 'success');
 }
 
 function onDonorCut(e) {
@@ -960,216 +1060,238 @@ function onDonorCut(e) {
   document.getElementById('donorCutStatus').textContent = '✓ ' + fragments.length + ' fragment(s)';
   document.getElementById('donorCutStatus').className   = 'cut-status done';
 
-  const trayEl = document.getElementById('fragmentTray');
+  const trayEl = document.getElementById('donorFragSection');
 
-  // Run fragment animation, then build HTML cards
   _donorRenderer.animateDigest(fragments, trayEl, () => {
-    buildFragmentCards(fragments);
-    clog(fragments.length + ' fragment(s) in tray — drag one to the vector.', 'info');
-
-    // If vector already cut, activate drop zone now
-    if (CloningWorkspace.state === 'placing') {
-      stopDropPulse();
-      startDropPulse(CloningWorkspace.vectorCutSites);
-    }
+    document.getElementById('donorFragSection').style.display = 'flex';
+    buildFragmentCards('donor', fragments);
+    updateLigHint();
+    clog(fragments.length + ' donor fragment(s) in tray.', 'success');
   });
 
   clog('Donor digested into ' + fragments.length + ' fragment(s).', 'success');
 }
 
 function onLigationResult(e) {
-  const { result, fragment, orientation, points } = e.detail;
-  stopDropPulse();
+  const { result, items, points } = e.detail;
 
-  const resultEl = document.getElementById('cloningResult');
-  const icon     = document.getElementById('cloningResultIcon');
-  const msg      = document.getElementById('cloningResultMsg');
-  const scoreEl  = document.getElementById('cloningResultScore');
+  // Mark cards involved
+  items.forEach(item => {
+    const card = document.querySelector(`[data-frag-id="${item.fragment.id}"][data-source="${item.source}"]`);
+    if (card) card.classList.add(result.success ? 'placed' : 'compat-fail');
+  });
+
+  _cloningTotalScore += points;
+  document.getElementById('cloningScore').textContent = _cloningTotalScore;
+
+  // Update junction markers in the assembly panel
+  renderLigationAssembly(result.junctions);
+
+  // Show result panel
+  const resultEl  = document.getElementById('ligResult');
+  const resultTxt = document.getElementById('ligResultText');
+  const resultScr = document.getElementById('ligResultScore');
+
+  resultScr.textContent = (result.success ? '+' : '+') + points + ' pts';
 
   if (result.success) {
-    const dirText = result.orientationCorrect
-      ? 'Correct orientation!'
-      : 'Compatible ends — but insert is in the reverse orientation (−' + (100 - points) + ' pts).';
-    icon.textContent  = result.orientationCorrect ? '🎉' : '⚠️';
-    msg.innerHTML     = '<strong style="color:var(--success)">'
-      + (result.orientationCorrect ? 'Ligation successful!' : 'Ligation — wrong orientation')
-      + '</strong> ' + dirText;
+    // Build recombinant plasmid and render it on the result canvas
+    const vecFrag   = items.find(it => it.source === 'vector');
+    const donorFrag = items.find(it => it.source === 'donor');
+    const insSeq    = donorFrag
+      ? (donorFrag.orientation === 'reverse'
+          ? reverseComplement(donorFrag.fragment.sequence)
+          : donorFrag.fragment.sequence)
+      : '';
+    const vecSeq    = vecFrag ? vecFrag.fragment.sequence : CloningWorkspace.vectorPlasmid.sequence;
+    const recombSeq = vecSeq + insSeq;
 
-    _cloningTotalScore += points;
-    document.getElementById('cloningScore').textContent = _cloningTotalScore;
-    scoreEl.textContent = '+' + points + ' pts';
+    const allFeatures = items.flatMap(it => it.fragment.features);
+    const recombName  = CloningWorkspace.vectorPlasmid.name
+      + (donorFrag ? ' + ' + (donorFrag.fragment.features[0]?.name || 'insert') : '');
 
-    // Mark fragment card as placed
-    const card = document.querySelector('[data-frag-id="' + fragment.id + '"]');
-    if (card) card.classList.add('placed');
+    const recomb = new Plasmid({ name: recombName, sequence: recombSeq, features: allFeatures });
+    const rCanvas = document.getElementById('ligResultCanvas');
+    const rRenderer = new PlasmidRenderer(rCanvas, recomb);
+    rRenderer.render([]);
 
-    // Render the recombinant plasmid in the vector canvas
-    const recombSeq  = buildRecombinantSequence(fragment, orientation);
-    const recombName = CloningWorkspace.vectorPlasmid.name + ' + ' + (fragment.features[0]?.name || 'insert');
-    const recomb = new Plasmid({
-      name: recombName,
-      sequence: recombSeq,
-      features: [
-        ...CloningWorkspace.vectorPlasmid.features,
-        ...fragment.features
-      ]
-    });
-    _vectorRenderer.plasmid = recomb;
-    _vectorRenderer._computeLayout();
-    _vectorRenderer.render([]);
+    const dirNote = result.orientationCorrect ? '' : ' (insert reversed — partial score)';
+    resultTxt.innerHTML = '<strong style="color:var(--success)">Ligation successful!</strong>'
+      + ' Circular recombinant formed.' + dirNote;
 
     document.getElementById('btnCloningNext').disabled =
       (_cloningLevelIdx >= _cloningLevels.length - 1);
 
   } else {
-    icon.textContent  = '✗';
-    msg.innerHTML     = '<strong style="color:var(--danger)">Ligation failed.</strong> '
-      + (!result.leftOk  ? result.leftNote  || 'Left ends incompatible.'  : '')
-      + (!result.rightOk ? result.rightNote || 'Right ends incompatible.' : '');
-    scoreEl.textContent = '+0 pts';
+    // Draw linear DNA representation on the result canvas
+    drawLinearResult(items, result.junctions);
+
+    const failedJunctions = result.junctions.filter(j => !j.compatible);
+    resultTxt.innerHTML = '<strong style="color:var(--danger)">Ligation failed</strong> — '
+      + failedJunctions.map(j => j.note || 'incompatible ends').join('; ');
   }
 
   resultEl.style.display = 'flex';
 }
 
-// Build a synthetic recombinant sequence (vector backbone + insert)
-function buildRecombinantSequence(fragment, orientation) {
-  const vec = CloningWorkspace.vectorPlasmid.sequence;
-  const ins = orientation === 'reverse'
-    ? reverseComplement(fragment.sequence) : fragment.sequence;
-  // Simple concatenation for display purposes
-  return (vec + ins).slice(0, vec.length + ins.length);
+// Draw a simple linear DNA diagram on the result canvas for a failed ligation
+function drawLinearResult(items, junctions) {
+  const canvas = document.getElementById('ligResultCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const n = items.length;
+  if (n === 0) return;
+
+  const segW   = Math.floor((W - 20) / n);
+  const barH   = 22;
+  const barY   = H / 2 - barH / 2;
+
+  items.forEach((item, i) => {
+    const x = 10 + i * segW;
+    const color = item.fragment.features.length > 0
+      ? featureColor(item.fragment.features[0]) : FEATURE_COLORS.default;
+
+    // Segment body
+    ctx.fillStyle   = color + '55';
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x + 2, barY, segW - 4, barH, 4);
+    ctx.fill(); ctx.stroke();
+
+    // Junction mark
+    if (i < n - 1) {
+      const junc = junctions[i];
+      const jx   = x + segW;
+      ctx.strokeStyle = junc.compatible ? '#66BB6A' : '#EF5350';
+      ctx.lineWidth   = 2;
+      ctx.beginPath(); ctx.moveTo(jx, barY - 4); ctx.lineTo(jx, barY + barH + 4);
+      ctx.stroke();
+    }
+
+    // Name label
+    const label = item.fragment.features.map(f => f.name).join(',') || (item.source === 'vector' ? 'vec' : 'ins');
+    ctx.font      = 'bold 9px monospace';
+    ctx.fillStyle = '#E8EDF2';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label.slice(0, 8), x + segW / 2, barY + barH / 2);
+  });
+
+  // Label: LINEAR (open ends)
+  ctx.font      = '10px sans-serif';
+  ctx.fillStyle = '#EF5350';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('LINEAR (open ends)', W / 2, barY + barH + 6);
 }
 
 // ---------------------------------------------------------------------------
 // Cut actions
 // ---------------------------------------------------------------------------
 function doCutVector() {
-  const enzymes = getEnzymeTags('vector');
-  CloningWorkspace.setVectorEnzymes(enzymes);
+  CloningWorkspace.setVectorEnzymes(getEnzymeTags('vector'));
   CloningWorkspace.cutVector();
 }
 
 function doCutDonor() {
-  const enzymes = getEnzymeTags('donor');
-  CloningWorkspace.setDonorEnzymes(enzymes);
+  CloningWorkspace.setDonorEnzymes(getEnzymeTags('donor'));
   CloningWorkspace.cutDonor();
 }
 
 // ---------------------------------------------------------------------------
-// Fragment cards
+// Fragment tray cards (shared for vector and donor)
 // ---------------------------------------------------------------------------
-function buildFragmentCards(fragments) {
-  const container = document.getElementById('fragmentCardContainer');
+function buildFragmentCards(source, fragments) {
+  const containerId = source === 'vector' ? 'vectorFragContainer' : 'donorFragContainer';
+  const container = document.getElementById(containerId);
   container.innerHTML = '';
 
   fragments.forEach(frag => {
     const card = document.createElement('div');
-    card.className = 'fragment-card';
-    card.draggable = true;
+    card.className  = 'fragment-card';
+    card.draggable  = true;
     card.dataset.fragId = frag.id;
+    card.dataset.source = source;
 
-    // Pick a representative color
     const color = frag.features.length > 0
-      ? featureColor(frag.features[0])
-      : FEATURE_COLORS.default;
+      ? featureColor(frag.features[0]) : FEATURE_COLORS.default;
     card.style.borderLeftColor = color;
     card.style.borderLeftWidth = '3px';
 
-    // Name
-    const nameEl = document.createElement('div');
-    nameEl.className = 'fragment-card-name';
-    nameEl.textContent = frag.features.map(f => f.name).join(', ') || 'Backbone fragment';
-    card.appendChild(nameEl);
+    const name = frag.features.map(f => f.name).join(', ') || (source === 'vector' ? 'Backbone' : 'Fragment');
+    card.innerHTML =
+      `<div class="fragment-card-name">${name}</div>` +
+      `<div class="fragment-ends">` +
+        `<span class="end-tag">${frag.leftEnd.enzyme || 'blunt'}</span>` +
+        `<span style="color:var(--text-muted);font-size:9px">——</span>` +
+        `<span class="end-tag">${frag.rightEnd.enzyme || 'blunt'}</span>` +
+      `</div>` +
+      `<div class="fragment-size">${(frag.size/1000).toFixed(1)} kb</div>`;
 
-    // Ends
-    const endsEl = document.createElement('div');
-    endsEl.className = 'fragment-ends';
-    endsEl.innerHTML =
-      `<span class="end-tag">${frag.leftEnd.enzyme || 'blunt'}</span>` +
-      `<span style="color:var(--text-muted);font-size:9px">——</span>` +
-      `<span class="end-tag">${frag.rightEnd.enzyme || 'blunt'}</span>`;
-    card.appendChild(endsEl);
-
-    // Size
-    const sizeEl = document.createElement('div');
-    sizeEl.className = 'fragment-size';
-    sizeEl.textContent = (frag.size / 1000).toFixed(1) + ' kb  (' + frag.size + ' bp)';
-    card.appendChild(sizeEl);
-
-    // Feature dots
     if (frag.features.length > 0) {
       const dotsEl = document.createElement('div');
       dotsEl.className = 'fragment-features';
       frag.features.forEach(f => {
         const dot = document.createElement('div');
-        dot.className   = 'feature-dot';
-        dot.title       = f.name;
+        dot.className = 'feature-dot'; dot.title = f.name;
         dot.style.background = featureColor(f);
         dotsEl.appendChild(dot);
       });
       card.appendChild(dotsEl);
     }
 
-    // Orientation buttons
-    const orientRow = document.createElement('div');
-    orientRow.className = 'orient-row';
-    ['forward','reverse'].forEach(ori => {
-      const btn = document.createElement('div');
-      btn.className = 'orient-btn' + (ori === 'forward' ? ' active' : '');
-      btn.dataset.ori = ori;
-      btn.textContent = ori === 'forward' ? '→ Forward' : '← Reverse';
-      btn.addEventListener('click', () => {
-        orientRow.querySelectorAll('.orient-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-      orientRow.appendChild(btn);
-    });
-    card.appendChild(orientRow);
-
-    // Drag events
-    card.addEventListener('dragstart', e => {
-      _dragFragmentId = frag.id;
+    card.addEventListener('dragstart', ev => {
+      _dragFragId = { id: frag.id, source };
       card.classList.add('dragging');
-      e.dataTransfer.setData('text/plain', frag.id);
-      e.dataTransfer.effectAllowed = 'move';
+      ev.dataTransfer.setData('text/plain', JSON.stringify({ id: frag.id, source }));
+      ev.dataTransfer.effectAllowed = 'move';
     });
-    card.addEventListener('dragend', () => {
-      card.classList.remove('dragging');
-    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
 
     container.appendChild(card);
   });
 }
 
-function getFragmentOrientation(fragId) {
-  const card = document.querySelector('[data-frag-id="' + fragId + '"]');
-  if (!card) return 'forward';
-  const activeBtn = card.querySelector('.orient-btn.active');
-  return activeBtn ? activeBtn.dataset.ori : 'forward';
-}
-
 // ---------------------------------------------------------------------------
-// Drag-and-drop: vector drop zone
+// Drag-and-drop: ligation panel
 // ---------------------------------------------------------------------------
-function handleVectorDragOver(e) {
-  if (CloningWorkspace.state !== 'placing') return;
+function handleLigDragOver(e) {
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  document.getElementById('vectorDropOverlay').classList.add('dragover');
+  e.dataTransfer.dropEffect = 'copy';
+  document.getElementById('ligDropZone').classList.add('dragover');
 }
 
-function handleVectorDragLeave(e) {
-  document.getElementById('vectorDropOverlay').classList.remove('dragover');
+function handleLigDragLeave(e) {
+  if (!document.getElementById('ligDropZone').contains(e.relatedTarget))
+    document.getElementById('ligDropZone').classList.remove('dragover');
 }
 
-function handleVectorDrop(e) {
+function handleLigDrop(e) {
   e.preventDefault();
-  document.getElementById('vectorDropOverlay').classList.remove('dragover');
-  const fragId = parseInt(e.dataTransfer.getData('text/plain'));
-  if (isNaN(fragId)) return;
-  const orientation = getFragmentOrientation(fragId);
-  CloningWorkspace.placeFragment(fragId, orientation);
+  document.getElementById('ligDropZone').classList.remove('dragover');
+
+  let payload;
+  try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+  const { id, source } = payload;
+
+  // Find fragment in the correct pool
+  const pool = source === 'vector'
+    ? CloningWorkspace.vectorFragments
+    : CloningWorkspace.donorFragments;
+  const frag = pool.find(f => f.id === id);
+  if (!frag) return;
+
+  // Don't add duplicates
+  if (_ligationItems.some(it => it.source === source && it.fragment.id === id)) {
+    showToast('Fragment already in assembly.', 'warn'); return;
+  }
+
+  _ligationItems.push({ fragment: frag, orientation: 'forward', source });
+  renderLigationAssembly();
+  document.getElementById('btnLigate').disabled = _ligationItems.length < 2;
 }
 
 // ---------------------------------------------------------------------------
@@ -1177,7 +1299,6 @@ function handleVectorDrop(e) {
 // ---------------------------------------------------------------------------
 function handleTrashDragOver(e) {
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
   document.getElementById('trashCan').classList.add('dragover');
 }
 
@@ -1188,12 +1309,140 @@ function handleTrashDragLeave() {
 function handleTrashDrop(e) {
   e.preventDefault();
   document.getElementById('trashCan').classList.remove('dragover');
-  const fragId = parseInt(e.dataTransfer.getData('text/plain'));
-  if (isNaN(fragId)) return;
-  CloningWorkspace.trashFragment(fragId);
-  const card = document.querySelector('[data-frag-id="' + fragId + '"]');
+  let payload;
+  try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+  const { id, source } = payload;
+  CloningWorkspace.trashFragment(id);
+  const card = document.querySelector(`[data-frag-id="${id}"][data-source="${source}"]`);
   if (card) card.classList.add('trashed');
-  clog('Fragment ' + fragId + ' sent to trash.', 'info');
+  clog('Fragment trashed.', 'info');
+}
+
+// ---------------------------------------------------------------------------
+// Ligation assembly panel
+// ---------------------------------------------------------------------------
+function renderLigationAssembly(junctions) {
+  const assembly = document.getElementById('ligAssembly');
+
+  if (_ligationItems.length === 0) {
+    assembly.innerHTML = '<span id="ligDropHint" class="lig-drop-hint">drag fragments here to assemble</span>';
+    return;
+  }
+
+  assembly.innerHTML = '';
+
+  _ligationItems.forEach((item, i) => {
+    const frag  = item.fragment;
+    const color = frag.features.length > 0
+      ? featureColor(frag.features[0]) : FEATURE_COLORS.default;
+    const name  = frag.features.map(f => f.name).join(',') || (item.source === 'vector' ? 'Backbone' : 'Fragment');
+
+    // Compute displayed ends based on current orientation
+    const leftEnd  = item.orientation === 'forward' ? frag.leftEnd  : { enzyme: frag.rightEnd.enzyme };
+    const rightEnd = item.orientation === 'forward' ? frag.rightEnd : { enzyme: frag.leftEnd.enzyme };
+
+    // Junction compatibility for this slot (set after ligate)
+    const junc   = junctions ? junctions[i] : null;  // junction before this slot (from previous slot's right)
+    const juncOk = junc ? junc.compatible : null;
+
+    // Wrap junction (from last slot's right → this slot's left) — only for first slot
+    if (i === 0 && junctions) {
+      const wrapJunc = junctions[junctions.length - 1];
+      const wrap = document.createElement('div');
+      wrap.className = 'lig-wrap' + (wrapJunc.compatible ? ' ok' : ' fail');
+      wrap.innerHTML = wrapJunc.compatible ? '↺' : '↺';
+      wrap.title = wrapJunc.compatible ? 'Circular — ends join' : 'Gap — ends incompatible';
+      assembly.appendChild(wrap);
+    }
+
+    // Junction connector between slots
+    if (i > 0 && junctions) {
+      const prevJunc = junctions[i - 1];
+      const jDiv = document.createElement('div');
+      jDiv.className = 'lig-junction' + (prevJunc.compatible ? ' ok' : ' fail');
+      jDiv.innerHTML = prevJunc.compatible ? '—' : '✗';
+      const jLabel = document.createElement('div');
+      jLabel.className = 'lig-junction-label';
+      jLabel.textContent = prevJunc.compatible ? 'ok' : prevJunc.note?.slice(0, 14) || 'incompatible';
+      jDiv.appendChild(jLabel);
+      assembly.appendChild(jDiv);
+    } else if (i > 0) {
+      const jDiv = document.createElement('div');
+      jDiv.className = 'lig-junction';
+      jDiv.textContent = '—';
+      assembly.appendChild(jDiv);
+    }
+
+    // Fragment slot
+    const slot = document.createElement('div');
+    slot.className = 'lig-slot';
+    if (juncOk === true)  slot.classList.add('compat-ok');
+    if (juncOk === false) slot.classList.add('compat-fail');
+    slot.style.borderTopColor = color;
+
+    // Left end tag
+    const leftTag = document.createElement('div');
+    leftTag.className = 'lig-slot-ends';
+    leftTag.innerHTML = `<span class="end-tag" style="font-size:8px">${leftEnd.enzyme || 'blunt'}</span>`;
+
+    // Name + source badge
+    const nameDiv = document.createElement('div');
+    nameDiv.innerHTML =
+      `<div class="lig-slot-name" title="${name}">${name}</div>` +
+      `<div class="lig-slot-source">${item.source} · ${(frag.size/1000).toFixed(1)} kb</div>`;
+
+    // Orientation toggle
+    const oriBtn = document.createElement('button');
+    oriBtn.className = 'lig-orient-btn ' + (item.orientation === 'forward' ? 'fwd' : 'rev');
+    oriBtn.textContent = item.orientation === 'forward' ? '→' : '←';
+    oriBtn.title = 'Toggle orientation';
+    oriBtn.addEventListener('click', () => {
+      item.orientation = item.orientation === 'forward' ? 'reverse' : 'forward';
+      renderLigationAssembly();
+    });
+
+    // Right end tag
+    const rightTag = document.createElement('div');
+    rightTag.className = 'lig-slot-ends';
+    rightTag.innerHTML = `<span class="end-tag" style="font-size:8px">${rightEnd.enzyme || 'blunt'}</span>`;
+
+    // Remove button
+    const rmBtn = document.createElement('span');
+    rmBtn.className = 'lig-remove';
+    rmBtn.textContent = '×';
+    rmBtn.title = 'Remove from assembly';
+    rmBtn.addEventListener('click', () => {
+      _ligationItems.splice(i, 1);
+      renderLigationAssembly();
+      document.getElementById('btnLigate').disabled = _ligationItems.length < 2;
+      document.getElementById('ligResult').style.display = 'none';
+    });
+
+    slot.appendChild(leftTag);
+    slot.appendChild(nameDiv);
+    slot.appendChild(oriBtn);
+    slot.appendChild(rightTag);
+    slot.appendChild(rmBtn);
+    assembly.appendChild(slot);
+  });
+}
+
+function ligateAssembly() {
+  if (_ligationItems.length < 2) return;
+  document.getElementById('ligResult').style.display = 'none';
+  CloningWorkspace.ligateFragments(_ligationItems);
+}
+
+function updateLigHint() {
+  const vCut = CloningWorkspace.state === 'vector_cut' || CloningWorkspace.state === 'both_cut' || CloningWorkspace.state === 'done';
+  const dCut = CloningWorkspace.state === 'donor_cut'  || CloningWorkspace.state === 'both_cut' || CloningWorkspace.state === 'done';
+  if (vCut && dCut) {
+    document.getElementById('ligHint').textContent = 'Drag a vector backbone + donor insert, then click Ligate!';
+  } else if (vCut) {
+    document.getElementById('ligHint').textContent = 'Now cut the donor plasmid';
+  } else if (dCut) {
+    document.getElementById('ligHint').textContent = 'Now cut the vector';
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1208,7 +1457,6 @@ function nextCloningLevel() {
 }
 
 function resetCloningLevel() {
-  stopDropPulse();
   loadCloningLevel(_cloningLevelIdx);
   clog('Level reset.', 'info');
 }

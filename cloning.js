@@ -4,7 +4,7 @@
  * Manages the primary drag-and-drop cloning game mode.
  *
  * Workflow:
- *   idle → vector_cut → donor_cut → placing → done
+ *   idle → vector_cut → donor_cut → both_cut → done
  *
  * Depends on: enzymes.js, plasmid.js  (loaded before this file)
  */
@@ -22,11 +22,10 @@ const CloningWorkspace = (function () {
         vectorPlasmid:      null,
         donorPlasmid:       null,
         vectorCutSites:     [],       // sorted [{topStrandCut, enzymeName, ...}]
-        donorFragments:     [],       // Fragment[] from digestPlasmid()
-        vectorEnzymes:      [],       // enzyme names chosen for vector
-        donorEnzymes:       [],       // enzyme names chosen for donor
-        placedFragment:     null,
-        placedOrientation:  'forward',
+        vectorFragments:    [],       // Fragment[] from digestPlasmid() on vector
+        donorFragments:     [],       // Fragment[] from digestPlasmid() on donor
+        vectorEnzymes:      [],
+        donorEnzymes:       [],
         trashedFragments:   new Set(),
         levelScore:         0
     };
@@ -42,51 +41,6 @@ const CloningWorkspace = (function () {
         _emit('cloning:feedback', { message: msg, type });
     }
 
-    // Check if fragment ends are compatible with the vector gap ends.
-    // Returns { success, orientationCorrect, leftOk, rightOk, note }
-    function _checkLigation(fragment, orientation) {
-        const sites = _ws.vectorCutSites;
-        if (sites.length === 0) return { success: false, note: 'Vector not cut.' };
-
-        const sorted  = [...sites].sort((a, b) => a.topStrandCut - b.topStrandCut);
-        const lSite   = sorted[0];
-        const rSite   = sorted[sorted.length - 1];
-        const lEnz    = EnzymeDB[lSite.enzymeName] || {};
-        const rEnz    = EnzymeDB[rSite.enzymeName] || {};
-
-        // Vector's open ends
-        const vLeft  = { enzyme: lSite.enzymeName, overhang: lEnz.overhangSeq || '', type: lEnz.overhangType || 'blunt' };
-        const vRight = { enzyme: rSite.enzymeName, overhang: rEnz.overhangSeq || '', type: rEnz.overhangType || 'blunt' };
-
-        // Fragment ends in chosen orientation
-        let fLeft, fRight;
-        if (orientation === 'forward') {
-            fLeft  = fragment.leftEnd;
-            fRight = fragment.rightEnd;
-        } else {
-            // Reverse: swap ends and reverse-complement overhangs
-            fLeft  = { ...fragment.rightEnd, overhang: reverseComplement(fragment.rightEnd.overhang) };
-            fRight = { ...fragment.leftEnd,  overhang: reverseComplement(fragment.leftEnd.overhang)  };
-        }
-
-        const compatL = areEndsCompatible(vLeft,  fLeft);
-        const compatR = areEndsCompatible(vRight, fRight);
-
-        // Correct orientation per level objective
-        const obj = (_ws.level && _ws.level.objectives) || {};
-        const orientationCorrect = !obj.correct_orientation
-            || (orientation === obj.correct_orientation);
-
-        return {
-            success:            compatL.compatible && compatR.compatible,
-            orientationCorrect,
-            leftOk:             compatL.compatible,
-            rightOk:            compatR.compatible,
-            leftNote:           compatL.note,
-            rightNote:          compatR.note
-        };
-    }
-
     // -------------------------------------------------------------------------
     // Public API
     // -------------------------------------------------------------------------
@@ -94,46 +48,39 @@ const CloningWorkspace = (function () {
     /** Load a level definition object. Resets all workspace state. */
     function loadLevel(levelData) {
         Object.assign(_ws, {
-            state:             'idle',
-            level:             levelData,
-            vectorCutSites:    [],
-            donorFragments:    [],
-            vectorEnzymes:     [],
-            donorEnzymes:      [],
-            placedFragment:    null,
-            placedOrientation: 'forward',
-            trashedFragments:  new Set(),
-            levelScore:        0
+            state:           'idle',
+            level:           levelData,
+            vectorCutSites:  [],
+            vectorFragments: [],
+            donorFragments:  [],
+            vectorEnzymes:   [],
+            donorEnzymes:    [],
+            trashedFragments: new Set(),
+            levelScore:      0
         });
 
-        // Build vector plasmid
         if (levelData.vector && levelData.vector.use_pUC19) {
             _ws.vectorPlasmid = Game.pUC19;
         } else {
             _ws.vectorPlasmid = new Plasmid(levelData.vector);
         }
 
-        // Build donor plasmid
         _ws.donorPlasmid = new Plasmid(levelData.donor);
 
         _emit('cloning:levelLoaded', { level: levelData, ws: _ws });
     }
 
-    /** Set enzyme names to use when cutting the vector. */
     function setVectorEnzymes(names) {
         _ws.vectorEnzymes = names.filter(n => EnzymeDB[n]);
-        _emit('cloning:vectorEnzymesChanged', { enzymes: _ws.vectorEnzymes });
     }
 
-    /** Set enzyme names to use when cutting the donor. */
     function setDonorEnzymes(names) {
         _ws.donorEnzymes = names.filter(n => EnzymeDB[n]);
-        _emit('cloning:donorEnzymesChanged', { enzymes: _ws.donorEnzymes });
     }
 
     /**
-     * Cut the vector with the selected vector enzymes.
-     * Emits cloning:vectorCut on success.
+     * Cut the vector; computes both cut sites and digest fragments.
+     * Emits cloning:vectorCut with { sites, fragments }.
      */
     function cutVector() {
         if (_ws.vectorEnzymes.length === 0) {
@@ -145,19 +92,18 @@ const CloningWorkspace = (function () {
             _feedback('No recognition site(s) found in vector for those enzymes.', 'error');
             return false;
         }
-        _ws.vectorCutSites = sites;
-        if (_ws.state === 'donor_cut') {
-            _ws.state = 'placing';
-        } else {
-            _ws.state = 'vector_cut';
-        }
-        _emit('cloning:vectorCut', { sites, ws: _ws });
+        _ws.vectorCutSites  = sites;
+        _ws.vectorFragments = digestPlasmid(_ws.vectorPlasmid, _ws.vectorEnzymes);
+
+        _ws.state = (_ws.state === 'donor_cut') ? 'both_cut' : 'vector_cut';
+
+        _emit('cloning:vectorCut', { sites, fragments: _ws.vectorFragments, ws: _ws });
         return true;
     }
 
     /**
-     * Cut the donor with the selected donor enzymes.
-     * Emits cloning:donorCut on success.
+     * Cut the donor; computes digest fragments.
+     * Emits cloning:donorCut with { fragments }.
      */
     function cutDonor() {
         if (_ws.donorEnzymes.length === 0) {
@@ -170,63 +116,71 @@ const CloningWorkspace = (function () {
             return false;
         }
         _ws.donorFragments = fragments;
-        if (_ws.state === 'vector_cut') {
-            _ws.state = 'placing';
-        } else {
-            _ws.state = 'donor_cut';
-        }
+
+        _ws.state = (_ws.state === 'vector_cut') ? 'both_cut' : 'donor_cut';
+
         _emit('cloning:donorCut', { fragments, ws: _ws });
         return true;
     }
 
     /**
-     * Player drops a fragment into the vector.
-     * orientation: 'forward' | 'reverse'
+     * Attempt to ligate an ordered list of fragments into a circular molecule.
+     *
+     * items: [{ fragment, orientation: 'forward'|'reverse', source: 'vector'|'donor' }]
+     *
      * Returns a result object and emits cloning:ligationResult.
+     * junctions[i] describes the junction between items[i] and items[(i+1)%n].
      */
-    function placeFragment(fragmentId, orientation) {
-        const fragment = _ws.donorFragments.find(f => f.id === fragmentId);
-        if (!fragment) {
-            _feedback('Unknown fragment.', 'error');
-            return null;
-        }
-        if (_ws.vectorCutSites.length === 0) {
-            _feedback('Cut the vector first!', 'warning');
+    function ligateFragments(items) {
+        if (!items || items.length < 2) {
+            _feedback('Add at least 2 fragments to the ligation panel.', 'warning');
             return null;
         }
 
-        _ws.placedFragment    = fragment;
-        _ws.placedOrientation = orientation || 'forward';
-
-        const result = _checkLigation(fragment, _ws.placedOrientation);
-
-        // Score
-        let points = 0;
-        let msg, msgType;
-        if (result.success) {
-            if (result.orientationCorrect) {
-                points  = 100;
-                msg     = 'Ligation successful! Correct orientation. +100 pts';
-                msgType = 'success';
-            } else {
-                points  = 40;
-                msg     = 'Ends are compatible, but insert is in the wrong orientation. +40 pts (partial)';
-                msgType = 'warn';
+        // Compute oriented ends for each fragment
+        const oriented = items.map(({ fragment, orientation }) => {
+            if (orientation === 'forward') {
+                return { left: fragment.leftEnd, right: fragment.rightEnd };
             }
-            _ws.state = 'done';
-        } else {
-            points  = 0;
-            msg     = 'Ligation failed — incompatible ends. '
-                    + (!result.leftOk ? result.leftNote : result.rightNote);
-            msgType = 'error';
+            return {
+                left:  { enzyme: fragment.rightEnd.enzyme, overhang: reverseComplement(fragment.rightEnd.overhang), type: fragment.rightEnd.type },
+                right: { enzyme: fragment.leftEnd.enzyme,  overhang: reverseComplement(fragment.leftEnd.overhang),  type: fragment.leftEnd.type  }
+            };
+        });
+
+        const n = oriented.length;
+        const junctions = [];
+        let allCompatible = true;
+
+        for (let i = 0; i < n; i++) {
+            const right  = oriented[i].right;
+            const left   = oriented[(i + 1) % n].left;
+            const compat = areEndsCompatible(right, left);
+            junctions.push({ fromIdx: i, toIdx: (i + 1) % n, ...compat });
+            if (!compat.compatible) allCompatible = false;
         }
-        _ws.levelScore += points;
-        _feedback(msg, msgType);
-        _emit('cloning:ligationResult', { result, fragment, orientation, points, ws: _ws });
+
+        // Orientation check vs level objective
+        const obj = (_ws.level && _ws.level.objectives) || {};
+        let orientationCorrect = true;
+        if (obj.correct_orientation) {
+            const donorItem = items.find(it => it.source === 'donor');
+            if (donorItem) orientationCorrect = donorItem.orientation === obj.correct_orientation;
+        }
+
+        let points = 0;
+        if (allCompatible) {
+            points = orientationCorrect ? 100 : 40;
+            _ws.state = 'done';
+            _ws.levelScore += points;
+        }
+
+        const result = { success: allCompatible, isCircular: allCompatible, junctions, orientationCorrect, points };
+        _emit('cloning:ligationResult', { result, items, points, ws: _ws });
         return result;
     }
 
-    /** Mark a fragment as trashed (send to waste bin). */
+    /** Mark a fragment as trashed. */
     function trashFragment(fragmentId) {
         _ws.trashedFragments.add(fragmentId);
         _emit('cloning:fragmentTrashed', { fragmentId, ws: _ws });
@@ -243,15 +197,16 @@ const CloningWorkspace = (function () {
         setDonorEnzymes,
         cutVector,
         cutDonor,
-        placeFragment,
+        ligateFragments,
         trashFragment,
         resetLevel,
-        get state()           { return _ws.state; },
-        get ws()              { return _ws; },
-        get vectorPlasmid()   { return _ws.vectorPlasmid; },
-        get donorPlasmid()    { return _ws.donorPlasmid; },
-        get donorFragments()  { return _ws.donorFragments; },
-        get vectorCutSites()  { return _ws.vectorCutSites; }
+        get state()            { return _ws.state; },
+        get ws()               { return _ws; },
+        get vectorPlasmid()    { return _ws.vectorPlasmid; },
+        get donorPlasmid()     { return _ws.donorPlasmid; },
+        get vectorFragments()  { return _ws.vectorFragments; },
+        get donorFragments()   { return _ws.donorFragments; },
+        get vectorCutSites()   { return _ws.vectorCutSites; }
     };
 
 }());
