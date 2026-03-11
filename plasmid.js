@@ -287,22 +287,25 @@ class PlasmidRenderer {
             ctx.lineWidth   = featureWidth * (isHL ? 1.5 : 1);
             ctx.stroke();
 
-            // Arrow tip for directional features
-            if (feature.end - feature.start > this.plasmid.length * 0.015) {
+            // Directional arrow for genes, promoters, resistance markers, lacZ
+            const DIRECTIONAL = new Set(['gene', 'promoter', 'resistance', 'lacZ']);
+            if (DIRECTIONAL.has(feature.type)) {
                 const arrowAngle = feature.strand === 1 ? endAngle : startAngle;
                 const arrowDir   = feature.strand === 1 ? 1 : -1;
                 const ax = cx + featureR * Math.cos(arrowAngle);
                 const ay = cy + featureR * Math.sin(arrowAngle);
                 const tangentAngle = arrowAngle + arrowDir * Math.PI / 2;
+                const arrowLen  = featureWidth * 0.8;
+                const arrowHalf = featureWidth * 0.4;
                 ctx.save();
                 ctx.translate(ax, ay);
                 ctx.rotate(tangentAngle);
                 ctx.beginPath();
                 ctx.moveTo(0, 0);
-                ctx.lineTo(-8 * arrowDir, -5);
-                ctx.lineTo(-8 * arrowDir,  5);
+                ctx.lineTo(-arrowLen * arrowDir, -arrowHalf);
+                ctx.lineTo(-arrowLen * arrowDir,  arrowHalf);
                 ctx.closePath();
-                ctx.fillStyle = color;
+                ctx.fillStyle = isHL ? '#FFFFFF' : color;
                 ctx.fill();
                 ctx.restore();
             }
@@ -358,7 +361,7 @@ class PlasmidRenderer {
     // -------------------------------------------------------------------------
     _drawRestrictionSites() {
         const ctx = this.ctx;
-        const { cx, cy, outerRadius, innerRadius } = this._layout;
+        const { cx, cy, outerRadius, innerRadius, featureWidth } = this._layout;
 
         if (this._restrictionSites.length === 0) return;
 
@@ -424,17 +427,17 @@ class PlasmidRenderer {
             const cos = Math.cos(angle);
             const sin = Math.sin(angle);
 
-            // Tick mark spanning the DNA rings
+            // Tick mark: starts at outer ring, extends through feature arc zone
             ctx.beginPath();
-            ctx.moveTo(cx + (innerRadius - 5) * cos, cy + (innerRadius - 5) * sin);
-            ctx.lineTo(cx + (outerRadius + 5) * cos, cy + (outerRadius + 5) * sin);
+            ctx.moveTo(cx + outerRadius * cos, cy + outerRadius * sin);
+            ctx.lineTo(cx + (outerRadius + featureWidth) * cos, cy + (outerRadius + featureWidth) * sin);
             ctx.strokeStyle = color;
             ctx.lineWidth   = 2;
             ctx.stroke();
 
             // 3-segment leader: tip → radial hop → diagonal to label row → arm
-            const tipX   = cx + (outerRadius + 5) * cos;
-            const tipY   = cy + (outerRadius + 5) * sin;
+            const tipX   = cx + (outerRadius + featureWidth) * cos;
+            const tipY   = cy + (outerRadius + featureWidth) * sin;
             const elbowX = cx + INNER_ELBOW * cos;
             const elbowY = cy + INNER_ELBOW * sin;
 
