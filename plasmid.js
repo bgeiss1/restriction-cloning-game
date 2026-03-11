@@ -275,21 +275,8 @@ class PlasmidRenderer {
         const featureR = outerRadius + featureWidth * 0.3;
 
         for (const feature of this.plasmid.features) {
-            // lacZ drawn at 40% of its original arc length (centered), no label
-            if (feature.type === 'lacZ') {
-                const midBp   = (feature.start + feature.end) / 2;
-                const halfLen = (feature.end - feature.start) * 0.20; // 40% total, ±20%
-                const sA = this._bpToAngle(midBp - halfLen);
-                const eA = this._bpToAngle(midBp + halfLen);
-                const lacZColor = featureColor(feature);
-                const lacZR = outerRadius + featureWidth * 0.3;
-                ctx.beginPath();
-                ctx.arc(cx, cy, lacZR, sA, eA, false);
-                ctx.strokeStyle = lacZColor;
-                ctx.lineWidth   = featureWidth;
-                ctx.stroke();
-                continue;
-            }
+            // lacZ is hidden — its region is implied by the MCS
+            if (feature.type === 'lacZ') continue;
 
             const startAngle = this._bpToAngle(feature.start);
             const endAngle   = this._bpToAngle(feature.end + 1);
@@ -420,16 +407,13 @@ class PlasmidRenderer {
         }
         clusters.push(group);
 
-        const LABEL_CW_OFFSET = 20 * Math.PI / 180;  // 20° clockwise shift for labels
-
         for (const cluster of clusters) {
-            // Spine anchored to cluster mid-angle, shifted 20° clockwise
-            const midAngle   = cluster[Math.floor(cluster.length / 2)].angle;
-            const spineAngle = midAngle + LABEL_CW_OFFSET;
-            const spineX     = cx + SPINE_R * Math.cos(spineAngle);
-            const spineY     = cy + SPINE_R * Math.sin(spineAngle);
-            // Left/right determined by the shifted spine angle
-            const goRight    = Math.cos(spineAngle) >= 0;
+            // Spine anchored to the cluster's mid-angle
+            const midAngle = cluster[Math.floor(cluster.length / 2)].angle;
+            const spineX   = cx + SPINE_R * Math.cos(midAngle);
+            const spineY   = cy + SPINE_R * Math.sin(midAngle);
+            // Left/right determined by which half of the map the cluster sits in
+            const goRight  = Math.cos(midAngle) >= 0;
 
             cluster.forEach((m, i) => {
                 const offset  = (i - (cluster.length - 1) / 2) * ROW_H;
