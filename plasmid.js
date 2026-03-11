@@ -338,7 +338,7 @@ class PlasmidRenderer {
             ctx.setLineDash([]);
 
             // Text — horizontal, anchored at end of arm
-            ctx.font         = isHL ? 'bold 11px sans-serif' : '10px sans-serif';
+            ctx.font         = isHL ? 'bold 14px sans-serif' : '13px sans-serif';
             ctx.fillStyle    = isHL ? '#FFFFFF' : color;
             ctx.textAlign    = goRight ? 'left' : 'right';
             ctx.textBaseline = 'middle';
@@ -448,7 +448,7 @@ class PlasmidRenderer {
             ctx.stroke();
 
             // Label at end of arm
-            ctx.font         = 'bold 9px monospace';
+            ctx.font         = 'bold 12px monospace';
             ctx.fillStyle    = color;
             ctx.textAlign    = goRight ? 'left' : 'right';
             ctx.textBaseline = 'middle';
@@ -477,7 +477,7 @@ class PlasmidRenderer {
         // Small "1" label (position 0 = bp 1)
         const lx = cx + (outerRadius + 14) * cos;
         const ly = cy + (outerRadius + 14) * sin;
-        ctx.font      = 'bold 9px sans-serif';
+        ctx.font      = 'bold 12px sans-serif';
         ctx.fillStyle = '#ECEFF1';
         ctx.textAlign = 'center';
         ctx.fillText('1', lx, ly);
@@ -494,16 +494,16 @@ class PlasmidRenderer {
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
 
-        ctx.font      = 'bold 18px sans-serif';
+        ctx.font      = 'bold 23px sans-serif';
         ctx.fillStyle = '#CFD8DC';
         ctx.fillText(this.plasmid.name, cx, cy - 14);
 
-        ctx.font      = '14px monospace';
+        ctx.font      = '18px monospace';
         ctx.fillStyle = '#90A4AE';
         ctx.fillText(`${this.plasmid.length.toLocaleString()} bp`, cx, cy + 10);
 
         if (this._cutAnimState && this._cutAnimState.enzyme) {
-            ctx.font      = '12px sans-serif';
+            ctx.font      = '16px sans-serif';
             ctx.fillStyle = '#EF9A9A';
             ctx.fillText(`Cut with ${this._cutAnimState.enzyme}`, cx, cy + 30);
         }
@@ -581,7 +581,7 @@ class PlasmidRenderer {
             if (t > 0.1 && t < 0.9) {
                 const sx = cx + (outerRadius + 20) * Math.cos(cutAngle);
                 const sy = cy + (outerRadius + 20) * Math.sin(cutAngle);
-                ctx.font      = '20px sans-serif';
+                ctx.font      = '26px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.fillText('✂', sx, sy);
             }
@@ -748,7 +748,7 @@ PlasmidRenderer.prototype.renderOpenVector = function(cutSites, dropZoneActive) 
         // label
         const midA   = (gapA + gapB) / 2;
         const labelR = outerRadius + 28;
-        ctx.font      = 'bold 11px sans-serif';
+        ctx.font      = 'bold 14px sans-serif';
         ctx.fillStyle = '#4FC3F7';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -767,7 +767,7 @@ PlasmidRenderer.prototype.renderOpenVector = function(cutSites, dropZoneActive) 
         const ey  = cy + r * Math.sin(angle);
         const enz = EnzymeDB[enzName] || {};
         const oh  = enz.overhangSeq || 'blunt';
-        ctx.font         = 'bold 9px monospace';
+        ctx.font         = 'bold 12px monospace';
         ctx.fillStyle    = '#FFD54F';
         ctx.textAlign    = isLeft ? 'right' : 'left';
         ctx.textBaseline = 'middle';
@@ -904,7 +904,7 @@ PlasmidRenderer.prototype.animateDigest = function(fragments, trayEl, onComplete
         } else {
             // Clear canvas — fragment cards now live in HTML
             ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-            ctx.font      = '13px sans-serif';
+            ctx.font      = '17px sans-serif';
             ctx.fillStyle = 'rgba(79,195,247,0.3)';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';

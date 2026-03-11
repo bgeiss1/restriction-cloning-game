@@ -253,7 +253,8 @@
     .fragment-card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(79,195,247,0.25); }
     .fragment-card.dragging { opacity: 0.5; cursor: grabbing; }
     .fragment-card.trashed  { opacity: 0.3; pointer-events: none; text-decoration: line-through; }
-    .fragment-card.placed   { border-color: var(--success); opacity: 0.5; pointer-events: none; }
+    .fragment-card.placed      { border-color: var(--success); opacity: 0.5; pointer-events: none; }
+    .fragment-card.wrong-combo { border-color: var(--warn); opacity: 0.7; }
     .fragment-card-name {
       font-size: 11px; font-weight: 700; color: var(--text-main);
       margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -1045,7 +1046,14 @@ function onLigationResult(e) {
   // Mark cards involved
   items.forEach(item => {
     const card = document.querySelector(`[data-frag-id="${item.fragment.id}"][data-source="${item.source}"]`);
-    if (card) card.classList.add(result.success ? 'placed' : 'compat-fail');
+    if (!card) return;
+    if (!result.success) {
+      card.classList.add('compat-fail');
+    } else if (!result.correctCombination) {
+      card.classList.add('wrong-combo');
+    } else {
+      card.classList.add('placed');
+    }
   });
 
   _cloningTotalScore += points;
@@ -1059,9 +1067,9 @@ function onLigationResult(e) {
   const resultTxt = document.getElementById('ligResultText');
   const resultScr = document.getElementById('ligResultScore');
 
-  resultScr.textContent = (result.success ? '+' : '+') + points + ' pts';
+  resultScr.textContent = '+' + points + ' pts';
 
-  if (result.success) {
+  if (result.success && result.correctCombination) {
     // Build recombinant plasmid and render it on the result canvas
     const vecFrag   = items.find(it => it.source === 'vector');
     const donorFrag = items.find(it => it.source === 'donor');
@@ -1089,8 +1097,15 @@ function onLigationResult(e) {
     document.getElementById('btnCloningNext').disabled =
       (_cloningLevelIdx >= _cloningLevels.length - 1);
 
+  } else if (result.success && !result.correctCombination) {
+    // Ends are compatible but wrong fragment combination — no points, allow retry
+    drawLinearResult(items, result.junctions);
+    resultTxt.innerHTML = '<strong style="color:var(--warn)">Wrong fragments!</strong> '
+      + (result.wrongComboReason || 'Ends are compatible but this is not a useful recombinant.')
+      + ' Clear the assembly and try again — no points awarded.';
+
   } else {
-    // Draw linear DNA representation on the result canvas
+    // Incompatible ends — ligation failed entirely
     drawLinearResult(items, result.junctions);
 
     const failedJunctions = result.junctions.filter(j => !j.compatible);

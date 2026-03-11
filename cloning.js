@@ -168,14 +168,51 @@ const CloningWorkspace = (function () {
             if (donorItem) orientationCorrect = donorItem.orientation === obj.correct_orientation;
         }
 
+        // Fragment combination check: must be vector backbone + donor insert
+        let correctCombination = true;
+        let wrongComboReason   = '';
+        if (allCompatible) {
+            const vectorItem = items.find(it => it.source === 'vector');
+            const donorItem  = items.find(it => it.source === 'donor');
+
+            if (!vectorItem || !donorItem) {
+                correctCombination = false;
+                wrongComboReason = vectorItem
+                    ? 'Two vector fragments — no donor insert included.'
+                    : 'Two donor fragments — no vector backbone included.';
+            } else {
+                // Vector fragment must be a backbone (contains ori or resistance marker)
+                const vectorIsBackbone = vectorItem.fragment.features.some(
+                    f => f.type === 'ori' || f.type === 'resistance'
+                );
+                // Donor fragment must contain the target gene (if specified)
+                const targetGene = (obj.correct_fragment || '').toLowerCase();
+                const donorHasInsert = !targetGene || donorItem.fragment.features.some(
+                    f => f.name.toLowerCase().includes(targetGene)
+                );
+
+                if (!vectorIsBackbone) {
+                    correctCombination = false;
+                    wrongComboReason = 'Vector fragment is not the backbone — it lacks ori/resistance. Use the large vector fragment.';
+                } else if (!donorHasInsert) {
+                    correctCombination = false;
+                    wrongComboReason = `Donor fragment does not contain the target gene (${obj.correct_fragment}). Pick the correct donor fragment.`;
+                }
+            }
+        }
+
         let points = 0;
         if (allCompatible) {
-            points = orientationCorrect ? 100 : 40;
-            _ws.state = 'done';
+            if (correctCombination) {
+                points = orientationCorrect ? 100 : 40;
+                _ws.state = 'done';
+            }
+            // Wrong combination: ends are compatible but biology is wrong — no points, allow retry
             _ws.levelScore += points;
         }
 
-        const result = { success: allCompatible, isCircular: allCompatible, junctions, orientationCorrect, points };
+        const result = { success: allCompatible, isCircular: allCompatible, junctions,
+                         orientationCorrect, correctCombination, wrongComboReason, points };
         _emit('cloning:ligationResult', { result, items, points, ws: _ws });
         return result;
     }
