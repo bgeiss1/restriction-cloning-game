@@ -170,40 +170,38 @@
     #cloningLevelBar .level-teach { color: var(--accent2); font-style: italic; }
     #cloningNavBtns { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
 
-    /* Two-column plasmid area */
+    /* ------------------------------------------------------------------ */
+    /* Three-column layout                                                  */
+    /* ------------------------------------------------------------------ */
     .cloning-main {
-      display: flex; gap: 0; flex: 1; overflow: hidden; min-height: 0;
+      display: flex; flex: 1; overflow: hidden; min-height: 0;
     }
 
+    /* ---- Outer plasmid columns ---- */
     .plasmid-col {
       flex: 1; display: flex; flex-direction: column;
       align-items: center; padding: 10px 12px 8px;
-      border-right: 1px solid var(--border); overflow: hidden;
+      border-right: 1px solid var(--border);
+      overflow-y: auto; overflow-x: hidden; min-width: 0;
     }
-    .plasmid-col:last-child { border-right: none; }
-
     .plasmid-col-label {
       font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
-      color: var(--text-muted); margin-bottom: 6px; align-self: flex-start;
+      color: var(--text-muted); margin-bottom: 4px; align-self: flex-start;
     }
     .plasmid-name {
       font-size: 0.9rem; font-weight: 600; color: var(--accent);
       margin-bottom: 6px; align-self: flex-start;
     }
-
     .canvas-wrap {
-      position: relative; flex: 1; display: flex;
-      align-items: center; justify-content: center;
-      overflow: hidden; width: 100%;
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      width: 100%; max-height: 320px;
     }
     .canvas-wrap canvas {
       max-width: 100%; max-height: 100%;
       background: #131e2d; border-radius: 8px;
     }
 
-    /* (drop-overlay removed — vector now uses animateDigest like the donor) */
-
-    /* Enzyme picker row */
+    /* Enzyme picker */
     .enzyme-picker-row {
       display: flex; gap: 6px; align-items: center;
       margin-top: 8px; flex-wrap: wrap; width: 100%;
@@ -229,193 +227,162 @@
       display: flex; gap: 8px; margin-top: 8px; width: 100%;
       justify-content: flex-start; align-items: center; flex-wrap: wrap;
     }
-    .col-actions .cut-status {
-      font-size: 11px; color: var(--text-muted); margin-left: 4px;
-    }
+    .col-actions .cut-status { font-size: 11px; color: var(--text-muted); }
     .col-actions .cut-status.done { color: var(--success); }
 
-    /* ------------------------------------------------------------------ */
-    /* Fragment tray                                                        */
-    /* ------------------------------------------------------------------ */
-    #fragmentTray {
-      background: var(--bg-mid); border-top: 1px solid var(--border);
-      padding: 6px 12px; flex-shrink: 0; min-height: 90px; max-height: 130px;
-      display: flex; align-items: stretch; gap: 0;
-      overflow-x: auto; overflow-y: hidden;
+    /* In-column fragment section (revealed after cut) */
+    .col-frag-section {
+      width: 100%; margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid var(--border); flex-shrink: 0;
     }
-    .frag-tray-section {
-      display: flex; flex-direction: column; gap: 2px;
-      border-right: 1px solid var(--border); padding: 4px 10px 4px 6px;
-      min-width: 0;
+    .col-frag-label {
+      font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-muted); margin-bottom: 6px;
     }
-    .tray-section-label {
-      font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em;
-      color: var(--text-muted); white-space: nowrap;
-    }
-    .frag-card-row {
-      display: flex; gap: 8px; align-items: center; flex: 1;
-      overflow-x: auto;
+    .col-frag-cards {
+      display: flex; flex-direction: column; gap: 6px;
     }
 
     /* Fragment card */
     .fragment-card {
       background: var(--bg-dark); border: 1.5px solid var(--border);
-      border-radius: 8px; padding: 8px 10px; cursor: grab;
-      min-width: 130px; max-width: 180px; flex-shrink: 0;
-      user-select: none; transition: box-shadow 0.15s, border-color 0.15s;
-      position: relative;
+      border-radius: 8px; padding: 7px 10px; cursor: grab;
+      width: 100%; user-select: none;
+      transition: box-shadow 0.15s, border-color 0.15s;
     }
     .fragment-card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(79,195,247,0.25); }
     .fragment-card.dragging { opacity: 0.5; cursor: grabbing; }
-    .fragment-card.trashed { opacity: 0.35; pointer-events: none; }
-    .fragment-card.placed  { border-color: var(--success); opacity: 0.5; pointer-events: none; }
-
+    .fragment-card.trashed  { opacity: 0.3; pointer-events: none; text-decoration: line-through; }
+    .fragment-card.placed   { border-color: var(--success); opacity: 0.5; pointer-events: none; }
     .fragment-card-name {
       font-size: 11px; font-weight: 700; color: var(--text-main);
-      margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .fragment-ends {
       display: flex; justify-content: space-between; align-items: center;
-      font-size: 9px; font-family: var(--font-mono);
-      margin-bottom: 4px;
+      font-size: 9px; font-family: var(--font-mono); margin-bottom: 3px;
     }
     .end-tag {
       padding: 1px 5px; border-radius: 3px; background: var(--bg-light);
       color: var(--warn); border: 1px solid var(--border);
     }
     .fragment-size {
-      text-align: center; font-size: 10px; color: var(--text-muted);
-      font-family: var(--font-mono);
+      font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
     }
-    .fragment-features {
-      display: flex; gap: 3px; margin-top: 4px; flex-wrap: wrap;
-    }
-    .feature-dot {
-      width: 8px; height: 8px; border-radius: 2px;
-      title-content: attr(title);
-    }
-    .orient-row {
-      display: flex; gap: 4px; margin-top: 6px;
-    }
-    .orient-btn {
-      flex: 1; font-size: 10px; padding: 2px 0;
-      border-radius: 4px; cursor: pointer; text-align: center;
-      background: var(--bg-mid); border: 1px solid var(--border); color: var(--text-muted);
-      transition: background 0.15s;
-    }
-    .orient-btn.active { background: var(--accent); color: #0D1B2A; border-color: var(--accent); font-weight: 700; }
-    .orient-btn:hover:not(.active) { border-color: var(--accent); }
+    .fragment-features { display: flex; gap: 3px; margin-top: 4px; flex-wrap: wrap; }
+    .feature-dot { width: 8px; height: 8px; border-radius: 2px; }
 
-    /* Trash can */
-    #trashCan {
-      width: 72px; height: 90px; flex-shrink: 0;
-      border: 2px dashed var(--border); border-radius: 10px;
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; font-size: 28px; cursor: default;
-      transition: border-color 0.2s, background 0.2s;
-      color: var(--text-muted);
+    /* ---- Center ligation column ---- */
+    .ligation-col {
+      flex: 0 0 220px; display: flex; flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: #0f1a28; overflow: hidden;
     }
-    #trashCan.dragover { border-color: var(--danger); background: rgba(239,83,80,0.12); }
-    #trashCan .trash-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-top: 2px; }
+    .lig-col-title {
+      background: var(--bg-mid); border-bottom: 1px solid var(--border);
+      padding: 7px 10px; font-size: 11px; font-weight: 700;
+      color: var(--accent); text-align: center; flex-shrink: 0;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .lig-col-hint {
+      font-size: 10px; color: var(--text-muted); padding: 5px 10px;
+      text-align: center; font-style: italic; flex-shrink: 0;
+      border-bottom: 1px solid var(--border); background: #131e2d;
+    }
 
-    /* ------------------------------------------------------------------ */
-    /* Ligation assembly panel                                              */
-    /* ------------------------------------------------------------------ */
-    #ligationPanel {
-      background: #131e2d; border-top: 1px solid var(--border);
-      flex-shrink: 0; display: flex; flex-direction: column;
-    }
-    .ligation-header {
-      display: flex; align-items: center; gap: 10px;
-      padding: 6px 14px; border-bottom: 1px solid var(--border);
-      background: var(--bg-mid);
-    }
-    .ligation-title { font-size: 12px; font-weight: 700; color: var(--accent); white-space: nowrap; }
-    .ligation-hint  { font-size: 11px; color: var(--text-muted); }
-
+    /* Drop zone — fills available space */
     #ligDropZone {
-      padding: 8px 14px; min-height: 64px;
-      transition: background 0.2s;
+      flex: 1; padding: 10px 8px; overflow-y: auto;
+      transition: background 0.2s, box-shadow 0.2s;
+      cursor: default; min-height: 60px;
     }
-    #ligDropZone.dragover { background: rgba(79,195,247,0.07); }
-
+    #ligDropZone.dragover {
+      background: rgba(79,195,247,0.08);
+      box-shadow: inset 0 0 0 2px rgba(79,195,247,0.35);
+    }
     #ligAssembly {
-      display: flex; align-items: center; gap: 0; flex-wrap: nowrap;
-      min-height: 48px;
+      display: flex; flex-direction: column; gap: 4px; min-height: 100%;
     }
     .lig-drop-hint {
-      font-size: 11px; color: var(--text-muted); font-style: italic; padding: 4px 8px;
+      font-size: 11px; color: var(--text-muted); font-style: italic;
+      padding: 12px 8px; text-align: center;
     }
 
-    /* A single fragment in the ligation assembly */
+    /* Ligation slot (one per fragment in assembly) */
     .lig-slot {
-      display: flex; align-items: center; gap: 0;
-      background: var(--bg-mid); border: 1.5px solid var(--border);
-      border-radius: 8px; padding: 4px 6px 4px 8px;
-      flex-shrink: 0; position: relative;
-      transition: border-color 0.2s;
+      width: 100%; background: var(--bg-mid); border: 1.5px solid var(--border);
+      border-radius: 7px; padding: 5px 7px;
+      transition: border-color 0.2s; box-sizing: border-box;
     }
-    .lig-slot.compat-ok  { border-color: var(--success); }
-    .lig-slot.compat-fail{ border-color: var(--danger); }
-
-    .lig-slot-ends {
-      display: flex; flex-direction: column; gap: 2px;
-      font-size: 9px; font-family: var(--font-mono);
+    .lig-slot.compat-ok   { border-color: var(--success); }
+    .lig-slot.compat-fail { border-color: var(--danger); }
+    .lig-slot-row1 {
+      display: flex; align-items: center; gap: 4px;
     }
     .lig-slot-name {
-      font-size: 11px; font-weight: 700; color: var(--text-main);
-      padding: 0 8px; max-width: 100px;
+      flex: 1; font-size: 11px; font-weight: 700; color: var(--text-main);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .lig-slot-source {
-      font-size: 9px; color: var(--text-muted); padding: 0 6px; text-transform: uppercase;
-    }
+    .lig-slot-source { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
     .lig-orient-btn {
       background: var(--bg-light); border: 1px solid var(--border); border-radius: 4px;
-      padding: 1px 6px; font-size: 11px; cursor: pointer; color: var(--text-muted);
-      transition: background 0.15s;
+      padding: 1px 6px; font-size: 12px; cursor: pointer; color: var(--text-muted);
+      flex-shrink: 0;
     }
     .lig-orient-btn.fwd { color: var(--accent2); border-color: var(--accent2); }
     .lig-orient-btn.rev { color: var(--warn);    border-color: var(--warn); }
     .lig-remove {
-      font-size: 14px; cursor: pointer; color: var(--text-muted);
-      padding: 0 2px 0 6px; line-height: 1;
+      font-size: 15px; cursor: pointer; color: var(--text-muted);
+      padding: 0 2px; line-height: 1; flex-shrink: 0;
     }
     .lig-remove:hover { color: var(--danger); }
+    .lig-slot-row2 {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 3px;
+    }
 
-    /* Arrow / junction connector between slots */
+    /* Junction between slots */
     .lig-junction {
-      display: flex; flex-direction: column; align-items: center;
-      padding: 0 4px; font-size: 18px; color: var(--text-muted);
-      flex-shrink: 0; gap: 2px;
+      text-align: center; font-size: 13px; color: var(--text-muted);
+      flex-shrink: 0; padding: 0;
     }
     .lig-junction.ok   { color: var(--success); }
     .lig-junction.fail { color: var(--danger); }
     .lig-junction-label {
-      font-size: 8px; font-family: var(--font-mono);
-      color: var(--text-muted); text-align: center; white-space: nowrap;
+      font-size: 8px; font-family: var(--font-mono); color: inherit;
+      display: block; text-align: center;
     }
-    .lig-junction.ok   .lig-junction-label { color: var(--success); }
-    .lig-junction.fail .lig-junction-label { color: var(--danger); }
-
-    /* Wrap-around indicator (last→first junction) */
-    .lig-wrap {
-      display: flex; flex-direction: column; align-items: center;
-      padding: 0 4px; font-size: 13px; color: var(--text-muted); flex-shrink: 0;
-      gap: 2px;
-    }
+    .lig-wrap { text-align: center; font-size: 12px; color: var(--text-muted); padding: 2px 0; }
     .lig-wrap.ok   { color: var(--success); }
     .lig-wrap.fail { color: var(--danger); }
 
+    /* Ligation action buttons */
+    .lig-col-actions {
+      display: flex; gap: 6px; padding: 7px 8px; flex-shrink: 0;
+      background: var(--bg-mid); border-top: 1px solid var(--border);
+    }
+
     /* Ligation result */
     #ligResult {
-      display: flex; align-items: center; gap: 16px;
-      padding: 8px 16px; background: var(--bg-mid);
-      border-top: 1px solid var(--border);
+      flex-shrink: 0; padding: 8px; border-top: 1px solid var(--border);
+      background: var(--bg-mid); display: flex; flex-direction: column;
+      align-items: center; gap: 6px; font-size: 11px;
     }
-    #ligResultCanvas { border-radius: 8px; background: #131e2d; flex-shrink: 0; }
-    #ligResultText  { flex: 1; font-size: 12px; }
-    #ligResultScore { font-family: var(--font-mono); font-size: 1.2rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+    #ligResultCanvas { border-radius: 8px; background: #131e2d; }
+    #ligResultText   { text-align: center; line-height: 1.5; }
+    #ligResultScore  { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+
+    /* Trash can (bottom of ligation col) */
+    #trashCan {
+      flex-shrink: 0; margin: 6px auto;
+      width: 64px; height: 58px;
+      border: 2px dashed var(--border); border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; font-size: 22px; cursor: default;
+      transition: border-color 0.2s, background 0.2s; color: var(--text-muted);
+    }
+    #trashCan.dragover { border-color: var(--danger); background: rgba(239,83,80,0.12); }
+    #trashCan .trash-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
 
     /* ------------------------------------------------------------------ */
     /* Cloning log                                                          */
@@ -567,14 +534,14 @@
     </div>
   </div>
 
-  <!-- Two-column plasmid workspace -->
+  <!-- Three-column workspace: vector | ligation zone | donor -->
   <div class="cloning-main">
 
     <!-- VECTOR column -->
-    <div class="plasmid-col">
+    <div class="plasmid-col" id="vectorCol">
       <div class="plasmid-col-label">Vector</div>
       <div class="plasmid-name" id="vectorName">pUC19</div>
-      <div class="canvas-wrap" id="vectorCanvasWrap">
+      <div class="canvas-wrap">
         <canvas id="vectorCanvas" width="420" height="420"></canvas>
       </div>
       <div class="enzyme-picker-row">
@@ -586,13 +553,56 @@
         <button class="primary" id="btnCutVector">✂ Cut Vector</button>
         <span class="cut-status" id="vectorCutStatus"></span>
       </div>
+      <!-- Fragment cards appear here after cutting -->
+      <div class="col-frag-section" id="vectorFragSection" style="display:none">
+        <div class="col-frag-label">Fragments — drag to ligation zone &#x2192;</div>
+        <div class="col-frag-cards" id="vectorFragContainer"></div>
+      </div>
+    </div>
+
+    <!-- LIGATION ZONE column (center) -->
+    <div class="ligation-col">
+      <div class="lig-col-title">&#x2295; Ligation Zone</div>
+      <div class="lig-col-hint" id="ligHint">Cut both plasmids, then drag fragments here</div>
+
+      <!-- Large drop target -->
+      <div id="ligDropZone"
+           ondragover="handleLigDragOver(event)"
+           ondragleave="handleLigDragLeave(event)"
+           ondrop="handleLigDrop(event)">
+        <div id="ligAssembly">
+          <span class="lig-drop-hint">drag fragments here</span>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="lig-col-actions">
+        <button id="btnClearLig" style="flex:1">Clear</button>
+        <button class="primary" id="btnLigate" disabled style="flex:1">&#x2295; Ligate!</button>
+      </div>
+
+      <!-- Result panel -->
+      <div id="ligResult" style="display:none">
+        <canvas id="ligResultCanvas" width="190" height="190"></canvas>
+        <div id="ligResultText"></div>
+        <div id="ligResultScore"></div>
+      </div>
+
+      <!-- Trash -->
+      <div id="trashCan"
+           ondragover="handleTrashDragOver(event)"
+           ondragleave="handleTrashDragLeave(event)"
+           ondrop="handleTrashDrop(event)">
+        &#x1F5D1;
+        <div class="trash-label">Trash</div>
+      </div>
     </div>
 
     <!-- DONOR column -->
-    <div class="plasmid-col">
+    <div class="plasmid-col" id="donorCol" style="border-right:none">
       <div class="plasmid-col-label">Donor Plasmid</div>
       <div class="plasmid-name" id="donorName"></div>
-      <div class="canvas-wrap" id="donorCanvasWrap">
+      <div class="canvas-wrap">
         <canvas id="donorCanvas" width="420" height="420"></canvas>
       </div>
       <div class="enzyme-picker-row">
@@ -604,60 +614,14 @@
         <button class="primary" id="btnCutDonor">✂ Cut Donor</button>
         <span class="cut-status" id="donorCutStatus"></span>
       </div>
+      <!-- Fragment cards appear here after cutting -->
+      <div class="col-frag-section" id="donorFragSection" style="display:none">
+        <div class="col-frag-label">&#x2190; Fragments — drag to ligation zone</div>
+        <div class="col-frag-cards" id="donorFragContainer"></div>
+      </div>
     </div>
 
   </div><!-- end cloning-main -->
-
-  <!-- Fragment trays: one section per plasmid, revealed after cutting -->
-  <div id="fragmentTray">
-    <!-- Vector fragments -->
-    <div class="frag-tray-section" id="vectorFragSection" style="display:none">
-      <span class="tray-section-label">Vector</span>
-      <div class="frag-card-row" id="vectorFragContainer"></div>
-    </div>
-    <!-- Donor fragments -->
-    <div class="frag-tray-section" id="donorFragSection" style="display:none">
-      <span class="tray-section-label">Donor</span>
-      <div class="frag-card-row" id="donorFragContainer"></div>
-    </div>
-    <!-- Trash -->
-    <div id="trashCan"
-         ondragover="handleTrashDragOver(event)"
-         ondragleave="handleTrashDragLeave(event)"
-         ondrop="handleTrashDrop(event)">
-      &#x1F5D1;
-      <div class="trash-label">Trash</div>
-    </div>
-  </div>
-
-  <!-- Ligation assembly panel -->
-  <div id="ligationPanel">
-    <div class="ligation-header">
-      <span class="ligation-title">&#x1F9EC; Ligation Assembly</span>
-      <span class="ligation-hint" id="ligHint">Cut both plasmids, then drag fragments here</span>
-      <div style="display:flex;gap:8px;margin-left:auto">
-        <button id="btnClearLig">Clear</button>
-        <button class="primary" id="btnLigate" disabled>&#x2295; Ligate!</button>
-      </div>
-    </div>
-
-    <!-- Drop zone that holds the ordered fragment slots -->
-    <div id="ligDropZone"
-         ondragover="handleLigDragOver(event)"
-         ondragleave="handleLigDragLeave(event)"
-         ondrop="handleLigDrop(event)">
-      <div id="ligAssembly">
-        <span id="ligDropHint" class="lig-drop-hint">drag fragments here to assemble</span>
-      </div>
-    </div>
-
-    <!-- Result: circular canvas OR linear bar -->
-    <div id="ligResult" style="display:none">
-      <canvas id="ligResultCanvas" width="180" height="180"></canvas>
-      <div id="ligResultText"></div>
-      <div id="ligResultScore"></div>
-    </div>
-  </div>
 
   <!-- Log -->
   <div id="cloningLog"></div>
@@ -994,11 +958,11 @@ function loadCloningLevel(idx) {
   document.getElementById('vectorCutStatus').textContent = '';
   document.getElementById('donorCutStatus').textContent  = '';
 
-  // Reset fragment trays
-  document.getElementById('vectorFragSection').style.display = 'none';
-  document.getElementById('donorFragSection').style.display  = 'none';
-  document.getElementById('vectorFragContainer').innerHTML   = '';
-  document.getElementById('donorFragContainer').innerHTML    = '';
+  // Reset fragment sections
+  const vfs = document.getElementById('vectorFragSection');
+  const dfs = document.getElementById('donorFragSection');
+  vfs.style.display = 'none'; vfs.innerHTML = '';
+  dfs.style.display = 'none'; dfs.innerHTML = '';
 
   // Reset ligation panel
   _ligationItems = [];
@@ -1040,15 +1004,16 @@ function onVectorCut(e) {
   document.getElementById('vectorCutStatus').textContent = '✓ ' + fragments.length + ' fragment(s)';
   document.getElementById('vectorCutStatus').className   = 'cut-status done';
 
+  // Show section before animateDigest so getBoundingClientRect returns real coords
   const trayEl = document.getElementById('vectorFragSection');
+  trayEl.style.display = 'block';
+  trayEl.innerHTML = '<div class="col-frag-label">Fragments — drag to ligation zone &#x2192;</div><div class="col-frag-cards" id="vectorFragContainer" style="min-height:40px"></div>';
 
-  // Cut animation, then explode fragments into the vector tray
   _vectorRenderer.renderCutAnimation(names[0], sites[0].topStrandCut, () => {
     _vectorRenderer.animateDigest(fragments, trayEl, () => {
-      document.getElementById('vectorFragSection').style.display = 'flex';
       buildFragmentCards('vector', fragments);
       updateLigHint();
-      clog(fragments.length + ' vector fragment(s) in tray.', 'success');
+      clog(fragments.length + ' vector fragment(s) — drag to ligation zone.', 'success');
     });
   });
 
@@ -1061,12 +1026,13 @@ function onDonorCut(e) {
   document.getElementById('donorCutStatus').className   = 'cut-status done';
 
   const trayEl = document.getElementById('donorFragSection');
+  trayEl.style.display = 'block';
+  trayEl.innerHTML = '<div class="col-frag-label">&#x2190; Fragments — drag to ligation zone</div><div class="col-frag-cards" id="donorFragContainer" style="min-height:40px"></div>';
 
   _donorRenderer.animateDigest(fragments, trayEl, () => {
-    document.getElementById('donorFragSection').style.display = 'flex';
     buildFragmentCards('donor', fragments);
     updateLigHint();
-    clog(fragments.length + ' donor fragment(s) in tray.', 'success');
+    clog(fragments.length + ' donor fragment(s) — drag to ligation zone.', 'success');
   });
 
   clog('Donor digested into ' + fragments.length + ' fragment(s).', 'success');
@@ -1319,13 +1285,13 @@ function handleTrashDrop(e) {
 }
 
 // ---------------------------------------------------------------------------
-// Ligation assembly panel
+// Ligation assembly panel (vertical column layout)
 // ---------------------------------------------------------------------------
 function renderLigationAssembly(junctions) {
   const assembly = document.getElementById('ligAssembly');
 
   if (_ligationItems.length === 0) {
-    assembly.innerHTML = '<span id="ligDropHint" class="lig-drop-hint">drag fragments here to assemble</span>';
+    assembly.innerHTML = '<span class="lig-drop-hint">drag fragments here</span>';
     return;
   }
 
@@ -1335,63 +1301,40 @@ function renderLigationAssembly(junctions) {
     const frag  = item.fragment;
     const color = frag.features.length > 0
       ? featureColor(frag.features[0]) : FEATURE_COLORS.default;
-    const name  = frag.features.map(f => f.name).join(',') || (item.source === 'vector' ? 'Backbone' : 'Fragment');
+    const name  = frag.features.map(f => f.name).join(', ') || (item.source === 'vector' ? 'Backbone' : 'Fragment');
 
-    // Compute displayed ends based on current orientation
     const leftEnd  = item.orientation === 'forward' ? frag.leftEnd  : { enzyme: frag.rightEnd.enzyme };
     const rightEnd = item.orientation === 'forward' ? frag.rightEnd : { enzyme: frag.leftEnd.enzyme };
 
-    // Junction compatibility for this slot (set after ligate)
-    const junc   = junctions ? junctions[i] : null;  // junction before this slot (from previous slot's right)
-    const juncOk = junc ? junc.compatible : null;
-
-    // Wrap junction (from last slot's right → this slot's left) — only for first slot
-    if (i === 0 && junctions) {
-      const wrapJunc = junctions[junctions.length - 1];
-      const wrap = document.createElement('div');
-      wrap.className = 'lig-wrap' + (wrapJunc.compatible ? ' ok' : ' fail');
-      wrap.innerHTML = wrapJunc.compatible ? '↺' : '↺';
-      wrap.title = wrapJunc.compatible ? 'Circular — ends join' : 'Gap — ends incompatible';
-      assembly.appendChild(wrap);
-    }
-
-    // Junction connector between slots
-    if (i > 0 && junctions) {
-      const prevJunc = junctions[i - 1];
+    // Junction above this slot (between item[i-1].right → item[i].left)
+    if (i > 0) {
+      const prevJunc = junctions ? junctions[i - 1] : null;
       const jDiv = document.createElement('div');
-      jDiv.className = 'lig-junction' + (prevJunc.compatible ? ' ok' : ' fail');
-      jDiv.innerHTML = prevJunc.compatible ? '—' : '✗';
-      const jLabel = document.createElement('div');
-      jLabel.className = 'lig-junction-label';
-      jLabel.textContent = prevJunc.compatible ? 'ok' : prevJunc.note?.slice(0, 14) || 'incompatible';
-      jDiv.appendChild(jLabel);
-      assembly.appendChild(jDiv);
-    } else if (i > 0) {
-      const jDiv = document.createElement('div');
-      jDiv.className = 'lig-junction';
-      jDiv.textContent = '—';
+      jDiv.className = 'lig-junction' + (prevJunc ? (prevJunc.compatible ? ' ok' : ' fail') : '');
+      if (prevJunc) {
+        jDiv.innerHTML = (prevJunc.compatible ? '✓' : '✗')
+          + `<span class="lig-junction-label">${prevJunc.compatible ? 'compatible' : (prevJunc.note?.slice(0,18) || 'incompatible')}</span>`;
+      } else {
+        jDiv.textContent = '·';
+      }
       assembly.appendChild(jDiv);
     }
 
-    // Fragment slot
+    // Slot card
     const slot = document.createElement('div');
     slot.className = 'lig-slot';
-    if (juncOk === true)  slot.classList.add('compat-ok');
-    if (juncOk === false) slot.classList.add('compat-fail');
-    slot.style.borderTopColor = color;
+    slot.style.borderLeftColor = color;
+    slot.style.borderLeftWidth = '3px';
 
-    // Left end tag
-    const leftTag = document.createElement('div');
-    leftTag.className = 'lig-slot-ends';
-    leftTag.innerHTML = `<span class="end-tag" style="font-size:8px">${leftEnd.enzyme || 'blunt'}</span>`;
+    // Row 1: name + orientation + remove
+    const row1 = document.createElement('div');
+    row1.className = 'lig-slot-row1';
 
-    // Name + source badge
-    const nameDiv = document.createElement('div');
-    nameDiv.innerHTML =
-      `<div class="lig-slot-name" title="${name}">${name}</div>` +
-      `<div class="lig-slot-source">${item.source} · ${(frag.size/1000).toFixed(1)} kb</div>`;
+    const nameEl = document.createElement('div');
+    nameEl.className = 'lig-slot-name';
+    nameEl.title = name;
+    nameEl.textContent = name;
 
-    // Orientation toggle
     const oriBtn = document.createElement('button');
     oriBtn.className = 'lig-orient-btn ' + (item.orientation === 'forward' ? 'fwd' : 'rev');
     oriBtn.textContent = item.orientation === 'forward' ? '→' : '←';
@@ -1401,16 +1344,9 @@ function renderLigationAssembly(junctions) {
       renderLigationAssembly();
     });
 
-    // Right end tag
-    const rightTag = document.createElement('div');
-    rightTag.className = 'lig-slot-ends';
-    rightTag.innerHTML = `<span class="end-tag" style="font-size:8px">${rightEnd.enzyme || 'blunt'}</span>`;
-
-    // Remove button
     const rmBtn = document.createElement('span');
     rmBtn.className = 'lig-remove';
     rmBtn.textContent = '×';
-    rmBtn.title = 'Remove from assembly';
     rmBtn.addEventListener('click', () => {
       _ligationItems.splice(i, 1);
       renderLigationAssembly();
@@ -1418,13 +1354,31 @@ function renderLigationAssembly(junctions) {
       document.getElementById('ligResult').style.display = 'none';
     });
 
-    slot.appendChild(leftTag);
-    slot.appendChild(nameDiv);
-    slot.appendChild(oriBtn);
-    slot.appendChild(rightTag);
-    slot.appendChild(rmBtn);
+    row1.appendChild(nameEl);
+    row1.appendChild(oriBtn);
+    row1.appendChild(rmBtn);
+
+    // Row 2: end tags + source/size
+    const row2 = document.createElement('div');
+    row2.className = 'lig-slot-row2';
+    row2.innerHTML =
+      `<span class="end-tag" style="font-size:8px">${leftEnd.enzyme || 'blunt'}</span>` +
+      `<span class="lig-slot-source">${item.source} · ${(frag.size/1000).toFixed(1)} kb</span>` +
+      `<span class="end-tag" style="font-size:8px">${rightEnd.enzyme || 'blunt'}</span>`;
+
+    slot.appendChild(row1);
+    slot.appendChild(row2);
     assembly.appendChild(slot);
   });
+
+  // Wrap-around junction (last → first), shown at bottom
+  if (junctions && _ligationItems.length > 1) {
+    const wrapJunc = junctions[junctions.length - 1];
+    const wDiv = document.createElement('div');
+    wDiv.className = 'lig-wrap' + (wrapJunc.compatible ? ' ok' : ' fail');
+    wDiv.innerHTML = (wrapJunc.compatible ? '↺ closes to circular' : '↺ gap — ends incompatible');
+    assembly.appendChild(wDiv);
+  }
 }
 
 function ligateAssembly() {

@@ -794,9 +794,11 @@ PlasmidRenderer.prototype.animateDigest = function(fragments, trayEl, onComplete
     // Target positions — spread out horizontally in the tray
     const trayRect  = trayEl.getBoundingClientRect();
     const canvRect  = this.canvas.getBoundingClientRect();
-    const trayRelY  = trayRect.top - canvRect.top + trayRect.height * 0.5;
-    const trayRelX0 = trayRect.left - canvRect.left;
-    const trayW     = trayRect.width;
+    // Scale CSS pixel offsets to canvas buffer coordinates
+    const cssScale  = this.canvas.width / (canvRect.width || this.canvas.width);
+    const trayRelY  = (trayRect.top  - canvRect.top  + trayRect.height * 0.5) * cssScale;
+    const trayRelX0 = (trayRect.left - canvRect.left) * cssScale;
+    const trayW     = Math.max(trayRect.width, 60) * cssScale;
     const n = fragments.length;
 
     const targets = fragments.map((f, i) => ({
