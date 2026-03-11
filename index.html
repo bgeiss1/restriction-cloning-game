@@ -948,6 +948,8 @@ function initCloningWorkspace() {
   const dCanvas = document.getElementById('donorCanvas');
   _vectorRenderer = new PlasmidRenderer(vCanvas, Game.pUC19);
   _donorRenderer  = new PlasmidRenderer(dCanvas, Game.pUC19); // placeholder
+  _vectorRenderer.rsAngleOffset =  30 * Math.PI / 180;  //  30° CW
+  _donorRenderer.rsAngleOffset  = -20 * Math.PI / 180;  // -20° CCW
 
   // Populate enzyme dropdowns
   populateEnzymeSelect('vectorEnzymeSelect');

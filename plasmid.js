@@ -160,6 +160,7 @@ class PlasmidRenderer {
         this._clickCallbacks     = [];
         this._cutAnimState       = null;   // used during cut animation
         this._restrictionSites   = [];     // last rendered sites
+        this.rsAngleOffset       = 0;      // radians to rotate restriction site display
 
         // Bind click handler
         this.canvas.addEventListener('click', (e) => this._handleClick(e));
@@ -422,8 +423,6 @@ class PlasmidRenderer {
         const enzymeColorMap = {};
         let colorIdx = 0;
 
-        const RS_OFFSET = 30 * Math.PI / 180;  // shift all sites 30° clockwise
-
         const sites = this._restrictionSites.map(site => {
             const name = site.enzymeName || site.enzyme;
             if (!enzymeColorMap[name]) {
@@ -432,7 +431,7 @@ class PlasmidRenderer {
             return {
                 site,
                 name,
-                angle: this._bpToAngle(site.topStrandCut) + RS_OFFSET,
+                angle: this._bpToAngle(site.topStrandCut) + this.rsAngleOffset,
                 color: enzymeColorMap[name],
             };
         }).sort((a, b) => a.angle - b.angle);
