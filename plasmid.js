@@ -275,8 +275,8 @@ class PlasmidRenderer {
         const featureR = outerRadius + featureWidth * 0.3;
 
         for (const feature of this.plasmid.features) {
-            // lacZ is hidden — its region is implied by the MCS
-            if (feature.type === 'lacZ') continue;
+            // lacZ and MCS hidden from map
+            if (feature.type === 'lacZ' || feature.type === 'mcs') continue;
 
             const startAngle = this._bpToAngle(feature.start);
             const endAngle   = this._bpToAngle(feature.end + 1);
