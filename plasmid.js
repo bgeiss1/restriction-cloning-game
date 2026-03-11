@@ -375,7 +375,7 @@ class PlasmidRenderer {
         const enzymeColorMap = {};
         let colorIdx = 0;
 
-        const RS_OFFSET = 20 * Math.PI / 180;  // shift all sites 20° clockwise
+        const RS_OFFSET = 30 * Math.PI / 180;  // shift all sites 30° clockwise
 
         const sites = this._restrictionSites.map(site => {
             const name = site.enzymeName || site.enzyme;
