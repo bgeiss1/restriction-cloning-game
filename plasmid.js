@@ -276,8 +276,49 @@ class PlasmidRenderer {
         const featureR = outerRadius + featureWidth * 0.3;
 
         for (const feature of this.plasmid.features) {
-            // lacZ and MCS hidden from map
-            if (feature.type === 'lacZ' || feature.type === 'mcs') continue;
+            // MCS hidden from map
+            if (feature.type === 'mcs') continue;
+
+            // lacZ: draw only a promoter symbol, no arc or label
+            if (feature.type === 'lacZ') {
+                const startAngle = this._bpToAngle(feature.start);
+                const endAngle   = this._bpToAngle(feature.end + 1);
+                const color      = featureColor(feature);
+                const promAngle  = feature.strand === 1 ? startAngle : endAngle;
+                const pcos = Math.cos(promAngle);
+                const psin = Math.sin(promAngle);
+                const dir  = feature.strand === 1 ? 1 : -1;
+                const stemLen  = featureWidth * 0.8;
+                const armLen   = featureWidth * 0.9;
+                const headLen  = featureWidth * 0.2;
+                const headHalf = featureWidth * 0.11;
+                const stemBaseX = cx + outerRadius * pcos;
+                const stemBaseY = cy + outerRadius * psin;
+                const stemTipX  = cx + (outerRadius + stemLen) * pcos;
+                const stemTipY  = cy + (outerRadius + stemLen) * psin;
+                const tangX = -psin * dir;
+                const tangY =  pcos * dir;
+                const armEndX = stemTipX + tangX * armLen;
+                const armEndY = stemTipY + tangY * armLen;
+                ctx.beginPath();
+                ctx.moveTo(stemBaseX, stemBaseY);
+                ctx.lineTo(stemTipX, stemTipY);
+                ctx.lineTo(armEndX, armEndY);
+                ctx.strokeStyle = color;
+                ctx.lineWidth   = 1.8;
+                ctx.setLineDash([]);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(armEndX, armEndY);
+                ctx.lineTo(armEndX - tangX * headLen - tangY * headHalf,
+                           armEndY - tangY * headLen + tangX * headHalf);
+                ctx.lineTo(armEndX - tangX * headLen + tangY * headHalf,
+                           armEndY - tangY * headLen - tangX * headHalf);
+                ctx.closePath();
+                ctx.fillStyle = color;
+                ctx.fill();
+                continue;
+            }
 
             const startAngle = this._bpToAngle(feature.start);
             const endAngle   = this._bpToAngle(feature.end + 1);
@@ -327,10 +368,10 @@ class PlasmidRenderer {
                 const psin = Math.sin(promAngle);
                 const dir  = feature.strand === 1 ? 1 : -1;  // +1 CW, -1 CCW
 
-                const stemLen  = featureWidth * 4.0;
-                const armLen   = featureWidth * 4.5;
-                const headLen  = featureWidth * 1.0;
-                const headHalf = featureWidth * 0.55;
+                const stemLen  = featureWidth * 0.8;
+                const armLen   = featureWidth * 0.9;
+                const headLen  = featureWidth * 0.2;
+                const headHalf = featureWidth * 0.11;
 
                 // Stem: from outer ring outward
                 const stemBaseX = cx + outerRadius * pcos;
