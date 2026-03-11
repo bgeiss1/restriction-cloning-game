@@ -375,6 +375,8 @@ class PlasmidRenderer {
         const enzymeColorMap = {};
         let colorIdx = 0;
 
+        const RS_OFFSET = 20 * Math.PI / 180;  // shift all sites 20° clockwise
+
         const sites = this._restrictionSites.map(site => {
             const name = site.enzymeName || site.enzyme;
             if (!enzymeColorMap[name]) {
@@ -383,7 +385,7 @@ class PlasmidRenderer {
             return {
                 site,
                 name,
-                angle: this._bpToAngle(site.topStrandCut),
+                angle: this._bpToAngle(site.topStrandCut) + RS_OFFSET,
                 color: enzymeColorMap[name],
             };
         }).sort((a, b) => a.angle - b.angle);
