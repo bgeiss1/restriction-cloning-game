@@ -1041,6 +1041,8 @@ function onCloningLevelLoaded(e) {
   // Re-bind renderers
   _vectorRenderer.plasmid = CloningWorkspace.vectorPlasmid;
   _donorRenderer.plasmid  = CloningWorkspace.donorPlasmid;
+  _vectorRenderer._cutAnimState = null;
+  _donorRenderer._cutAnimState  = null;
   _vectorRenderer._computeLayout();
   _donorRenderer._computeLayout();
   _vectorRenderer.render(MCS_ENZYMES);

@@ -275,25 +275,33 @@ class PlasmidRenderer {
         const featureR = outerRadius + featureWidth * 0.3;
 
         for (const feature of this.plasmid.features) {
+            // lacZ is hidden — its region is implied by the MCS
+            if (feature.type === 'lacZ') continue;
+
             const startAngle = this._bpToAngle(feature.start);
             const endAngle   = this._bpToAngle(feature.end + 1);
             const color      = featureColor(feature);
             const isHL       = this._highlightedFeature === feature.name;
 
+            // MCS arc drawn further out so it overlaps the base of restriction site ticks
+            const arcR = feature.type === 'mcs'
+                ? outerRadius + featureWidth * 0.5
+                : featureR;
+
             // Feature arc
             ctx.beginPath();
-            ctx.arc(cx, cy, featureR, startAngle, endAngle, false);
+            ctx.arc(cx, cy, arcR, startAngle, endAngle, false);
             ctx.strokeStyle = isHL ? '#FFFFFF' : color;
             ctx.lineWidth   = featureWidth * (isHL ? 1.5 : 1);
             ctx.stroke();
 
-            // Directional arrow for genes, promoters, resistance markers, lacZ
-            const DIRECTIONAL = new Set(['gene', 'promoter', 'resistance', 'lacZ']);
+            // Directional arrow for genes, promoters, resistance markers
+            const DIRECTIONAL = new Set(['gene', 'promoter', 'resistance']);
             if (DIRECTIONAL.has(feature.type)) {
                 const arrowAngle = feature.strand === 1 ? endAngle : startAngle;
                 const arrowDir   = feature.strand === 1 ? 1 : -1;
-                const ax = cx + featureR * Math.cos(arrowAngle);
-                const ay = cy + featureR * Math.sin(arrowAngle);
+                const ax = cx + arcR * Math.cos(arrowAngle);
+                const ay = cy + arcR * Math.sin(arrowAngle);
                 const tangentAngle = arrowAngle + arrowDir * Math.PI / 2;
                 const arrowLen  = featureWidth * 0.8;
                 const arrowHalf = featureWidth * 0.4;
@@ -316,52 +324,30 @@ class PlasmidRenderer {
             const cos      = Math.cos(midAngle);
             const sin      = Math.sin(midAngle);
 
-            if (feature.type === 'lacZ') {
-                // Draw label inside the inner circle, above the plasmid name
-                // Leader: from inner ring inward to label position
-                const leaderR  = innerRadius * 0.92;
-                const leaderX  = cx + leaderR * cos;
-                const leaderY  = cy + leaderR * sin;
-                const labelY   = cy - innerRadius * 0.62; // above center name text
-                ctx.beginPath();
-                ctx.moveTo(leaderX, leaderY);
-                ctx.lineTo(cx, labelY);
-                ctx.strokeStyle = color;
-                ctx.lineWidth   = isHL ? 1.5 : 0.8;
-                ctx.setLineDash([2, 3]);
-                ctx.stroke();
-                ctx.setLineDash([]);
-                ctx.font         = isHL ? 'bold 12px sans-serif' : '11px sans-serif';
-                ctx.fillStyle    = isHL ? '#FFFFFF' : color;
-                ctx.textAlign    = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(feature.name, cx, labelY - 7);
-            } else {
-                // Standard outward bent leader line
-                const lx0 = cx + (featureR + featureWidth * 0.6) * cos;
-                const ly0 = cy + (featureR + featureWidth * 0.6) * sin;
-                const ex  = cx + featureLabelElbowR * cos;
-                const ey  = cy + featureLabelElbowR * sin;
-                const goRight = cos >= 0;
-                const tx = ex + (goRight ? featureLabelArmLen : -featureLabelArmLen);
-                const ty = ey;
+            // Standard outward bent leader line
+            const lx0 = cx + (arcR + featureWidth * 0.6) * cos;
+            const ly0 = cy + (arcR + featureWidth * 0.6) * sin;
+            const ex  = cx + featureLabelElbowR * cos;
+            const ey  = cy + featureLabelElbowR * sin;
+            const goRight = cos >= 0;
+            const tx = ex + (goRight ? featureLabelArmLen : -featureLabelArmLen);
+            const ty = ey;
 
-                ctx.beginPath();
-                ctx.moveTo(lx0, ly0);
-                ctx.lineTo(ex, ey);
-                ctx.lineTo(tx, ty);
-                ctx.strokeStyle = color;
-                ctx.lineWidth   = isHL ? 1.5 : 0.9;
-                ctx.setLineDash(isHL ? [] : [3, 2]);
-                ctx.stroke();
-                ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(lx0, ly0);
+            ctx.lineTo(ex, ey);
+            ctx.lineTo(tx, ty);
+            ctx.strokeStyle = color;
+            ctx.lineWidth   = isHL ? 1.5 : 0.9;
+            ctx.setLineDash(isHL ? [] : [3, 2]);
+            ctx.stroke();
+            ctx.setLineDash([]);
 
-                ctx.font         = isHL ? 'bold 14px sans-serif' : '13px sans-serif';
-                ctx.fillStyle    = isHL ? '#FFFFFF' : color;
-                ctx.textAlign    = goRight ? 'left' : 'right';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(feature.name, tx + (goRight ? 3 : -3), ty);
-            }
+            ctx.font         = isHL ? 'bold 14px sans-serif' : '13px sans-serif';
+            ctx.fillStyle    = isHL ? '#FFFFFF' : color;
+            ctx.textAlign    = goRight ? 'left' : 'right';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(feature.name, tx + (goRight ? 3 : -3), ty);
         }
     }
 
