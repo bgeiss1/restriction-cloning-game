@@ -293,7 +293,7 @@
 
     /* ---- Center ligation column ---- */
     .ligation-col {
-      flex: 0 0 220px; display: flex; flex-direction: column;
+      flex: 0 0 320px; display: flex; flex-direction: column;
       border-right: 1px solid var(--border);
       background: #0f1a28; overflow: hidden;
     }
@@ -387,7 +387,7 @@
       background: var(--bg-mid); display: flex; flex-direction: column;
       align-items: center; gap: 6px; font-size: 11px;
     }
-    #ligResultCanvas { border-radius: 8px; background: #131e2d; }
+    #ligResultCanvas { border-radius: 8px; background: var(--bg-dark); max-width: calc(100% - 16px); }
     #ligResultText   { text-align: center; line-height: 1.5; }
     #ligResultScore  { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; color: var(--accent); }
 
@@ -615,7 +615,7 @@
 
       <!-- Result panel -->
       <div id="ligResult" style="display:none">
-        <canvas id="ligResultCanvas" width="190" height="190"></canvas>
+        <canvas id="ligResultCanvas" width="300" height="300"></canvas>
         <div id="ligResultText"></div>
         <div id="ligResultScore"></div>
       </div>
