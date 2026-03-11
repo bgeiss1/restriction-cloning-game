@@ -1593,12 +1593,14 @@ document.getElementById('btnBackToMenu')?.addEventListener('click', () => {
     btnCut.disabled = !name;
     const seq = EnzymeDB[name]; if (!seq) return;
     const topCut = seq.cutPositionTop;
-    const rcSeq  = reverseComplement(seq.recognitionSeq);
-    const botCut = seq.recognitionSeq.length - seq.cutPositionBottom;
+    // Bottom strand shown 3'→5' left-to-right = complement of top strand (no reversal)
+    const _cm   = { A: 'T', T: 'A', G: 'C', C: 'G', N: 'N' };
+    const botSeq = seq.recognitionSeq.split('').map(b => _cm[b] || b).join('');
+    const botCut = seq.cutPositionBottom;
     const compat = (seq.compatibleWith||[seq.name]).filter(n=>n!==name).join(', ')||'self only';
     enzymeDetail.innerHTML = `<h3>${name}</h3>
       <div class="recog">5'—${seq.recognitionSeq.slice(0,topCut)}<span class="cut-mark">↓</span>${seq.recognitionSeq.slice(topCut)}—3'<br>
-      3'—${rcSeq.slice(0,botCut)}<span class="cut-mark">↑</span>${rcSeq.slice(botCut)}—5'</div>
+      3'—${botSeq.slice(0,botCut)}<span class="cut-mark">↑</span>${botSeq.slice(botCut)}—5'</div>
       <div class="detail-row">Type: <strong>${seq.overhangType.replace('prime',"' overhang")}</strong></div>
       <div class="detail-row">Overhang: <strong style="font-family:var(--font-mono)">${seq.overhangSeq||'(blunt)'}</strong></div>
       <div class="detail-row">Compatible: <strong>${compat}</strong></div>`;

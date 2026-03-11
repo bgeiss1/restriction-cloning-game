@@ -746,11 +746,13 @@ const UI = (function () {
         const topStr = seq.slice(0, topCut) +
                        '<span class="cut-mark">↓</span>' +
                        seq.slice(topCut);
-        const rcSeq  = reverseComplement(seq);
-        const botCut = seq.length - enz.cutPositionBottom;
-        const botStr = rcSeq.slice(0, botCut) +
+        // Bottom strand shown 3'→5' left-to-right = complement of top strand (no reversal)
+        const _comp  = { A: 'T', T: 'A', G: 'C', C: 'G', N: 'N' };
+        const botSeq = seq.split('').map(b => _comp[b] || b).join('');
+        const botCut = enz.cutPositionBottom;
+        const botStr = botSeq.slice(0, botCut) +
                        '<span class="cut-mark">↑</span>' +
-                       rcSeq.slice(botCut);
+                       botSeq.slice(botCut);
 
         const compat = (enz.compatibleWith || [enz.name])
             .filter(n => n !== name).join(', ') || 'self only';
@@ -785,14 +787,17 @@ const UI = (function () {
         const enz    = EnzymeDB[enzymeName];
         const seq    = enz.recognitionSeq;
         const topCut = enz.cutPositionTop;
-        const botCut = seq.length - enz.cutPositionBottom;
+        // Bottom strand shown 3'→5' left-to-right = complement of top strand (no reversal)
+        const _c     = { A: 'T', T: 'A', G: 'C', C: 'G', N: 'N' };
+        const botSeq = seq.split('').map(b => _c[b] || b).join('');
+        const botCut = enz.cutPositionBottom;
 
         let diagram = '';
         if (enz.overhangType === '5prime') {
             const topLeft  = seq.slice(0, topCut);
-            const botLeft  = reverseComplement(seq).slice(0, botCut);
+            const botLeft  = botSeq.slice(0, botCut);
             const topRight = seq.slice(topCut);
-            const botRight = reverseComplement(seq).slice(botCut);
+            const botRight = botSeq.slice(botCut);
             diagram = `
               <div class="overhang-visual">
                 <span class="strand-top">${topLeft}&nbsp;&nbsp;&nbsp;&nbsp;</span>
@@ -813,8 +818,8 @@ const UI = (function () {
                 &nbsp;&nbsp;<span style="color:var(--text-muted)">← 3' overhang</span>
               </div><br>
               <div class="overhang-visual">
-                <span class="strand-bottom">${reverseComplement(seq).slice(0, botCut)}</span>
-                <span class="strand-overhang">${reverseComplement(seq).slice(botCut)}&nbsp;&nbsp;&nbsp;&nbsp;</span>
+                <span class="strand-bottom">${botSeq.slice(0, botCut)}</span>
+                <span class="strand-overhang">${botSeq.slice(botCut)}&nbsp;&nbsp;&nbsp;&nbsp;</span>
               </div>`;
         } else {
             diagram = `
