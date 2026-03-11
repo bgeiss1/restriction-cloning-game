@@ -218,6 +218,19 @@
       max-width: 100%; max-height: 100%;
       background: var(--bg-dark); border-radius: 8px;
     }
+    #donorCol .canvas-wrap { max-height: 374px; }
+    #donorCol .canvas-wrap canvas { max-height: 374px; }
+
+    /* MIP header image */
+    .header-image-wrap {
+      flex: 1; display: flex; justify-content: center; align-items: center;
+      overflow: hidden; height: 52px; pointer-events: none;
+    }
+    .header-mip {
+      height: 48px; width: auto; max-width: 320px; object-fit: contain;
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 18%, black 82%, transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0%, black 18%, black 82%, transparent 100%);
+    }
 
     /* Enzyme picker */
     .enzyme-picker-row {
@@ -538,6 +551,9 @@
   <!-- Header -->
   <div class="app-header">
     <h1>Restriction Cloning Game <span>— Drag &amp; Drop Cloning</span></h1>
+    <div class="header-image-wrap">
+      <img src="MIP.png" alt="" class="header-mip">
+    </div>
     <div style="display:flex;align-items:center;gap:12px;">
       <div class="score-bar">
         <div class="score-item">
@@ -635,7 +651,7 @@
       <div class="plasmid-col-label">Donor Plasmid</div>
       <div class="plasmid-name" id="donorName"></div>
       <div class="canvas-wrap">
-        <canvas id="donorCanvas" width="546" height="546"></canvas>
+        <canvas id="donorCanvas" width="491" height="491"></canvas>
       </div>
       <div class="enzyme-picker-row">
         <span class="picker-label">Enzymes:</span>

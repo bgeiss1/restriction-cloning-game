@@ -414,10 +414,11 @@ class PlasmidRenderer {
             const goRight  = Math.cos(midAngle) >= 0;
 
             cluster.forEach((m, i) => {
-                const offset = (i - (cluster.length - 1) / 2) * ROW_H;
+                const offset  = (i - (cluster.length - 1) / 2) * ROW_H;
+                const stagger = i * 14;   // push each successive label further right
                 m.spineX  = spineX;
                 m.labelY  = spineY + offset;
-                m.labelX  = spineX + (goRight ? ARM_LEN : -ARM_LEN);
+                m.labelX  = spineX + (goRight ? ARM_LEN + stagger : -ARM_LEN - stagger);
                 m.goRight = goRight;
             });
         }
