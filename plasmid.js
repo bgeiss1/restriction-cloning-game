@@ -448,7 +448,7 @@ class PlasmidRenderer {
             ctx.stroke();
 
             // Label at end of arm
-            ctx.font         = 'bold 12px monospace';
+            ctx.font         = 'bold 15px monospace';
             ctx.fillStyle    = color;
             ctx.textAlign    = goRight ? 'left' : 'right';
             ctx.textBaseline = 'middle';
