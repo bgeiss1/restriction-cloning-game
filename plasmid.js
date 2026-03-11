@@ -295,8 +295,8 @@ class PlasmidRenderer {
             ctx.lineWidth   = featureWidth * (isHL ? 1.5 : 1);
             ctx.stroke();
 
-            // Directional arrow for genes, promoters, resistance markers
-            const DIRECTIONAL = new Set(['gene', 'promoter', 'resistance']);
+            // Directional arrow for genes/promoters (simple arrowhead on arc)
+            const DIRECTIONAL = new Set(['gene', 'promoter']);
             if (DIRECTIONAL.has(feature.type)) {
                 const arrowAngle = feature.strand === 1 ? endAngle : startAngle;
                 const arrowDir   = feature.strand === 1 ? 1 : -1;
@@ -316,6 +316,53 @@ class PlasmidRenderer {
                 ctx.fillStyle = isHL ? '#FFFFFF' : color;
                 ctx.fill();
                 ctx.restore();
+            }
+
+            // Promoter symbol for resistance features: radial stem + right-angle arm + arrowhead
+            if (feature.type === 'resistance') {
+                // Stem starts at the transcription start site
+                const promAngle = feature.strand === 1 ? startAngle : endAngle;
+                const pcos = Math.cos(promAngle);
+                const psin = Math.sin(promAngle);
+                const dir  = feature.strand === 1 ? 1 : -1;  // +1 CW, -1 CCW
+
+                const stemLen  = featureWidth * 1.6;
+                const armLen   = featureWidth * 2.0;
+                const headLen  = featureWidth * 0.7;
+                const headHalf = featureWidth * 0.35;
+
+                // Stem: from outer ring outward
+                const stemBaseX = cx + outerRadius * pcos;
+                const stemBaseY = cy + outerRadius * psin;
+                const stemTipX  = cx + (outerRadius + stemLen) * pcos;
+                const stemTipY  = cy + (outerRadius + stemLen) * psin;
+
+                // Arm: tangential from stem tip in direction of transcription
+                const tangX = -psin * dir;
+                const tangY =  pcos * dir;
+                const armEndX = stemTipX + tangX * armLen;
+                const armEndY = stemTipY + tangY * armLen;
+
+                // Draw stem + arm
+                ctx.beginPath();
+                ctx.moveTo(stemBaseX, stemBaseY);
+                ctx.lineTo(stemTipX,  stemTipY);
+                ctx.lineTo(armEndX,   armEndY);
+                ctx.strokeStyle = isHL ? '#FFFFFF' : color;
+                ctx.lineWidth   = 1.8;
+                ctx.setLineDash([]);
+                ctx.stroke();
+
+                // Arrowhead at arm end
+                ctx.beginPath();
+                ctx.moveTo(armEndX, armEndY);
+                ctx.lineTo(armEndX - tangX * headLen - tangY * headHalf,
+                           armEndY - tangY * headLen + tangX * headHalf);
+                ctx.lineTo(armEndX - tangX * headLen + tangY * headHalf,
+                           armEndY - tangY * headLen - tangX * headHalf);
+                ctx.closePath();
+                ctx.fillStyle = isHL ? '#FFFFFF' : color;
+                ctx.fill();
             }
 
             // Label placement
