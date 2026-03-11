@@ -194,11 +194,11 @@
     }
     .canvas-wrap {
       flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-      width: 100%; max-height: 320px;
+      width: 100%; max-height: 416px;
     }
     .canvas-wrap canvas {
       max-width: 100%; max-height: 100%;
-      background: #131e2d; border-radius: 8px;
+      background: var(--bg-dark); border-radius: 8px;
     }
 
     /* Enzyme picker */
@@ -542,7 +542,7 @@
       <div class="plasmid-col-label">Vector</div>
       <div class="plasmid-name" id="vectorName">pUC19</div>
       <div class="canvas-wrap">
-        <canvas id="vectorCanvas" width="420" height="420"></canvas>
+        <canvas id="vectorCanvas" width="546" height="546"></canvas>
       </div>
       <div class="enzyme-picker-row">
         <span class="picker-label">Enzymes:</span>
@@ -603,7 +603,7 @@
       <div class="plasmid-col-label">Donor Plasmid</div>
       <div class="plasmid-name" id="donorName"></div>
       <div class="canvas-wrap">
-        <canvas id="donorCanvas" width="420" height="420"></canvas>
+        <canvas id="donorCanvas" width="546" height="546"></canvas>
       </div>
       <div class="enzyme-picker-row">
         <span class="picker-label">Enzymes:</span>
