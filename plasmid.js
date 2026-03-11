@@ -25,6 +25,7 @@ const FEATURE_COLORS = {
     cmR:        '#CE93D8',   // purple      — chloramphenicol resistance
     mcs:        '#A5D6A7',   // green       — multiple cloning site
     gene:       '#90CAF9',   // blue        — generic gene
+    gfp:        '#00FF44',   // bright green — GFP
     promoter:   '#FFCC02',   // amber       — promoter
     terminator: '#FF7043',   // deep orange — terminator
     lacZ:       '#80DEEA',   // cyan        — lacZ / lacZ-alpha
