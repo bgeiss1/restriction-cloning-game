@@ -1226,7 +1226,7 @@ function buildFragmentCards(source, fragments) {
 // ---------------------------------------------------------------------------
 function handleLigDragOver(e) {
   e.preventDefault();
-  e.dataTransfer.dropEffect = 'copy';
+  e.dataTransfer.dropEffect = 'move';
   document.getElementById('ligDropZone').classList.add('dragover');
 }
 
