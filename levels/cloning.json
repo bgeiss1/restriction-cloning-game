@@ -2,7 +2,7 @@
   {
     "id": "clone_01",
     "title": "Clone GFP into pUC19",
-    "description": "The donor plasmid carries a GFP gene flanked by EcoRI and BamHI sites. Cut both plasmids with the same two enzymes, then drag the GFP fragment into the vector backbone.",
+    "description": "The first donor plasmid carries a GFP gene flanked by EcoRI and BamHI sites. Cut both plasmids with the same two enzymes, then drag the GFP fragment into the vector backbone.",
     "teaching_point": "Using two different enzymes (EcoRI + BamHI) creates incompatible ends on each side \u2014 the insert can only ligate in one orientation.",
     "sequence_note": "",
     "vector": {
@@ -173,9 +173,23 @@
         "EcoRI",
         "BamHI"
       ],
-      "donor_enzymes": [],
-      "correct_fragment": "GFP",
-      "correct_orientation": "forward"
+      "donor_enzymes": [
+        "BamHI",
+        "KpnI",
+        "EcoRI"
+      ],
+      "correct_fragment": "CMV",
+      "correct_orientation": "forward",
+      "correct_fragments": [
+        {
+          "name": "CMV",
+          "orientation": "forward"
+        },
+        {
+          "name": "GFP",
+          "orientation": "forward"
+        }
+      ]
     }
   },
   {
