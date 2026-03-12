@@ -363,8 +363,8 @@ class PlasmidRenderer {
 
             // Promoter symbol for resistance features: radial stem + right-angle arm + arrowhead
             if (feature.type === 'resistance') {
-                // Stem starts at the transcription start site
-                const promAngle = feature.strand === 1 ? startAngle : endAngle;
+                // Stem at the right (clockwise start) end of the arc
+                const promAngle = startAngle;
                 const pcos = Math.cos(promAngle);
                 const psin = Math.sin(promAngle);
                 const dir  = feature.strand === 1 ? 1 : -1;  // +1 CW, -1 CCW
