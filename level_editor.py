@@ -105,6 +105,7 @@ class LevelModel:
     title:            str             = 'New Level'
     description:      str             = ''
     teaching_point:   str             = ''
+    sequence_note:    str             = ''
     vector_use_puc19: bool            = True
     vector:           PlasmidModel    = field(default_factory=PlasmidModel)
     donors:           List[PlasmidModel] = field(default_factory=lambda: [PlasmidModel(name='New Donor')])
@@ -144,6 +145,7 @@ def level_from_dict(d: dict) -> LevelModel:
     lm.title          = d.get('title', '')
     lm.description    = d.get('description', '')
     lm.teaching_point = d.get('teaching_point', '')
+    lm.sequence_note  = d.get('sequence_note', '')
 
     vec = d.get('vector', {})
     if vec.get('use_pUC19'):
@@ -208,6 +210,7 @@ def level_to_dict(lm: LevelModel) -> dict:
         'title':          lm.title,
         'description':    lm.description,
         'teaching_point': lm.teaching_point,
+        'sequence_note':  lm.sequence_note,
         'vector':         vector_dict,
         'donors':         donor_dicts,
         'objectives':     obj_dict,
