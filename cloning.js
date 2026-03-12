@@ -1,12 +1,17 @@
 /**
- * cloning.js — CloningWorkspace
+ * cloning.js — CloningWorkspace (multi-donor edition)
  *
  * Manages the primary drag-and-drop cloning game mode.
  *
  * Workflow:
  *   idle → vector_cut → donor_cut → both_cut → done
  *
- * Depends on: enzymes.js, plasmid.js  (loaded before this file)
+ * Level format supports both legacy single-donor:
+ *   { donor: {...} }
+ * and new multi-donor:
+ *   { donors: [{...}, {...}] }
+ *
+ * Depends on: enzymes.js, plasmid.js
  */
 
 'use strict';
@@ -17,18 +22,23 @@ const CloningWorkspace = (function () {
     // State
     // -------------------------------------------------------------------------
     const _ws = {
-        state:              'idle',
-        level:              null,
-        vectorPlasmid:      null,
-        donorPlasmid:       null,
-        vectorCutSites:     [],       // sorted [{topStrandCut, enzymeName, ...}]
-        vectorFragments:    [],       // Fragment[] from digestPlasmid() on vector
-        donorFragments:     [],       // Fragment[] from digestPlasmid() on donor
-        vectorEnzymes:      [],
-        donorEnzymes:       [],
-        trashedFragments:   new Set(),
-        levelScore:         0
+        state:                'idle',
+        level:                null,
+        vectorPlasmid:        null,
+        donorPlasmids:        [],     // Array<Plasmid>  — one per donor
+        vectorCutSites:       [],
+        vectorFragments:      [],
+        donorFragmentsByIdx:  [],     // Array<Fragment[]> — per donor
+        vectorEnzymes:        [],
+        donorEnzymesByIdx:    [],     // Array<string[]>  — per donor
+        trashedFragments:     new Set(),
+        levelScore:           0,
     };
+
+    // Flat convenience accessor (all donor fragments across all donors)
+    function _allDonorFragments() {
+        return _ws.donorFragmentsByIdx.flat();
+    }
 
     // -------------------------------------------------------------------------
     // Helpers
@@ -47,25 +57,32 @@ const CloningWorkspace = (function () {
 
     /** Load a level definition object. Resets all workspace state. */
     function loadLevel(levelData) {
+        // Normalise: support both  { donor: {...} }  and  { donors: [...] }
+        const donorDefs = levelData.donors
+            ? levelData.donors
+            : (levelData.donor ? [levelData.donor] : []);
+
+        const donorCount = donorDefs.length;
+
         Object.assign(_ws, {
-            state:           'idle',
-            level:           levelData,
-            vectorCutSites:  [],
-            vectorFragments: [],
-            donorFragments:  [],
-            vectorEnzymes:   [],
-            donorEnzymes:    [],
-            trashedFragments: new Set(),
-            levelScore:      0
+            state:                'idle',
+            level:                levelData,
+            vectorCutSites:       [],
+            vectorFragments:      [],
+            donorFragmentsByIdx:  Array.from({ length: donorCount }, () => []),
+            vectorEnzymes:        [],
+            donorEnzymesByIdx:    Array.from({ length: donorCount }, () => []),
+            trashedFragments:     new Set(),
+            levelScore:           0,
         });
 
         if (levelData.vector && levelData.vector.use_pUC19) {
             _ws.vectorPlasmid = Game.pUC19;
         } else {
-            _ws.vectorPlasmid = new Plasmid(levelData.vector);
+            _ws.vectorPlasmid = new Plasmid(levelData.vector || {});
         }
 
-        _ws.donorPlasmid = new Plasmid(levelData.donor);
+        _ws.donorPlasmids = donorDefs.map(d => new Plasmid(d));
 
         _emit('cloning:levelLoaded', { level: levelData, ws: _ws });
     }
@@ -74,12 +91,17 @@ const CloningWorkspace = (function () {
         _ws.vectorEnzymes = names.filter(n => EnzymeDB[n]);
     }
 
-    function setDonorEnzymes(names) {
-        _ws.donorEnzymes = names.filter(n => EnzymeDB[n]);
+    /**
+     * Set enzymes for a specific donor (0-indexed).
+     * Backward-compat: if idx omitted, sets donor 0.
+     */
+    function setDonorEnzymes(names, idx = 0) {
+        if (idx < 0 || idx >= _ws.donorEnzymesByIdx.length) return;
+        _ws.donorEnzymesByIdx[idx] = names.filter(n => EnzymeDB[n]);
     }
 
     /**
-     * Cut the vector; computes both cut sites and digest fragments.
+     * Cut the vector.
      * Emits cloning:vectorCut with { sites, fragments }.
      */
     function cutVector() {
@@ -95,32 +117,52 @@ const CloningWorkspace = (function () {
         _ws.vectorCutSites  = sites;
         _ws.vectorFragments = digestPlasmid(_ws.vectorPlasmid, _ws.vectorEnzymes);
 
-        _ws.state = (_ws.state === 'donor_cut') ? 'both_cut' : 'vector_cut';
-
+        _updateState();
         _emit('cloning:vectorCut', { sites, fragments: _ws.vectorFragments, ws: _ws });
         return true;
     }
 
     /**
-     * Cut the donor; computes digest fragments.
-     * Emits cloning:donorCut with { fragments }.
+     * Cut a specific donor by index (default 0).
+     * Emits cloning:donorCut with { fragments, donorIdx }.
      */
-    function cutDonor() {
-        if (_ws.donorEnzymes.length === 0) {
-            _feedback('Select at least one enzyme for the donor plasmid.', 'warning', 'donor');
+    function cutDonor(idx = 0) {
+        if (idx < 0 || idx >= _ws.donorPlasmids.length) {
+            _feedback('Invalid donor index.', 'error', 'donor');
             return false;
         }
-        const fragments = digestPlasmid(_ws.donorPlasmid, _ws.donorEnzymes);
+        const enzymes = _ws.donorEnzymesByIdx[idx] || [];
+        if (enzymes.length === 0) {
+            const label = _ws.donorPlasmids.length > 1 ? `donor ${idx + 1}` : 'donor plasmid';
+            _feedback(`Select at least one enzyme for ${label}.`, 'warning', 'donor');
+            return false;
+        }
+        const plasmid   = _ws.donorPlasmids[idx];
+        const fragments = digestPlasmid(plasmid, enzymes);
         if (fragments.length === 0) {
             _feedback('No recognition site(s) found in donor plasmid.', 'error', 'donor');
             return false;
         }
-        _ws.donorFragments = fragments;
+        // Tag every fragment with its source donor index
+        fragments.forEach(f => { f.donorIndex = idx; });
+        _ws.donorFragmentsByIdx[idx] = fragments;
 
-        _ws.state = (_ws.state === 'vector_cut') ? 'both_cut' : 'donor_cut';
-
-        _emit('cloning:donorCut', { fragments, ws: _ws });
+        _updateState();
+        _emit('cloning:donorCut', { fragments, donorIdx: idx, ws: _ws });
         return true;
+    }
+
+    /** Recompute state after a cut. */
+    function _updateState() {
+        const vecDone  = _ws.vectorFragments.length > 0;
+        const allDonors = _ws.donorFragmentsByIdx.every(arr => arr.length > 0);
+        if (vecDone && allDonors) {
+            _ws.state = 'both_cut';
+        } else if (vecDone) {
+            _ws.state = 'vector_cut';
+        } else if (allDonors) {
+            _ws.state = 'donor_cut';
+        }
     }
 
     /**
@@ -128,8 +170,10 @@ const CloningWorkspace = (function () {
      *
      * items: [{ fragment, orientation: 'forward'|'reverse', source: 'vector'|'donor' }]
      *
+     * For multi-donor levels the objectives.correct_fragments array defines the
+     * expected ordered inserts: [{ name, donor, orientation }].
+     *
      * Returns a result object and emits cloning:ligationResult.
-     * junctions[i] describes the junction between items[i] and items[(i+1)%n].
      */
     function ligateFragments(items) {
         if (!items || items.length < 2) {
@@ -160,56 +204,82 @@ const CloningWorkspace = (function () {
             if (!compat.compatible) allCompatible = false;
         }
 
-        // Orientation check vs level objective
         const obj = (_ws.level && _ws.level.objectives) || {};
-        let orientationCorrect = true;
-        if (obj.correct_orientation) {
-            const donorItem = items.find(it => it.source === 'donor');
-            if (donorItem) orientationCorrect = donorItem.orientation === obj.correct_orientation;
-        }
+        let orientationCorrect  = true;
+        let correctCombination  = true;
+        let wrongComboReason    = '';
 
-        // Fragment combination check: must be vector backbone + donor insert
-        let correctCombination = true;
-        let wrongComboReason   = '';
         if (allCompatible) {
-            const vectorItem = items.find(it => it.source === 'vector');
-            const donorItem  = items.find(it => it.source === 'donor');
+            const vectorItem  = items.find(it => it.source === 'vector');
+            const donorItems  = items.filter(it => it.source === 'donor');
 
-            if (!vectorItem || !donorItem) {
+            // Must have exactly one vector backbone
+            if (!vectorItem) {
                 correctCombination = false;
-                wrongComboReason = vectorItem
-                    ? 'Two vector fragments — no donor insert included.'
-                    : 'Two donor fragments — no vector backbone included.';
+                wrongComboReason = 'No vector backbone in assembly.';
             } else {
-                // Vector fragment must be a backbone (contains ori or resistance marker)
                 const vectorIsBackbone = vectorItem.fragment.features.some(
                     f => f.type === 'ori' || f.type === 'resistance'
                 );
-                // Donor fragment must contain the target gene (if specified)
-                const targetGene = (obj.correct_fragment || '').toLowerCase();
-                const donorHasInsert = !targetGene || donorItem.fragment.features.some(
-                    f => f.name.toLowerCase().includes(targetGene)
-                );
-
                 if (!vectorIsBackbone) {
                     correctCombination = false;
-                    wrongComboReason = 'Vector fragment is not the backbone — it lacks ori/resistance. Use the large vector fragment.';
-                } else if (!donorHasInsert) {
-                    correctCombination = false;
-                    wrongComboReason = `Donor fragment does not contain the target gene (${obj.correct_fragment}). Pick the correct donor fragment.`;
+                    wrongComboReason = 'Vector fragment is not the backbone — lacks ori/resistance.';
+                }
+            }
+
+            if (correctCombination) {
+                if (obj.correct_fragments && obj.correct_fragments.length > 0) {
+                    // ---- Multi-donor ordered check ----
+                    const expected = obj.correct_fragments;
+                    if (donorItems.length !== expected.length) {
+                        correctCombination = false;
+                        wrongComboReason = `Expected ${expected.length} insert fragment(s), got ${donorItems.length}.`;
+                    } else {
+                        for (let i = 0; i < expected.length; i++) {
+                            const exp  = expected[i];
+                            const act  = donorItems[i];
+                            const hasName = act.fragment.features.some(
+                                f => f.name.toLowerCase().includes(exp.name.toLowerCase())
+                            );
+                            if (!hasName) {
+                                correctCombination = false;
+                                wrongComboReason = `Fragment ${i + 1}: expected "${exp.name}" — wrong fragment selected or wrong order.`;
+                                break;
+                            }
+                            if (exp.orientation && act.orientation !== exp.orientation) {
+                                orientationCorrect = false;
+                            }
+                        }
+                    }
+                } else {
+                    // ---- Legacy single-donor check ----
+                    const donorItem = donorItems[0];
+                    if (!donorItem) {
+                        correctCombination = false;
+                        wrongComboReason = 'No donor insert in assembly.';
+                    } else {
+                        const targetGene = (obj.correct_fragment || '').toLowerCase();
+                        const donorHasInsert = !targetGene || donorItem.fragment.features.some(
+                            f => f.name.toLowerCase().includes(targetGene)
+                        );
+                        if (!donorHasInsert) {
+                            correctCombination = false;
+                            wrongComboReason = `Donor fragment does not contain "${obj.correct_fragment}".`;
+                        }
+                        if (obj.correct_orientation && donorItem.orientation !== obj.correct_orientation) {
+                            orientationCorrect = false;
+                        }
+                    }
                 }
             }
         }
 
         let points = 0;
-        if (allCompatible) {
-            if (correctCombination) {
-                points = orientationCorrect ? 100 : 40;
-                _ws.state = 'done';
-            }
-            // Wrong combination: ends are compatible but biology is wrong — no points, allow retry
-            _ws.levelScore += points;
+        if (allCompatible && correctCombination) {
+            points = orientationCorrect ? 100 : 40;
+            _ws.state = 'done';
         }
+        _ws.levelScore += points;
 
         const result = { success: allCompatible, isCircular: allCompatible, junctions,
                          orientationCorrect, correctCombination, wrongComboReason, points };
@@ -237,13 +307,15 @@ const CloningWorkspace = (function () {
         ligateFragments,
         trashFragment,
         resetLevel,
-        get state()            { return _ws.state; },
-        get ws()               { return _ws; },
-        get vectorPlasmid()    { return _ws.vectorPlasmid; },
-        get donorPlasmid()     { return _ws.donorPlasmid; },
-        get vectorFragments()  { return _ws.vectorFragments; },
-        get donorFragments()   { return _ws.donorFragments; },
-        get vectorCutSites()   { return _ws.vectorCutSites; }
+        get state()             { return _ws.state; },
+        get ws()                { return _ws; },
+        get vectorPlasmid()     { return _ws.vectorPlasmid; },
+        get donorPlasmids()     { return _ws.donorPlasmids; },
+        // Legacy compat accessors
+        get donorPlasmid()      { return _ws.donorPlasmids[0] || null; },
+        get vectorFragments()   { return _ws.vectorFragments; },
+        get donorFragments()    { return _allDonorFragments(); },
+        get vectorCutSites()    { return _ws.vectorCutSites; }
     };
 
 }());

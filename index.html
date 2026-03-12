@@ -221,6 +221,16 @@
     #donorCol .canvas-wrap { max-height: 374px; }
     #donorCol .canvas-wrap canvas { max-height: 374px; }
 
+    /* Donor tab bar (shown only when multiple donors present) */
+    #donorTabBar { display: none; gap: 3px; padding: 0 6px 4px; flex-wrap: wrap; }
+    .donor-tab { padding: 3px 11px; border: 1px solid var(--border); border-radius: 4px 4px 0 0;
+                 background: var(--bg-dark); color: var(--text-muted); cursor: pointer;
+                 font-size: 11px; transition: color 0.15s, background 0.15s; }
+    .donor-tab:hover { color: var(--text-col); background: var(--bg-mid); }
+    .donor-tab.active { background: var(--bg-light); color: var(--accent); border-bottom-color: var(--bg-light); }
+    .donor-tab.cut-done { color: var(--success); border-color: var(--success); }
+    .donor-tab.cut-done.active { background: var(--bg-light); }
+
     /* MIP header image */
     .header-image-wrap {
       flex: 1; display: flex; justify-content: center; align-items: center;
@@ -648,7 +658,8 @@
 
     <!-- DONOR column -->
     <div class="plasmid-col" id="donorCol" style="border-right:none">
-      <div class="plasmid-col-label">Donor Plasmid</div>
+      <div class="plasmid-col-label">Donor Plasmid(s)</div>
+      <div id="donorTabBar"></div>
       <div class="plasmid-name" id="donorName"></div>
       <div class="canvas-wrap">
         <canvas id="donorCanvas" width="491" height="491"></canvas>
@@ -914,14 +925,17 @@ const CLONING_LEVELS_INLINE = [
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
-let _cloningLevels     = CLONING_LEVELS_INLINE;
-let _cloningLevelIdx   = 0;
-let _cloningTotalScore = 0;
-let _vectorRenderer    = null;
-let _donorRenderer     = null;
-let _dragFragId        = null;   // {id, source} of card being dragged
-let _ligationItems     = [];     // [{fragment, orientation, source}] in assembly order
-let _wsInited          = false;  // guard: only wire up listeners once
+let _cloningLevels        = CLONING_LEVELS_INLINE;
+let _cloningLevelIdx      = 0;
+let _cloningTotalScore    = 0;
+let _vectorRenderer       = null;
+let _donorRenderers       = [];     // PlasmidRenderer per donor
+let _activeDonorIdx       = 0;
+let _donorEnzymeTagsByIdx = [];     // string[][] — enzyme tags per donor
+let _donorCutDone         = [];     // bool[] — whether each donor has been cut
+let _dragFragId           = null;   // {id, source} of card being dragged
+let _ligationItems        = [];     // [{fragment, orientation, source}] in assembly order
+let _wsInited             = false;  // guard: only wire up listeners once
 
 const ALL_ENZYME_NAMES = Object.keys(EnzymeDB);
 const MCS_ENZYMES = ['EcoRI','KpnI','SmaI','BamHI','HindIII'];
@@ -943,28 +957,25 @@ function initCloningWorkspace() {
   if (_wsInited) { loadCloningLevel(_cloningLevelIdx); return; }
   _wsInited = true;
 
-  // Initialise renderers
+  // Initialise vector renderer
   const vCanvas = document.getElementById('vectorCanvas');
-  const dCanvas = document.getElementById('donorCanvas');
   _vectorRenderer = new PlasmidRenderer(vCanvas, Game.pUC19);
-  _donorRenderer  = new PlasmidRenderer(dCanvas, Game.pUC19); // placeholder
-  _vectorRenderer.rsAngleOffset =  30 * Math.PI / 180;  //  30° CW
-  _donorRenderer.rsAngleOffset  =  4.5 * Math.PI / 180;  // align with ORF ends
+  _vectorRenderer.rsAngleOffset = 30 * Math.PI / 180;
 
-  // Populate enzyme dropdowns
+  // Populate vector enzyme dropdown
   populateEnzymeSelect('vectorEnzymeSelect');
-  populateEnzymeSelect('donorEnzymeSelect');
-
-  // Enzyme tag add handlers
   document.getElementById('vectorEnzymeSelect').addEventListener('change', function() {
     if (this.value) { addEnzymeTag('vector', this.value); this.value = ''; }
   });
+
+  // Donor enzyme dropdown — donor select is shared; it operates on _activeDonorIdx
+  populateEnzymeSelect('donorEnzymeSelect');
   document.getElementById('donorEnzymeSelect').addEventListener('change', function() {
     if (this.value) { addEnzymeTag('donor', this.value); this.value = ''; }
   });
 
   document.getElementById('btnCutVector').addEventListener('click', doCutVector);
-  document.getElementById('btnCutDonor').addEventListener('click',  doCutDonor);
+  document.getElementById('btnCutDonor').addEventListener('click',  () => doCutDonor(_activeDonorIdx));
   document.getElementById('btnCloningReset').addEventListener('click', resetCloningLevel);
   document.getElementById('btnCloningNext').addEventListener('click', nextCloningLevel);
   document.getElementById('btnCloningMenu').addEventListener('click', () => showScreen('modeSelectScreen'));
@@ -996,18 +1007,39 @@ function loadCloningLevel(idx) {
   _cloningLevelIdx = idx;
   const level = _cloningLevels[idx];
 
-  // Build donor sequence and embed it into the level so CloningWorkspace.loadLevel
-  // builds the Plasmid with the correct sequence (the event fires synchronously).
-  const donorSeq = buildDonorSequence(level.donor);
-  const patchedLevel = {
-    ...level,
-    donor: { ...level.donor, sequence: donorSeq }
-  };
+  // Normalise: support both { donor } (old) and { donors } (new)
+  const donorDefs = level.donors
+    ? level.donors
+    : (level.donor ? [level.donor] : []);
+
+  // Build synthetic sequences for all donors
+  const patchedDonors = donorDefs.map(d => ({ ...d, sequence: buildDonorSequence(d) }));
+  const patchedLevel  = { ...level, donors: patchedDonors };
+  // Remove legacy single-donor key so CloningWorkspace always uses donors[]
+  delete patchedLevel.donor;
 
   CloningWorkspace.loadLevel(patchedLevel);
 
   document.getElementById('cloningLevelNum').textContent = (idx + 1) + '/' + _cloningLevels.length;
   document.getElementById('btnCloningNext').disabled = true;
+
+  // ---- Multi-donor state ----
+  _activeDonorIdx       = 0;
+  _donorEnzymeTagsByIdx = donorDefs.map(() => []);
+  _donorCutDone         = donorDefs.map(() => false);
+
+  // Build tab bar
+  const tabBar = document.getElementById('donorTabBar');
+  if (donorDefs.length > 1) {
+    tabBar.style.display = 'flex';
+    tabBar.innerHTML = donorDefs.map((d, i) =>
+      `<button class="donor-tab${i === 0 ? ' active' : ''}" data-didx="${i}"
+               onclick="switchDonorTab(${i})">${d.name || 'Donor ' + (i + 1)}</button>`
+    ).join('');
+  } else {
+    tabBar.style.display = 'none';
+    tabBar.innerHTML = '';
+  }
 
   // Reset enzyme tags and cut status
   clearEnzymeTags('vector');
@@ -1030,6 +1062,70 @@ function loadCloningLevel(idx) {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-donor tab switching
+// ---------------------------------------------------------------------------
+function switchDonorTab(idx) {
+  // Save current donor's enzyme tags before switching
+  _donorEnzymeTagsByIdx[_activeDonorIdx] = Array.from(
+    document.querySelectorAll('#donorEnzymeTags .enzyme-tag')
+  ).map(el => el.dataset.enzyme);
+
+  _activeDonorIdx = idx;
+
+  // Update tab button styles
+  document.querySelectorAll('#donorTabBar .donor-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', i === idx);
+  });
+
+  // Restore enzyme tags for the newly active donor
+  clearEnzymeTags('donor');
+  (_donorEnzymeTagsByIdx[idx] || []).forEach(e => addEnzymeTag('donor', e));
+
+  // Update donor name
+  const donors = CloningWorkspace.donorPlasmids;
+  if (donors[idx]) {
+    document.getElementById('donorName').textContent = donors[idx].name;
+  }
+
+  // Update cut status
+  if (_donorCutDone[idx]) {
+    document.getElementById('donorCutStatus').textContent = '✓ cut';
+    document.getElementById('donorCutStatus').className   = 'cut-status done';
+  } else {
+    document.getElementById('donorCutStatus').textContent = '';
+    document.getElementById('donorCutStatus').className   = 'cut-status';
+  }
+
+  // Re-render the donor canvas for the active donor
+  if (_donorRenderers[idx]) {
+    const donorEnzymes = [...new Set(
+      (CloningWorkspace.donorPlasmids[idx]
+        ? CloningWorkspace.donorPlasmids[idx].features.map(() => null) // just re-render
+        : [])
+    )];
+    // Get the cut sites enzymes for this donor's plasmid map
+    const level = CloningWorkspace.ws.level;
+    const donorDef = (level.donors || [])[idx] || {};
+    const siteEnzymes = [...new Set((donorDef.cut_sites || []).map(s => s.enzyme))];
+    _donorRenderers[idx].render(siteEnzymes);
+  }
+
+  // Show/hide fragment section for this donor
+  const dfs = document.getElementById('donorFragSection');
+  if (_donorCutDone[idx]) {
+    // Rebuild the fragment section for this donor's fragments
+    const frags = CloningWorkspace.ws.donorFragmentsByIdx[idx] || [];
+    dfs.style.display = 'block';
+    dfs.innerHTML = '<div class="col-frag-label">&#x2190; Fragments — drag to ligation zone</div>'
+      + '<div class="col-frag-cards" id="donorFragContainer"></div>';
+    buildFragmentCards('donor', frags, idx);
+  } else {
+    dfs.style.display = 'none';
+    dfs.innerHTML = '';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CloningWorkspace event handlers
 // ---------------------------------------------------------------------------
 function onCloningLevelLoaded(e) {
@@ -1038,18 +1134,31 @@ function onCloningLevelLoaded(e) {
   document.getElementById('cloningDesc').textContent  = level.description;
   document.getElementById('cloningTeach').textContent = level.teaching_point || '';
   document.getElementById('vectorName').textContent   = CloningWorkspace.vectorPlasmid.name;
-  document.getElementById('donorName').textContent    = CloningWorkspace.donorPlasmid.name;
 
-  // Re-bind renderers
+  // Rebuild donor renderers array — one per donor, all sharing the single canvas element
+  const dCanvas = document.getElementById('donorCanvas');
+  const donors  = CloningWorkspace.donorPlasmids;
+  _donorRenderers = donors.map(plasmid => {
+    const r = new PlasmidRenderer(dCanvas, plasmid);
+    r.rsAngleOffset    = 4.5 * Math.PI / 180;
+    r._cutAnimState    = null;
+    r._computeLayout();
+    return r;
+  });
+
+  // Re-bind vector renderer
   _vectorRenderer.plasmid = CloningWorkspace.vectorPlasmid;
-  _donorRenderer.plasmid  = CloningWorkspace.donorPlasmid;
   _vectorRenderer._cutAnimState = null;
-  _donorRenderer._cutAnimState  = null;
   _vectorRenderer._computeLayout();
-  _donorRenderer._computeLayout();
   _vectorRenderer.render(MCS_ENZYMES);
-  const donorEnzymes = [...new Set((level.donor.cut_sites || []).map(s => s.enzyme))];
-  _donorRenderer.render(donorEnzymes);
+
+  // Render first (active) donor
+  document.getElementById('donorName').textContent = donors[0] ? donors[0].name : '';
+  if (_donorRenderers[0]) {
+    const donorDef    = (level.donors || [])[0] || {};
+    const siteEnzymes = [...new Set((donorDef.cut_sites || []).map(s => s.enzyme))];
+    _donorRenderers[0].render(siteEnzymes);
+  }
 
   clog('Level loaded: ' + level.title, 'info');
 }
@@ -1082,22 +1191,38 @@ function onVectorCut(e) {
 }
 
 function onDonorCut(e) {
-  const { fragments } = e.detail;
-  document.getElementById('donorCutStatus').textContent = '✓ ' + fragments.length + ' fragment(s)';
-  document.getElementById('donorCutStatus').className   = 'cut-status done';
+  const { fragments, donorIdx } = e.detail;
+  const di = donorIdx || 0;
 
-  const trayEl = document.getElementById('donorFragSection');
-  trayEl.style.display = 'block';
-  trayEl.innerHTML = '<div class="col-frag-label">&#x2190; Fragments — drag to ligation zone</div><div class="col-frag-cards" id="donorFragContainer" style="min-height:40px"></div>';
+  // Mark this donor as cut
+  _donorCutDone[di] = true;
 
-  _donorRenderer.animateDigest(fragments, trayEl, () => {
-    buildFragmentCards('donor', fragments);
-    updateLigHint();
-    clog(fragments.length + ' donor fragment(s) — drag to ligation zone.', 'success');
-  });
+  // Update the tab button to show cut state
+  const tabBtn = document.querySelector(`#donorTabBar .donor-tab[data-didx="${di}"]`);
+  if (tabBtn) tabBtn.classList.add('cut-done');
 
-  showCanvasFlash('donor', '✂ ' + fragments.length + ' fragment(s)', 'success', 1800);
-  clog('Donor digested into ' + fragments.length + ' fragment(s).', 'success');
+  // Only update the UI if this is the currently visible donor
+  if (di === _activeDonorIdx) {
+    document.getElementById('donorCutStatus').textContent = '✓ ' + fragments.length + ' fragment(s)';
+    document.getElementById('donorCutStatus').className   = 'cut-status done';
+
+    const trayEl = document.getElementById('donorFragSection');
+    trayEl.style.display = 'block';
+    trayEl.innerHTML = '<div class="col-frag-label">&#x2190; Fragments — drag to ligation zone</div>'
+      + '<div class="col-frag-cards" id="donorFragContainer" style="min-height:40px"></div>';
+
+    _donorRenderers[di].animateDigest(fragments, trayEl, () => {
+      buildFragmentCards('donor', fragments, di);
+      updateLigHint();
+    });
+
+    showCanvasFlash('donor', '✂ ' + fragments.length + ' fragment(s)', 'success', 1800);
+  }
+
+  const donorLabel = CloningWorkspace.donorPlasmids.length > 1
+    ? `Donor ${di + 1}` : 'Donor';
+  clog(`${donorLabel} digested into ${fragments.length} fragment(s).`, 'success');
+  updateLigHint();
 }
 
 function onLigationResult(e) {
@@ -1150,7 +1275,7 @@ function onLigationResult(e) {
     const rRenderer = new PlasmidRenderer(rCanvas, recomb);
     const enzymesUsed = [...new Set([
       ...CloningWorkspace.ws.vectorEnzymes,
-      ...CloningWorkspace.ws.donorEnzymes
+      ...CloningWorkspace.ws.donorEnzymesByIdx.flat()
     ])];
     rRenderer.render(enzymesUsed);
 
@@ -1242,16 +1367,23 @@ function doCutVector() {
   CloningWorkspace.cutVector();
 }
 
-function doCutDonor() {
-  CloningWorkspace.setDonorEnzymes(getEnzymeTags('donor'));
-  CloningWorkspace.cutDonor();
+function doCutDonor(idx) {
+  const donorIdx = (idx !== undefined) ? idx : _activeDonorIdx;
+  const enzymes  = Array.from(document.querySelectorAll('#donorEnzymeTags .enzyme-tag'))
+                        .map(el => el.dataset.enzyme);
+  // Persist enzyme state for this donor before cutting
+  _donorEnzymeTagsByIdx[donorIdx] = [...enzymes];
+  CloningWorkspace.setDonorEnzymes(enzymes, donorIdx);
+  CloningWorkspace.cutDonor(donorIdx);
 }
 
 // ---------------------------------------------------------------------------
 // Fragment tray cards (shared for vector and donor)
 // ---------------------------------------------------------------------------
-function buildFragmentCards(source, fragments) {
+function buildFragmentCards(source, fragments, donorIdx) {
   const containerId = source === 'vector' ? 'vectorFragContainer' : 'donorFragContainer';
+  const multiDonor  = source === 'donor' && CloningWorkspace.donorPlasmids.length > 1;
+  const donorPrefix = multiDonor ? `D${(donorIdx || 0) + 1}: ` : '';
   const container = document.getElementById(containerId);
   container.innerHTML = '';
 
@@ -1267,7 +1399,7 @@ function buildFragmentCards(source, fragments) {
     card.style.borderLeftColor = color;
     card.style.borderLeftWidth = '3px';
 
-    const name = frag.features.map(f => f.name).join(', ') || (source === 'vector' ? 'Backbone' : 'Fragment');
+    const name = donorPrefix + (frag.features.map(f => f.name).join(', ') || (source === 'vector' ? 'Backbone' : 'Fragment'));
     card.innerHTML =
       `<div class="fragment-card-name">${name}</div>` +
       `<div class="fragment-ends">` +
