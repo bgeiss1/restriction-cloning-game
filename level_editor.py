@@ -1525,9 +1525,9 @@ class LevelEditorWindow(QMainWindow):
             return
         lm = self._levels[self._current_idx]
 
-        lm.vector_use_puc19 = self._vec_editor.get_use_puc19()
-        lm.vector = self._vec_editor.get_plasmid()
-        lm.donor  = self._don_editor.get_plasmid()
+        lm.vector_use_puc19 = self.vector_editor.get_use_puc19()
+        lm.vector = self.vector_editor.get_plasmid()
+        lm.donors = [ed.get_plasmid() for ed in self.donor_editors]
 
         info = self.settings_panel.get()
         lm.id            = info['id']
@@ -1543,10 +1543,14 @@ class LevelEditorWindow(QMainWindow):
         self._current_idx = idx
         lm = self._levels[idx]
 
-        self._vec_editor.load_plasmid(lm.vector)
-        self._vec_editor.set_use_puc19(lm.vector_use_puc19)
+        self.vector_editor.load_plasmid(lm.vector)
+        self.vector_editor.set_use_puc19(lm.vector_use_puc19)
 
-        self._don_editor.load_plasmid(lm.donor)
+        # Rebuild donor tabs to match number of donors in the level
+        self.donor_editors = [PlasmidEditorWidget() for _ in lm.donors]
+        self._rebuild_donor_tabs()
+        for ed, donor in zip(self.donor_editors, lm.donors):
+            ed.load_plasmid(donor)
 
         self.settings_panel.load(lm)
         self._refresh_objectives()
@@ -1561,11 +1565,16 @@ class LevelEditorWindow(QMainWindow):
         self._load_level(idx)
 
     def _refresh_objectives(self):
-        vec_enzymes  = list(dict.fromkeys(
-            s.enzyme for s in self._vec_editor.canvas.model.cut_sites))
-        don_enzymes  = list(dict.fromkeys(
-            s.enzyme for s in self._don_editor.canvas.model.cut_sites))
-        feat_names   = [f.name for f in self._don_editor.canvas.model.features]
+        vec_enzymes = list(dict.fromkeys(
+            s.enzyme for s in self.vector_editor.canvas.model.cut_sites))
+        don_enzymes = list(dict.fromkeys(
+            s.enzyme
+            for ed in self.donor_editors
+            for s in ed.canvas.model.cut_sites))
+        feat_names = list(dict.fromkeys(
+            f.name
+            for ed in self.donor_editors
+            for f in ed.canvas.model.features))
         self.settings_panel.update_objectives_options(feat_names, vec_enzymes, don_enzymes)
 
     def _new_level(self):
