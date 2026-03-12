@@ -1187,7 +1187,8 @@ class LevelSettingsPanel(QWidget):
         self.frag_cb.blockSignals(True)
         self.frag_cb.clear()
         self.frag_cb.addItem('(none)')
-        donor_feat_names = [f.name for f in lm.donor.features]
+        donor_feat_names = list(dict.fromkeys(
+            f.name for don in lm.donors for f in don.features))
         for name in donor_feat_names:
             self.frag_cb.addItem(name)
         if obj.correct_fragment and obj.correct_fragment in donor_feat_names:
@@ -1206,7 +1207,8 @@ class LevelSettingsPanel(QWidget):
 
         # Enzyme lists — collect available enzymes from plasmids
         vec_enzymes = list(dict.fromkeys(s.enzyme for s in lm.vector.cut_sites))
-        don_enzymes = list(dict.fromkeys(s.enzyme for s in lm.donor.cut_sites))
+        don_enzymes = list(dict.fromkeys(
+            s.enzyme for don in lm.donors for s in don.cut_sites))
         _populate_enzyme_list(self.vec_enz_list, vec_enzymes, obj.vector_enzymes)
         _populate_enzyme_list(self.don_enz_list, don_enzymes, obj.donor_enzymes)
 
@@ -1540,23 +1542,25 @@ class LevelEditorWindow(QMainWindow):
 
     def _load_level(self, idx: int):
         self._loading = True
-        self._current_idx = idx
-        lm = self._levels[idx]
+        try:
+            self._current_idx = idx
+            lm = self._levels[idx]
 
-        self.vector_editor.load_plasmid(lm.vector)
-        self.vector_editor.set_use_puc19(lm.vector_use_puc19)
+            self.vector_editor.load_plasmid(lm.vector)
+            self.vector_editor.set_use_puc19(lm.vector_use_puc19)
 
-        # Rebuild donor tabs to match number of donors in the level
-        self.donor_editors = [PlasmidEditorWidget() for _ in lm.donors]
-        self._rebuild_donor_tabs()
-        for ed, donor in zip(self.donor_editors, lm.donors):
-            ed.load_plasmid(donor)
+            # Rebuild donor tabs to match number of donors in the level
+            self.donor_editors = [PlasmidEditorWidget() for _ in lm.donors]
+            self._rebuild_donor_tabs()
+            for ed, donor in zip(self.donor_editors, lm.donors):
+                ed.load_plasmid(donor)
 
-        self.settings_panel.load(lm)
-        self._refresh_objectives()
+            self.settings_panel.load(lm)
+            self._refresh_objectives()
 
-        self.list_panel.set_levels(self._levels, idx)
-        self._loading = False
+            self.list_panel.set_levels(self._levels, idx)
+        finally:
+            self._loading = False
 
     def _on_level_selected(self, idx: int):
         if self._loading:
