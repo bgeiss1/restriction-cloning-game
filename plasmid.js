@@ -292,7 +292,7 @@ class PlasmidRenderer {
                 const stemLen  = 40;
                 const armLen   = featureWidth * 0.9;
                 const headLen  = featureWidth * 0.2;
-                const headHalf = featureWidth * 0.11;
+                const headHalf = 8;
                 const stemBaseX = cx + outerRadius * pcos;
                 const stemBaseY = cy + outerRadius * psin;
                 const stemTipX  = cx + (outerRadius + stemLen) * pcos;
@@ -372,7 +372,7 @@ class PlasmidRenderer {
                 const stemLen  = 40;
                 const armLen   = featureWidth * 0.9;
                 const headLen  = featureWidth * 0.2;
-                const headHalf = featureWidth * 0.11;
+                const headHalf = 8;
 
                 // Stem: from outer ring outward
                 const stemBaseX = cx + outerRadius * pcos;
