@@ -56,7 +56,7 @@
             "end": 1551,
             "type": "gene",
             "strand": 1,
-            "color": "#90CAF9",
+            "color": "#33ff33",
             "lineWidth": 15,
             "arrowSize": 0,
             "showArrow": true,
@@ -132,7 +132,7 @@
             "showPromoter": false
           },
           {
-            "name": "New Feature",
+            "name": "Ori",
             "start": 1400,
             "end": 1500,
             "type": "ori",
@@ -153,13 +153,15 @@
             "enzyme": "KpnI",
             "position": 600
           }
-        ],
-        "mcs_enzymes": ["EcoRI", "KpnI"]
+        ]
       }
     ],
     "objectives": {
-      "vector_enzymes": ["EcoRI", "BamHI"],
-      "donor_enzymes": ["BamHI", "KpnI"],
+      "vector_enzymes": [
+        "EcoRI",
+        "BamHI"
+      ],
+      "donor_enzymes": [],
       "correct_fragment": "GFP",
       "correct_orientation": "forward"
     }
@@ -226,12 +228,21 @@
             "position": 2640
           }
         ],
-        "mcs_enzymes": ["KpnI", "HindIII"]
+        "mcs_enzymes": [
+          "KpnI",
+          "HindIII"
+        ]
       }
     ],
     "objectives": {
-      "vector_enzymes": ["KpnI", "HindIII"],
-      "donor_enzymes": ["KpnI", "HindIII"],
+      "vector_enzymes": [
+        "KpnI",
+        "HindIII"
+      ],
+      "donor_enzymes": [
+        "KpnI",
+        "HindIII"
+      ],
       "correct_fragment": "Luciferase",
       "correct_orientation": "forward"
     }
@@ -298,12 +309,18 @@
             "position": 1720
           }
         ],
-        "mcs_enzymes": ["EcoRI"]
+        "mcs_enzymes": [
+          "EcoRI"
+        ]
       }
     ],
     "objectives": {
-      "vector_enzymes": ["EcoRI"],
-      "donor_enzymes": ["EcoRI"],
+      "vector_enzymes": [
+        "EcoRI"
+      ],
+      "donor_enzymes": [
+        "EcoRI"
+      ],
       "correct_fragment": "tetR",
       "correct_orientation": null
     }
@@ -386,12 +403,18 @@
             "position": 3900
           }
         ],
-        "mcs_enzymes": ["EcoRI"]
+        "mcs_enzymes": [
+          "EcoRI"
+        ]
       }
     ],
     "objectives": {
-      "vector_enzymes": ["EcoRI"],
-      "donor_enzymes": ["EcoRI"],
+      "vector_enzymes": [
+        "EcoRI"
+      ],
+      "donor_enzymes": [
+        "EcoRI"
+      ],
       "correct_fragment": "mCherry",
       "correct_orientation": null
     }
