@@ -1428,9 +1428,9 @@ function buildFragmentCards(source, fragments, donorIdx) {
     }
 
     card.addEventListener('dragstart', ev => {
-      _dragFragId = { id: frag.id, source };
+      _dragFragId = { id: frag.id, source, donorIdx: donorIdx ?? null };
       card.classList.add('dragging');
-      ev.dataTransfer.setData('text/plain', JSON.stringify({ id: frag.id, source }));
+      ev.dataTransfer.setData('text/plain', JSON.stringify({ id: frag.id, source, donorIdx: donorIdx ?? null }));
       ev.dataTransfer.effectAllowed = 'move';
     });
     card.addEventListener('dragend', () => card.classList.remove('dragging'));
@@ -1459,21 +1459,26 @@ function handleLigDrop(e) {
 
   let payload;
   try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
-  const { id, source } = payload;
+  const { id, source, donorIdx } = payload;
 
   // Find fragment in the correct pool
-  const pool = source === 'vector'
-    ? CloningWorkspace.vectorFragments
-    : CloningWorkspace.donorFragments;
+  let pool;
+  if (source === 'vector') {
+    pool = CloningWorkspace.vectorFragments;
+  } else if (donorIdx != null) {
+    pool = CloningWorkspace.ws.donorFragmentsByIdx[donorIdx] || [];
+  } else {
+    pool = CloningWorkspace.donorFragments;
+  }
   const frag = pool.find(f => f.id === id);
   if (!frag) return;
 
-  // Don't add duplicates
-  if (_ligationItems.some(it => it.source === source && it.fragment.id === id)) {
+  // Don't add duplicates — use donorIdx to distinguish same-id fragments from different donors
+  if (_ligationItems.some(it => it.source === source && it.fragment.id === id && it.donorIdx === (donorIdx ?? null))) {
     showToast('Fragment already in assembly.', 'warn'); return;
   }
 
-  _ligationItems.push({ fragment: frag, orientation: 'forward', source });
+  _ligationItems.push({ fragment: frag, orientation: 'forward', source, donorIdx: donorIdx ?? null });
   renderLigationAssembly();
   document.getElementById('btnLigate').disabled = _ligationItems.length < 2;
 }
