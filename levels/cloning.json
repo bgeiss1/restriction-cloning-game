@@ -31,6 +31,18 @@
           "lineWidth": 15,
           "arrowSize": 0,
           "showArrow": true,
+          "showPromoter": true
+        },
+        {
+          "name": "New Feature",
+          "start": 800,
+          "end": 1000,
+          "type": "ori",
+          "strand": 1,
+          "color": "#663333",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": false,
           "showPromoter": false
         }
       ],
@@ -47,7 +59,7 @@
     },
     "donors": [
       {
-        "name": "pDonor-GFP",
+        "name": "pDonor-GFP-test",
         "length": 3200,
         "features": [
           {
@@ -102,11 +114,11 @@
         "cut_sites": [
           {
             "enzyme": "BamHI",
-            "position": 1600
+            "position": 1700
           },
           {
             "enzyme": "KpnI",
-            "position": 785
+            "position": 700
           }
         ],
         "mcs_enzymes": [
