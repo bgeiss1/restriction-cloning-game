@@ -331,9 +331,14 @@ class PlasmidRenderer {
                 ? outerRadius + featureWidth * 0.5
                 : featureR;
 
+            // Trim ampR arc by 30px from the startAngle end
+            const arcStart = (feature.name.toLowerCase() === 'ampr')
+                ? startAngle + 30 / arcR
+                : startAngle;
+
             // Feature arc
             ctx.beginPath();
-            ctx.arc(cx, cy, arcR, startAngle, endAngle, false);
+            ctx.arc(cx, cy, arcR, arcStart, endAngle, false);
             ctx.strokeStyle = isHL ? '#FFFFFF' : color;
             ctx.lineWidth   = featureWidth * (isHL ? 1.5 : 1);
             ctx.stroke();
