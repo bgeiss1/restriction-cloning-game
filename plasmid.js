@@ -291,7 +291,7 @@ class PlasmidRenderer {
                 const dir  = feature.strand === 1 ? 1 : -1;
                 const stemLen  = 40;
                 const armLen   = featureWidth * 0.9;
-                const headLen  = featureWidth * 0.2;
+                const headLen  = 10;
                 const headHalf = 8;
                 const stemBaseX = cx + outerRadius * pcos;
                 const stemBaseY = cy + outerRadius * psin;
@@ -371,7 +371,7 @@ class PlasmidRenderer {
 
                 const stemLen  = 40;
                 const armLen   = featureWidth * 0.9;
-                const headLen  = featureWidth * 0.2;
+                const headLen  = 10;
                 const headHalf = 8;
 
                 // Stem: from outer ring outward
