@@ -343,11 +343,14 @@ class PlasmidRenderer {
             if (DIRECTIONAL.has(feature.type)) {
                 const arrowAngle = feature.strand === 1 ? endAngle : startAngle;
                 const arrowDir   = feature.strand === 1 ? 1 : -1;
-                const ax = cx + arcR * Math.cos(arrowAngle);
-                const ay = cy + arcR * Math.sin(arrowAngle);
                 const tangentAngle = arrowAngle + arrowDir * Math.PI / 2;
                 const arrowLen  = featureWidth * 0.8;
                 const arrowHalf = featureWidth * 0.4;
+                // Offset tip past the arc end so arrow protrudes beyond the arc stroke
+                const baseX = cx + arcR * Math.cos(arrowAngle);
+                const baseY = cy + arcR * Math.sin(arrowAngle);
+                const ax = baseX + Math.cos(tangentAngle) * arrowLen * arrowDir;
+                const ay = baseY + Math.sin(tangentAngle) * arrowLen * arrowDir;
                 ctx.save();
                 ctx.translate(ax, ay);
                 ctx.rotate(tangentAngle);
