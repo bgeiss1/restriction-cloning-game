@@ -290,7 +290,7 @@ class PlasmidRenderer {
                 const psin = Math.sin(promAngle);
                 const dir  = feature.strand === 1 ? 1 : -1;
                 const stemLen  = 40;
-                const armLen   = featureWidth * 0.9;
+                const armLen   = 40;
                 const headLen  = 10;
                 const headHalf = 8;
                 const stemBaseX = cx + outerRadius * pcos;
@@ -370,7 +370,7 @@ class PlasmidRenderer {
                 const dir  = feature.strand === 1 ? 1 : -1;  // +1 CW, -1 CCW
 
                 const stemLen  = 40;
-                const armLen   = featureWidth * 0.9;
+                const armLen   = 40;
                 const headLen  = 10;
                 const headHalf = 8;
 
