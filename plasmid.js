@@ -289,7 +289,7 @@ class PlasmidRenderer {
                 const pcos = Math.cos(promAngle);
                 const psin = Math.sin(promAngle);
                 const dir  = feature.strand === 1 ? 1 : -1;
-                const stemLen  = featureWidth * 0.8;
+                const stemLen  = 40;
                 const armLen   = featureWidth * 0.9;
                 const headLen  = featureWidth * 0.2;
                 const headHalf = featureWidth * 0.11;
@@ -369,7 +369,7 @@ class PlasmidRenderer {
                 const psin = Math.sin(promAngle);
                 const dir  = feature.strand === 1 ? 1 : -1;  // +1 CW, -1 CCW
 
-                const stemLen  = featureWidth * 0.8;
+                const stemLen  = 40;
                 const armLen   = featureWidth * 0.9;
                 const headLen  = featureWidth * 0.2;
                 const headHalf = featureWidth * 0.11;
