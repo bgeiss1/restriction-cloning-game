@@ -3,30 +3,164 @@
     "id": "clone_01",
     "title": "Clone GFP into pUC19",
     "description": "The donor plasmid carries a GFP gene flanked by EcoRI and BamHI sites. Cut both plasmids with the same two enzymes, then drag the GFP fragment into the vector backbone.",
-    "teaching_point": "Using two different enzymes (EcoRI + BamHI) creates incompatible ends on each side — the insert can only ligate in one orientation.",
+    "teaching_point": "Using two different enzymes (EcoRI + BamHI) creates incompatible ends on each side \u2014 the insert can only ligate in one orientation.",
+    "sequence_note": "",
     "vector": {
-      "use_pUC19": true,
-      "name": "pUC19"
-    },
-    "donor": {
-      "name": "pDonor-GFP",
-      "sequence_note": "synthetic 3200 bp donor with GFP flanked by EcoRI and BamHI in the MCS",
-      "length": 3200,
-      "mcs_enzymes": ["EcoRI", "BamHI"],
+      "name": "pUC19",
+      "length": 3000,
       "features": [
-        { "name": "GFP",      "start": 800,  "end": 1520, "type": "gene",       "strand": 1 },
-        { "name": "kanR",     "start": 1800, "end": 2660, "type": "resistance", "strand": -1 },
-        { "name": "pSC101 ori","start": 100, "end": 550,  "type": "ori",        "strand": 1  }
+        {
+          "name": "MCS",
+          "start": 50,
+          "end": 200,
+          "type": "mcs",
+          "strand": 1,
+          "color": "#006600",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": false,
+          "showPromoter": false
+        },
+        {
+          "name": "AmpR",
+          "start": 1500,
+          "end": 2000,
+          "type": "resistance",
+          "strand": -1,
+          "color": "#ccccff",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        }
       ],
       "cut_sites": [
-        { "enzyme": "EcoRI",  "position": 760  },
-        { "enzyme": "BamHI",  "position": 1540 }
+        {
+          "enzyme": "EcoRI",
+          "position": 60
+        },
+        {
+          "enzyme": "BamHI",
+          "position": 150
+        }
       ]
     },
+    "donors": [
+      {
+        "name": "pDonor-GFP",
+        "length": 3200,
+        "features": [
+          {
+            "name": "GFP",
+            "start": 795,
+            "end": 1551,
+            "type": "gene",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "kanR",
+            "start": 1800,
+            "end": 2669,
+            "type": "resistance",
+            "strand": -1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "pSC101 ori",
+            "start": 100,
+            "end": 550,
+            "type": "ori",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "New Feature",
+            "start": 0,
+            "end": 100,
+            "type": "promoter",
+            "strand": 1,
+            "color": "#90caf9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": true
+          }
+        ],
+        "cut_sites": [
+          {
+            "enzyme": "BamHI",
+            "position": 1600
+          },
+          {
+            "enzyme": "KpnI",
+            "position": 785
+          }
+        ],
+        "mcs_enzymes": [
+          "EcoRI",
+          "BamHI",
+          "KpnI"
+        ]
+      },
+      {
+        "name": "New Plasmid",
+        "length": 5000,
+        "features": [
+          {
+            "name": "CMV",
+            "start": 100,
+            "end": 500,
+            "type": "promoter",
+            "strand": 1,
+            "color": "#90caf9",
+            "lineWidth": 2,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "New Feature",
+            "start": 1400,
+            "end": 1500,
+            "type": "ori",
+            "strand": 1,
+            "color": "#ff0000",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": false,
+            "showPromoter": false
+          }
+        ],
+        "cut_sites": [
+          {
+            "enzyme": "EcoRI",
+            "position": 1
+          },
+          {
+            "enzyme": "KpnI",
+            "position": 600
+          }
+        ],
+        "mcs_enzymes": ["EcoRI", "KpnI"]
+      }
+    ],
     "objectives": {
-      "vector_enzymes":    ["EcoRI", "BamHI"],
-      "donor_enzymes":     ["EcoRI", "BamHI"],
-      "correct_fragment":  "GFP",
+      "vector_enzymes": ["EcoRI", "BamHI"],
+      "donor_enzymes": ["BamHI", "KpnI"],
+      "correct_fragment": "GFP",
       "correct_orientation": "forward"
     }
   },
@@ -35,56 +169,142 @@
     "title": "Directional cloning with KpnI / HindIII",
     "description": "Clone a luciferase reporter into pUC19 using KpnI and HindIII. These enzymes create different overhangs, guaranteeing a single orientation.",
     "teaching_point": "KpnI leaves a 3' overhang (GTAC) while HindIII leaves a 5' overhang (AGCT). Incompatible end types prevent reverse-orientation ligation.",
+    "sequence_note": "",
     "vector": {
       "use_pUC19": true,
       "name": "pUC19"
     },
-    "donor": {
-      "name": "pLuc-donor",
-      "length": 4100,
-      "features": [
-        { "name": "Luciferase", "start": 900,  "end": 2600, "type": "gene",       "strand": 1 },
-        { "name": "ampR",       "start": 2900, "end": 3760, "type": "resistance", "strand": -1 },
-        { "name": "ColE1 ori",  "start": 200,  "end": 650,  "type": "ori",        "strand": 1  }
-      ],
-      "cut_sites": [
-        { "enzyme": "KpnI",    "position": 860  },
-        { "enzyme": "HindIII", "position": 2640 }
-      ]
-    },
+    "donors": [
+      {
+        "name": "pLuc-donor",
+        "length": 4100,
+        "features": [
+          {
+            "name": "Luciferase",
+            "start": 900,
+            "end": 2600,
+            "type": "gene",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "ampR",
+            "start": 2900,
+            "end": 3760,
+            "type": "resistance",
+            "strand": -1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "ColE1 ori",
+            "start": 200,
+            "end": 650,
+            "type": "ori",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          }
+        ],
+        "cut_sites": [
+          {
+            "enzyme": "KpnI",
+            "position": 860
+          },
+          {
+            "enzyme": "HindIII",
+            "position": 2640
+          }
+        ],
+        "mcs_enzymes": ["KpnI", "HindIII"]
+      }
+    ],
     "objectives": {
-      "vector_enzymes":    ["KpnI", "HindIII"],
-      "donor_enzymes":     ["KpnI", "HindIII"],
-      "correct_fragment":  "Luciferase",
+      "vector_enzymes": ["KpnI", "HindIII"],
+      "donor_enzymes": ["KpnI", "HindIII"],
+      "correct_fragment": "Luciferase",
       "correct_orientation": "forward"
     }
   },
   {
     "id": "clone_03",
     "title": "Single-enzyme cloning (non-directional)",
-    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation — predict how many ligation products are possible.",
+    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation \u2014 predict how many ligation products are possible.",
     "teaching_point": "Single-enzyme cloning with a palindromic site creates two possible insert orientations and one self-ligation product. Colony screening by PCR or restriction digest is required.",
+    "sequence_note": "",
     "vector": {
       "use_pUC19": true,
       "name": "pUC19"
     },
-    "donor": {
-      "name": "pTet-donor",
-      "length": 2900,
-      "features": [
-        { "name": "tetR",      "start": 600,  "end": 1700, "type": "resistance", "strand": 1 },
-        { "name": "ampR",      "start": 2000, "end": 2860, "type": "resistance", "strand": -1 },
-        { "name": "pMB1 ori",  "start": 100,  "end": 550,  "type": "ori",        "strand": 1  }
-      ],
-      "cut_sites": [
-        { "enzyme": "EcoRI", "position": 560  },
-        { "enzyme": "EcoRI", "position": 1720 }
-      ]
-    },
+    "donors": [
+      {
+        "name": "pTet-donor",
+        "length": 2900,
+        "features": [
+          {
+            "name": "tetR",
+            "start": 600,
+            "end": 1700,
+            "type": "resistance",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "ampR",
+            "start": 2000,
+            "end": 2860,
+            "type": "resistance",
+            "strand": -1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "pMB1 ori",
+            "start": 100,
+            "end": 550,
+            "type": "ori",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          }
+        ],
+        "cut_sites": [
+          {
+            "enzyme": "EcoRI",
+            "position": 560
+          },
+          {
+            "enzyme": "EcoRI",
+            "position": 1720
+          }
+        ],
+        "mcs_enzymes": ["EcoRI"]
+      }
+    ],
     "objectives": {
-      "vector_enzymes":      ["EcoRI"],
-      "donor_enzymes":       ["EcoRI"],
-      "correct_fragment":    "tetR",
+      "vector_enzymes": ["EcoRI"],
+      "donor_enzymes": ["EcoRI"],
+      "correct_fragment": "tetR",
       "correct_orientation": null
     }
   },
@@ -93,29 +313,86 @@
     "title": "Three-fragment digest",
     "description": "The donor plasmid has three EcoRI sites. Select the fragment containing mCherry and discard the rest.",
     "teaching_point": "Partial digests and multi-fragment gels require careful identification of the fragment of interest by size and position.",
+    "sequence_note": "",
     "vector": {
       "use_pUC19": true,
       "name": "pUC19"
     },
-    "donor": {
-      "name": "pMulti-donor",
-      "length": 5400,
-      "features": [
-        { "name": "mCherry",  "start": 1200, "end": 2000, "type": "gene",       "strand": 1 },
-        { "name": "kanR",     "start": 3000, "end": 3860, "type": "resistance", "strand": -1 },
-        { "name": "tetR",     "start": 4200, "end": 5100, "type": "resistance", "strand": 1  },
-        { "name": "pSC101 ori","start": 200, "end": 700,  "type": "ori",        "strand": 1  }
-      ],
-      "cut_sites": [
-        { "enzyme": "EcoRI", "position": 1140 },
-        { "enzyme": "EcoRI", "position": 2060 },
-        { "enzyme": "EcoRI", "position": 3900 }
-      ]
-    },
+    "donors": [
+      {
+        "name": "pMulti-donor",
+        "length": 5400,
+        "features": [
+          {
+            "name": "mCherry",
+            "start": 1200,
+            "end": 2000,
+            "type": "gene",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "kanR",
+            "start": 3000,
+            "end": 3860,
+            "type": "resistance",
+            "strand": -1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "tetR",
+            "start": 4200,
+            "end": 5100,
+            "type": "resistance",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          },
+          {
+            "name": "pSC101 ori",
+            "start": 200,
+            "end": 700,
+            "type": "ori",
+            "strand": 1,
+            "color": "#90CAF9",
+            "lineWidth": 15,
+            "arrowSize": 0,
+            "showArrow": true,
+            "showPromoter": false
+          }
+        ],
+        "cut_sites": [
+          {
+            "enzyme": "EcoRI",
+            "position": 1140
+          },
+          {
+            "enzyme": "EcoRI",
+            "position": 2060
+          },
+          {
+            "enzyme": "EcoRI",
+            "position": 3900
+          }
+        ],
+        "mcs_enzymes": ["EcoRI"]
+      }
+    ],
     "objectives": {
-      "vector_enzymes":    ["EcoRI"],
-      "donor_enzymes":     ["EcoRI"],
-      "correct_fragment":  "mCherry",
+      "vector_enzymes": ["EcoRI"],
+      "donor_enzymes": ["EcoRI"],
+      "correct_fragment": "mCherry",
       "correct_orientation": null
     }
   }
