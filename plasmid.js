@@ -182,7 +182,7 @@ class PlasmidRenderer {
             cy,
             outerRadius:    minDim * 0.30,   // outer DNA ring (reduced to free label space)
             innerRadius:    minDim * 0.23,   // inner DNA ring
-            featureWidth:   minDim * 0.048,  // arc thickness
+            featureWidth:   15,              // arc thickness (px)
             // Feature label leader lines: radial elbow then horizontal arm
             featureLabelElbowR: minDim * 0.38,  // end of radial segment
             featureLabelArmLen: minDim * 0.035, // length of horizontal arm
