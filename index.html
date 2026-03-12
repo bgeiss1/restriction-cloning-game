@@ -411,8 +411,41 @@
       align-items: center; gap: 6px; font-size: 11px;
     }
     #ligResultCanvas { border-radius: 8px; background: var(--bg-dark); max-width: calc(100% - 16px); }
+    #ligResultCanvas.celebrate {
+      animation: cardSpin 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes cardSpin {
+      0%   { transform: scale(0.2) rotate(-360deg); opacity: 0; }
+      70%  { transform: scale(1.08) rotate(8deg);   opacity: 1; }
+      85%  { transform: scale(0.96) rotate(-3deg); }
+      100% { transform: scale(1)    rotate(0deg);   opacity: 1; }
+    }
     #ligResultText   { text-align: center; line-height: 1.5; }
     #ligResultScore  { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+
+    /* Floating score pop */
+    .score-pop {
+      position: fixed; pointer-events: none; font-family: var(--font-mono);
+      font-size: 1.6rem; font-weight: 900; color: var(--success);
+      text-shadow: 0 0 12px rgba(102,187,106,0.8);
+      animation: scorePop 1.2s ease-out forwards; z-index: 9999;
+    }
+    @keyframes scorePop {
+      0%   { transform: translateY(0)   scale(0.6); opacity: 1; }
+      40%  { transform: translateY(-40px) scale(1.2); opacity: 1; }
+      100% { transform: translateY(-90px) scale(0.9); opacity: 0; }
+    }
+
+    /* Confetti dot */
+    .confetti-dot {
+      position: fixed; width: 8px; height: 8px; border-radius: 2px;
+      pointer-events: none; z-index: 9998;
+      animation: confettiFall var(--cf-dur, 1.2s) ease-in forwards;
+    }
+    @keyframes confettiFall {
+      0%   { transform: translate(0,0) rotate(0deg)   scale(1);   opacity: 1; }
+      100% { transform: translate(var(--cf-dx), var(--cf-dy)) rotate(var(--cf-rot)) scale(0.4); opacity: 0; }
+    }
 
     /* Trash can (bottom of ligation col) */
     #trashCan {
@@ -1231,6 +1264,66 @@ function onDonorCut(e) {
   updateLigHint();
 }
 
+// ---------------------------------------------------------------------------
+// Celebration effects
+// ---------------------------------------------------------------------------
+function celebrateCorrect(points) {
+  // 1. Card spin on result canvas
+  const rCanvas = document.getElementById('ligResultCanvas');
+  rCanvas.classList.remove('celebrate');
+  void rCanvas.offsetWidth; // force reflow to restart animation
+  rCanvas.classList.add('celebrate');
+
+  // 2. Floating score pop
+  const zone = document.getElementById('ligDropZone');
+  const rect  = zone.getBoundingClientRect();
+  const pop   = document.createElement('div');
+  pop.className   = 'score-pop';
+  pop.textContent = '+' + points + ' pts';
+  pop.style.left  = (rect.left + rect.width  / 2 - 40) + 'px';
+  pop.style.top   = (rect.top  + rect.height / 2)      + 'px';
+  document.body.appendChild(pop);
+  pop.addEventListener('animationend', () => pop.remove());
+
+  // 3. Confetti burst
+  const COLORS = ['#4FC3F7','#66BB6A','#FFB300','#EF5350','#CE93D8','#00FF44','#FF7043','#FFD54F'];
+  const cx = rect.left + rect.width  / 2;
+  const cy = rect.top  + rect.height / 2;
+  for (let i = 0; i < 28; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'confetti-dot';
+    const angle = (Math.random() * 360);
+    const dist  = 80 + Math.random() * 140;
+    const rad   = angle * Math.PI / 180;
+    dot.style.background     = COLORS[i % COLORS.length];
+    dot.style.left           = (cx + Math.random() * 20 - 10) + 'px';
+    dot.style.top            = (cy + Math.random() * 20 - 10) + 'px';
+    dot.style.setProperty('--cf-dx',  (Math.cos(rad) * dist) + 'px');
+    dot.style.setProperty('--cf-dy',  (Math.sin(rad) * dist + 60) + 'px');
+    dot.style.setProperty('--cf-rot', (Math.random() * 540 - 270) + 'deg');
+    dot.style.setProperty('--cf-dur', (0.9 + Math.random() * 0.6) + 's');
+    document.body.appendChild(dot);
+    dot.addEventListener('animationend', () => dot.remove());
+  }
+
+  // 4. Success chord via Web Audio
+  try {
+    const ac  = new (window.AudioContext || window.webkitAudioContext)();
+    [[523.25, 0], [659.25, 0.08], [783.99, 0.16], [1046.5, 0.28]].forEach(([freq, delay]) => {
+      const osc  = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type      = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ac.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.18, ac.currentTime + delay + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + delay + 0.7);
+      osc.start(ac.currentTime + delay);
+      osc.stop(ac.currentTime  + delay + 0.8);
+    });
+  } catch (_) {}
+}
+
 function onLigationResult(e) {
   const { result, items, points } = e.detail;
 
@@ -1284,6 +1377,7 @@ function onLigationResult(e) {
       ...CloningWorkspace.ws.donorEnzymesByIdx.flat()
     ])];
     rRenderer.render(enzymesUsed);
+    celebrateCorrect(points);
 
     const dirNote = result.orientationCorrect ? '' : ' (insert reversed — partial score)';
     resultTxt.innerHTML = '<strong style="color:var(--success)">Ligation successful!</strong>'
