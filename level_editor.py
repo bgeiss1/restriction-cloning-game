@@ -1147,20 +1147,40 @@ class LevelSettingsPanel(QWidget):
         obj_layout = QVBoxLayout(obj_group)
         obj_layout.setSpacing(6)
 
-        frag_row = QHBoxLayout()
-        frag_row.addWidget(QLabel('Correct Fragment:'))
-        self.frag_cb = QComboBox()
-        frag_row.addWidget(self.frag_cb)
-        frag_row.addStretch()
-        obj_layout.addLayout(frag_row)
+        obj_layout.addWidget(QLabel('Required fragments (in ligation order):'))
+        self._frags_list = QListWidget()
+        self._frags_list.setMaximumHeight(110)
+        obj_layout.addWidget(self._frags_list)
 
-        orient_row = QHBoxLayout()
-        orient_row.addWidget(QLabel('Orientation:'))
+        # Add-fragment row: picker + orientation + Add button
+        add_row = QHBoxLayout()
+        self.frag_cb = QComboBox()
+        add_row.addWidget(self.frag_cb)
         self.orient_cb = QComboBox()
         self.orient_cb.addItems(['forward', 'reverse', '(none / either)'])
-        orient_row.addWidget(self.orient_cb)
-        orient_row.addStretch()
-        obj_layout.addLayout(orient_row)
+        self.orient_cb.setFixedWidth(110)
+        add_row.addWidget(self.orient_cb)
+        add_frag_btn = QPushButton('+ Add')
+        add_frag_btn.setFixedWidth(48)
+        add_frag_btn.clicked.connect(self._add_frag_entry)
+        add_row.addWidget(add_frag_btn)
+        obj_layout.addLayout(add_row)
+
+        # Remove / reorder row
+        frag_ctrl_row = QHBoxLayout()
+        rem_frag_btn = QPushButton('Remove')
+        rem_frag_btn.clicked.connect(self._remove_frag_entry)
+        up_frag_btn  = QPushButton('↑')
+        up_frag_btn.setFixedWidth(30)
+        up_frag_btn.clicked.connect(lambda: self._move_frag_entry(-1))
+        dn_frag_btn  = QPushButton('↓')
+        dn_frag_btn.setFixedWidth(30)
+        dn_frag_btn.clicked.connect(lambda: self._move_frag_entry(1))
+        frag_ctrl_row.addWidget(rem_frag_btn)
+        frag_ctrl_row.addWidget(up_frag_btn)
+        frag_ctrl_row.addWidget(dn_frag_btn)
+        frag_ctrl_row.addStretch()
+        obj_layout.addLayout(frag_ctrl_row)
 
         obj_layout.addWidget(QLabel('Vector enzymes player must use:'))
         self.vec_enz_list = QListWidget()
@@ -1197,27 +1217,25 @@ class LevelSettingsPanel(QWidget):
 
         obj = lm.objectives
 
-        # Fragment combo
+        # Fragment picker options
+        donor_feat_names = list(dict.fromkeys(
+            f.name for don in lm.donors for f in don.features))
         self.frag_cb.blockSignals(True)
         self.frag_cb.clear()
         self.frag_cb.addItem('(none)')
-        donor_feat_names = list(dict.fromkeys(
-            f.name for don in lm.donors for f in don.features))
         for name in donor_feat_names:
             self.frag_cb.addItem(name)
-        if obj.correct_fragment and obj.correct_fragment in donor_feat_names:
-            self.frag_cb.setCurrentText(obj.correct_fragment)
-        else:
-            self.frag_cb.setCurrentIndex(0)
         self.frag_cb.blockSignals(False)
 
-        # Orientation
-        if obj.correct_orientation == 'forward':
-            self.orient_cb.setCurrentIndex(0)
-        elif obj.correct_orientation == 'reverse':
-            self.orient_cb.setCurrentIndex(1)
-        else:
-            self.orient_cb.setCurrentIndex(2)
+        # Required fragments list — prefer correct_fragments, fall back to correct_fragment
+        self._frags_list.clear()
+        if obj.correct_fragments:
+            for entry in obj.correct_fragments:
+                ori = entry.get('orientation', 'forward') or 'forward'
+                self._frags_list.addItem(f"{entry['name']}  [{ori}]")
+        elif obj.correct_fragment:
+            ori = obj.correct_orientation or 'forward'
+            self._frags_list.addItem(f"{obj.correct_fragment}  [{ori}]")
 
         # Enzyme lists — collect available enzymes from plasmids
         vec_enzymes = list(dict.fromkeys(s.enzyme for s in lm.vector.cut_sites))
@@ -1226,15 +1244,46 @@ class LevelSettingsPanel(QWidget):
         _populate_enzyme_list(self.vec_enz_list, vec_enzymes, obj.vector_enzymes)
         _populate_enzyme_list(self.don_enz_list, don_enzymes, obj.donor_enzymes)
 
-    def get(self) -> dict:
-        orient_text = self.orient_cb.currentText()
-        if orient_text == '(none / either)':
-            orientation = None
-        else:
-            orientation = orient_text
+    def _parse_frag_entries(self):
+        """Return list of {name, orientation} dicts from the list widget."""
+        entries = []
+        for i in range(self._frags_list.count()):
+            text = self._frags_list.item(i).text()  # "Name  [forward]"
+            if '[' in text:
+                name = text[:text.rfind('[')].strip()
+                ori  = text[text.rfind('[')+1:text.rfind(']')].strip()
+            else:
+                name, ori = text.strip(), 'forward'
+            if name:
+                entries.append({'name': name, 'orientation': ori if ori != '(none / either)' else None})
+        return entries
 
-        frag_text = self.frag_cb.currentText()
-        fragment = None if frag_text == '(none)' else frag_text
+    def _add_frag_entry(self):
+        name = self.frag_cb.currentText()
+        if not name or name == '(none)':
+            return
+        ori = self.orient_cb.currentText()
+        self._frags_list.addItem(f"{name}  [{ori}]")
+
+    def _remove_frag_entry(self):
+        row = self._frags_list.currentRow()
+        if row >= 0:
+            self._frags_list.takeItem(row)
+
+    def _move_frag_entry(self, direction: int):
+        row = self._frags_list.currentRow()
+        new_row = row + direction
+        if row < 0 or not (0 <= new_row < self._frags_list.count()):
+            return
+        item = self._frags_list.takeItem(row)
+        self._frags_list.insertItem(new_row, item)
+        self._frags_list.setCurrentRow(new_row)
+
+    def get(self) -> dict:
+        entries = self._parse_frag_entries()
+        # Legacy single-fragment fields for backward compat
+        correct_fragment    = entries[0]['name']        if entries else None
+        correct_orientation = entries[0]['orientation'] if entries else None
 
         return {
             'id':            self.id_edit.text().strip(),
@@ -1246,16 +1295,16 @@ class LevelSettingsPanel(QWidget):
             'objectives':    LevelObjectives(
                 vector_enzymes      = _get_checked_enzymes(self.vec_enz_list),
                 donor_enzymes       = _get_checked_enzymes(self.don_enz_list),
-                correct_fragment    = fragment,
-                correct_orientation = orientation,
+                correct_fragment    = correct_fragment,
+                correct_orientation = correct_orientation,
+                correct_fragments   = entries if len(entries) > 1 else [],
             ),
         }
 
     def update_objectives_options(self, feat_names: list, vec_enzymes: list, don_enzymes: list):
-        # Preserve current selections
-        cur_frag       = self.frag_cb.currentText()
-        cur_vec_enz    = _get_checked_enzymes(self.vec_enz_list)
-        cur_don_enz    = _get_checked_enzymes(self.don_enz_list)
+        cur_frag    = self.frag_cb.currentText()
+        cur_vec_enz = _get_checked_enzymes(self.vec_enz_list)
+        cur_don_enz = _get_checked_enzymes(self.don_enz_list)
 
         self.frag_cb.blockSignals(True)
         self.frag_cb.clear()
