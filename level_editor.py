@@ -72,6 +72,7 @@ class Feature:
     strand:       int  = 1       # 1 = CW, -1 = CCW
     color:        str  = '#90CAF9'
     lineWidth:    int  = 15
+    arrowSize:    int  = 0       # 0 = match lineWidth
     showArrow:    bool = True
     showPromoter: bool = False
 
@@ -391,10 +392,15 @@ class PlasmidCanvas(QWidget):
             self._arc(p, cx, cy, feat_r, sd, ed, color, feat.lineWidth, sel)
 
             if feat.showArrow and not feat.showPromoter:
+                eff_size = feat.arrowSize if feat.arrowSize > 0 else feat.lineWidth
                 arrow_deg = ed if feat.strand == 1 else sd
-                tip = self._pt(cx, cy, feat_r, arrow_deg)
                 tan_deg = arrow_deg + (90 if feat.strand == 1 else -90)
-                self._arrowhead(p, tip, tan_deg, color, size=feat.lineWidth)
+                tan_rad = math.radians(tan_deg)
+                base = self._pt(cx, cy, feat_r, arrow_deg)
+                # Push tip past the arc end so arrow protrudes beyond the arc stroke
+                tip = QPointF(base.x() + math.cos(tan_rad) * eff_size,
+                              base.y() + math.sin(tan_rad) * eff_size)
+                self._arrowhead(p, tip, tan_deg, color, size=eff_size)
 
             if feat.showPromoter:
                 prom_deg = sd if feat.strand == 1 else ed
@@ -650,6 +656,10 @@ class FeatureDialog(QDialog):
 
         self.arrow_cb    = QCheckBox('Directional arrow at arc end')
         self.arrow_cb.setChecked(self._feat.showArrow);    layout.addRow('', self.arrow_cb)
+        self.arrow_size_s = QSpinBox(); self.arrow_size_s.setRange(0, 80)
+        self.arrow_size_s.setSpecialValueText('auto (match arc width)')
+        self.arrow_size_s.setValue(self._feat.arrowSize)
+        layout.addRow('Arrow size (px):', self.arrow_size_s)
         self.promoter_cb = QCheckBox('Promoter symbol (stem + arm + arrow)')
         self.promoter_cb.setChecked(self._feat.showPromoter); layout.addRow('', self.promoter_cb)
 
@@ -683,6 +693,7 @@ class FeatureDialog(QDialog):
         f.strand       = 1 if self.strand_cb.currentIndex() == 0 else -1
         f.color        = self._color.name()
         f.lineWidth    = self.width_s.value()
+        f.arrowSize    = self.arrow_size_s.value()
         f.showArrow    = self.arrow_cb.isChecked()
         f.showPromoter = self.promoter_cb.isChecked()
         return f
