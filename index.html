@@ -997,7 +997,11 @@ function initCloningWorkspace() {
     if (e.detail.side) showCanvasFlash(e.detail.side, e.detail.message, e.detail.type, 2600);
   });
 
-  loadCloningLevel(0);
+  fetch('levels/cloning.json')
+    .then(r => r.ok ? r.json() : Promise.reject(r.status))
+    .then(data => { if (Array.isArray(data) && data.length) _cloningLevels = data; })
+    .catch(() => {/* keep CLONING_LEVELS_INLINE as fallback */})
+    .finally(() => loadCloningLevel(0));
 }
 
 // ---------------------------------------------------------------------------
