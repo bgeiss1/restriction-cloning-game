@@ -1016,9 +1016,11 @@ function loadCloningLevel(idx) {
     ? level.donors
     : (level.donor ? [level.donor] : []);
 
-  // Build synthetic sequences for all donors
+  // Build synthetic sequences for all donors and custom vector
   const patchedDonors = donorDefs.map(d => ({ ...d, sequence: buildDonorSequence(d) }));
-  const patchedLevel  = { ...level, donors: patchedDonors };
+  const vecDef = level.vector || {};
+  const patchedVector = vecDef.use_pUC19 ? vecDef : { ...vecDef, sequence: buildDonorSequence(vecDef) };
+  const patchedLevel  = { ...level, vector: patchedVector, donors: patchedDonors };
   // Remove legacy single-donor key so CloningWorkspace always uses donors[]
   delete patchedLevel.donor;
 
