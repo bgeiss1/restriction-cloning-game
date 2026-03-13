@@ -180,17 +180,17 @@ class PlasmidRenderer {
         this._layout = {
             cx,
             cy,
-            outerRadius:    minDim * 0.30,   // outer DNA ring (reduced to free label space)
-            innerRadius:    minDim * 0.23,   // inner DNA ring
+            outerRadius:    minDim * 0.26,   // outer DNA ring
+            innerRadius:    minDim * 0.20,   // inner DNA ring
             featureWidth:   15,              // arc thickness (px)
             // Feature label leader lines: radial elbow then horizontal arm
-            featureLabelElbowR: minDim * 0.38,  // end of radial segment
+            featureLabelElbowR: minDim * 0.33,  // end of radial segment
             featureLabelArmLen: minDim * 0.035, // length of horizontal arm
             // Restriction site label tiers (staggered to avoid overlap)
             rsTiers: [
-                minDim * 0.355,
-                minDim * 0.395,
-                minDim * 0.435,
+                minDim * 0.310,
+                minDim * 0.345,
+                minDim * 0.380,
             ],
         };
     }

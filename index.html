@@ -212,14 +212,14 @@
     }
     .canvas-wrap {
       flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-      width: 100%; max-height: 416px; position: relative;
+      width: 100%; max-height: 540px; position: relative;
     }
     .canvas-wrap canvas {
       max-width: 100%; max-height: 100%;
       background: var(--bg-dark); border-radius: 8px;
     }
-    #donorCol .canvas-wrap { max-height: 374px; }
-    #donorCol .canvas-wrap canvas { max-height: 374px; }
+    #donorCol .canvas-wrap { max-height: 486px; }
+    #donorCol .canvas-wrap canvas { max-height: 486px; }
 
     /* Donor tab bar (shown only when multiple donors present) */
     #donorTabBar { display: none; gap: 3px; padding: 0 6px 4px; flex-wrap: wrap; }
@@ -633,7 +633,7 @@
       <div class="plasmid-col-label">Vector</div>
       <div class="plasmid-name" id="vectorName">pUC19</div>
       <div class="canvas-wrap">
-        <canvas id="vectorCanvas" width="546" height="546"></canvas>
+        <canvas id="vectorCanvas" width="700" height="700"></canvas>
       </div>
       <div class="enzyme-picker-row">
         <span class="picker-label">Enzymes:</span>
@@ -695,7 +695,7 @@
       <div id="donorTabBar"></div>
       <div class="plasmid-name" id="donorName"></div>
       <div class="canvas-wrap">
-        <canvas id="donorCanvas" width="491" height="491"></canvas>
+        <canvas id="donorCanvas" width="630" height="630"></canvas>
       </div>
       <div class="enzyme-picker-row">
         <span class="picker-label">Enzymes:</span>
