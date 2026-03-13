@@ -372,7 +372,9 @@ a.btn-secondary {
           </div>
           <button class="btn-secondary btn-small" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩ Undo</button>
           <button class="btn-secondary btn-small" id="btn-add-feature">+ Feature</button>
+          <button class="btn-danger btn-small" id="btn-del-feature-tb" disabled title="Delete selected feature">− Feature</button>
           <button class="btn-secondary btn-small" id="btn-add-site">+ Restriction Site</button>
+          <button class="btn-danger btn-small" id="btn-del-site-tb" disabled title="Delete selected restriction site">− Restriction Site</button>
           <div class="meta-field">
             <label for="meta-name">Name</label>
             <input type="text" id="meta-name" style="width:130px;">
@@ -573,8 +575,10 @@ const editorCanvas   = document.getElementById('editor-canvas');
 const puc19Notice    = document.getElementById('puc19-notice');
 const puc19ToggleRow = document.getElementById('puc19-toggle-row');
 const puc19Checkbox  = document.getElementById('puc19-checkbox');
-const btnAddFeature  = document.getElementById('btn-add-feature');
-const btnAddSite     = document.getElementById('btn-add-site');
+const btnAddFeature    = document.getElementById('btn-add-feature');
+const btnDelFeatureTb  = document.getElementById('btn-del-feature-tb');
+const btnAddSite       = document.getElementById('btn-add-site');
+const btnDelSiteTb     = document.getElementById('btn-del-site-tb');
 const metaName       = document.getElementById('meta-name');
 const metaLength     = document.getElementById('meta-length');
 
@@ -927,10 +931,16 @@ function currentPlasmidData() {
 // ---------------------------------------------------------------------------
 // Inspector
 // ---------------------------------------------------------------------------
+function updateToolbarDeleteBtns() {
+  btnDelFeatureTb.disabled = selectedFeatureIdx < 0;
+  btnDelSiteTb.disabled    = selectedSiteIdx    < 0;
+}
+
 function showInspectorEmpty() {
   inspEmpty.style.display    = '';
   inspFeature.style.display  = 'none';
   inspSite.style.display     = 'none';
+  updateToolbarDeleteBtns();
 }
 
 function showInspectorFeature(feat) {
@@ -942,6 +952,7 @@ function showInspectorFeature(feat) {
   fiStrand.value = String(feat.strand || 1);
   fiStart.value  = feat.start  ?? 0;
   fiEnd.value    = feat.end    ?? 0;
+  updateToolbarDeleteBtns();
 }
 
 function showInspectorSite(site) {
@@ -950,6 +961,7 @@ function showInspectorSite(site) {
   inspSite.style.display    = '';
   siEnzyme.value   = site.enzyme   || 'EcoRI';
   siPosition.value = site.position ?? 0;
+  updateToolbarDeleteBtns();
 }
 
 // Push undo when the user first focuses an inspector field (captures state before edit)
@@ -1034,6 +1046,10 @@ function selectedSite() {
   if (!data || selectedSiteIdx < 0) return null;
   return (data.cut_sites || [])[selectedSiteIdx] || null;
 }
+
+// Toolbar − Feature / − Restriction Site buttons
+btnDelFeatureTb.addEventListener('click', () => btnDelFeature.click());
+btnDelSiteTb.addEventListener('click',    () => btnDelSite.click());
 
 // + Feature / + Site buttons
 btnAddFeature.addEventListener('click', () => {
