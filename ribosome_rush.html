@@ -275,7 +275,7 @@
 
   function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
   resize();
-  window.addEventListener('resize', () => { resize(); if (G.mrna) layoutTray(); });
+  window.addEventListener('resize', () => { resize(); if (G.mrna) relayoutTray(); });
 
   // ── Game state ───────────────────────────────────────────────
   const G = {
@@ -317,34 +317,26 @@
 
   function layoutTray() {
     const {orf} = G.mrna;
-    const unique = [...new Set(orf.filter(c=>c.type!=='stop').map(c=>c.codon))];
-    const hasStop = orf.some(c=>c.type==='stop');
-
-    const all = [...unique];
-    if (hasStop) all.push('STOP');
+    // One card per codon in the ORF (including AUG and stop), shuffled
+    const all = orf.map(cd => cd.type==='stop' ? 'STOP' : cd.codon);
     for (let i=all.length-1; i>0; i--) {
       const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]];
     }
-
-    const prevDim={};
-    (G.tray||[]).forEach(c => { if(c.dimmed) prevDim[c.codon]=true; });
-
-    const W=canvas.width, H=canvas.height;
-    const trayMid = H - TRAY_H/2;
-    const spacing = Math.min(TRNA_W+14, (W-40)/all.length);
-    const startX = W/2 - (all.length-1)*spacing/2;
-
-    G.tray = all.map((cs,i) => {
+    G.tray = all.map(cs => {
       const isStop = cs==='STOP';
       const aa = isStop ? 'Stop' : (CODON_TABLE[cs]||'?');
-      return {
-        codon:cs, isStop, aa,
-        letter: AA_ONE[aa]||'?',
-        ac: isStop ? '---' : anticodon(cs),
-        x: startX+i*spacing, y: trayMid,
-        dimmed: !!prevDim[cs],
-      };
+      return { codon:cs, isStop, aa, letter:AA_ONE[aa]||'?', ac:isStop?'---':anticodon(cs), dimmed:false };
     });
+    relayoutTray();
+  }
+
+  function relayoutTray() {
+    const W=canvas.width, H=canvas.height;
+    const trayMid = H - TRAY_H/2;
+    const n = G.tray.length;
+    const spacing = n > 0 ? Math.min(TRNA_W+14, (W-40)/n) : TRNA_W+14;
+    const startX = W/2 - (n-1)*spacing/2;
+    G.tray.forEach((c,i) => { c.x=startX+i*spacing; c.y=trayMid; });
   }
 
   // ── Draw helpers ─────────────────────────────────────────────
@@ -623,7 +615,10 @@
 
   function correct(card, cd) {
     cd.filled=true;
-    card.dimmed=false;
+    // Remove used card from tray and reposition remaining
+    const idx=G.tray.indexOf(card);
+    if (idx!==-1) G.tray.splice(idx,1);
+    relayoutTray();
 
     const W=canvas.width, H=canvas.height;
     const sY=HUD_H+(H-HUD_H-TRAY_H)*0.45;
