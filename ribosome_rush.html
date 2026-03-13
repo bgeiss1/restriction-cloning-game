@@ -167,6 +167,14 @@
   </div>
 
   <script>
+  // Global error display — surfaces any silent JS errors on screen
+  window.onerror = function(msg, url, line, col, err) {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b71c1c;color:#fff;padding:12px;z-index:99999;font:13px monospace;white-space:pre-wrap;';
+    d.textContent = 'JS Error (line ' + line + '): ' + msg + (err ? '\n' + err.stack : '');
+    document.body.appendChild(d);
+  };
+
   // ============================================================
   // Section 1: Constants
   // ============================================================
@@ -237,23 +245,25 @@
     const S = BASE_SIZE * 0.42;
     const shape = new THREE.Shape();
     if (base === 'C') {
-      shape.absarc(0, 0, S, Math.PI * 0.6, Math.PI * 1.4, false);
-      shape.lineTo(S * 0.1, -S * 0.55);
-      const hole = new THREE.Path();
-      hole.absarc(S * 0.35, 0, S * 0.55, Math.PI * 0.5, Math.PI * 1.5, true);
-      shape.holes.push(hole);
+      // C shape: flat right edge + left-side arc (no holes needed)
+      shape.moveTo(0, -S);
+      shape.lineTo(0, S);
+      shape.absarc(0, 0, S, Math.PI / 2, -Math.PI / 2, false); // CCW through left
+      shape.closePath();
     } else if (base === 'G') {
-      shape.moveTo(-S * 0.3, -S);
-      shape.lineTo(-S * 0.3, S);
-      shape.absarc(-S * 0.3, 0, S, Math.PI * 1.5, Math.PI * 0.5, true);
+      // D shape: flat left edge + right-side arc
+      shape.moveTo(0, -S);
+      shape.lineTo(0, S);
+      shape.absarc(0, 0, S, Math.PI / 2, -Math.PI / 2, true); // CW through right
       shape.closePath();
     } else if (base === 'A') {
+      // Upward triangle
       shape.moveTo(0, S);
       shape.lineTo(S, -S);
       shape.lineTo(-S, -S);
       shape.closePath();
     } else {
-      // U
+      // U — downward triangle
       shape.moveTo(0, -S);
       shape.lineTo(S, S);
       shape.lineTo(-S, S);
@@ -1294,7 +1304,7 @@
   // ============================================================
   // Section 18: Game Start / Restart / End
   // ============================================================
-  function startGame() {
+  function startGame() { try {
     while (strandGroup.children.length) strandGroup.remove(strandGroup.children[0]);
     while (peptideGroup.children.length) peptideGroup.remove(peptideGroup.children[0]);
     while (trayGroup.children.length) trayGroup.remove(trayGroup.children[0]);
@@ -1318,7 +1328,12 @@
     buildTray(G.mrnaData.orfCodons);
 
     showScreen('game');
-  }
+  } catch(e) {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#b71c1c;color:#fff;padding:12px;z-index:99999;font:13px monospace;white-space:pre-wrap;';
+    d.textContent = 'startGame error: ' + e.message + '\n' + e.stack;
+    document.body.appendChild(d);
+  }}
 
   function triggerGameOver() {
     if (G.state === 'GAME_OVER' || G.state === 'VICTORY') return;
