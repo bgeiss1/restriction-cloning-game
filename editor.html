@@ -209,13 +209,68 @@ a.btn-secondary {
 #inspector {
   background: var(--bg-mid);
   border-top: 1px solid var(--border);
-  padding: 10px 14px;
-  min-height: 120px; max-height: 160px;
+  padding: 10px 16px 12px;
+  min-height: 130px; max-height: 230px;
   overflow-y: auto;
   flex-shrink: 0;
 }
 #inspector-empty { color: var(--text-muted); font-size: 0.88rem; padding-top: 4px; }
 #inspector-feature, #inspector-site { display: none; }
+
+/* Feature edit panel grid */
+#inspector-feature .feat-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr 90px 1fr;
+  gap: 6px 10px;
+  align-items: center;
+}
+#inspector-feature .feat-grid label {
+  color: var(--text-muted); font-size: 0.82rem; text-align: right;
+}
+#inspector-feature .feat-grid input,
+#inspector-feature .feat-grid select {
+  background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); padding: 4px 7px; font-size: 0.88rem; width: 100%;
+}
+#inspector-feature .feat-grid input:focus,
+#inspector-feature .feat-grid select:focus { outline: none; border-color: var(--accent); }
+/* Span-2 items (full row right half or full row) */
+#inspector-feature .feat-grid .span2 { grid-column: span 2; }
+#inspector-feature .feat-grid .span4 { grid-column: span 4; }
+
+/* Color row */
+.color-row { display: flex; align-items: center; gap: 6px; }
+.color-row input[type=color] {
+  width: 36px; height: 28px; padding: 2px; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--bg-dark); cursor: pointer;
+}
+.color-swatch {
+  width: 28px; height: 28px; border-radius: 4px;
+  border: 1px solid var(--border); flex-shrink: 0;
+}
+.btn-reset-color {
+  padding: 3px 8px; font-size: 0.78rem;
+  background: var(--bg-light); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-muted); cursor: pointer;
+}
+.btn-reset-color:hover { color: var(--text); }
+
+/* Arc width slider */
+.slider-row { display: flex; align-items: center; gap: 7px; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+.slider-row .slider-val {
+  width: 30px; text-align: right; font-size: 0.85rem; color: var(--text);
+}
+
+/* Checkbox toggles */
+.toggle-row { display: flex; gap: 16px; align-items: center; }
+.toggle-label {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 0.84rem; color: var(--text); cursor: pointer;
+}
+.toggle-label input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; }
+
+/* Site inspector row */
 .insp-row {
   display: flex; align-items: center; gap: 8px;
   margin-bottom: 7px; flex-wrap: wrap;
@@ -391,33 +446,57 @@ a.btn-secondary {
           <div id="inspector-empty">Click a feature or restriction site to edit.</div>
 
           <div id="inspector-feature">
-            <div class="insp-row">
+            <div class="feat-grid">
+              <!-- Row 1: Name, Type -->
               <label>Name</label>
-              <input type="text" id="fi-name">
-            </div>
-            <div class="insp-row">
+              <input type="text" id="fi-name" class="span1">
               <label>Type</label>
               <select id="fi-type">
-                <option value="gene">gene</option>
-                <option value="ori">ori</option>
-                <option value="resistance">resistance</option>
-                <option value="mcs">mcs</option>
-                <option value="promoter">promoter</option>
-                <option value="terminator">terminator</option>
+                <option value="gene">Gene</option>
+                <option value="ori">Ori</option>
+                <option value="resistance">Resistance</option>
+                <option value="mcs">MCS</option>
+                <option value="promoter">Promoter</option>
+                <option value="terminator">Terminator</option>
                 <option value="lacZ">lacZ</option>
+                <option value="gfp">GFP</option>
+                <option value="other">Other</option>
               </select>
+
+              <!-- Row 2: Start, End -->
+              <label>Start (bp)</label>
+              <input type="number" id="fi-start" min="0">
+              <label>End (bp)</label>
+              <input type="number" id="fi-end" min="0">
+
+              <!-- Row 3: Strand, Arc Width -->
               <label>Strand</label>
               <select id="fi-strand">
-                <option value="1">+ (1)</option>
-                <option value="-1">− (−1)</option>
+                <option value="1">+ sense</option>
+                <option value="-1">− antisense</option>
               </select>
-            </div>
-            <div class="insp-row">
-              <label>Start</label>
-              <input type="number" id="fi-start" min="0">
-              <label>End</label>
-              <input type="number" id="fi-end" min="0">
-              <button class="btn-danger btn-small" id="btn-del-feature">Delete Feature</button>
+              <label>Arc Width</label>
+              <div class="slider-row span1">
+                <input type="range" id="fi-linewidth" min="4" max="30" step="1" value="15">
+                <span class="slider-val" id="fi-linewidth-val">15</span>
+                <span style="color:var(--text-muted);font-size:0.78rem;">px</span>
+              </div>
+
+              <!-- Row 4: Color -->
+              <label>Color</label>
+              <div class="color-row span3">
+                <input type="color" id="fi-color">
+                <div class="color-swatch" id="fi-color-swatch"></div>
+                <button class="btn-reset-color" id="fi-color-reset" title="Reset to type default color">Reset</button>
+                <span style="color:var(--text-muted);font-size:0.78rem;" id="fi-color-label"></span>
+              </div>
+
+              <!-- Row 5: Checkboxes -->
+              <label>Display</label>
+              <div class="toggle-row span3">
+                <label class="toggle-label"><input type="checkbox" id="fi-show-arrow"> Directional arrow</label>
+                <label class="toggle-label"><input type="checkbox" id="fi-show-promoter"> Promoter symbol</label>
+              </div>
             </div>
           </div>
 
@@ -587,12 +666,20 @@ const inspEmpty      = document.getElementById('inspector-empty');
 const inspFeature    = document.getElementById('inspector-feature');
 const inspSite       = document.getElementById('inspector-site');
 
-const fiName    = document.getElementById('fi-name');
-const fiType    = document.getElementById('fi-type');
-const fiStrand  = document.getElementById('fi-strand');
-const fiStart   = document.getElementById('fi-start');
-const fiEnd     = document.getElementById('fi-end');
-const btnDelFeature = document.getElementById('btn-del-feature');
+const fiName          = document.getElementById('fi-name');
+const fiType          = document.getElementById('fi-type');
+const fiStrand        = document.getElementById('fi-strand');
+const fiStart         = document.getElementById('fi-start');
+const fiEnd           = document.getElementById('fi-end');
+const fiLinewidth     = document.getElementById('fi-linewidth');
+const fiLinewidthVal  = document.getElementById('fi-linewidth-val');
+const fiColor         = document.getElementById('fi-color');
+const fiColorSwatch   = document.getElementById('fi-color-swatch');
+const fiColorLabel    = document.getElementById('fi-color-label');
+const fiColorReset    = document.getElementById('fi-color-reset');
+const fiShowArrow     = document.getElementById('fi-show-arrow');
+const fiShowPromoter  = document.getElementById('fi-show-promoter');
+const btnDelFeature   = document.getElementById('btn-del-feature');
 
 const siEnzyme   = document.getElementById('si-enzyme');
 const siPosition = document.getElementById('si-position');
@@ -943,15 +1030,47 @@ function showInspectorEmpty() {
   updateToolbarDeleteBtns();
 }
 
+// Default colors matching FEATURE_COLORS in plasmid.js
+const FEATURE_COLORS = {
+  ori: '#4FC3F7', resistance: '#EF5350', gene: '#90CAF9', promoter: '#FFCC02',
+  mcs: '#A5D6A7', lacZ: '#80DEEA', terminator: '#FF7043', gfp: '#00FF44',
+  other: '#90A4AE', default: '#90A4AE'
+};
+function typeDefaultColor(feat) {
+  const nameLower = (feat.name || '').toLowerCase();
+  if (nameLower.includes('gfp'))  return FEATURE_COLORS.gfp;
+  if (nameLower.includes('ampr')) return '#EF5350';
+  if (nameLower.includes('kanr')) return '#FFD54F';
+  if (nameLower.includes('tetr')) return '#FF8A65';
+  if (nameLower.includes('cmr'))  return '#CE93D8';
+  return FEATURE_COLORS[feat.type] || FEATURE_COLORS.default;
+}
+
+function updateColorUI(feat) {
+  const defColor = typeDefaultColor(feat);
+  const hasCustom = !!feat.color;
+  const displayColor = feat.color || defColor;
+  fiColor.value = displayColor;
+  fiColorSwatch.style.background = displayColor;
+  fiColorLabel.textContent = hasCustom ? 'custom' : 'default';
+  fiColorReset.style.display = hasCustom ? '' : 'none';
+}
+
 function showInspectorFeature(feat) {
   inspEmpty.style.display   = 'none';
   inspFeature.style.display = '';
   inspSite.style.display    = 'none';
-  fiName.value   = feat.name   || '';
-  fiType.value   = feat.type   || 'gene';
-  fiStrand.value = String(feat.strand || 1);
-  fiStart.value  = feat.start  ?? 0;
-  fiEnd.value    = feat.end    ?? 0;
+  fiName.value         = feat.name   || '';
+  fiType.value         = feat.type   || 'gene';
+  fiStrand.value       = String(feat.strand ?? 1);
+  fiStart.value        = feat.start  ?? 0;
+  fiEnd.value          = feat.end    ?? 0;
+  const lw = feat.lineWidth || 15;
+  fiLinewidth.value    = lw;
+  fiLinewidthVal.textContent = lw;
+  fiShowArrow.checked    = !!(feat.showArrow);
+  fiShowPromoter.checked = !!(feat.showPromoter);
+  updateColorUI(feat);
   updateToolbarDeleteBtns();
 }
 
@@ -965,7 +1084,7 @@ function showInspectorSite(site) {
 }
 
 // Push undo when the user first focuses an inspector field (captures state before edit)
-[fiName, fiType, fiStrand, fiStart, fiEnd].forEach(el => {
+[fiName, fiType, fiStrand, fiStart, fiEnd, fiLinewidth, fiColor].forEach(el => {
   el.addEventListener('focus', pushUndo);
 });
 [siEnzyme, siPosition].forEach(el => {
@@ -1002,6 +1121,50 @@ fiEnd.addEventListener('input', () => {
   if (!feat) return;
   feat.end = parseInt(fiEnd.value) || 0;
   markDirty(); refreshCanvas();
+});
+fiLinewidth.addEventListener('input', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  const v = parseInt(fiLinewidth.value) || 15;
+  fiLinewidthVal.textContent = v;
+  if (v === 15) delete feat.lineWidth; else feat.lineWidth = v;
+  markDirty(); refreshCanvas();
+});
+fiColor.addEventListener('input', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  feat.color = fiColor.value;
+  fiColorSwatch.style.background = fiColor.value;
+  fiColorLabel.textContent = 'custom';
+  fiColorReset.style.display = '';
+  markDirty(); refreshCanvas();
+});
+fiColorReset.addEventListener('click', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  pushUndo();
+  delete feat.color;
+  updateColorUI(feat);
+  markDirty(); refreshCanvas();
+});
+fiShowArrow.addEventListener('change', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  pushUndo();
+  if (fiShowArrow.checked) feat.showArrow = true; else delete feat.showArrow;
+  markDirty(); refreshCanvas();
+});
+fiShowPromoter.addEventListener('change', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  pushUndo();
+  if (fiShowPromoter.checked) feat.showPromoter = true; else delete feat.showPromoter;
+  markDirty(); refreshCanvas();
+});
+// Re-run color UI when type changes (default color may differ)
+fiType.addEventListener('change', () => {
+  const feat = selectedFeature();
+  if (feat && !feat.color) updateColorUI(feat);
 });
 btnDelFeature.addEventListener('click', () => {
   const data = currentPlasmidData();

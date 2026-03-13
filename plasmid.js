@@ -334,13 +334,14 @@ class PlasmidRenderer {
             // Feature arc
             ctx.beginPath();
             ctx.arc(cx, cy, arcR, startAngle, endAngle, false);
+            const fw = feature.lineWidth || featureWidth;
             ctx.strokeStyle = isHL ? '#FFFFFF' : color;
-            ctx.lineWidth   = featureWidth * (isHL ? 1.5 : 1);
+            ctx.lineWidth   = fw * (isHL ? 1.5 : 1);
             ctx.stroke();
 
             // Directional arrow for genes/promoters (simple arrowhead on arc)
             const DIRECTIONAL = new Set(['gene', 'promoter']);
-            if (DIRECTIONAL.has(feature.type)) {
+            if (DIRECTIONAL.has(feature.type) || feature.showArrow) {
                 const arrowAngle = feature.strand === 1 ? endAngle : startAngle;
                 const arrowDir   = feature.strand === 1 ? 1 : -1;
                 const tangentAngle = arrowAngle + arrowDir * Math.PI / 2;
@@ -364,8 +365,8 @@ class PlasmidRenderer {
                 ctx.restore();
             }
 
-            // Promoter symbol for resistance features: radial stem + right-angle arm + arrowhead
-            if (feature.type === 'resistance') {
+            // Promoter symbol for resistance features (or any feature with showPromoter)
+            if (feature.type === 'resistance' || feature.showPromoter) {
                 // Fixed at 340° clockwise from top of plasmid circle
                 const promAngle = 340 * Math.PI / 180 - Math.PI / 2;
                 const pcos = Math.cos(promAngle);
