@@ -196,7 +196,7 @@
   const CODON_SEP   = 22;   // gap between codons
   const UTR_SZ      = 25;   // UTR base square size
   const UTR_GAP     = 4;
-  const SCROLL_SPD  = 65;   // px/s
+  const SCROLL_SPD  = 32;   // px/s
   const PAUSE_MS    = 260;
   const TRNA_W      = 108;
   const TRNA_H      = 78;
@@ -320,14 +320,7 @@
     const unique = [...new Set(orf.filter(c=>c.type!=='stop').map(c=>c.codon))];
     const hasStop = orf.some(c=>c.type==='stop');
 
-    const pool = Object.keys(CODON_TABLE)
-      .filter(c => CODON_TABLE[c]!=='Stop' && !unique.includes(c) && c!=='AUG');
-    const dist = [];
-    const avail = [...pool];
-    while (dist.length<2 && avail.length>0)
-      dist.push(avail.splice(Math.floor(Math.random()*avail.length),1)[0]);
-
-    const all = [...unique, ...dist];
+    const all = [...unique];
     if (hasStop) all.push('STOP');
     for (let i=all.length-1; i>0; i--) {
       const j=Math.floor(Math.random()*(i+1)); [all[i],all[j]]=[all[j],all[i]];
@@ -713,7 +706,7 @@
     if (!cd||cd.filled) return;
     const W=canvas.width, asX=Math.floor(W*ASITE_FRAC);
     const rightEdge=wx2sx(cd.wx)+CODON_W;
-    if (rightEdge < asX-CODON_W*0.85) doGameOver();
+    if (rightEdge < 0) doGameOver();
   }
 
   // ── HUD ──────────────────────────────────────────────────────
