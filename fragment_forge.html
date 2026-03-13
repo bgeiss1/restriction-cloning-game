@@ -86,12 +86,14 @@
         const gc = calcGC(seq);
         const offTarget = checkOffTarget(seq, sequence);
         let status = 'ok', issues = [];
-        if (actualLen < 15) { status = 'error'; issues.push('Overlap <15 bp'); }
-        else if (actualLen < 20 || actualLen > 35) { if (status !== 'error') status = 'warn'; issues.push('Length outside 20-35 bp ideal'); }
-        if (tm < 45) { status = 'error'; issues.push('Tm too low (<45°C)'); }
-        else if (tm < 50 || tm > 65) { if (status !== 'error') status = 'warn'; issues.push('Tm outside 50-65°C ideal'); }
+        if (actualLen < 15) { status = 'error'; issues.push('Overlap too short (<15 bp)'); }
+        else if (actualLen > 50) { status = 'error'; issues.push('Overlap too long (>50 bp) — secondary structure risk'); }
+        else if (actualLen < 20 || actualLen > 35) { status = 'warn'; issues.push('Length outside ideal 20–35 bp range'); }
+        if (tm < 50) { status = 'error'; issues.push('Tm too low (<50°C) — strands will not anneal'); }
+        else if (tm > 80) { status = 'error'; issues.push('Tm too high (>80°C) — secondary structure risk'); }
+        else if (tm > 65) { if (status !== 'error') status = 'warn'; issues.push('Tm above ideal 50–65°C range'); }
         if (offTarget) { status = 'error'; issues.push('Off-target homology!'); }
-        if (gc < 40 || gc > 60) { if (status === 'ok') status = 'warn'; issues.push('GC outside 40-60%'); }
+        if (gc < 40 || gc > 60) { if (status === 'ok') status = 'warn'; issues.push('GC outside 40–60%'); }
         return { index: i, pos, overlapLength: L, start, end, seq, actualLen, tm, gc, offTarget, status, issues };
       });
     }
@@ -162,6 +164,7 @@
         breakdown: { accuracy: Math.round(accuracy), overlapQuality: Math.round(overlapQuality), efficiency: Math.round(efficiency), speed },
         bonuses, penalties, junctions, fragments,
         success: errJ.length === 0,
+        hasWarnings: warnJ.length > 0,
         elapsed: Math.round(elapsed)
       };
     }
@@ -618,7 +621,7 @@
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>Overlap length:</span>
             <input
-              type="range" min={15} max={40} value={overlapLength}
+              type="range" min={5} max={60} value={overlapLength}
               onChange={e => onOverlapLengthChange(parseInt(e.target.value))}
               style={{ flex: 1, accentColor: '#06b6d4' }}
             />
@@ -711,7 +714,7 @@
             {score && (
               <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
                 <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>Est. Score</div>
-                <div style={{ fontSize: 22, fontWeight: 700, color: score.success ? '#22c55e' : '#f59e0b' }}>{score.total}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: !score.success ? '#ef4444' : score.hasWarnings ? '#f59e0b' : '#22c55e' }}>{score.total}</div>
                 <div style={{ fontSize: 13, color: '#94a3b8' }}>Grade: <span style={{ fontWeight: 700 }}>{score.grade}</span></div>
                 <div style={{ marginTop: 4 }}>{starsDisplay(score.stars)}</div>
               </div>
@@ -849,7 +852,7 @@
 
     // ─── RESULTS SCREEN ───────────────────────────────────────────────────────
     function ResultsScreen({ level, scoreResult, onRetry, onNext, onMenu, isLastLevel }) {
-      const { total, grade, stars, breakdown, bonuses, penalties, junctions, fragments, success, elapsed } = scoreResult;
+      const { total, grade, stars, breakdown, bonuses, penalties, junctions, fragments, success, hasWarnings, elapsed } = scoreResult;
 
       const gradeColor = grade === 'S' ? '#f59e0b' : grade === 'A' ? '#22c55e' : grade === 'B' ? '#06b6d4' : grade === 'C' ? '#94a3b8' : '#ef4444';
 
@@ -885,11 +888,13 @@
             {/* Success / fail banner */}
             <div style={{
               textAlign: 'center', padding: '10px 0', marginBottom: 24, borderRadius: 8,
-              background: success ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-              border: `1px solid ${success ? '#22c55e' : '#ef4444'}`,
-              color: success ? '#22c55e' : '#ef4444', fontWeight: 600, fontSize: 15
+              background: !success ? 'rgba(239,68,68,0.1)' : hasWarnings ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.1)',
+              border: `1px solid ${!success ? '#ef4444' : hasWarnings ? '#f59e0b' : '#22c55e'}`,
+              color: !success ? '#ef4444' : hasWarnings ? '#f59e0b' : '#22c55e', fontWeight: 600, fontSize: 15
             }}>
-              {success ? '✓ Assembly successful — all junctions valid' : '✗ Assembly failed — errors in junction design'}
+              {!success ? '✗ Assembly failed — fix junction errors and retry'
+                : hasWarnings ? '⚠ Assembly completed with warnings — junctions are suboptimal'
+                : '✓ Assembly successful — all junctions valid'}
             </div>
           </div>
 
