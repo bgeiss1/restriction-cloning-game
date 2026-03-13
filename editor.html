@@ -209,10 +209,59 @@ a.btn-secondary {
 #inspector {
   background: var(--bg-mid);
   border-top: 1px solid var(--border);
-  padding: 10px 16px 12px;
-  min-height: 130px; max-height: 270px;
-  overflow-y: auto;
+  display: flex;
+  min-height: 160px; max-height: 270px;
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+/* Left: feature/site list */
+#feat-list-col {
+  width: 170px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#feat-list-col-header {
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: .05em;
+  padding: 6px 10px 4px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#feat-list-items {
+  flex: 1; overflow-y: auto; padding: 3px 0;
+}
+.feat-list-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 10px;
+  cursor: pointer; font-size: 0.83rem; color: var(--text);
+  border-left: 3px solid transparent;
+}
+.feat-list-item:hover { background: var(--bg-light); }
+.feat-list-item.active {
+  background: var(--bg-light);
+  border-left-color: var(--accent);
+  color: var(--accent);
+}
+.feat-list-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  flex-shrink: 0; border: 1px solid rgba(255,255,255,.2);
+}
+.feat-list-sep {
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  color: var(--text-muted); padding: 4px 10px 2px;
+  letter-spacing: .05em;
+}
+#feat-list-empty {
+  color: var(--text-muted); font-size: 0.82rem;
+  padding: 8px 10px; font-style: italic;
+}
+
+/* Right: edit panel */
+#edit-col {
+  flex: 1; overflow-y: auto;
+  padding: 10px 14px 12px;
 }
 #inspector-empty { color: var(--text-muted); font-size: 0.88rem; padding-top: 4px; }
 #inspector-feature, #inspector-site { display: none; }
@@ -444,7 +493,16 @@ a.btn-secondary {
 
         <!-- Inspector -->
         <div id="inspector">
-          <div id="inspector-empty">Click a feature or restriction site to edit.</div>
+          <!-- Left column: feature/site list -->
+          <div id="feat-list-col">
+            <div id="feat-list-col-header">Features &amp; Sites</div>
+            <div id="feat-list-items">
+              <div id="feat-list-empty">No plasmid loaded.</div>
+            </div>
+          </div>
+          <!-- Right column: edit panel -->
+          <div id="edit-col">
+          <div id="inspector-empty">Select a feature or site from the list.</div>
 
           <div id="inspector-feature">
             <div class="feat-grid">
@@ -510,6 +568,7 @@ a.btn-secondary {
               <button class="btn-danger btn-small" id="btn-del-site">Delete Site</button>
             </div>
           </div>
+          </div><!-- /edit-col -->
         </div>
       </div>
     </div>
@@ -662,7 +721,8 @@ const btnDelSiteTb     = document.getElementById('btn-del-site-tb');
 const metaName       = document.getElementById('meta-name');
 const metaLength     = document.getElementById('meta-length');
 
-const inspectorEl    = document.getElementById('inspector');
+const featListItems  = document.getElementById('feat-list-items');
+const featListEmpty  = document.getElementById('feat-list-empty');
 const inspEmpty      = document.getElementById('inspector-empty');
 const inspFeature    = document.getElementById('inspector-feature');
 const inspSite       = document.getElementById('inspector-site');
@@ -1028,6 +1088,7 @@ function showInspectorEmpty() {
   inspFeature.style.display  = 'none';
   inspSite.style.display     = 'none';
   updateToolbarDeleteBtns();
+  renderFeatureList();
 }
 
 // Use FEATURE_COLORS already defined by plasmid.js; add any editor-only extras
@@ -1316,6 +1377,105 @@ document.getElementById('btn-del-donor').addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Feature / site list (left column of inspector)
+// ---------------------------------------------------------------------------
+function renderFeatureList() {
+  featListItems.innerHTML = '';
+  const data = currentPlasmidData();
+
+  if (!data) {
+    const em = document.createElement('div');
+    em.id = 'feat-list-empty';
+    em.className = '';
+    em.style.cssText = 'color:var(--text-muted);font-size:.82rem;padding:8px 10px;font-style:italic;';
+    em.textContent = currentTab === 'vector' && levels[currentIdx]?.vector?.use_pUC19
+      ? 'pUC19 is non-editable.' : 'No plasmid loaded.';
+    featListItems.appendChild(em);
+    return;
+  }
+
+  const features  = data.features  || [];
+  const cutSites  = data.cut_sites || [];
+
+  if (features.length === 0 && cutSites.length === 0) {
+    const em = document.createElement('div');
+    em.style.cssText = 'color:var(--text-muted);font-size:.82rem;padding:8px 10px;font-style:italic;';
+    em.textContent = 'No features yet. Use + Feature.';
+    featListItems.appendChild(em);
+    return;
+  }
+
+  if (features.length > 0) {
+    const sep = document.createElement('div');
+    sep.className = 'feat-list-sep';
+    sep.textContent = 'Features';
+    featListItems.appendChild(sep);
+
+    features.forEach((feat, i) => {
+      const color = typeDefaultColor(feat);
+      const item = document.createElement('div');
+      item.className = 'feat-list-item' + (i === selectedFeatureIdx ? ' active' : '');
+      item.dataset.idx = i;
+
+      const dot = document.createElement('div');
+      dot.className = 'feat-list-dot';
+      dot.style.background = feat.color || color;
+
+      const label = document.createElement('span');
+      label.textContent = feat.name || `Feature ${i + 1}`;
+      label.style.overflow = 'hidden';
+      label.style.textOverflow = 'ellipsis';
+      label.style.whiteSpace = 'nowrap';
+
+      item.appendChild(dot);
+      item.appendChild(label);
+      item.addEventListener('click', () => {
+        selectedFeatureIdx = i;
+        selectedSiteIdx    = -1;
+        showInspectorFeature(features[i]);
+        renderFeatureList();
+        refreshCanvas();
+      });
+      featListItems.appendChild(item);
+    });
+  }
+
+  if (cutSites.length > 0) {
+    const sep = document.createElement('div');
+    sep.className = 'feat-list-sep';
+    sep.textContent = 'Cut Sites';
+    featListItems.appendChild(sep);
+
+    cutSites.forEach((site, i) => {
+      const item = document.createElement('div');
+      item.className = 'feat-list-item' + (i === selectedSiteIdx ? ' active' : '');
+      item.dataset.idx = i;
+
+      const dot = document.createElement('div');
+      dot.className = 'feat-list-dot';
+      dot.style.background = '#FFB300';
+
+      const label = document.createElement('span');
+      label.textContent = `${site.enzyme} (${site.position} bp)`;
+      label.style.overflow = 'hidden';
+      label.style.textOverflow = 'ellipsis';
+      label.style.whiteSpace = 'nowrap';
+
+      item.appendChild(dot);
+      item.appendChild(label);
+      item.addEventListener('click', () => {
+        selectedSiteIdx    = i;
+        selectedFeatureIdx = -1;
+        showInspectorSite(cutSites[i]);
+        renderFeatureList();
+        refreshCanvas();
+      });
+      featListItems.appendChild(item);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Render canvas
 // ---------------------------------------------------------------------------
 // refreshCanvas() — reuse existing renderer, update plasmid data in-place.
@@ -1342,6 +1502,7 @@ function refreshCanvas() {
   }));
   renderer.render([]);
   drawHandles();
+  renderFeatureList();
 }
 
 // rAF-throttled refresh — use during mousemove drag so we cap at one render/frame.
@@ -1384,6 +1545,7 @@ function renderCanvas() {
 
   renderer.render([]);
   drawHandles();
+  renderFeatureList();
 
   puc19Notice.style.display = 'none';
 }
@@ -1402,6 +1564,7 @@ function renderPUC19() {
   }));
   renderer.render([]);
   puc19Notice.style.display = '';
+  renderFeatureList();
 }
 
 function setupRendererEvents() {
