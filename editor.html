@@ -900,7 +900,7 @@ puc19Checkbox.addEventListener('change', () => {
 metaName.addEventListener('change', () => {
   if (currentIdx < 0) return;
   const data = currentPlasmidData();
-  if (data) { data.name = metaName.value; markDirty(); renderDonorTabBar(); renderCanvas(); }
+  if (data) { data.name = metaName.value; markDirty(); renderDonorTabBar(); refreshCanvas(); }
 });
 metaLength.addEventListener('change', () => {
   if (currentIdx < 0) return;
@@ -909,7 +909,7 @@ metaLength.addEventListener('change', () => {
     const len = parseInt(metaLength.value) || 3000;
     data.length = len;
     markDirty();
-    renderCanvas();
+    refreshCanvas();
   }
 });
 
@@ -965,31 +965,31 @@ fiName.addEventListener('input', () => {
   const feat = selectedFeature();
   if (!feat) return;
   feat.name = fiName.value;
-  markDirty(); renderCanvas();
+  markDirty(); refreshCanvas();
 });
 fiType.addEventListener('change', () => {
   const feat = selectedFeature();
   if (!feat) return;
   feat.type = fiType.value;
-  markDirty(); renderCanvas();
+  markDirty(); refreshCanvas();
 });
 fiStrand.addEventListener('change', () => {
   const feat = selectedFeature();
   if (!feat) return;
   feat.strand = parseInt(fiStrand.value);
-  markDirty(); renderCanvas();
+  markDirty(); refreshCanvas();
 });
 fiStart.addEventListener('input', () => {
   const feat = selectedFeature();
   if (!feat) return;
   feat.start = parseInt(fiStart.value) || 0;
-  markDirty(); renderCanvas();
+  markDirty(); refreshCanvas();
 });
 fiEnd.addEventListener('input', () => {
   const feat = selectedFeature();
   if (!feat) return;
   feat.end = parseInt(fiEnd.value) || 0;
-  markDirty(); renderCanvas();
+  markDirty(); refreshCanvas();
 });
 btnDelFeature.addEventListener('click', () => {
   const data = currentPlasmidData();
@@ -1006,13 +1006,13 @@ siEnzyme.addEventListener('change', () => {
   const site = selectedSite();
   if (!site) return;
   site.enzyme = siEnzyme.value;
-  markDirty(); renderCanvas();
+  markDirty(); refreshCanvas();
 });
 siPosition.addEventListener('input', () => {
   const site = selectedSite();
   if (!site) return;
   site.position = parseInt(siPosition.value) || 0;
-  markDirty(); renderCanvas();
+  markDirty(); refreshCanvas();
 });
 btnDelSite.addEventListener('click', () => {
   const data = currentPlasmidData();
@@ -1144,6 +1144,40 @@ document.getElementById('btn-del-donor').addEventListener('click', () => {
 // ---------------------------------------------------------------------------
 // Render canvas
 // ---------------------------------------------------------------------------
+// refreshCanvas() — reuse existing renderer, update plasmid data in-place.
+// Call this for incremental changes (drag, field edits) to avoid creating a
+// new PlasmidRenderer (which permanently attaches a click listener each time).
+function refreshCanvas() {
+  if (!renderer || currentIdx < 0) { renderCanvas(); return; }
+  const lv = levels[currentIdx];
+  if (currentTab === 'vector' && lv.vector && lv.vector.use_pUC19) return;
+
+  const plasmidData = currentTab === 'donor'
+    ? (lv.donors || [])[currentDonorIdx]
+    : lv.vector;
+  if (!plasmidData) return;
+
+  const len = plasmidData.length || 3000;
+  renderer.plasmid.name     = plasmidData.name || 'Plasmid';
+  renderer.plasmid.sequence = 'N'.repeat(len);
+  renderer.plasmid.length   = len;
+  renderer.plasmid.features = (plasmidData.features || []).map(f => ({...f}));
+  renderer._restrictionSites = (plasmidData.cut_sites || []).map(cs => ({
+    enzymeName: cs.enzyme,
+    topStrandCut: cs.position,
+  }));
+  renderer.render([]);
+  drawHandles();
+}
+
+// rAF-throttled refresh — use during mousemove drag so we cap at one render/frame.
+let _refreshScheduled = false;
+function scheduleRefresh() {
+  if (_refreshScheduled) return;
+  _refreshScheduled = true;
+  requestAnimationFrame(() => { _refreshScheduled = false; refreshCanvas(); });
+}
+
 function renderCanvas() {
   if (currentIdx < 0) return;
   const lv = levels[currentIdx];
@@ -1386,7 +1420,7 @@ editorCanvas.addEventListener('mousemove', (e) => {
       feat.start = bp;
       fiStart.value = bp;
       markDirty();
-      renderCanvas();
+      scheduleRefresh();
     }
   } else if (dragState.type === 'feat_end') {
     const feat = (data.features || [])[dragState.idx];
@@ -1394,7 +1428,7 @@ editorCanvas.addEventListener('mousemove', (e) => {
       feat.end = bp;
       fiEnd.value = bp;
       markDirty();
-      renderCanvas();
+      scheduleRefresh();
     }
   } else if (dragState.type === 'site') {
     const site = (data.cut_sites || [])[dragState.idx];
@@ -1402,7 +1436,7 @@ editorCanvas.addEventListener('mousemove', (e) => {
       site.position = bp;
       siPosition.value = bp;
       markDirty();
-      renderCanvas();
+      scheduleRefresh();
     }
   }
 });
