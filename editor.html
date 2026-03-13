@@ -273,6 +273,29 @@ a.btn-secondary {
 }
 .checkbox-label input[type=checkbox] { accent-color: var(--accent); }
 
+/* ── Donor sub-tab bar ───────────────────────────────── */
+#donor-tab-bar {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--bg-mid);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.donor-tab-btn {
+  padding: 4px 14px;
+  background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text-muted); font-size: 0.85rem; cursor: pointer;
+}
+.donor-tab-btn.active {
+  background: var(--bg-light); border-color: var(--accent);
+  color: var(--accent); font-weight: 600;
+}
+.donor-tab-btn:hover:not(.active) { color: var(--text); }
+#donor-tab-bar .separator { flex: 1; }
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-dark); }
@@ -328,6 +351,14 @@ a.btn-secondary {
       </div>
 
       <div id="canvas-wrap">
+        <!-- Donor selector strip (visible only on Donor tab) -->
+        <div id="donor-tab-bar">
+          <!-- donor tab buttons injected dynamically -->
+          <span class="separator"></span>
+          <button class="btn-secondary btn-small" id="btn-add-donor">+ Donor</button>
+          <button class="btn-danger btn-small" id="btn-del-donor">× Remove</button>
+        </div>
+
         <div id="canvas-area">
           <canvas id="editor-canvas" width="540" height="540"></canvas>
           <div id="puc19-notice" style="display:none;">Using built-in pUC19 (2686 bp) — Non-editable.</div>
@@ -495,7 +526,7 @@ function newLevelTemplate() {
     sequence_note: '',
     mcs_enzymes: ['EcoRI','BamHI'],
     vector: {use_pUC19: true},
-    donor: {name:'Donor', length:3000, features:[], cut_sites:[]},
+    donors: [{name:'Donor', length:3000, features:[], cut_sites:[]}],
     objectives: {
       correct_fragment: '',
       correct_orientation: 'forward',
@@ -513,6 +544,7 @@ let currentIdx      = -1;
 let currentSha      = '';
 let isDirty         = false;
 let currentTab      = 'vector';  // 'vector' | 'donor'
+let currentDonorIdx = 0;
 
 let renderer        = null;
 let selectedFeatureIdx = -1;
@@ -645,6 +677,11 @@ connectBtn.addEventListener('click', async () => {
     currentSha = data.sha;
     const json = atob(data.content.replace(/\n/g, ''));
     levels = JSON.parse(json);
+    // Migrate legacy single-donor format to donors array
+    levels.forEach(lv => {
+      if (lv.donor && !lv.donors) { lv.donors = [lv.donor]; delete lv.donor; }
+      if (!lv.donors) lv.donors = [];
+    });
     connectOverlay.style.display = 'none';
     appEl.style.display = 'flex';
     renderLevelList();
@@ -728,6 +765,7 @@ function renderLevelList() {
 
 function selectLevel(idx) {
   currentIdx = idx;
+  currentDonorIdx = 0;
   selectedFeatureIdx = -1;
   selectedSiteIdx    = -1;
   dragState = null;
@@ -736,6 +774,7 @@ function selectLevel(idx) {
   renderLevelList();
   loadRightPanel();
   syncToolbarToLevel();
+  renderDonorTabBar();
   renderCanvas();
 }
 
@@ -794,6 +833,7 @@ tabBtns.forEach(btn => {
     clearUndo();
     showInspectorEmpty();
     syncToolbarToLevel();
+    renderDonorTabBar();
     renderCanvas();
   });
 });
@@ -820,7 +860,9 @@ function syncToolbarToLevel() {
   btnAddSite.style.display    = isVectorPUC19 ? 'none' : '';
 
   // Meta fields
-  const plasmidData = currentTab === 'donor' ? lv.donor : lv.vector;
+  const plasmidData = currentTab === 'donor'
+    ? (lv.donors || [])[currentDonorIdx]
+    : lv.vector;
   if (isVectorPUC19) {
     metaName.value   = 'pUC19';
     metaLength.value = 2686;
@@ -858,7 +900,7 @@ puc19Checkbox.addEventListener('change', () => {
 metaName.addEventListener('change', () => {
   if (currentIdx < 0) return;
   const data = currentPlasmidData();
-  if (data) { data.name = metaName.value; markDirty(); renderCanvas(); }
+  if (data) { data.name = metaName.value; markDirty(); renderDonorTabBar(); renderCanvas(); }
 });
 metaLength.addEventListener('change', () => {
   if (currentIdx < 0) return;
@@ -874,7 +916,10 @@ metaLength.addEventListener('change', () => {
 function currentPlasmidData() {
   if (currentIdx < 0) return null;
   const lv = levels[currentIdx];
-  if (currentTab === 'donor') return lv.donor;
+  if (currentTab === 'donor') {
+    const donors = lv.donors || [];
+    return donors[currentDonorIdx] || null;
+  }
   if (lv.vector && lv.vector.use_pUC19) return null;  // pUC19 not editable
   return lv.vector;
 }
@@ -1021,6 +1066,82 @@ btnAddSite.addEventListener('click', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Donor tab bar (sub-tabs per donor plasmid)
+// ---------------------------------------------------------------------------
+const donorTabBar = document.getElementById('donor-tab-bar');
+
+function renderDonorTabBar() {
+  // Remove old tab buttons (keep the separator, + Donor, and × Remove buttons)
+  Array.from(donorTabBar.querySelectorAll('.donor-tab-btn')).forEach(b => b.remove());
+
+  if (currentTab !== 'donor' || currentIdx < 0) {
+    donorTabBar.style.display = 'none';
+    return;
+  }
+
+  const lv = levels[currentIdx];
+  const donors = lv.donors || [];
+  donorTabBar.style.display = 'flex';
+
+  const separator = donorTabBar.querySelector('.separator');
+
+  donors.forEach((d, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'donor-tab-btn' + (i === currentDonorIdx ? ' active' : '');
+    btn.textContent = d.name || `Donor ${i + 1}`;
+    btn.addEventListener('click', () => {
+      currentDonorIdx = i;
+      selectedFeatureIdx = -1;
+      selectedSiteIdx    = -1;
+      clearUndo();
+      showInspectorEmpty();
+      syncToolbarToLevel();
+      renderDonorTabBar();
+      renderCanvas();
+    });
+    donorTabBar.insertBefore(btn, separator);
+  });
+
+  // Disable remove button if only one donor remains
+  document.getElementById('btn-del-donor').disabled = donors.length <= 1;
+}
+
+document.getElementById('btn-add-donor').addEventListener('click', () => {
+  if (currentIdx < 0) return;
+  const lv = levels[currentIdx];
+  if (!lv.donors) lv.donors = [];
+  lv.donors.push({name: `Donor ${lv.donors.length + 1}`, length: 3000, features: [], cut_sites: []});
+  currentDonorIdx = lv.donors.length - 1;
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  clearUndo();
+  showInspectorEmpty();
+  markDirty();
+  syncToolbarToLevel();
+  renderDonorTabBar();
+  renderCanvas();
+});
+
+document.getElementById('btn-del-donor').addEventListener('click', () => {
+  if (currentIdx < 0) return;
+  const lv = levels[currentIdx];
+  const donors = lv.donors || [];
+  if (donors.length <= 1) return;
+  const name = donors[currentDonorIdx].name || `Donor ${currentDonorIdx + 1}`;
+  if (!confirm(`Remove donor "${name}"?`)) return;
+  donors.splice(currentDonorIdx, 1);
+  if (currentDonorIdx >= donors.length) currentDonorIdx = donors.length - 1;
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  clearUndo();
+  showInspectorEmpty();
+  markDirty();
+  syncToolbarToLevel();
+  renderDonorTabBar();
+  renderCanvas();
+});
+
+// ---------------------------------------------------------------------------
 // Render canvas
 // ---------------------------------------------------------------------------
 function renderCanvas() {
@@ -1032,7 +1153,9 @@ function renderCanvas() {
     return;
   }
 
-  const plasmidData = currentTab === 'donor' ? lv.donor : lv.vector;
+  const plasmidData = currentTab === 'donor'
+    ? (lv.donors || [])[currentDonorIdx]
+    : lv.vector;
   if (!plasmidData) return;
 
   const len = plasmidData.length || 3000;
