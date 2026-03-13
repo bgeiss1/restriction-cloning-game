@@ -280,8 +280,8 @@ class PlasmidRenderer {
             // MCS hidden from map
             if (feature.type === 'mcs') continue;
 
-            // lacZ: draw only a promoter symbol, no arc or label
-            if (feature.type === 'lacZ') {
+            // lacZ / promoter_sym: draw only a promoter symbol, no arc or label
+            if (feature.type === 'lacZ' || feature.type === 'promoter_sym') {
                 const startAngle = this._bpToAngle(feature.start);
                 const endAngle   = this._bpToAngle(feature.end + 1);
                 const color      = featureColor(feature);
@@ -344,21 +344,23 @@ class PlasmidRenderer {
             if (DIRECTIONAL.has(feature.type) || feature.showArrow) {
                 const arrowAngle = feature.strand === 1 ? endAngle : startAngle;
                 const arrowDir   = feature.strand === 1 ? 1 : -1;
+                // tangentAngle already encodes the correct direction for both strands;
+                // do NOT multiply by arrowDir again or it double-negates for strand=-1
                 const tangentAngle = arrowAngle + arrowDir * Math.PI / 2;
-                const arrowLen  = featureWidth * 0.8;
-                const arrowHalf = featureWidth * 0.4;
-                // Offset tip past the arc end so arrow protrudes beyond the arc stroke
+                const arrowLen  = fw * 0.8;
+                const arrowHalf = fw * 0.5;
                 const baseX = cx + arcR * Math.cos(arrowAngle);
                 const baseY = cy + arcR * Math.sin(arrowAngle);
-                const ax = baseX + Math.cos(tangentAngle) * arrowLen * arrowDir;
-                const ay = baseY + Math.sin(tangentAngle) * arrowLen * arrowDir;
+                // Tip: move in tangentAngle direction (already correct for both strands)
+                const ax = baseX + Math.cos(tangentAngle) * arrowLen;
+                const ay = baseY + Math.sin(tangentAngle) * arrowLen;
                 ctx.save();
                 ctx.translate(ax, ay);
                 ctx.rotate(tangentAngle);
                 ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(-arrowLen * arrowDir, -arrowHalf);
-                ctx.lineTo(-arrowLen * arrowDir,  arrowHalf);
+                ctx.moveTo(0, 0);           // tip
+                ctx.lineTo(-arrowLen, -arrowHalf);  // base
+                ctx.lineTo(-arrowLen,  arrowHalf);
                 ctx.closePath();
                 ctx.fillStyle = isHL ? '#FFFFFF' : color;
                 ctx.fill();
