@@ -1029,20 +1029,15 @@ function showInspectorEmpty() {
   updateToolbarDeleteBtns();
 }
 
-// Default colors matching FEATURE_COLORS in plasmid.js
-const FEATURE_COLORS = {
-  ori: '#4FC3F7', resistance: '#EF5350', gene: '#90CAF9', promoter: '#FFCC02',
-  mcs: '#A5D6A7', lacZ: '#80DEEA', terminator: '#FF7043', gfp: '#00FF44',
-  other: '#90A4AE', default: '#90A4AE'
-};
+// Use FEATURE_COLORS already defined by plasmid.js; add any editor-only extras
 function typeDefaultColor(feat) {
   const nameLower = (feat.name || '').toLowerCase();
-  if (nameLower.includes('gfp'))  return FEATURE_COLORS.gfp;
+  if (nameLower.includes('gfp'))  return FEATURE_COLORS.gfp  || '#00FF44';
   if (nameLower.includes('ampr')) return '#EF5350';
   if (nameLower.includes('kanr')) return '#FFD54F';
   if (nameLower.includes('tetr')) return '#FF8A65';
   if (nameLower.includes('cmr'))  return '#CE93D8';
-  return FEATURE_COLORS[feat.type] || FEATURE_COLORS.default;
+  return FEATURE_COLORS[feat.type] || FEATURE_COLORS.default || '#90A4AE';
 }
 
 function updateColorUI(feat) {
