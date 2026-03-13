@@ -7,7 +7,7 @@
  *   3. 5–8 bases DNA/RNA mix (40% RNA), 5'→3'
  *   4. 4 bases DNA, random direction
  *
- * Player always types the 5'→3' reverse complement.
+ * Player always types the complementary strand 3'→5'.
  * Strict Watson-Crick pairing: A↔T, G↔C (DNA) | A↔U, G↔C (RNA).
  */
 
@@ -69,7 +69,7 @@ const G = {
 
     // round state
     sequence:    [],   // bases shown
-    answer:      [],   // expected answer (5'→3')
+    answer:      [],   // expected answer (3'→5')
     isRNA:       false,
     isForward:   true, // true = shown 5'→3', false = shown 3'→5'
     typedIdx:    0,    // number of correct bases typed so far
@@ -160,13 +160,17 @@ function complement(base, isRNA) {
 }
 
 /**
- * Compute the answer the player must type (always 5'→3').
+ * Compute the answer the player must type (always 3'→5').
  * sequence: array of bases shown left-to-right in given direction.
  * isForward: true = shown 5'→3', false = shown 3'→5'.
+ *
+ * Player types the complementary strand 3'→5':
+ *   - shown 5'→3': complement in-place (result runs 3'→5') — no reversal
+ *   - shown 3'→5': complement then reverse (result runs 3'→5')
  */
 function computeAnswer(sequence, isForward, isRNA) {
     const comped = sequence.map(b => complement(b, isRNA));
-    return isForward ? comped.reverse() : comped;
+    return isForward ? comped : comped.reverse();
 }
 
 // ============================================================
