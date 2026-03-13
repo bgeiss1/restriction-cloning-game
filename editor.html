@@ -1084,7 +1084,7 @@ function updateToolbarDeleteBtns() {
 }
 
 function showInspectorEmpty() {
-  inspEmpty.style.display    = '';
+  inspEmpty.style.display    = 'block';
   inspFeature.style.display  = 'none';
   inspSite.style.display     = 'none';
   updateToolbarDeleteBtns();
@@ -1114,7 +1114,7 @@ function updateColorUI(feat) {
 
 function showInspectorFeature(feat) {
   inspEmpty.style.display   = 'none';
-  inspFeature.style.display = '';
+  inspFeature.style.display = 'block';
   inspSite.style.display    = 'none';
   fiName.value         = feat.name   || '';
   fiType.value         = feat.type   || 'gene';
@@ -1133,7 +1133,7 @@ function showInspectorFeature(feat) {
 function showInspectorSite(site) {
   inspEmpty.style.display   = 'none';
   inspFeature.style.display = 'none';
-  inspSite.style.display    = '';
+  inspSite.style.display    = 'block';
   siEnzyme.value   = site.enzyme   || 'EcoRI';
   siPosition.value = site.position ?? 0;
   updateToolbarDeleteBtns();
