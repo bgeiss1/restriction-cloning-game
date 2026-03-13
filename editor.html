@@ -1085,7 +1085,9 @@ function handleRendererClick(result) {
   if (!data) return;
 
   if (result.type === 'feature') {
-    const idx = (data.features || []).indexOf(result.data);
+    // result.data is from renderer.plasmid.features (shallow-cloned by Plasmid constructor),
+    // so match by index in the renderer's array, not the original data array.
+    const idx = (renderer.plasmid.features || []).indexOf(result.data);
     if (idx >= 0) {
       selectedFeatureIdx = idx;
       selectedSiteIdx    = -1;
