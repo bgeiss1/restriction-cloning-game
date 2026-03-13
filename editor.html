@@ -339,6 +339,7 @@ a.btn-secondary {
             <input type="checkbox" id="puc19-checkbox">
             <label for="puc19-checkbox">Use built-in pUC19</label>
           </div>
+          <button class="btn-secondary btn-small" id="btn-undo" disabled title="Undo (Ctrl+Z)">↩ Undo</button>
           <button class="btn-secondary btn-small" id="btn-add-feature">+ Feature</button>
           <button class="btn-secondary btn-small" id="btn-add-site">+ Restriction Site</button>
           <div class="meta-field">
@@ -518,6 +519,8 @@ let selectedFeatureIdx = -1;
 let selectedSiteIdx    = -1;
 let dragState       = null;   // {type:'feat_start'|'feat_end'|'site', idx:number}
 let hasDragged      = false;
+let undoStack       = [];     // stack of deep-copied {features, cut_sites} snapshots
+const MAX_UNDO      = 40;
 
 // ---------------------------------------------------------------------------
 // DOM refs
@@ -576,6 +579,45 @@ const donEnzCheckboxes = document.getElementById('don-enz-checkboxes');
 // ---------------------------------------------------------------------------
 // Dirty tracking
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Undo
+// ---------------------------------------------------------------------------
+function pushUndo() {
+  const data = currentPlasmidData();
+  if (!data) return;
+  undoStack.push(JSON.parse(JSON.stringify({
+    features:  data.features  || [],
+    cut_sites: data.cut_sites || [],
+  })));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  updateUndoBtn();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  const data = currentPlasmidData();
+  if (!data) return;
+  const prev = undoStack.pop();
+  data.features  = prev.features;
+  data.cut_sites = prev.cut_sites;
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  showInspectorEmpty();
+  markDirty();
+  renderCanvas();
+  updateUndoBtn();
+}
+
+function updateUndoBtn() {
+  const btn = document.getElementById('btn-undo');
+  if (btn) btn.disabled = undoStack.length === 0;
+}
+
+function clearUndo() {
+  undoStack = [];
+  updateUndoBtn();
+}
+
 function markDirty() {
   isDirty = true;
   updateDirtyUI();
@@ -690,6 +732,7 @@ function selectLevel(idx) {
   selectedSiteIdx    = -1;
   dragState = null;
   hasDragged = false;
+  clearUndo();
   renderLevelList();
   loadRightPanel();
   syncToolbarToLevel();
@@ -748,6 +791,7 @@ tabBtns.forEach(btn => {
     tabBtns.forEach(b => b.classList.toggle('active', b === btn));
     selectedFeatureIdx = -1;
     selectedSiteIdx    = -1;
+    clearUndo();
     showInspectorEmpty();
     syncToolbarToLevel();
     renderCanvas();
@@ -863,6 +907,14 @@ function showInspectorSite(site) {
   siPosition.value = site.position ?? 0;
 }
 
+// Push undo when the user first focuses an inspector field (captures state before edit)
+[fiName, fiType, fiStrand, fiStart, fiEnd].forEach(el => {
+  el.addEventListener('focus', pushUndo);
+});
+[siEnzyme, siPosition].forEach(el => {
+  el.addEventListener('focus', pushUndo);
+});
+
 // Inspector feature field listeners
 fiName.addEventListener('input', () => {
   const feat = selectedFeature();
@@ -897,6 +949,7 @@ fiEnd.addEventListener('input', () => {
 btnDelFeature.addEventListener('click', () => {
   const data = currentPlasmidData();
   if (!data || selectedFeatureIdx < 0) return;
+  pushUndo();
   data.features.splice(selectedFeatureIdx, 1);
   selectedFeatureIdx = -1;
   showInspectorEmpty();
@@ -919,6 +972,7 @@ siPosition.addEventListener('input', () => {
 btnDelSite.addEventListener('click', () => {
   const data = currentPlasmidData();
   if (!data || selectedSiteIdx < 0) return;
+  pushUndo();
   data.cut_sites.splice(selectedSiteIdx, 1);
   selectedSiteIdx = -1;
   showInspectorEmpty();
@@ -940,6 +994,7 @@ function selectedSite() {
 btnAddFeature.addEventListener('click', () => {
   const data = currentPlasmidData();
   if (!data) return;
+  pushUndo();
   if (!data.features) data.features = [];
   const len = data.length || 3000;
   const newFeat = {name:'New Feature', start:0, end:Math.floor(len * 0.25), type:'gene', strand:1};
@@ -954,6 +1009,7 @@ btnAddFeature.addEventListener('click', () => {
 btnAddSite.addEventListener('click', () => {
   const data = currentPlasmidData();
   if (!data) return;
+  pushUndo();
   if (!data.cut_sites) data.cut_sites = [];
   const newSite = {enzyme:'EcoRI', position:0};
   data.cut_sites.push(newSite);
@@ -1160,6 +1216,7 @@ editorCanvas.addEventListener('mousedown', (e) => {
     const sx = cx + featureR * Math.cos(startAngle);
     const sy = cy + featureR * Math.sin(startAngle);
     if (distanceSq(mx, my, sx, sy) < HIT_R_SQ) {
+      pushUndo();
       dragState = {type: 'feat_start', idx: selectedFeatureIdx};
       return;
     }
@@ -1168,6 +1225,7 @@ editorCanvas.addEventListener('mousedown', (e) => {
     const ex = cx + featureR * Math.cos(endAngle);
     const ey = cy + featureR * Math.sin(endAngle);
     if (distanceSq(mx, my, ex, ey) < HIT_R_SQ) {
+      pushUndo();
       dragState = {type: 'feat_end', idx: selectedFeatureIdx};
       return;
     }
@@ -1181,6 +1239,7 @@ editorCanvas.addEventListener('mousedown', (e) => {
     const tx = cx + outerRadius * Math.cos(angle);
     const ty = cy + outerRadius * Math.sin(angle);
     if (distanceSq(mx, my, tx, ty) < HIT_R_SQ) {
+      pushUndo();
       dragState = {type: 'site', idx: selectedSiteIdx};
       return;
     }
@@ -1328,10 +1387,24 @@ document.addEventListener('DOMContentLoaded', () => {
     donEnzCheckboxes.appendChild(makeEnzymeCheckbox(enz, 'don-enz-' + enz));
   });
 
+  // Undo button
+  document.getElementById('btn-undo').addEventListener('click', undo);
+
   // Attempt to reconnect from sessionStorage
   const storedPat = sessionStorage.getItem('rr_editor_pat');
   if (storedPat) {
     patInput.value = storedPat;
+  }
+});
+
+// Ctrl+Z / Cmd+Z keyboard shortcut
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    // Only fire when not typing in a text/number input or textarea
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    e.preventDefault();
+    undo();
   }
 });
 
