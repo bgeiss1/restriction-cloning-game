@@ -3,7 +3,7 @@
     "id": "clone_01",
     "title": "Clone GFP into pUC19",
     "description": "The first donor plasmid carries a GFP gene flanked by EcoRI and BamHI sites. Cut both plasmids with the same two enzymes, then drag the GFP fragment into the vector backbone.",
-    "teaching_point": "Using two different enzymes (EcoRI + BamHI) creates incompatible ends on each side \u2014 the insert can only ligate in one orientation.",
+    "teaching_point": "Using two different enzymes (EcoRI + BamHI) creates incompatible ends on each side — the insert can only ligate in one orientation.",
     "sequence_note": "",
     "vector": {
       "name": "pUC19",
@@ -44,6 +44,13 @@
           "arrowSize": 0,
           "showArrow": false,
           "showPromoter": false
+        },
+        {
+          "name": "AmpR Promoter",
+          "start": 2058,
+          "end": 2055,
+          "type": "promoter_sym",
+          "strand": -1
         }
       ],
       "cut_sites": [
@@ -63,7 +70,7 @@
         "length": 3200,
         "features": [
           {
-            "name": "GFP",
+            "name": "sfGFP",
             "start": 795,
             "end": 1551,
             "type": "gene",
@@ -138,9 +145,8 @@
             "type": "promoter",
             "strand": 1,
             "color": "#90caf9",
-            "lineWidth": 2,
+            "lineWidth": 9,
             "arrowSize": 0,
-            "showArrow": true,
             "showPromoter": false
           },
           {
@@ -154,6 +160,13 @@
             "arrowSize": 0,
             "showArrow": false,
             "showPromoter": false
+          },
+          {
+            "name": "New Feature",
+            "start": 511,
+            "end": 1250,
+            "type": "promoter_sym",
+            "strand": 1
           }
         ],
         "cut_sites": [
@@ -276,7 +289,7 @@
   {
     "id": "clone_03",
     "title": "Single-enzyme cloning (non-directional)",
-    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation \u2014 predict how many ligation products are possible.",
+    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation — predict how many ligation products are possible.",
     "teaching_point": "Single-enzyme cloning with a palindromic site creates two possible insert orientations and one self-ligation product. Colony screening by PCR or restriction digest is required.",
     "sequence_note": "",
     "vector": {
