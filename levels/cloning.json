@@ -76,7 +76,7 @@
             "type": "gene",
             "strand": 1,
             "color": "#33ff33",
-            "lineWidth": 15,
+            "lineWidth": 14,
             "arrowSize": 0,
             "showArrow": true,
             "showPromoter": false
