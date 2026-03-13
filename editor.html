@@ -171,7 +171,7 @@ a.btn-secondary {
 }
 #canvas-area {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  background: var(--bg-dark); position: relative; overflow: auto;
+  background: var(--bg-dark); position: relative; overflow: hidden;
 }
 #editor-canvas {
   display: block;
@@ -1847,11 +1847,11 @@ editorCanvas.addEventListener('mouseup', () => {
 // ---------------------------------------------------------------------------
 function applyZoom(newZoom) {
   zoomLevel = Math.max(0.4, Math.min(3.0, newZoom));
-  const size = Math.round(BASE_CANVAS_SIZE * zoomLevel);
-  editorCanvas.width  = size;
-  editorCanvas.height = size;
+  editorCanvas.style.transform       = `scale(${zoomLevel})`;
+  editorCanvas.style.transformOrigin = 'center center';
   zoomLabel.textContent = Math.round(zoomLevel * 100) + '%';
-  if (renderer) refreshCanvas();
+  // Canvas size stays at BASE_CANVAS_SIZE — transform is purely visual,
+  // so no re-render needed and flex centering is unaffected.
 }
 
 btnZoomIn.addEventListener('click', () => {
@@ -1880,16 +1880,17 @@ canvasArea.addEventListener('wheel', (e) => {
 // ---------------------------------------------------------------------------
 // Panel toggles
 // ---------------------------------------------------------------------------
-function setupPanelToggle(btn, el) {
+function setupPanelToggle(btn, el, showDisplay) {
+  if (!btn || !el) return;
   btn.addEventListener('click', () => {
     const hidden = el.style.display === 'none';
-    el.style.display = hidden ? '' : 'none';
+    el.style.display = hidden ? showDisplay : 'none';
     btn.classList.toggle('active', hidden);
   });
 }
-setupPanelToggle(toggleLeft,      leftPanel);
-setupPanelToggle(toggleInspector, inspectorEl);
-setupPanelToggle(toggleRight,     rightPanel);
+setupPanelToggle(toggleLeft,      leftPanel,   'flex');
+setupPanelToggle(toggleInspector, inspectorEl, 'flex');
+setupPanelToggle(toggleRight,     rightPanel,  'flex');
 
 // ---------------------------------------------------------------------------
 // Right panel — level settings form
