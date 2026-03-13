@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reverse Complement — Molecular Cloning Game</title>
+  <style>
+    /* -------------------------------------------------------- */
+    /* Design tokens — match cloning game palette               */
+    /* -------------------------------------------------------- */
+    :root {
+      --bg-dark:    #1A2332;
+      --bg-mid:     #243447;
+      --bg-panel:   #2D3E50;
+      --accent:     #5BA3C9;
+      --accent-h:   #7BBFDE;
+      --text:       #E0E8F0;
+      --text-muted: #8BA3B8;
+      --success:    #4CAF50;
+      --warning:    #FFC107;
+      --danger:     #CF6679;
+      --border:     #3A5068;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg-dark);
+      color: var(--text);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* -------------------------------------------------------- */
+    /* Screen management                                         */
+    /* -------------------------------------------------------- */
+    .screen { display: none; }
+    .screen.active { display: flex; flex-direction: column; align-items: center; }
+
+    /* -------------------------------------------------------- */
+    /* Start screen                                              */
+    /* -------------------------------------------------------- */
+    #startScreen {
+      gap: 18px;
+      padding: 40px 32px;
+      max-width: 560px;
+      text-align: center;
+    }
+    .game-logo { font-size: 3.5rem; }
+    .game-title { font-size: 2.4rem; color: var(--accent); letter-spacing: 0.06em; }
+    .game-subtitle {
+      color: var(--text-muted); font-size: 0.97rem; line-height: 1.75;
+      max-width: 440px;
+    }
+    .rules-box {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 22px; text-align: left;
+      font-size: 0.88rem; color: var(--text-muted); line-height: 1.8; width: 100%;
+    }
+    .rules-box strong { color: var(--accent); }
+    .btn-large {
+      padding: 14px 48px; font-size: 1.15rem; border-radius: 10px;
+      background: var(--accent); color: #fff; border: none; cursor: pointer;
+      font-weight: 600; letter-spacing: 0.04em; transition: background 0.15s;
+    }
+    .btn-large:hover { background: var(--accent-h); }
+    .btn-back {
+      color: var(--text-muted); font-size: 0.88rem; text-decoration: none;
+      transition: color 0.15s;
+    }
+    .btn-back:hover { color: var(--accent); }
+
+    /* -------------------------------------------------------- */
+    /* Game screen                                               */
+    /* -------------------------------------------------------- */
+    #gameScreen {
+      width: 100%; max-width: 720px; padding: 16px 20px;
+      gap: 16px;
+    }
+
+    /* Header row */
+    #gameHeader {
+      width: 100%; display: flex; justify-content: space-between; align-items: center;
+      background: var(--bg-panel); border-radius: 10px; padding: 10px 18px;
+      border: 1px solid var(--border);
+    }
+    .hdr-section { display: flex; flex-direction: column; align-items: center; }
+    .hdr-label { font-size: 0.7rem; letter-spacing: 0.08em; color: var(--text-muted); }
+    .hdr-value { font-size: 1.3rem; font-weight: 700; color: var(--text); }
+    #phaseBadge {
+      display: inline-block; background: var(--accent); color: #fff;
+      border-radius: 6px; padding: 2px 10px; font-size: 0.78rem; font-weight: 700;
+    }
+    #phaseName { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+    #totalScoreVal { font-size: 1.5rem; font-weight: 800; color: var(--accent); transition: color 0.3s; }
+    #streakVal { font-size: 1.4rem; font-weight: 700; color: var(--warning); }
+
+    /* Round area */
+    #roundArea {
+      width: 100%; background: var(--bg-mid); border-radius: 12px;
+      padding: 22px 24px 18px; border: 1px solid var(--border);
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+    }
+    .mol-label {
+      font-size: 0.78rem; letter-spacing: 0.1em; color: var(--text-muted);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .mol-badge {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: 5px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600;
+    }
+    #molTypeBadge { color: var(--accent); }
+    .dir-arrow { font-size: 1.1rem; }
+
+    .base-row { display: flex; gap: 8px; flex-wrap: nowrap; justify-content: center; }
+
+    .base-box {
+      width: 66px; height: 66px;
+      border-radius: 10px; border: 2px solid transparent;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 2rem; font-weight: 800; font-family: 'Courier New', monospace;
+      transition: background 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+    .base-box.seq-box {
+      background: var(--bg-panel);
+      border-color: var(--border);
+    }
+    .ans-box {
+      background: var(--bg-dark);
+      border: 2px dashed var(--border);
+    }
+    .ans-box.current {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(91,163,201,0.25);
+    }
+    .ans-box.filled { border-style: solid; }
+    .ans-box.correct-flash { animation: correctFlash 0.3s ease; }
+    .ans-box.wrong-shake  { animation: wrongShake 0.35s ease; border-color: var(--danger) !important; }
+    .ans-box.timeout-show { border-style: solid; opacity: 0.7; }
+
+    .answer-label {
+      font-size: 0.78rem; letter-spacing: 0.08em; color: var(--text-muted);
+      align-self: flex-start;
+    }
+
+    /* Timer */
+    #timerArea {
+      width: 100%; display: flex; flex-direction: column; gap: 4px;
+    }
+    #timerBar {
+      width: 100%; height: 10px; background: var(--bg-panel);
+      border-radius: 5px; overflow: hidden; border: 1px solid var(--border);
+    }
+    #timerFill {
+      height: 100%; width: 100%; background: var(--accent);
+      transition: background 0.3s; border-radius: 5px;
+    }
+    #timerText {
+      font-size: 0.75rem; color: var(--text-muted); text-align: right;
+    }
+
+    /* Round info row */
+    #roundInfo {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%; font-size: 0.82rem; color: var(--text-muted);
+      min-height: 24px;
+    }
+    #penaltyPopup {
+      font-size: 1rem; font-weight: 700; color: var(--danger);
+      animation: penaltyPop 0.7s ease forwards;
+      position: absolute;
+    }
+    #roundScorePreview {
+      font-size: 0.82rem; color: var(--text-muted);
+    }
+
+    /* Result overlay */
+    #resultOverlay {
+      position: fixed; inset: 0; background: transparent;
+      display: none; align-items: center; justify-content: center;
+      z-index: 100; pointer-events: none;
+    }
+    #resultOverlay.active { display: flex; }
+    #resultBanner {
+      font-size: 2.5rem; font-weight: 800; letter-spacing: 0.08em;
+      padding: 18px 44px; border-radius: 16px;
+      animation: bannerPop 0.4s ease;
+    }
+    #resultBanner.correct {
+      background: rgba(76,175,80,0.18); color: var(--success);
+      border: 2px solid var(--success);
+    }
+    #resultBanner.wrong {
+      background: rgba(207,102,121,0.18); color: var(--danger);
+      border: 2px solid var(--danger);
+    }
+    #resultBanner.timeout {
+      background: rgba(255,193,7,0.15); color: var(--warning);
+      border: 2px solid var(--warning);
+    }
+
+    /* Base buttons */
+    #baseButtons {
+      display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
+    }
+    .base-btn {
+      width: 78px; height: 78px; font-size: 2rem; font-weight: 800;
+      border: none; border-radius: 14px; cursor: pointer;
+      font-family: 'Courier New', monospace;
+      transition: filter 0.12s, transform 0.08s;
+      color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    }
+    .base-btn:hover { filter: brightness(1.15); }
+    .base-btn:active { transform: scale(0.93); }
+    .base-btn.disabled { opacity: 0.35; pointer-events: none; }
+
+    /* Score pop */
+    .score-pop {
+      position: absolute; font-size: 1.2rem; font-weight: 800;
+      pointer-events: none; animation: scorePop 0.9s ease forwards;
+    }
+
+    /* Milestone flash */
+    #milestoneFlash {
+      position: fixed; top: 0; left: 0; right: 0;
+      background: linear-gradient(135deg, rgba(91,163,201,0.18), rgba(76,175,80,0.18));
+      border-bottom: 2px solid var(--accent);
+      padding: 12px; text-align: center;
+      font-size: 1.1rem; font-weight: 700; color: var(--accent);
+      letter-spacing: 0.06em;
+      display: none; z-index: 50;
+    }
+    #milestoneFlash.active { display: block; animation: milestoneIn 2.5s ease forwards; }
+
+    /* -------------------------------------------------------- */
+    /* Phase complete screen                                     */
+    /* -------------------------------------------------------- */
+    #phaseScreen {
+      gap: 20px; padding: 40px 32px; text-align: center; max-width: 500px;
+    }
+    .phase-icon { font-size: 4rem; animation: iconPop 0.5s ease; }
+    #phaseCompleteTitle { font-size: 2rem; color: var(--accent); }
+    #phaseCompleteText { color: var(--text-muted); font-size: 1rem; line-height: 1.6; }
+    .phase-stats {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 28px; font-size: 0.95rem;
+    }
+    .phase-stats span { color: var(--accent); font-weight: 700; font-size: 1.1rem; }
+
+    /* -------------------------------------------------------- */
+    /* End screens (game over / victory)                        */
+    /* -------------------------------------------------------- */
+    #gameOverScreen, #victoryScreen {
+      gap: 18px; padding: 40px 32px; text-align: center; max-width: 480px;
+    }
+    .result-icon { font-size: 4rem; }
+    .result-title { font-size: 2rem; color: var(--accent); }
+    .result-subtitle { color: var(--text-muted); font-size: 0.95rem; }
+    .final-score-box {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 36px;
+      font-size: 1rem; color: var(--text-muted);
+    }
+    .final-score-box strong { font-size: 2.2rem; color: var(--accent); display: block; }
+    .btn-retry {
+      padding: 12px 36px; font-size: 1rem; border-radius: 9px;
+      background: var(--accent); color: #fff; border: none; cursor: pointer;
+      font-weight: 600; transition: background 0.15s;
+    }
+    .btn-retry:hover { background: var(--accent-h); }
+    #victoryConfettiCanvas {
+      position: fixed; inset: 0; pointer-events: none; z-index: 10;
+    }
+    #victoryScreen .result-title { color: var(--warning); }
+
+    /* -------------------------------------------------------- */
+    /* Keyframe animations                                       */
+    /* -------------------------------------------------------- */
+    @keyframes correctFlash {
+      0%   { background: rgba(76,175,80,0.5); transform: scale(1.12); }
+      100% { background: inherit; transform: scale(1); }
+    }
+    @keyframes wrongShake {
+      0%,100% { transform: translateX(0); }
+      20%     { transform: translateX(-6px); }
+      40%     { transform: translateX(6px); }
+      60%     { transform: translateX(-4px); }
+      80%     { transform: translateX(4px); }
+    }
+    @keyframes bannerPop {
+      0%   { transform: scale(0.7); opacity: 0; }
+      60%  { transform: scale(1.08); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes scorePop {
+      0%   { transform: translateY(0) scale(1); opacity: 1; }
+      100% { transform: translateY(-60px) scale(1.4); opacity: 0; }
+    }
+    @keyframes penaltyPop {
+      0%   { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-30px); }
+    }
+    @keyframes milestoneIn {
+      0%,15% { opacity: 1; transform: translateY(0); }
+      85%    { opacity: 1; transform: translateY(0); }
+      100%   { opacity: 0; transform: translateY(-20px); }
+    }
+    @keyframes iconPop {
+      0%  { transform: scale(0.5) rotate(-20deg); opacity: 0; }
+      70% { transform: scale(1.15) rotate(5deg); }
+      100%{ transform: scale(1) rotate(0); opacity: 1; }
+    }
+    @keyframes scoreIncrement {
+      0%   { color: var(--success); transform: scale(1.3); }
+      100% { color: var(--accent);  transform: scale(1); }
+    }
+    .score-pulse { animation: scoreIncrement 0.4s ease; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- START SCREEN                                                  -->
+<!-- ============================================================ -->
+<div id="startScreen" class="screen active">
+  <div class="game-logo">🧬</div>
+  <h1 class="game-title">Reverse Complement</h1>
+  <p class="game-subtitle">
+    Given a DNA or RNA sequence, type its reverse complement in the 5'→3' direction.
+    Race the clock — accuracy and speed both score points.
+  </p>
+
+  <div class="rules-box">
+    <strong>Watson-Crick pairing:</strong> A↔T, G↔C (DNA) &nbsp;|&nbsp; A↔U, G↔C (RNA)<br>
+    <strong>Scoring:</strong> 10 pts × sequence length + up to 9 time bonus − 2 per wrong key<br>
+    <strong>Phases:</strong> Single base → Growing sequence → DNA/RNA mix → Random direction<br>
+    <strong>Game over:</strong> 3 consecutive rounds with zero points
+  </div>
+
+  <button id="btnStart" class="btn-large">Start Game</button>
+  <a href="index.html" class="btn-back">← Back to Menu</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- GAME SCREEN                                                   -->
+<!-- ============================================================ -->
+<div id="gameScreen" class="screen">
+
+  <div id="gameHeader">
+    <div class="hdr-section" style="align-items:flex-start;">
+      <span id="phaseBadge">Phase 1</span>
+      <span id="phaseName">Single Base</span>
+    </div>
+    <div class="hdr-section">
+      <div class="hdr-label">SCORE</div>
+      <div id="totalScoreVal">0</div>
+    </div>
+    <div class="hdr-section">
+      <div class="hdr-label">STREAK</div>
+      <div id="streakVal">0</div>
+    </div>
+  </div>
+
+  <div id="roundArea">
+    <div class="mol-label">
+      <span class="dir-arrow">5'</span>
+      <span id="seqDirLabel">→</span>
+      <span class="dir-arrow">3'</span>
+      <span class="mol-badge" id="molTypeBadge">DNA</span>
+    </div>
+    <div id="seqDisplay" class="base-row"></div>
+
+    <div class="answer-label">Your answer &nbsp;<span style="color:var(--text-muted);font-size:0.75em">(5' → 3')</span>:</div>
+    <div id="ansDisplay" class="base-row"></div>
+  </div>
+
+  <div id="timerArea">
+    <div id="timerBar"><div id="timerFill"></div></div>
+    <div id="timerText">5.0s</div>
+  </div>
+
+  <div id="roundInfo">
+    <span>Wrong keys: <strong id="wrongCount">0</strong></span>
+    <span id="roundScorePreview">Round score: —</span>
+  </div>
+
+  <div id="baseButtons">
+    <button class="base-btn" id="btnA" data-base="A">A</button>
+    <button class="base-btn" id="btnT" data-base="T">T</button>
+    <button class="base-btn" id="btnG" data-base="G">G</button>
+    <button class="base-btn" id="btnC" data-base="C">C</button>
+  </div>
+
+</div>
+
+<!-- ============================================================ -->
+<!-- RESULT OVERLAY (flashed between rounds)                       -->
+<!-- ============================================================ -->
+<div id="resultOverlay">
+  <div id="resultBanner">✓ Correct!</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MILESTONE FLASH                                               -->
+<!-- ============================================================ -->
+<div id="milestoneFlash">🎯 Milestone! Keep going!</div>
+
+<!-- ============================================================ -->
+<!-- PHASE COMPLETE SCREEN                                         -->
+<!-- ============================================================ -->
+<div id="phaseScreen" class="screen">
+  <div class="phase-icon" id="phaseIcon">⭐</div>
+  <h2 id="phaseCompleteTitle">Phase 1 Complete!</h2>
+  <p id="phaseCompleteText">You've mastered single-base pairing.</p>
+  <div class="phase-stats">
+    Phase score: <span id="phaseScoreVal">0</span> pts &nbsp;|&nbsp;
+    Total: <span id="phaseTotalVal">0</span> pts
+  </div>
+  <button id="btnNextPhase" class="btn-retry">Next Phase →</button>
+</div>
+
+<!-- ============================================================ -->
+<!-- GAME OVER SCREEN                                              -->
+<!-- ============================================================ -->
+<div id="gameOverScreen" class="screen">
+  <div class="result-icon">💀</div>
+  <h2 class="result-title" style="color:var(--danger)">Game Over</h2>
+  <p class="result-subtitle">3 consecutive rounds with zero points.</p>
+  <div class="final-score-box">
+    <strong id="gameOverScoreVal">0</strong>
+    Final Score
+  </div>
+  <p class="result-subtitle">Reached Phase <span id="gameOverPhaseVal">1</span></p>
+  <button id="btnRetry" class="btn-retry">Try Again</button>
+  <a href="index.html" class="btn-back" style="margin-top:4px">← Menu</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- VICTORY SCREEN                                                -->
+<!-- ============================================================ -->
+<canvas id="victoryConfettiCanvas"></canvas>
+<div id="victoryScreen" class="screen">
+  <div class="result-icon">🎉</div>
+  <h2 class="result-title">You Win!</h2>
+  <p class="result-subtitle">All 4 phases complete. Perfect Watson-Crick instincts!</p>
+  <div class="final-score-box">
+    <strong id="victoryScoreVal">0</strong>
+    Final Score
+  </div>
+  <button id="btnPlayAgain" class="btn-retry">Play Again</button>
+  <a href="index.html" class="btn-back" style="margin-top:4px">← Menu</a>
+</div>
+
+<script src="rc_game.js"></script>
+</body>
+</html>

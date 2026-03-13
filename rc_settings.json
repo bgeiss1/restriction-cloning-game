@@ -1,0 +1,92 @@
+{
+  "_comment": "Reverse Complement Game — all tweakable parameters. Edit and refresh to change gameplay.",
+
+  "phases": [
+    {
+      "id": 1,
+      "name": "Single Base",
+      "description": "Get comfortable with Watson-Crick pairing — one base at a time.",
+      "seqLength": [1, 1],
+      "rna_ratio": 0.0,
+      "randomDirection": false,
+      "timerStart": 5.0,
+      "timerMin": 2.0,
+      "timerDecayPerRound": 0.1,
+      "advanceCondition": {
+        "type": "totalScore",
+        "value": 200
+      }
+    },
+    {
+      "id": 2,
+      "name": "Growing Sequence",
+      "description": "Sequences grow from 2 to 5 bases as your score climbs.",
+      "seqLength": [2, 5],
+      "lengthGrowInterval": 200,
+      "rna_ratio": 0.0,
+      "randomDirection": false,
+      "timerStart": 5.0,
+      "timerMin": 3.0,
+      "timerDecayPerRound": 0.05,
+      "advanceCondition": {
+        "type": "consecutiveAtMaxLength",
+        "consecutive": 3,
+        "minPts": 7
+      }
+    },
+    {
+      "id": 3,
+      "name": "DNA + RNA Mix",
+      "description": "40% of sequences are RNA — remember A pairs with U!",
+      "seqLength": [5, 8],
+      "rna_ratio": 0.4,
+      "randomDirection": false,
+      "timerStart": 5.0,
+      "timerMin": 3.0,
+      "timerDecayPerRound": 0.05,
+      "advanceCondition": {
+        "type": "consecutive",
+        "consecutive": 3,
+        "minPts": 5
+      }
+    },
+    {
+      "id": 4,
+      "name": "Random Direction",
+      "description": "Sequences may be shown 5'→3' or 3'→5' — stay sharp!",
+      "seqLength": [4, 4],
+      "rna_ratio": 0.0,
+      "randomDirection": true,
+      "timerStart": 5.0,
+      "timerMin": 3.0,
+      "timerDecayPerRound": 0.05,
+      "advanceCondition": {
+        "type": "consecutive",
+        "consecutive": 3,
+        "minPts": 5
+      }
+    }
+  ],
+
+  "scoring": {
+    "basePointsPerBase": 10,
+    "maxTimeBonus": 9,
+    "wrongKeyPenalty": 2,
+    "milestoneInterval": 200,
+    "gameOverConsecutiveZeros": 3
+  },
+
+  "baseColors": {
+    "A": "#4CAF50",
+    "T": "#F44336",
+    "U": "#F44336",
+    "G": "#FFC107",
+    "C": "#2196F3"
+  },
+
+  "ui": {
+    "roundResultPauseSec": 1.2,
+    "timeoutResultPauseSec": 1.8,
+    "phaseFlashDurationSec": 2.5
+  }
+}
