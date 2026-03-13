@@ -1,0 +1,1352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cloning Level Editor</title>
+<script src="enzymes.js"></script>
+<script src="plasmid.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-dark:   #1A2332;
+  --bg-mid:    #243447;
+  --bg-light:  #2D4060;
+  --accent:    #4FC3F7;
+  --success:   #66BB6A;
+  --warn:      #FFB300;
+  --danger:    #EF5350;
+  --border:    #354A63;
+  --text:      #E0E0E0;
+  --text-muted:#90A4AE;
+  --font:      system-ui, sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg-dark);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  overflow: hidden;
+}
+
+/* ── Connect overlay ─────────────────────────────── */
+#connect-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-dark);
+  z-index: 100;
+}
+#connect-box {
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 36px 40px;
+  width: 380px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+#connect-box h1 { font-size: 1.4rem; color: var(--accent); }
+#connect-box p  { color: var(--text-muted); font-size: 0.88rem; }
+#connect-box input {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg-dark); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 0.95rem;
+}
+#connect-box input:focus { outline: none; border-color: var(--accent); }
+#connect-error { color: var(--danger); font-size: 0.85rem; min-height: 1.2em; }
+
+/* ── App shell ───────────────────────────────────── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* ── Top bar ─────────────────────────────────────── */
+#topbar {
+  height: 48px;
+  background: var(--bg-mid);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+#topbar h1 { font-size: 1.1rem; color: var(--accent); }
+#topbar-right { display: flex; align-items: center; gap: 12px; }
+#dirty-indicator { color: var(--warn); font-size: 0.85rem; font-weight: 600; }
+#dirty-indicator.hidden { display: none; }
+
+/* ── Buttons ─────────────────────────────────────── */
+button {
+  cursor: pointer; border: none; border-radius: 6px;
+  font-size: 0.88rem; font-family: var(--font);
+  padding: 7px 14px; transition: opacity .15s;
+}
+button:hover { opacity: .85; }
+button:active { opacity: .7; }
+.btn-primary   { background: var(--accent); color: #0d1b2a; font-weight: 700; }
+.btn-danger    { background: var(--danger); color: #fff; }
+.btn-secondary { background: var(--bg-light); color: var(--text); border: 1px solid var(--border); }
+.btn-small { padding: 4px 10px; font-size: 0.82rem; }
+
+a.btn-secondary {
+  display: inline-flex; align-items: center;
+  text-decoration: none; padding: 7px 14px;
+}
+
+/* ── Main layout ─────────────────────────────────── */
+#main {
+  display: flex; flex: 1; overflow: hidden;
+}
+
+/* ── Left panel ──────────────────────────────────── */
+#left-panel {
+  width: 220px; flex-shrink: 0;
+  background: var(--bg-mid);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#left-panel-header {
+  padding: 10px 12px 6px;
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: .05em;
+  border-bottom: 1px solid var(--border);
+}
+#level-list {
+  flex: 1; overflow-y: auto;
+  padding: 4px 0;
+}
+.level-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.9rem;
+  transition: background .12s;
+}
+.level-item:hover { background: var(--bg-light); }
+.level-item.active {
+  border-left-color: var(--accent);
+  background: var(--bg-light);
+  color: var(--accent);
+  font-weight: 600;
+}
+#left-panel-buttons {
+  display: flex; gap: 4px; padding: 8px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+#left-panel-buttons button { flex: 1; min-width: 0; }
+
+/* ── Center panel ────────────────────────────────── */
+#center-panel {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; background: var(--bg-dark);
+}
+
+/* Tab bar */
+#tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-mid);
+  flex-shrink: 0;
+}
+.tab-btn {
+  padding: 10px 24px;
+  background: none; border: none; border-radius: 0;
+  color: var(--text-muted); font-size: 0.95rem; cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+.tab-btn:hover:not(.active) { color: var(--text); }
+
+/* Canvas wrapper */
+#canvas-wrap {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: stretch; overflow: hidden;
+}
+#canvas-area {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  background: var(--bg-dark); position: relative; overflow: hidden;
+}
+#editor-canvas {
+  display: block;
+  background: var(--bg-dark);
+  cursor: crosshair;
+}
+#puc19-notice {
+  position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
+  background: rgba(36,52,71,.92);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 14px; font-size: 0.82rem; color: var(--text-muted);
+  pointer-events: none;
+}
+
+/* Canvas toolbar */
+#canvas-toolbar {
+  background: var(--bg-mid);
+  border-top: 1px solid var(--border);
+  padding: 8px 12px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  flex-shrink: 0;
+}
+#puc19-toggle-row {
+  display: flex; align-items: center; gap: 6px;
+  color: var(--text-muted); font-size: 0.86rem;
+}
+.meta-field { display: flex; align-items: center; gap: 5px; font-size: 0.85rem; color: var(--text-muted); }
+.meta-field input {
+  background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); padding: 4px 8px; font-size: 0.88rem;
+}
+.meta-field input:focus { outline: none; border-color: var(--accent); }
+
+/* Inspector */
+#inspector {
+  background: var(--bg-mid);
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+  min-height: 120px; max-height: 160px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+#inspector-empty { color: var(--text-muted); font-size: 0.88rem; padding-top: 4px; }
+#inspector-feature, #inspector-site { display: none; }
+.insp-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 7px; flex-wrap: wrap;
+}
+.insp-row label { color: var(--text-muted); font-size: 0.82rem; width: 60px; flex-shrink: 0; }
+.insp-row input, .insp-row select {
+  background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px;
+  color: var(--text); padding: 4px 8px; font-size: 0.88rem; flex: 1; min-width: 60px;
+}
+.insp-row input:focus, .insp-row select:focus { outline: none; border-color: var(--accent); }
+
+/* ── Right panel ─────────────────────────────────── */
+#right-panel {
+  width: 280px; flex-shrink: 0;
+  background: var(--bg-mid);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#right-panel-header {
+  padding: 10px 12px 6px;
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: .05em;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#right-panel-form {
+  flex: 1; overflow-y: auto; padding: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+#right-panel-empty { color: var(--text-muted); font-size: 0.88rem; padding: 16px 12px; }
+.form-group { display: flex; flex-direction: column; gap: 4px; }
+.form-group label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.form-group input, .form-group textarea, .form-group select {
+  background: var(--bg-dark); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); padding: 6px 9px; font-size: 0.88rem; font-family: var(--font);
+  resize: vertical;
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+  outline: none; border-color: var(--accent);
+}
+.form-section-title {
+  font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+  color: var(--accent); letter-spacing: .05em; margin-top: 4px;
+  border-bottom: 1px solid var(--border); padding-bottom: 4px;
+}
+.checkbox-grid {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.checkbox-label {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.82rem; color: var(--text); cursor: pointer;
+  background: var(--bg-dark); border: 1px solid var(--border);
+  border-radius: 4px; padding: 3px 8px;
+}
+.checkbox-label input[type=checkbox] { accent-color: var(--accent); }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-dark); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ── Connect overlay ──────────────────────────────────────────── -->
+<div id="connect-overlay">
+  <div id="connect-box">
+    <h1>🧬 Level Editor</h1>
+    <p>Enter your GitHub Personal Access Token to load and publish levels.</p>
+    <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
+    <div id="connect-error"></div>
+    <button class="btn-primary" id="connect-btn">Connect</button>
+  </div>
+</div>
+
+<!-- ── App ──────────────────────────────────────────────────────── -->
+<div id="app" style="display:none;">
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <h1>🧬 Cloning Level Editor</h1>
+    <div id="topbar-right">
+      <span id="dirty-indicator" class="hidden">● Unsaved changes</span>
+      <button class="btn-primary" id="publish-btn">Publish to GitHub</button>
+      <a class="btn-secondary" href="index.html">← Game</a>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+
+    <!-- Left panel: level list -->
+    <div id="left-panel">
+      <div id="left-panel-header">Levels</div>
+      <div id="level-list"></div>
+      <div id="left-panel-buttons">
+        <button class="btn-secondary btn-small" id="btn-new">+ New</button>
+        <button class="btn-secondary btn-small" id="btn-up">↑</button>
+        <button class="btn-secondary btn-small" id="btn-down">↓</button>
+        <button class="btn-danger btn-small" id="btn-delete">🗑</button>
+      </div>
+    </div>
+
+    <!-- Center panel: canvas editor -->
+    <div id="center-panel">
+      <div id="tab-bar">
+        <button class="tab-btn active" data-tab="vector">Vector</button>
+        <button class="tab-btn" data-tab="donor">Donor</button>
+      </div>
+
+      <div id="canvas-wrap">
+        <div id="canvas-area">
+          <canvas id="editor-canvas" width="540" height="540"></canvas>
+          <div id="puc19-notice" style="display:none;">Using built-in pUC19 (2686 bp) — Non-editable.</div>
+        </div>
+
+        <!-- Toolbar below canvas -->
+        <div id="canvas-toolbar">
+          <div id="puc19-toggle-row" style="display:none;">
+            <input type="checkbox" id="puc19-checkbox">
+            <label for="puc19-checkbox">Use built-in pUC19</label>
+          </div>
+          <button class="btn-secondary btn-small" id="btn-add-feature">+ Feature</button>
+          <button class="btn-secondary btn-small" id="btn-add-site">+ Restriction Site</button>
+          <div class="meta-field">
+            <label for="meta-name">Name</label>
+            <input type="text" id="meta-name" style="width:130px;">
+          </div>
+          <div class="meta-field">
+            <label for="meta-length">Length</label>
+            <input type="number" id="meta-length" min="100" max="99999" style="width:90px;">
+            <span style="color:var(--text-muted);font-size:0.82rem;">bp</span>
+          </div>
+        </div>
+
+        <!-- Inspector -->
+        <div id="inspector">
+          <div id="inspector-empty">Click a feature or restriction site to edit.</div>
+
+          <div id="inspector-feature">
+            <div class="insp-row">
+              <label>Name</label>
+              <input type="text" id="fi-name">
+            </div>
+            <div class="insp-row">
+              <label>Type</label>
+              <select id="fi-type">
+                <option value="gene">gene</option>
+                <option value="ori">ori</option>
+                <option value="resistance">resistance</option>
+                <option value="mcs">mcs</option>
+                <option value="promoter">promoter</option>
+                <option value="terminator">terminator</option>
+                <option value="lacZ">lacZ</option>
+              </select>
+              <label>Strand</label>
+              <select id="fi-strand">
+                <option value="1">+ (1)</option>
+                <option value="-1">− (−1)</option>
+              </select>
+            </div>
+            <div class="insp-row">
+              <label>Start</label>
+              <input type="number" id="fi-start" min="0">
+              <label>End</label>
+              <input type="number" id="fi-end" min="0">
+              <button class="btn-danger btn-small" id="btn-del-feature">Delete Feature</button>
+            </div>
+          </div>
+
+          <div id="inspector-site">
+            <div class="insp-row">
+              <label>Enzyme</label>
+              <select id="si-enzyme"></select>
+              <label>Position</label>
+              <input type="number" id="si-position" min="0" style="width:90px;">
+              <button class="btn-danger btn-small" id="btn-del-site">Delete Site</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right panel: level settings -->
+    <div id="right-panel">
+      <div id="right-panel-header">Level Settings</div>
+      <div id="right-panel-empty">Select a level to edit its settings.</div>
+      <div id="right-panel-form" style="display:none;">
+        <div class="form-group">
+          <label>Level ID</label>
+          <input type="text" id="f-id">
+        </div>
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="f-title">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="f-description" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Teaching Point</label>
+          <textarea id="f-teaching" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Sequence Note</label>
+          <textarea id="f-seqnote" rows="2"></textarea>
+        </div>
+
+        <div class="form-section-title">MCS Enzymes</div>
+        <div class="checkbox-grid" id="mcs-checkboxes"></div>
+
+        <div class="form-section-title">Objectives</div>
+        <div class="form-group">
+          <label>Correct Fragment</label>
+          <input type="text" id="f-fragment">
+        </div>
+        <div class="form-group">
+          <label>Correct Orientation</label>
+          <select id="f-orientation">
+            <option value="forward">forward</option>
+            <option value="reverse">reverse</option>
+            <option value="either">either</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Vector Enzymes</label>
+          <div class="checkbox-grid" id="vec-enz-checkboxes"></div>
+        </div>
+        <div class="form-group">
+          <label>Donor Enzymes</label>
+          <div class="checkbox-grid" id="don-enz-checkboxes"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const GITHUB_REPO    = 'bgeiss1/restriction-cloning-game';
+const GITHUB_FILE    = 'levels/cloning.json';
+const GITHUB_API     = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+const MCS_ENZYMES    = ['EcoRI','KpnI','SmaI','BamHI','HindIII'];
+
+const PUC19_DATA = {
+  name: 'pUC19', length: 2686,
+  features: [
+    {name:'AmpR',          start:1629, end:2489, type:'resistance', strand:-1},
+    {name:'AmpR promoter', start:2489, end:2593, type:'promoter',   strand:-1},
+    {name:'pMB1 ori',      start:1,    end:589,  type:'ori',        strand:1},
+    {name:'lacZ-alpha',    start:149,  end:507,  type:'lacZ',       strand:1},
+    {name:'MCS',           start:396,  end:452,  type:'mcs',        strand:1},
+  ],
+  cut_sites: [
+    {enzyme:'EcoRI',   position:396},
+    {enzyme:'KpnI',    position:408},
+    {enzyme:'SmaI',    position:416},
+    {enzyme:'BamHI',   position:417},
+    {enzyme:'HindIII', position:447},
+  ]
+};
+
+function newLevelTemplate() {
+  return {
+    id: 'clone_' + Date.now(),
+    title: 'New Level',
+    description: '',
+    teaching_point: '',
+    sequence_note: '',
+    mcs_enzymes: ['EcoRI','BamHI'],
+    vector: {use_pUC19: true},
+    donor: {name:'Donor', length:3000, features:[], cut_sites:[]},
+    objectives: {
+      correct_fragment: '',
+      correct_orientation: 'forward',
+      vector_enzymes: [],
+      donor_enzymes: []
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let levels          = [];
+let currentIdx      = -1;
+let currentSha      = '';
+let isDirty         = false;
+let currentTab      = 'vector';  // 'vector' | 'donor'
+
+let renderer        = null;
+let selectedFeatureIdx = -1;
+let selectedSiteIdx    = -1;
+let dragState       = null;   // {type:'feat_start'|'feat_end'|'site', idx:number}
+let hasDragged      = false;
+
+// ---------------------------------------------------------------------------
+// DOM refs
+// ---------------------------------------------------------------------------
+const connectOverlay = document.getElementById('connect-overlay');
+const patInput       = document.getElementById('pat-input');
+const connectBtn     = document.getElementById('connect-btn');
+const connectError   = document.getElementById('connect-error');
+const appEl          = document.getElementById('app');
+
+const dirtyIndicator = document.getElementById('dirty-indicator');
+const publishBtn     = document.getElementById('publish-btn');
+
+const levelListEl    = document.getElementById('level-list');
+
+const tabBtns        = document.querySelectorAll('.tab-btn');
+const editorCanvas   = document.getElementById('editor-canvas');
+const puc19Notice    = document.getElementById('puc19-notice');
+const puc19ToggleRow = document.getElementById('puc19-toggle-row');
+const puc19Checkbox  = document.getElementById('puc19-checkbox');
+const btnAddFeature  = document.getElementById('btn-add-feature');
+const btnAddSite     = document.getElementById('btn-add-site');
+const metaName       = document.getElementById('meta-name');
+const metaLength     = document.getElementById('meta-length');
+
+const inspectorEl    = document.getElementById('inspector');
+const inspEmpty      = document.getElementById('inspector-empty');
+const inspFeature    = document.getElementById('inspector-feature');
+const inspSite       = document.getElementById('inspector-site');
+
+const fiName    = document.getElementById('fi-name');
+const fiType    = document.getElementById('fi-type');
+const fiStrand  = document.getElementById('fi-strand');
+const fiStart   = document.getElementById('fi-start');
+const fiEnd     = document.getElementById('fi-end');
+const btnDelFeature = document.getElementById('btn-del-feature');
+
+const siEnzyme   = document.getElementById('si-enzyme');
+const siPosition = document.getElementById('si-position');
+const btnDelSite = document.getElementById('btn-del-site');
+
+const rightPanelEmpty = document.getElementById('right-panel-empty');
+const rightPanelForm  = document.getElementById('right-panel-form');
+
+const fId          = document.getElementById('f-id');
+const fTitle       = document.getElementById('f-title');
+const fDescription = document.getElementById('f-description');
+const fTeaching    = document.getElementById('f-teaching');
+const fSeqnote     = document.getElementById('f-seqnote');
+const fFragment    = document.getElementById('f-fragment');
+const fOrientation = document.getElementById('f-orientation');
+const mcsCheckboxes    = document.getElementById('mcs-checkboxes');
+const vecEnzCheckboxes = document.getElementById('vec-enz-checkboxes');
+const donEnzCheckboxes = document.getElementById('don-enz-checkboxes');
+
+// ---------------------------------------------------------------------------
+// Dirty tracking
+// ---------------------------------------------------------------------------
+function markDirty() {
+  isDirty = true;
+  updateDirtyUI();
+}
+function updateDirtyUI() {
+  if (isDirty) {
+    dirtyIndicator.classList.remove('hidden');
+  } else {
+    dirtyIndicator.classList.add('hidden');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Connect / Load
+// ---------------------------------------------------------------------------
+connectBtn.addEventListener('click', async () => {
+  const pat = patInput.value.trim();
+  if (!pat) { connectError.textContent = 'Please enter a PAT.'; return; }
+  connectBtn.disabled = true;
+  connectBtn.textContent = 'Connecting…';
+  connectError.textContent = '';
+  try {
+    const data = await githubGetFile(pat);
+    sessionStorage.setItem('rr_editor_pat', pat);
+    currentSha = data.sha;
+    const json = atob(data.content.replace(/\n/g, ''));
+    levels = JSON.parse(json);
+    connectOverlay.style.display = 'none';
+    appEl.style.display = 'flex';
+    renderLevelList();
+    if (levels.length > 0) selectLevel(0);
+  } catch (err) {
+    connectError.textContent = 'Error: ' + err.message;
+  } finally {
+    connectBtn.disabled = false;
+    connectBtn.textContent = 'Connect';
+  }
+});
+
+patInput.addEventListener('keydown', e => { if (e.key === 'Enter') connectBtn.click(); });
+
+async function githubGetFile(pat) {
+  const resp = await fetch(GITHUB_API, {
+    headers: {
+      'Authorization': `token ${pat}`,
+      'Accept': 'application/vnd.github.v3+json'
+    }
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`GitHub ${resp.status}: ${text.slice(0,200)}`);
+  }
+  return resp.json();
+}
+
+// ---------------------------------------------------------------------------
+// Publish
+// ---------------------------------------------------------------------------
+publishBtn.addEventListener('click', async () => {
+  if (!isDirty) { alert('No unsaved changes.'); return; }
+  publishBtn.disabled = true;
+  publishBtn.textContent = 'Publishing…';
+  try {
+    await publish();
+    alert('Published successfully!');
+  } catch (err) {
+    alert('Publish failed: ' + err.message);
+  } finally {
+    publishBtn.disabled = false;
+    publishBtn.textContent = 'Publish to GitHub';
+  }
+});
+
+async function publish() {
+  const pat = sessionStorage.getItem('rr_editor_pat');
+  const message = `Update levels — ${new Date().toISOString().slice(0,16)} (Level Editor)`;
+  const contentStr = JSON.stringify(levels, null, 2);
+  const content = btoa(unescape(encodeURIComponent(contentStr)));
+  const resp = await fetch(GITHUB_API, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${pat}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({message, content, sha: currentSha})
+  });
+  if (!resp.ok) throw new Error(await resp.text());
+  const data = await resp.json();
+  currentSha = data.content.sha;
+  isDirty = false;
+  updateDirtyUI();
+}
+
+// ---------------------------------------------------------------------------
+// Level list
+// ---------------------------------------------------------------------------
+function renderLevelList() {
+  levelListEl.innerHTML = '';
+  levels.forEach((lv, i) => {
+    const div = document.createElement('div');
+    div.className = 'level-item' + (i === currentIdx ? ' active' : '');
+    div.textContent = `${i + 1}. ${lv.title || lv.id || 'Untitled'}`;
+    div.addEventListener('click', () => selectLevel(i));
+    levelListEl.appendChild(div);
+  });
+}
+
+function selectLevel(idx) {
+  currentIdx = idx;
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  dragState = null;
+  hasDragged = false;
+  renderLevelList();
+  loadRightPanel();
+  syncToolbarToLevel();
+  renderCanvas();
+}
+
+// Level list buttons
+document.getElementById('btn-new').addEventListener('click', () => {
+  const lv = newLevelTemplate();
+  levels.push(lv);
+  markDirty();
+  selectLevel(levels.length - 1);
+});
+
+document.getElementById('btn-up').addEventListener('click', () => {
+  if (currentIdx <= 0) return;
+  [levels[currentIdx - 1], levels[currentIdx]] = [levels[currentIdx], levels[currentIdx - 1]];
+  currentIdx--;
+  markDirty();
+  renderLevelList();
+  loadRightPanel();
+});
+
+document.getElementById('btn-down').addEventListener('click', () => {
+  if (currentIdx < 0 || currentIdx >= levels.length - 1) return;
+  [levels[currentIdx + 1], levels[currentIdx]] = [levels[currentIdx], levels[currentIdx + 1]];
+  currentIdx++;
+  markDirty();
+  renderLevelList();
+  loadRightPanel();
+});
+
+document.getElementById('btn-delete').addEventListener('click', () => {
+  if (currentIdx < 0) return;
+  if (!confirm(`Delete level "${levels[currentIdx].title || levels[currentIdx].id}"?`)) return;
+  levels.splice(currentIdx, 1);
+  markDirty();
+  if (currentIdx >= levels.length) currentIdx = levels.length - 1;
+  renderLevelList();
+  if (currentIdx >= 0) {
+    loadRightPanel();
+    syncToolbarToLevel();
+    renderCanvas();
+  } else {
+    rightPanelEmpty.style.display = '';
+    rightPanelForm.style.display = 'none';
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Tab bar
+// ---------------------------------------------------------------------------
+tabBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentTab = btn.dataset.tab;
+    tabBtns.forEach(b => b.classList.toggle('active', b === btn));
+    selectedFeatureIdx = -1;
+    selectedSiteIdx    = -1;
+    showInspectorEmpty();
+    syncToolbarToLevel();
+    renderCanvas();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Canvas — sync toolbar meta fields from level data
+// ---------------------------------------------------------------------------
+function syncToolbarToLevel() {
+  if (currentIdx < 0) return;
+  const lv = levels[currentIdx];
+
+  const isVectorPUC19 = currentTab === 'vector' && lv.vector && lv.vector.use_pUC19;
+
+  // pUC19 toggle row: only visible on vector tab
+  if (currentTab === 'vector') {
+    puc19ToggleRow.style.display = 'flex';
+    puc19Checkbox.checked = !!(lv.vector && lv.vector.use_pUC19);
+  } else {
+    puc19ToggleRow.style.display = 'none';
+  }
+
+  // + Feature / + Site buttons
+  btnAddFeature.style.display = isVectorPUC19 ? 'none' : '';
+  btnAddSite.style.display    = isVectorPUC19 ? 'none' : '';
+
+  // Meta fields
+  const plasmidData = currentTab === 'donor' ? lv.donor : lv.vector;
+  if (isVectorPUC19) {
+    metaName.value   = 'pUC19';
+    metaLength.value = 2686;
+    metaName.disabled   = true;
+    metaLength.disabled = true;
+  } else {
+    metaName.value   = plasmidData.name   || '';
+    metaLength.value = plasmidData.length || 3000;
+    metaName.disabled   = false;
+    metaLength.disabled = false;
+  }
+}
+
+// pUC19 checkbox
+puc19Checkbox.addEventListener('change', () => {
+  if (currentIdx < 0) return;
+  levels[currentIdx].vector = levels[currentIdx].vector || {};
+  levels[currentIdx].vector.use_pUC19 = puc19Checkbox.checked;
+  if (!puc19Checkbox.checked && !levels[currentIdx].vector.length) {
+    // Seed an editable vector with defaults
+    levels[currentIdx].vector.name   = 'Custom Vector';
+    levels[currentIdx].vector.length = 2686;
+    levels[currentIdx].vector.features  = levels[currentIdx].vector.features  || [];
+    levels[currentIdx].vector.cut_sites = levels[currentIdx].vector.cut_sites || [];
+  }
+  markDirty();
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  showInspectorEmpty();
+  syncToolbarToLevel();
+  renderCanvas();
+});
+
+// Meta name / length
+metaName.addEventListener('change', () => {
+  if (currentIdx < 0) return;
+  const data = currentPlasmidData();
+  if (data) { data.name = metaName.value; markDirty(); renderCanvas(); }
+});
+metaLength.addEventListener('change', () => {
+  if (currentIdx < 0) return;
+  const data = currentPlasmidData();
+  if (data) {
+    const len = parseInt(metaLength.value) || 3000;
+    data.length = len;
+    markDirty();
+    renderCanvas();
+  }
+});
+
+function currentPlasmidData() {
+  if (currentIdx < 0) return null;
+  const lv = levels[currentIdx];
+  if (currentTab === 'donor') return lv.donor;
+  if (lv.vector && lv.vector.use_pUC19) return null;  // pUC19 not editable
+  return lv.vector;
+}
+
+// ---------------------------------------------------------------------------
+// Inspector
+// ---------------------------------------------------------------------------
+function showInspectorEmpty() {
+  inspEmpty.style.display    = '';
+  inspFeature.style.display  = 'none';
+  inspSite.style.display     = 'none';
+}
+
+function showInspectorFeature(feat) {
+  inspEmpty.style.display   = 'none';
+  inspFeature.style.display = '';
+  inspSite.style.display    = 'none';
+  fiName.value   = feat.name   || '';
+  fiType.value   = feat.type   || 'gene';
+  fiStrand.value = String(feat.strand || 1);
+  fiStart.value  = feat.start  ?? 0;
+  fiEnd.value    = feat.end    ?? 0;
+}
+
+function showInspectorSite(site) {
+  inspEmpty.style.display   = 'none';
+  inspFeature.style.display = 'none';
+  inspSite.style.display    = '';
+  siEnzyme.value   = site.enzyme   || 'EcoRI';
+  siPosition.value = site.position ?? 0;
+}
+
+// Inspector feature field listeners
+fiName.addEventListener('input', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  feat.name = fiName.value;
+  markDirty(); renderCanvas();
+});
+fiType.addEventListener('change', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  feat.type = fiType.value;
+  markDirty(); renderCanvas();
+});
+fiStrand.addEventListener('change', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  feat.strand = parseInt(fiStrand.value);
+  markDirty(); renderCanvas();
+});
+fiStart.addEventListener('input', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  feat.start = parseInt(fiStart.value) || 0;
+  markDirty(); renderCanvas();
+});
+fiEnd.addEventListener('input', () => {
+  const feat = selectedFeature();
+  if (!feat) return;
+  feat.end = parseInt(fiEnd.value) || 0;
+  markDirty(); renderCanvas();
+});
+btnDelFeature.addEventListener('click', () => {
+  const data = currentPlasmidData();
+  if (!data || selectedFeatureIdx < 0) return;
+  data.features.splice(selectedFeatureIdx, 1);
+  selectedFeatureIdx = -1;
+  showInspectorEmpty();
+  markDirty(); renderCanvas();
+});
+
+// Inspector site field listeners
+siEnzyme.addEventListener('change', () => {
+  const site = selectedSite();
+  if (!site) return;
+  site.enzyme = siEnzyme.value;
+  markDirty(); renderCanvas();
+});
+siPosition.addEventListener('input', () => {
+  const site = selectedSite();
+  if (!site) return;
+  site.position = parseInt(siPosition.value) || 0;
+  markDirty(); renderCanvas();
+});
+btnDelSite.addEventListener('click', () => {
+  const data = currentPlasmidData();
+  if (!data || selectedSiteIdx < 0) return;
+  data.cut_sites.splice(selectedSiteIdx, 1);
+  selectedSiteIdx = -1;
+  showInspectorEmpty();
+  markDirty(); renderCanvas();
+});
+
+function selectedFeature() {
+  const data = currentPlasmidData();
+  if (!data || selectedFeatureIdx < 0) return null;
+  return (data.features || [])[selectedFeatureIdx] || null;
+}
+function selectedSite() {
+  const data = currentPlasmidData();
+  if (!data || selectedSiteIdx < 0) return null;
+  return (data.cut_sites || [])[selectedSiteIdx] || null;
+}
+
+// + Feature / + Site buttons
+btnAddFeature.addEventListener('click', () => {
+  const data = currentPlasmidData();
+  if (!data) return;
+  if (!data.features) data.features = [];
+  const len = data.length || 3000;
+  const newFeat = {name:'New Feature', start:0, end:Math.floor(len * 0.25), type:'gene', strand:1};
+  data.features.push(newFeat);
+  selectedFeatureIdx = data.features.length - 1;
+  selectedSiteIdx = -1;
+  showInspectorFeature(newFeat);
+  markDirty();
+  renderCanvas();
+});
+
+btnAddSite.addEventListener('click', () => {
+  const data = currentPlasmidData();
+  if (!data) return;
+  if (!data.cut_sites) data.cut_sites = [];
+  const newSite = {enzyme:'EcoRI', position:0};
+  data.cut_sites.push(newSite);
+  selectedSiteIdx = data.cut_sites.length - 1;
+  selectedFeatureIdx = -1;
+  showInspectorSite(newSite);
+  markDirty();
+  renderCanvas();
+});
+
+// ---------------------------------------------------------------------------
+// Render canvas
+// ---------------------------------------------------------------------------
+function renderCanvas() {
+  if (currentIdx < 0) return;
+  const lv = levels[currentIdx];
+
+  if (currentTab === 'vector' && lv.vector && lv.vector.use_pUC19) {
+    renderPUC19();
+    return;
+  }
+
+  const plasmidData = currentTab === 'donor' ? lv.donor : lv.vector;
+  if (!plasmidData) return;
+
+  const len = plasmidData.length || 3000;
+  const p = new Plasmid({
+    name:     plasmidData.name || 'Plasmid',
+    sequence: 'N'.repeat(len),
+    features: plasmidData.features || []
+  });
+
+  renderer = new PlasmidRenderer(editorCanvas, p);
+  setupRendererEvents();
+
+  // Pre-set restriction sites from level data (bypasses findCutSites)
+  renderer._restrictionSites = (plasmidData.cut_sites || []).map(cs => ({
+    enzymeName: cs.enzyme,
+    topStrandCut: cs.position,
+  }));
+
+  renderer.render([]);
+  drawHandles();
+
+  puc19Notice.style.display = 'none';
+}
+
+function renderPUC19() {
+  const p = new Plasmid({
+    name:     PUC19_DATA.name,
+    sequence: 'N'.repeat(PUC19_DATA.length),
+    features: PUC19_DATA.features
+  });
+  renderer = new PlasmidRenderer(editorCanvas, p);
+  // No onClick events for pUC19 (non-editable)
+  renderer._restrictionSites = PUC19_DATA.cut_sites.map(cs => ({
+    enzymeName: cs.enzyme,
+    topStrandCut: cs.position,
+  }));
+  renderer.render([]);
+  puc19Notice.style.display = '';
+}
+
+function setupRendererEvents() {
+  renderer.onClick(handleRendererClick);
+}
+
+function handleRendererClick(result) {
+  // Suppress if drag just happened
+  if (hasDragged) { hasDragged = false; return; }
+
+  const data = currentPlasmidData();
+  if (!data) return;
+
+  if (result.type === 'feature') {
+    const idx = (data.features || []).indexOf(result.data);
+    if (idx >= 0) {
+      selectedFeatureIdx = idx;
+      selectedSiteIdx    = -1;
+      showInspectorFeature(result.data);
+      renderCanvas();
+    }
+  } else if (result.type === 'restriction_site') {
+    // Match by position
+    const sites = data.cut_sites || [];
+    const idx = sites.findIndex(s => s.position === result.data.topStrandCut &&
+                                      s.enzyme   === result.data.enzymeName);
+    if (idx >= 0) {
+      selectedSiteIdx    = idx;
+      selectedFeatureIdx = -1;
+      showInspectorSite(sites[idx]);
+      renderCanvas();
+    }
+  } else {
+    selectedFeatureIdx = -1;
+    selectedSiteIdx    = -1;
+    showInspectorEmpty();
+    renderCanvas();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Draw selection handles on top of renderer output
+// ---------------------------------------------------------------------------
+function drawHandles() {
+  if (!renderer) return;
+  const data = currentPlasmidData();
+  if (!data) return;
+  const ctx = editorCanvas.getContext('2d');
+  const HANDLE_R = 8;
+
+  if (selectedFeatureIdx >= 0 && data.features && data.features[selectedFeatureIdx]) {
+    const feat = data.features[selectedFeatureIdx];
+    const {cx, cy, outerRadius, featureWidth} = renderer._layout;
+    const featureR = outerRadius + featureWidth * 0.3;
+
+    // Start handle (blue)
+    const startAngle = renderer._bpToAngle(feat.start);
+    const sx = cx + featureR * Math.cos(startAngle);
+    const sy = cy + featureR * Math.sin(startAngle);
+    ctx.beginPath();
+    ctx.arc(sx, sy, HANDLE_R, 0, 2 * Math.PI);
+    ctx.fillStyle = '#4FC3F7';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // End handle (green)
+    const endAngle = renderer._bpToAngle(feat.end);
+    const ex = cx + featureR * Math.cos(endAngle);
+    const ey = cy + featureR * Math.sin(endAngle);
+    ctx.beginPath();
+    ctx.arc(ex, ey, HANDLE_R, 0, 2 * Math.PI);
+    ctx.fillStyle = '#66BB6A';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  if (selectedSiteIdx >= 0 && data.cut_sites && data.cut_sites[selectedSiteIdx]) {
+    const site = data.cut_sites[selectedSiteIdx];
+    const {cx, cy, outerRadius, featureWidth} = renderer._layout;
+    const angle = renderer._bpToAngle(site.position) + (renderer.rsAngleOffset || 0);
+    const tx = cx + outerRadius * Math.cos(angle);
+    const ty = cy + outerRadius * Math.sin(angle);
+    const ctx2 = editorCanvas.getContext('2d');
+    ctx2.beginPath();
+    ctx2.arc(tx, ty, HANDLE_R, 0, 2 * Math.PI);
+    ctx2.fillStyle = '#FFB300';
+    ctx2.fill();
+    ctx2.strokeStyle = '#fff';
+    ctx2.lineWidth = 2;
+    ctx2.stroke();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mouse → bp conversion
+// ---------------------------------------------------------------------------
+function getCanvasMouse(event) {
+  const rect = editorCanvas.getBoundingClientRect();
+  const scaleX = editorCanvas.width / rect.width;
+  const scaleY = editorCanvas.height / rect.height;
+  return {
+    mx: (event.clientX - rect.left) * scaleX,
+    my: (event.clientY - rect.top)  * scaleY
+  };
+}
+
+function mouseToBP(mx, my) {
+  if (!renderer) return 0;
+  const {cx, cy} = renderer._layout;
+  let angle = Math.atan2(my - cy, mx - cx) + Math.PI / 2;
+  if (angle < 0) angle += 2 * Math.PI;
+  if (angle > 2 * Math.PI) angle -= 2 * Math.PI;
+  return Math.round((angle / (2 * Math.PI)) * renderer.plasmid.length) % renderer.plasmid.length;
+}
+
+function distanceSq(ax, ay, bx, by) {
+  return (ax - bx) ** 2 + (ay - by) ** 2;
+}
+
+// ---------------------------------------------------------------------------
+// Canvas mouse events
+// ---------------------------------------------------------------------------
+editorCanvas.addEventListener('mousedown', (e) => {
+  if (!renderer) return;
+  const data = currentPlasmidData();
+  // pUC19 vector is non-editable
+  if (!data) return;
+
+  const {mx, my} = getCanvasMouse(e);
+  const HIT_R_SQ = 12 * 12;
+
+  // Check feature handles
+  if (selectedFeatureIdx >= 0 && data.features && data.features[selectedFeatureIdx]) {
+    const feat = data.features[selectedFeatureIdx];
+    const {cx, cy, outerRadius, featureWidth} = renderer._layout;
+    const featureR = outerRadius + featureWidth * 0.3;
+
+    const startAngle = renderer._bpToAngle(feat.start);
+    const sx = cx + featureR * Math.cos(startAngle);
+    const sy = cy + featureR * Math.sin(startAngle);
+    if (distanceSq(mx, my, sx, sy) < HIT_R_SQ) {
+      dragState = {type: 'feat_start', idx: selectedFeatureIdx};
+      return;
+    }
+
+    const endAngle = renderer._bpToAngle(feat.end);
+    const ex = cx + featureR * Math.cos(endAngle);
+    const ey = cy + featureR * Math.sin(endAngle);
+    if (distanceSq(mx, my, ex, ey) < HIT_R_SQ) {
+      dragState = {type: 'feat_end', idx: selectedFeatureIdx};
+      return;
+    }
+  }
+
+  // Check restriction site handle
+  if (selectedSiteIdx >= 0 && data.cut_sites && data.cut_sites[selectedSiteIdx]) {
+    const site = data.cut_sites[selectedSiteIdx];
+    const {cx, cy, outerRadius, featureWidth} = renderer._layout;
+    const angle = renderer._bpToAngle(site.position) + (renderer.rsAngleOffset || 0);
+    const tx = cx + outerRadius * Math.cos(angle);
+    const ty = cy + outerRadius * Math.sin(angle);
+    if (distanceSq(mx, my, tx, ty) < HIT_R_SQ) {
+      dragState = {type: 'site', idx: selectedSiteIdx};
+      return;
+    }
+  }
+});
+
+editorCanvas.addEventListener('mousemove', (e) => {
+  if (!dragState || !renderer) return;
+  const data = currentPlasmidData();
+  if (!data) return;
+
+  hasDragged = true;
+  const {mx, my} = getCanvasMouse(e);
+  const bp = mouseToBP(mx, my);
+
+  if (dragState.type === 'feat_start') {
+    const feat = (data.features || [])[dragState.idx];
+    if (feat) {
+      feat.start = bp;
+      fiStart.value = bp;
+      markDirty();
+      renderCanvas();
+    }
+  } else if (dragState.type === 'feat_end') {
+    const feat = (data.features || [])[dragState.idx];
+    if (feat) {
+      feat.end = bp;
+      fiEnd.value = bp;
+      markDirty();
+      renderCanvas();
+    }
+  } else if (dragState.type === 'site') {
+    const site = (data.cut_sites || [])[dragState.idx];
+    if (site) {
+      site.position = bp;
+      siPosition.value = bp;
+      markDirty();
+      renderCanvas();
+    }
+  }
+});
+
+editorCanvas.addEventListener('mouseup', () => {
+  dragState = null;
+  // hasDragged is cleared in the click handler after use
+});
+
+// ---------------------------------------------------------------------------
+// Right panel — level settings form
+// ---------------------------------------------------------------------------
+function loadRightPanel() {
+  if (currentIdx < 0) {
+    rightPanelEmpty.style.display = '';
+    rightPanelForm.style.display  = 'none';
+    return;
+  }
+  const lv = levels[currentIdx];
+  rightPanelEmpty.style.display = 'none';
+  rightPanelForm.style.display  = '';
+
+  fId.value          = lv.id          || '';
+  fTitle.value       = lv.title       || '';
+  fDescription.value = lv.description || '';
+  fTeaching.value    = lv.teaching_point || '';
+  fSeqnote.value     = lv.sequence_note  || '';
+  fFragment.value    = (lv.objectives && lv.objectives.correct_fragment) || '';
+  fOrientation.value = (lv.objectives && lv.objectives.correct_orientation) || 'forward';
+
+  // MCS enzyme checkboxes
+  const mcsSelected = new Set(lv.mcs_enzymes || []);
+  mcsCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.checked = mcsSelected.has(cb.value);
+  });
+
+  // Vector/donor enzyme checkboxes in objectives
+  const vecSelected = new Set((lv.objectives && lv.objectives.vector_enzymes) || []);
+  const donSelected = new Set((lv.objectives && lv.objectives.donor_enzymes)  || []);
+  vecEnzCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.checked = vecSelected.has(cb.value);
+  });
+  donEnzCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.checked = donSelected.has(cb.value);
+  });
+}
+
+function syncFormToLevel() {
+  if (currentIdx < 0) return;
+  const lv = levels[currentIdx];
+  lv.id            = fId.value;
+  lv.title         = fTitle.value;
+  lv.description   = fDescription.value;
+  lv.teaching_point= fTeaching.value;
+  lv.sequence_note = fSeqnote.value;
+
+  lv.mcs_enzymes = [];
+  mcsCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    if (cb.checked) lv.mcs_enzymes.push(cb.value);
+  });
+
+  if (!lv.objectives) lv.objectives = {};
+  lv.objectives.correct_fragment    = fFragment.value;
+  lv.objectives.correct_orientation = fOrientation.value;
+
+  lv.objectives.vector_enzymes = [];
+  vecEnzCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    if (cb.checked) lv.objectives.vector_enzymes.push(cb.value);
+  });
+
+  lv.objectives.donor_enzymes = [];
+  donEnzCheckboxes.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    if (cb.checked) lv.objectives.donor_enzymes.push(cb.value);
+  });
+
+  // Update level list label
+  renderLevelList();
+  markDirty();
+}
+
+// Wire right panel inputs
+[fId, fTitle, fDescription, fTeaching, fSeqnote, fFragment].forEach(el => {
+  el.addEventListener('input', syncFormToLevel);
+});
+fOrientation.addEventListener('change', syncFormToLevel);
+[mcsCheckboxes, vecEnzCheckboxes, donEnzCheckboxes].forEach(container => {
+  container.addEventListener('change', syncFormToLevel);
+});
+
+// ---------------------------------------------------------------------------
+// Build checkbox grids on DOMContentLoaded
+// ---------------------------------------------------------------------------
+document.addEventListener('DOMContentLoaded', () => {
+  // Populate enzyme select in inspector
+  const enzymeNames = Object.keys(EnzymeDB).sort();
+  enzymeNames.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    siEnzyme.appendChild(opt);
+  });
+
+  // Build MCS enzyme checkboxes
+  MCS_ENZYMES.forEach(enz => {
+    mcsCheckboxes.appendChild(makeEnzymeCheckbox(enz, 'mcs-' + enz));
+    vecEnzCheckboxes.appendChild(makeEnzymeCheckbox(enz, 'vec-enz-' + enz));
+    donEnzCheckboxes.appendChild(makeEnzymeCheckbox(enz, 'don-enz-' + enz));
+  });
+
+  // Attempt to reconnect from sessionStorage
+  const storedPat = sessionStorage.getItem('rr_editor_pat');
+  if (storedPat) {
+    patInput.value = storedPat;
+  }
+});
+
+function makeEnzymeCheckbox(enzName, id) {
+  const label = document.createElement('label');
+  label.className = 'checkbox-label';
+  label.htmlFor = id;
+  const cb = document.createElement('input');
+  cb.type  = 'checkbox';
+  cb.id    = id;
+  cb.value = enzName;
+  label.appendChild(cb);
+  label.appendChild(document.createTextNode(enzName));
+  return label;
+}
+</script>
+</body>
+</html>
