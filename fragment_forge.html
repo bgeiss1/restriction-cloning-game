@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fragment Forge — Gibson Assembly Game</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { background: #0f172a; color: #e2e8f0; margin: 0; padding: 0; font-family: system-ui, sans-serif; overflow: hidden; }
+    .dot-bg { background-image: radial-gradient(circle, #334155 1px, transparent 1px); background-size: 20px 20px; }
+    .dna { font-family: 'Courier New', monospace; }
+    .seq-wrap { font-family: 'Courier New', monospace; word-break: break-all; white-space: pre-wrap; }
+    .gel-container { position: relative; width: 180px; height: 320px; background: #0a0a0a; border: 1px solid #333; border-radius: 4px; overflow: hidden; }
+    .gel-band { position: absolute; height: 3px; }
+    .drag-handle { cursor: col-resize; user-select: none; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #1e293b; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    .tutorial-arrow { position: absolute; width: 0; height: 0; }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(6,182,212,0); }
+      50% { box-shadow: 0 0 12px 4px rgba(6,182,212,0.6); }
+    }
+    @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .anim-fade-in { animation: fade-in 0.4s ease forwards; }
+    @keyframes chewback-left { from { border-left: 0px solid transparent; } to { border-left: 14px solid transparent; } }
+    @keyframes chewback-right { from { border-right: 0px solid transparent; } to { border-right: 14px solid transparent; } }
+    @keyframes seal-glow {
+      0% { box-shadow: none; }
+      50% { box-shadow: 0 0 10px 3px rgba(34,197,94,0.7); }
+      100% { box-shadow: none; }
+    }
+    .frag-seal { animation: seal-glow 0.6s ease; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    // ─── PRNG ────────────────────────────────────────────────────────────────
+    function mkRng(seed) {
+      let s = seed >>> 0;
+      return () => { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s / 0xffffffff; };
+    }
+    function makeSeq(rng, length, gc = 0.5) {
+      let seq = '';
+      for (let i = 0; i < length; i++) {
+        const r = rng();
+        seq += r < gc * 0.5 ? 'G' : r < gc ? 'C' : r < gc + (1 - gc) * 0.5 ? 'A' : 'T';
+      }
+      return seq;
+    }
+
+    // ─── DNA UTILITIES ───────────────────────────────────────────────────────
+    function complement(b) { return { A: 'T', T: 'A', G: 'C', C: 'G' }[b] || b; }
+    function reverseComplement(seq) { return seq.split('').reverse().map(complement).join(''); }
+    function calcTm(seq) {
+      const gc = (seq.match(/[GC]/g) || []).length;
+      return 2 * (seq.length - gc) + 4 * gc;
+    }
+    function calcGC(seq) { return ((seq.match(/[GC]/g) || []).length / seq.length) * 100; }
+    function checkOffTarget(overlapSeq, fullSeq) {
+      const rc = reverseComplement(overlapSeq);
+      let count = 0, pos = 0;
+      while ((pos = fullSeq.indexOf(overlapSeq, pos)) !== -1) { count++; pos++; }
+      pos = 0;
+      while ((pos = fullSeq.indexOf(rc, pos)) !== -1) { count++; pos++; }
+      return count > 1;
+    }
+
+    // ─── JUNCTION/FRAGMENT LOGIC ─────────────────────────────────────────────
+    function getJunctions(sequence, boundaries, overlapLengths) {
+      return boundaries.map((pos, i) => {
+        const L = overlapLengths[i] ?? 25;
+        const start = Math.max(0, Math.round(pos - L / 2));
+        const end = Math.min(sequence.length, Math.round(pos + L / 2));
+        const seq = sequence.slice(start, end);
+        const actualLen = seq.length;
+        const tm = calcTm(seq);
+        const gc = calcGC(seq);
+        const offTarget = checkOffTarget(seq, sequence);
+        let status = 'ok', issues = [];
+        if (actualLen < 15) { status = 'error'; issues.push('Overlap <15 bp'); }
+        else if (actualLen < 20 || actualLen > 35) { if (status !== 'error') status = 'warn'; issues.push('Length outside 20-35 bp ideal'); }
+        if (tm < 45) { status = 'error'; issues.push('Tm too low (<45°C)'); }
+        else if (tm < 50 || tm > 65) { if (status !== 'error') status = 'warn'; issues.push('Tm outside 50-65°C ideal'); }
+        if (offTarget) { status = 'error'; issues.push('Off-target homology!'); }
+        if (gc < 40 || gc > 60) { if (status === 'ok') status = 'warn'; issues.push('GC outside 40-60%'); }
+        return { index: i, pos, overlapLength: L, start, end, seq, actualLen, tm, gc, offTarget, status, issues };
+      });
+    }
+
+    function getFragments(sequence, boundaries, overlapLengths) {
+      const n = boundaries.length + 1;
+      const junctions = getJunctions(sequence, boundaries, overlapLengths);
+      return Array.from({ length: n }, (_, i) => {
+        const s = i === 0 ? 0 : junctions[i - 1].start;
+        const e = i === n - 1 ? sequence.length : junctions[i].end;
+        return { index: i, start: s, end: e, size: e - s };
+      });
+    }
+
+    // ─── SCORING ─────────────────────────────────────────────────────────────
+    function computeScore(level, boundaries, overlapLengths, startTime, attempts, hintsUsed) {
+      const seq = level.sequence;
+      const junctions = getJunctions(seq, boundaries, overlapLengths);
+      const fragments = getFragments(seq, boundaries, overlapLengths);
+
+      const errJ = junctions.filter(j => j.status === 'error');
+      const warnJ = junctions.filter(j => j.status === 'warn');
+      let accuracy = errJ.length > 0 ? 0 : warnJ.length >= 2 ? 200 : warnJ.length === 1 ? 300 : 400;
+
+      const jScores = junctions.map(j => {
+        let s = 0;
+        if (j.actualLen >= 20 && j.actualLen <= 30) s += 50; else if (j.actualLen >= 15) s += 25;
+        if (j.tm >= 50 && j.tm <= 65) s += 50; else if (j.tm >= 45) s += 25;
+        if (!j.offTarget) s += 50;
+        s += (j.gc >= 40 && j.gc <= 60) ? 30 : 10;
+        return s;
+      });
+      const overlapQuality = junctions.length > 0
+        ? (jScores.reduce((a, b) => a + b, 0) / (junctions.length * 180)) * 300 : 0;
+
+      const extra = Math.max(0, fragments.length - level.minFragments);
+      let efficiency = Math.max(0, 100 - extra * 25);
+      if (fragments.every(f => f.size >= 200 && f.size <= 5000)) efficiency += 50;
+      const sizes = fragments.map(f => f.size), mx = Math.max(...sizes), mn = Math.min(...sizes);
+      if (mn > 0 && mx / mn < 3) efficiency += 50;
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      const ratio = elapsed / level.parTimeSeconds;
+      const speed = ratio < 0.5 ? 100 : ratio < 0.75 ? 75 : ratio < 1 ? 50 : ratio < 1.5 ? 25 : 0;
+
+      let total = Math.round(accuracy + overlapQuality + efficiency + speed);
+      let bonuses = [], penalties = [];
+
+      if (attempts === 1 && errJ.length === 0 && warnJ.length === 0) { bonuses.push({ label: 'First-try perfect', pts: 150 }); total += 150; }
+      if (junctions.length > 0 && junctions.every(j => j.tm >= 55 && j.tm <= 60)) { bonuses.push({ label: 'All Tm in 55-60°C sweet spot', pts: 75 }); total += 75; }
+      if (fragments.length === level.minFragments) { bonuses.push({ label: 'Minimum fragments used', pts: 100 }); total += 100; }
+      if (hintsUsed === 0) { bonuses.push({ label: 'No hints used', pts: 50 }); total += 50; }
+
+      junctions.forEach(j => {
+        if (j.actualLen < 15) { penalties.push({ label: `J${j.index + 1}: overlap <15bp`, pts: -50 }); total -= 50; }
+        if (j.offTarget) { penalties.push({ label: `J${j.index + 1}: off-target homology`, pts: -75 }); total -= 75; }
+      });
+      fragments.forEach((f, i) => {
+        if (f.size > 8000) { penalties.push({ label: `F${i + 1}: >8000bp`, pts: -25 }); total -= 25; }
+      });
+
+      total = Math.max(0, total);
+      const grade = total >= 950 ? 'S' : total >= 800 ? 'A' : total >= 600 ? 'B' : total >= 400 ? 'C' : 'D';
+      const stars = total >= 900 ? 3 : total >= 600 ? 2 : total >= 300 ? 1 : 0;
+
+      return {
+        total, grade, stars,
+        breakdown: { accuracy: Math.round(accuracy), overlapQuality: Math.round(overlapQuality), efficiency: Math.round(efficiency), speed },
+        bonuses, penalties, junctions, fragments,
+        success: errJ.length === 0,
+        elapsed: Math.round(elapsed)
+      };
+    }
+
+    // ─── LEVEL DATA ───────────────────────────────────────────────────────────
+    const REPEAT_30 = 'GCTATCGAAGTTCGACGATCTAGCAATCGC';
+
+    function buildLevels() {
+      const seq1 = makeSeq(mkRng(42), 800, 0.50);
+      const seq2 = makeSeq(mkRng(137), 1200, 0.50);
+      const seq3 = makeSeq(mkRng(271), 2000, 0.52);
+      const seq4 = makeSeq(mkRng(512), 2500, 0.48);
+      const seq5 = makeSeq(mkRng(777), 1100) + REPEAT_30 + makeSeq(mkRng(888), 670) + REPEAT_30 + makeSeq(mkRng(999), 970);
+
+      return [
+        {
+          id: 1, title: 'Hello, Gibson', tutorial: true,
+          description: 'Learn the basics of Gibson Assembly by splitting a GFP expression cassette.',
+          sequence: seq1,
+          features: [
+            { label: 'T7 Promoter', start: 0, end: 44, type: 'promoter' },
+            { label: 'GFP', start: 50, end: 769, type: 'cds' },
+            { label: 'T7 Term', start: 775, end: 799, type: 'terminator' },
+          ],
+          minFragments: 2, maxFragments: 2, parTimeSeconds: 180,
+          hints: [
+            'Place the boundary inside the GFP coding sequence, away from the ends of features.',
+            'Aim for overlap Tm between 50-65°C. Use the slider to adjust overlap length.',
+            'Avoid placing overlaps within repetitive regions or near feature boundaries.',
+          ],
+        },
+        {
+          id: 2, title: 'Double Insert', tutorial: false,
+          description: 'Clone two inserts together — split wisely between features.',
+          sequence: seq2,
+          features: [
+            { label: 'T7 Promoter', start: 0, end: 44, type: 'promoter' },
+            { label: 'RBS', start: 45, end: 59, type: 'other' },
+            { label: 'LacZ-α', start: 60, end: 999, type: 'cds' },
+            { label: 'T7 Terminator', start: 1000, end: 1199, type: 'terminator' },
+          ],
+          minFragments: 2, maxFragments: 2, parTimeSeconds: 120,
+          hints: [
+            'The boundary must split the sequence into exactly 2 fragments.',
+            'Place the overlap in a low-complexity region for best Tm.',
+            'Check GC% — aim for 40-60% in the overlap region.',
+          ],
+        },
+        {
+          id: 3, title: "Three's Company", tutorial: false,
+          description: 'Assemble three fragments including a resistance cassette.',
+          sequence: seq3,
+          features: [
+            { label: 'Promoter', start: 0, end: 99, type: 'promoter' },
+            { label: 'mCherry', start: 100, end: 799, type: 'cds' },
+            { label: 'Linker', start: 800, end: 849, type: 'other' },
+            { label: 'Kanamycin-R', start: 850, end: 1799, type: 'cds' },
+            { label: 'Terminator', start: 1800, end: 1999, type: 'terminator' },
+          ],
+          minFragments: 3, maxFragments: 3, parTimeSeconds: 150,
+          hints: [
+            'You need exactly 3 fragments — place 2 boundaries.',
+            'Space boundaries evenly across the sequence for balanced fragment sizes.',
+            'Avoid placing boundaries in the small Linker region — it may create overlap issues.',
+          ],
+        },
+        {
+          id: 4, title: 'Choose Your Cuts', tutorial: false,
+          description: 'Design a 3- or 4-fragment assembly for a CRISPR expression vector.',
+          sequence: seq4,
+          features: [
+            { label: 'Promoter', start: 0, end: 99, type: 'promoter' },
+            { label: "5′ UTR", start: 100, end: 199, type: 'other' },
+            { label: 'Cas9', start: 200, end: 799, type: 'cds' },
+            { label: 'Spacer', start: 800, end: 849, type: 'other' },
+            { label: 'GFP', start: 850, end: 1799, type: 'cds' },
+            { label: "3′ UTR", start: 1800, end: 1999, type: 'other' },
+            { label: 'Terminator', start: 2000, end: 2499, type: 'terminator' },
+          ],
+          minFragments: 3, maxFragments: 4, parTimeSeconds: 180,
+          hints: [
+            'You have flexibility: 3 or 4 fragments both work. Fewer fragments = efficiency bonus.',
+            'Keep each fragment between 200-5000 bp for best assembly efficiency.',
+            'The Spacer region between Cas9 and GFP is a good place for a boundary.',
+          ],
+        },
+        {
+          id: 5, title: 'Repeat Offender', tutorial: false,
+          description: 'Two identical 30 bp repeats — avoid off-target overlap homology!',
+          sequence: seq5,
+          features: [
+            { label: 'Promoter', start: 0, end: 99, type: 'promoter' },
+            { label: 'Gene A', start: 100, end: 1099, type: 'cds' },
+            { label: '⚠ Repeat', start: 1100, end: 1129, type: 'repeat' },
+            { label: 'Spacer', start: 1130, end: 1799, type: 'other' },
+            { label: '⚠ Repeat', start: 1800, end: 1829, type: 'repeat' },
+            { label: 'Gene B', start: 1830, end: 2799, type: 'cds' },
+          ],
+          minFragments: 3, maxFragments: 4, parTimeSeconds: 200,
+          hints: [
+            'Never place a boundary overlap spanning either repeat region — off-target homology will kill assembly!',
+            'Place boundaries at least 20 bp away from the repeat regions.',
+            'Use the overlap inspector to check Off-target status before submitting.',
+          ],
+        },
+      ];
+    }
+
+    const LEVELS = buildLevels();
+
+    // ─── CONSTANTS ────────────────────────────────────────────────────────────
+    const FEATURE_COLORS = {
+      promoter: '#22c55e',
+      cds: '#3b82f6',
+      terminator: '#ef4444',
+      repeat: '#f97316',
+      other: '#64748b',
+    };
+    const FRAG_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'];
+
+    // ─── HELPERS ──────────────────────────────────────────────────────────────
+    function starsDisplay(n) {
+      return [0, 1, 2].map(i => (
+        <span key={i} style={{ color: i < n ? '#f59e0b' : '#334155', fontSize: '1.1em' }}>★</span>
+      ));
+    }
+
+    function StatusBadge({ status }) {
+      const cfg = {
+        ok: { bg: '#052e16', border: '#22c55e', text: '#22c55e', label: 'OK' },
+        warn: { bg: '#451a03', border: '#f59e0b', text: '#f59e0b', label: 'Warning' },
+        error: { bg: '#450a0a', border: '#ef4444', text: '#ef4444', label: 'Error' },
+      }[status] || { bg: '#1e293b', border: '#475569', text: '#94a3b8', label: status };
+      return (
+        <span style={{
+          background: cfg.bg, border: `1px solid ${cfg.border}`, color: cfg.text,
+          padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600
+        }}>{cfg.label}</span>
+      );
+    }
+
+    function useElapsedTimer(startTime) {
+      const [elapsed, setElapsed] = useState(0);
+      useEffect(() => {
+        if (!startTime) return;
+        const id = setInterval(() => setElapsed(Math.floor((Date.now() - startTime) / 1000)), 500);
+        return () => clearInterval(id);
+      }, [startTime]);
+      return elapsed;
+    }
+
+    function formatTime(secs) {
+      const m = Math.floor(secs / 60), s = secs % 60;
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    }
+
+    // ─── GEL VIEW ────────────────────────────────────────────────────────────
+    function GelView({ fragments, totalSize, success }) {
+      const LADDER = [250, 500, 1000, 2000, 3000, 5000, 8000];
+      function topPct(bp) {
+        return 5 + (1 - (Math.log10(bp) - Math.log10(250)) / (Math.log10(8000) - Math.log10(250))) * 80;
+      }
+      const clampedTotal = Math.max(250, Math.min(8000, totalSize));
+      const sampleBands = success
+        ? [{ bp: clampedTotal, opacity: 1, width: 28 }]
+        : fragments.map(f => ({ bp: Math.max(250, Math.min(8000, f.size)), opacity: 0.55, width: 20 }));
+
+      return (
+        <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+          <div className="gel-container">
+            {/* Lane 1 header */}
+            <div style={{ position: 'absolute', top: 2, left: 8, fontSize: 9, color: '#666', fontWeight: 600 }}>LADDER</div>
+            {/* Lane 2 header */}
+            <div style={{ position: 'absolute', top: 2, left: 100, fontSize: 9, color: '#666', fontWeight: 600 }}>SAMPLE</div>
+            {/* Ladder bands */}
+            {LADDER.map(bp => (
+              <div key={bp}>
+                <div className="gel-band" style={{ top: `${topPct(bp)}%`, left: 6, width: 32, background: 'rgba(255,255,255,0.75)' }} />
+                <span style={{ position: 'absolute', top: `calc(${topPct(bp)}% - 8px)`, left: 40, fontSize: 8, color: '#aaa', fontFamily: 'monospace' }}>{bp >= 1000 ? (bp / 1000) + 'k' : bp}</span>
+              </div>
+            ))}
+            {/* Sample bands */}
+            {sampleBands.map((band, i) => (
+              <div key={i} className="gel-band" style={{
+                top: `${topPct(band.bp)}%`, left: 96, width: band.width,
+                background: `rgba(255,255,255,${band.opacity})`,
+                boxShadow: band.opacity > 0.8 ? '0 0 6px 2px rgba(255,255,255,0.5)' : 'none'
+              }} />
+            ))}
+          </div>
+          <div style={{ fontSize: 12, color: '#94a3b8', lineHeight: '1.8' }}>
+            {success
+              ? <div><span style={{ color: '#22c55e', fontWeight: 600 }}>Assembly successful!</span><br />Band at ~{totalSize} bp</div>
+              : <div><span style={{ color: '#ef4444', fontWeight: 600 }}>Assembly failed.</span><br />Showing fragment smear.</div>
+            }
+            {sampleBands.map((b, i) => (
+              <div key={i} style={{ fontSize: 11, color: '#64748b' }}>{success ? `Construct: ${b.bp} bp` : `Frag ${i + 1}: ${b.bp} bp`}</div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── CONSTRUCT MAP ───────────────────────────────────────────────────────
+    function ConstructMap({ level, boundaries, overlapLengths, selectedJunction, onAddBoundary, onBoundaryChange, onRemoveBoundary, onJunctionSelect }) {
+      const mapRef = useRef(null);
+      const dragState = useRef(null); // { idx, startX, startBp }
+      const seq = level.sequence;
+      const seqLen = seq.length;
+
+      const junctions = useMemo(() => getJunctions(seq, boundaries, overlapLengths), [seq, boundaries, overlapLengths]);
+      const fragments = useMemo(() => getFragments(seq, boundaries, overlapLengths), [seq, boundaries, overlapLengths]);
+
+      function bpToFrac(bp) { return bp / seqLen; }
+
+      function fracToBp(frac) {
+        return Math.max(10, Math.min(seqLen - 10, Math.round(frac * seqLen)));
+      }
+
+      function getMapX(e) {
+        if (!mapRef.current) return 0;
+        const rect = mapRef.current.getBoundingClientRect();
+        return (e.clientX - rect.left) / rect.width;
+      }
+
+      function handleMouseDown(idx, e) {
+        e.preventDefault();
+        e.stopPropagation();
+        dragState.current = { idx };
+
+        function onMove(ev) {
+          const frac = getMapX(ev);
+          let newBp = fracToBp(frac);
+          // clamp away from other boundaries
+          const others = boundaries.filter((_, i) => i !== idx);
+          newBp = Math.max(10, Math.min(seqLen - 10, newBp));
+          for (const b of others) {
+            if (Math.abs(newBp - b) < 20) return; // snap-avoid
+          }
+          onBoundaryChange(idx, newBp);
+        }
+
+        function onUp() {
+          dragState.current = null;
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      }
+
+      function handleMapClick(e) {
+        if (dragState.current) return;
+        if (boundaries.length >= level.maxFragments - 1) return;
+        const frac = getMapX(e);
+        const bp = fracToBp(frac);
+        // Don't add if clicking on an existing handle area
+        for (const b of boundaries) {
+          if (Math.abs(bp - b) < 20) return;
+        }
+        onAddBoundary(bp);
+      }
+
+      const TRACK_TOP = 52; // px from top of map div
+      const TRACK_H = 24;
+      const FEAT_H = 14;
+      const FEAT_TOP = 20;
+      const MAP_H = 140;
+
+      return (
+        <div
+          ref={mapRef}
+          style={{ position: 'relative', width: '100%', height: MAP_H, cursor: boundaries.length < level.maxFragments - 1 ? 'crosshair' : 'default', userSelect: 'none' }}
+          onClick={handleMapClick}
+        >
+          {/* Feature blocks */}
+          {level.features.map((f, i) => {
+            const left = `${bpToFrac(f.start) * 100}%`;
+            const width = `${bpToFrac(f.end - f.start) * 100}%`;
+            const color = FEATURE_COLORS[f.type] || '#64748b';
+            return (
+              <div key={i} style={{
+                position: 'absolute', top: FEAT_TOP, left, width, height: FEAT_H,
+                background: color, opacity: 0.75, borderRadius: 3,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden'
+              }}>
+                <span style={{ fontSize: 9, color: '#fff', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 2px' }}>
+                  {f.label}
+                </span>
+              </div>
+            );
+          })}
+
+          {/* Main DNA track background */}
+          <div style={{ position: 'absolute', top: TRACK_TOP, left: 0, right: 0, height: TRACK_H, background: '#1e293b', border: '1px solid #334155', borderRadius: 4 }} />
+
+          {/* Fragment color fills */}
+          {fragments.map((frag, i) => {
+            const left = `${bpToFrac(frag.start) * 100}%`;
+            const width = `${bpToFrac(frag.end - frag.start) * 100}%`;
+            return (
+              <div key={i} style={{
+                position: 'absolute', top: TRACK_TOP, left, width, height: TRACK_H,
+                background: FRAG_COLORS[i % FRAG_COLORS.length], opacity: 0.35, borderRadius: 4
+              }} />
+            );
+          })}
+
+          {/* Overlap zone highlights */}
+          {junctions.map((j, i) => {
+            const left = `${bpToFrac(j.start) * 100}%`;
+            const width = `${bpToFrac(j.end - j.start) * 100}%`;
+            const isSelected = selectedJunction === i;
+            const statusColor = j.status === 'ok' ? '#22c55e' : j.status === 'warn' ? '#f59e0b' : '#ef4444';
+            return (
+              <div
+                key={i}
+                title={`Junction ${i + 1} — click to inspect`}
+                onClick={e => { e.stopPropagation(); onJunctionSelect(i); }}
+                style={{
+                  position: 'absolute', top: TRACK_TOP - 2, left, width,
+                  height: TRACK_H + 4,
+                  background: statusColor,
+                  opacity: isSelected ? 0.6 : 0.3,
+                  borderRadius: 3,
+                  border: isSelected ? `2px solid ${statusColor}` : `1px solid ${statusColor}`,
+                  cursor: 'pointer',
+                  transition: 'opacity 0.15s',
+                  zIndex: 2,
+                }}
+              />
+            );
+          })}
+
+          {/* Fragment labels */}
+          {fragments.map((frag, i) => {
+            const midFrac = bpToFrac((frag.start + frag.end) / 2);
+            return (
+              <div key={i} style={{
+                position: 'absolute', top: TRACK_TOP + TRACK_H + 6,
+                left: `${midFrac * 100}%`, transform: 'translateX(-50%)',
+                fontSize: 10, color: FRAG_COLORS[i % FRAG_COLORS.length], fontWeight: 600, whiteSpace: 'nowrap'
+              }}>
+                F{i + 1} · {frag.size} bp
+              </div>
+            );
+          })}
+
+          {/* Boundary handles */}
+          {boundaries.map((bp, idx) => {
+            const left = `${bpToFrac(bp) * 100}%`;
+            const j = junctions[idx];
+            const statusColor = j ? (j.status === 'ok' ? '#22c55e' : j.status === 'warn' ? '#f59e0b' : '#ef4444') : '#06b6d4';
+            return (
+              <div
+                key={idx}
+                className="drag-handle"
+                style={{ position: 'absolute', top: FEAT_TOP - 4, left, transform: 'translateX(-50%)', zIndex: 10 }}
+                onMouseDown={e => handleMouseDown(idx, e)}
+                onDoubleClick={e => { e.stopPropagation(); onRemoveBoundary(idx); }}
+              >
+                {/* vertical line */}
+                <div style={{
+                  position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+                  top: 0, width: 2, height: MAP_H - FEAT_TOP + 4,
+                  background: statusColor, opacity: 0.9
+                }} />
+                {/* grip circle */}
+                <div style={{
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: statusColor, border: '2px solid #1e293b',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 9, color: '#fff', fontWeight: 700,
+                  position: 'relative', zIndex: 11, boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
+                }}>
+                  {idx + 1}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Sequence position ruler */}
+          <div style={{ position: 'absolute', top: TRACK_TOP + TRACK_H + 24, left: 0, right: 0, height: 14 }}>
+            {[0, 0.25, 0.5, 0.75, 1].map(f => (
+              <div key={f} style={{ position: 'absolute', left: `${f * 100}%`, transform: 'translateX(-50%)', fontSize: 9, color: '#475569' }}>
+                {Math.round(f * seqLen)}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── OVERLAP INSPECTOR ────────────────────────────────────────────────────
+    function OverlapInspector({ junction, overlapLength, onOverlapLengthChange }) {
+      if (!junction) {
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#475569', fontSize: 14 }}>
+            <div className="text-center">
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🔬</div>
+              <div>Click a junction (colored overlap zone) to inspect it</div>
+            </div>
+          </div>
+        );
+      }
+
+      const seq = junction.seq;
+      const rcSeq = reverseComplement(seq);
+      const displaySeq = seq.length > 50 ? seq.slice(0, 47) + '...' : seq;
+      const displayRc = rcSeq.length > 50 ? rcSeq.slice(0, 47) + '...' : rcSeq;
+
+      return (
+        <div style={{ padding: '0 4px', height: '100%', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>Junction {junction.index + 1}</span>
+            <StatusBadge status={junction.status} />
+            {junction.issues.length > 0 && (
+              <span style={{ fontSize: 11, color: '#f59e0b' }}>{junction.issues.join(' · ')}</span>
+            )}
+          </div>
+
+          {/* Sequence display */}
+          <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 4, padding: '6px 8px', marginBottom: 10 }}>
+            <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>5′→3′</div>
+            <div className="dna" style={{ fontSize: 11, color: '#e2e8f0', letterSpacing: '0.05em', wordBreak: 'break-all' }}>
+              {seq}
+            </div>
+            <div style={{ fontSize: 10, color: '#64748b', marginTop: 4, marginBottom: 2 }}>3′→5′ (complement)</div>
+            <div className="dna" style={{ fontSize: 11, color: '#94a3b8', letterSpacing: '0.05em', wordBreak: 'break-all' }}>
+              {rcSeq}
+            </div>
+          </div>
+
+          {/* Metrics */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Length', value: `${junction.actualLen} bp`, ok: junction.actualLen >= 20 && junction.actualLen <= 35 },
+              { label: 'Tm', value: `${junction.tm.toFixed(1)}°C`, ok: junction.tm >= 50 && junction.tm <= 65 },
+              { label: 'GC', value: `${junction.gc.toFixed(1)}%`, ok: junction.gc >= 40 && junction.gc <= 60 },
+              { label: 'Off-target', value: junction.offTarget ? 'Yes ⚠' : 'No ✓', ok: !junction.offTarget },
+            ].map(m => (
+              <div key={m.label} style={{
+                background: '#1e293b', border: `1px solid ${m.ok ? '#22c55e' : '#ef4444'}`,
+                borderRadius: 6, padding: '4px 10px', minWidth: 80, textAlign: 'center'
+              }}>
+                <div style={{ fontSize: 10, color: '#64748b' }}>{m.label}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: m.ok ? '#22c55e' : '#ef4444' }}>{m.value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Overlap length slider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>Overlap length:</span>
+            <input
+              type="range" min={15} max={40} value={overlapLength}
+              onChange={e => onOverlapLengthChange(parseInt(e.target.value))}
+              style={{ flex: 1, accentColor: '#06b6d4' }}
+            />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#06b6d4', minWidth: 36 }}>{overlapLength} bp</span>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── ASSEMBLY DASHBOARD ───────────────────────────────────────────────────
+    function AssemblyDashboard({ level, boundaries, overlapLengths, startTime, attempts, hintsUsed, onSubmit, onReset, selectedJunction, onJunctionSelect }) {
+      const seq = level.sequence;
+      const junctions = useMemo(() => getJunctions(seq, boundaries, overlapLengths), [seq, boundaries, overlapLengths]);
+      const fragments = useMemo(() => getFragments(seq, boundaries, overlapLengths), [seq, boundaries, overlapLengths]);
+
+      const score = useMemo(() => {
+        if (boundaries.length === 0) return null;
+        return computeScore(level, boundaries, overlapLengths, startTime || Date.now(), attempts, hintsUsed);
+      }, [level, boundaries, overlapLengths, startTime, attempts, hintsUsed]);
+
+      const fragCount = boundaries.length + 1;
+      const canSubmit = fragCount >= level.minFragments && fragCount <= level.maxFragments && boundaries.length > 0;
+
+      const submitTooltip = !canSubmit
+        ? `Need ${level.minFragments}${level.minFragments !== level.maxFragments ? '-' + level.maxFragments : ''} fragments (currently ${fragCount})`
+        : '';
+
+      return (
+        <div style={{ display: 'flex', gap: 12, height: '100%', overflow: 'hidden' }}>
+          {/* Fragments table */}
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>FRAGMENTS</div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ color: '#64748b', fontSize: 11 }}>
+                  <th style={{ textAlign: 'left', paddingBottom: 4 }}>Frag</th>
+                  <th style={{ textAlign: 'right', paddingBottom: 4 }}>Size (bp)</th>
+                  <th style={{ textAlign: 'center', paddingBottom: 4 }}>Range</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fragments.map((f, i) => (
+                  <tr key={i} style={{ borderTop: '1px solid #1e293b' }}>
+                    <td style={{ padding: '3px 0', color: FRAG_COLORS[i % FRAG_COLORS.length], fontWeight: 600 }}>F{i + 1}</td>
+                    <td style={{ textAlign: 'right', color: f.size >= 200 && f.size <= 5000 ? '#e2e8f0' : '#f59e0b' }}>{f.size}</td>
+                    <td style={{ textAlign: 'center', fontSize: 10, color: '#64748b' }}>{f.start}–{f.end}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Junctions table */}
+          <div style={{ flex: 1.4, overflowY: 'auto' }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>JUNCTIONS</div>
+            {junctions.length === 0 ? (
+              <div style={{ fontSize: 12, color: '#475569' }}>No junctions yet</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <thead>
+                  <tr style={{ color: '#64748b', fontSize: 10 }}>
+                    <th style={{ textAlign: 'left', paddingBottom: 4 }}>J#</th>
+                    <th style={{ textAlign: 'right', paddingBottom: 4 }}>Tm</th>
+                    <th style={{ textAlign: 'right', paddingBottom: 4 }}>Len</th>
+                    <th style={{ textAlign: 'right', paddingBottom: 4 }}>GC%</th>
+                    <th style={{ textAlign: 'center', paddingBottom: 4 }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {junctions.map((j, i) => (
+                    <tr
+                      key={i}
+                      style={{ borderTop: '1px solid #1e293b', cursor: 'pointer', background: selectedJunction === i ? 'rgba(6,182,212,0.08)' : 'transparent' }}
+                      onClick={() => onJunctionSelect(i)}
+                    >
+                      <td style={{ padding: '3px 0', fontWeight: 600 }}>J{i + 1}</td>
+                      <td style={{ textAlign: 'right', color: j.tm >= 50 && j.tm <= 65 ? '#22c55e' : j.tm >= 45 ? '#f59e0b' : '#ef4444' }}>{j.tm.toFixed(0)}°</td>
+                      <td style={{ textAlign: 'right' }}>{j.actualLen}</td>
+                      <td style={{ textAlign: 'right', color: j.gc >= 40 && j.gc <= 60 ? '#22c55e' : '#f59e0b' }}>{j.gc.toFixed(0)}%</td>
+                      <td style={{ textAlign: 'center' }}><StatusBadge status={j.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Score + actions */}
+          <div style={{ width: 140, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
+            {score && (
+              <div style={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 6, padding: '8px 10px', textAlign: 'center' }}>
+                <div style={{ fontSize: 10, color: '#64748b', marginBottom: 2 }}>Est. Score</div>
+                <div style={{ fontSize: 22, fontWeight: 700, color: score.success ? '#22c55e' : '#f59e0b' }}>{score.total}</div>
+                <div style={{ fontSize: 13, color: '#94a3b8' }}>Grade: <span style={{ fontWeight: 700 }}>{score.grade}</span></div>
+                <div style={{ marginTop: 4 }}>{starsDisplay(score.stars)}</div>
+              </div>
+            )}
+            <button
+              onClick={onReset}
+              style={{ padding: '6px 0', background: '#1e293b', border: '1px solid #334155', borderRadius: 6, color: '#94a3b8', fontSize: 12, cursor: 'pointer' }}
+            >
+              Reset
+            </button>
+            <div title={submitTooltip}>
+              <button
+                onClick={onSubmit}
+                disabled={!canSubmit}
+                style={{
+                  width: '100%', padding: '8px 0', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: canSubmit ? 'pointer' : 'not-allowed',
+                  background: canSubmit ? '#06b6d4' : '#1e293b',
+                  border: canSubmit ? '1px solid #0e7490' : '1px solid #334155',
+                  color: canSubmit ? '#fff' : '#475569',
+                  transition: 'all 0.15s'
+                }}
+              >
+                Submit Assembly
+              </button>
+            </div>
+            <div style={{ fontSize: 10, color: '#475569', textAlign: 'center' }}>
+              {level.minFragments === level.maxFragments
+                ? `Need ${level.minFragments} fragment${level.minFragments > 1 ? 's' : ''}`
+                : `${level.minFragments}–${level.maxFragments} fragments`}
+              <br /><span style={{ color: fragCount >= level.minFragments && fragCount <= level.maxFragments ? '#22c55e' : '#f59e0b' }}>{fragCount} currently</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── ASSEMBLY ANIMATION ───────────────────────────────────────────────────
+    function AssemblyAnimation({ level, boundaries, overlapLengths, onComplete }) {
+      const [phase, setPhase] = useState(0);
+      const fragments = useMemo(() => getFragments(level.sequence, boundaries, overlapLengths), [level, boundaries, overlapLengths]);
+      const junctions = useMemo(() => getJunctions(level.sequence, boundaries, overlapLengths), [level, boundaries, overlapLengths]);
+
+      const phaseLabels = [
+        'Linearizing fragments...',
+        '5′ exonuclease chewing back ends...',
+        'Annealing overlapping ends...',
+        'DNA polymerase filling gaps · Ligase sealing nicks...',
+        'Assembly complete!',
+      ];
+
+      useEffect(() => {
+        if (phase >= 4) {
+          const t = setTimeout(onComplete, 900);
+          return () => clearTimeout(t);
+        }
+        const delay = phase === 0 ? 600 : 1500;
+        const t = setTimeout(() => setPhase(p => p + 1), delay);
+        return () => clearTimeout(t);
+      }, [phase, onComplete]);
+
+      const CHEW = 18; // px to chew back on each end
+
+      return (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.97)', zIndex: 100,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 32
+        }}>
+          <div style={{ fontSize: 13, color: '#06b6d4', fontWeight: 600, letterSpacing: 2, textTransform: 'uppercase' }}>
+            Gibson Assembly
+          </div>
+
+          {/* Fragment bars */}
+          <div style={{ display: 'flex', gap: phase >= 2 ? 0 : 20, alignItems: 'center', transition: 'gap 0.8s ease', flexWrap: 'wrap', justifyContent: 'center', maxWidth: 700 }}>
+            {fragments.map((frag, i) => {
+              const totalBp = level.sequence.length;
+              const fragWidth = Math.max(60, (frag.size / totalBp) * 600);
+              const isLast = i === fragments.length - 1;
+              const junctionLeft = i > 0 ? junctions[i - 1] : null;
+              const junctionRight = !isLast ? junctions[i] : null;
+              const leftFail = junctionLeft && junctionLeft.status === 'error';
+              const rightFail = junctionRight && junctionRight.status === 'error';
+
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+                  <div
+                    className={phase >= 3 ? 'frag-seal' : ''}
+                    style={{
+                      width: fragWidth,
+                      height: 32,
+                      background: FRAG_COLORS[i % FRAG_COLORS.length],
+                      borderRadius: phase >= 3 ? 4 : 2,
+                      position: 'relative',
+                      transition: 'all 0.6s ease',
+                      opacity: phase >= 0 ? 1 : 0,
+                      // chewback effect: clip the visual ends
+                      borderLeft: phase >= 1 && i > 0 ? `${CHEW}px solid transparent` : undefined,
+                      borderRight: phase >= 1 && !isLast ? `${CHEW}px solid transparent` : undefined,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >
+                    <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                      F{i + 1} · {frag.size}bp
+                    </span>
+                    {/* junction flash */}
+                    {phase === 2 && rightFail && (
+                      <div style={{ position: 'absolute', right: -4, top: 0, bottom: 0, width: 8, background: '#ef4444', borderRadius: 2 }} />
+                    )}
+                    {phase === 2 && leftFail && (
+                      <div style={{ position: 'absolute', left: -4, top: 0, bottom: 0, width: 8, background: '#ef4444', borderRadius: 2 }} />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Phase label */}
+          <div style={{ fontSize: 15, color: '#e2e8f0', fontWeight: 500, textAlign: 'center', padding: '0 24px' }}>
+            {phaseLabels[Math.min(phase, 4)]}
+          </div>
+
+          {/* Phase dots */}
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[0, 1, 2, 3, 4].map(p => (
+              <div key={p} style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: p <= phase ? '#06b6d4' : '#334155',
+                transition: 'background 0.3s'
+              }} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── RESULTS SCREEN ───────────────────────────────────────────────────────
+    function ResultsScreen({ level, scoreResult, onRetry, onNext, onMenu, isLastLevel }) {
+      const { total, grade, stars, breakdown, bonuses, penalties, junctions, fragments, success, elapsed } = scoreResult;
+
+      const gradeColor = grade === 'S' ? '#f59e0b' : grade === 'A' ? '#22c55e' : grade === 'B' ? '#06b6d4' : grade === 'C' ? '#94a3b8' : '#ef4444';
+
+      return (
+        <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: 40 }}>
+          {/* Header */}
+          <div style={{ width: '100%', maxWidth: 900, padding: '24px 24px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <button onClick={onMenu} style={{ background: 'transparent', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 13 }}>← Menu</button>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 11, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase' }}>Results — {level.title}</div>
+                <div style={{ fontSize: 11, color: '#475569' }}>Time: {formatTime(elapsed)}</div>
+              </div>
+              <div style={{ width: 80 }} />
+            </div>
+
+            {/* Score hero */}
+            <div style={{ display: 'flex', gap: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 28 }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 72, fontWeight: 900, color: gradeColor, lineHeight: 1, marginBottom: 4 }}>{grade}</div>
+                <div style={{ fontSize: 14, color: '#64748b' }}>Grade</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 52, fontWeight: 800, color: '#e2e8f0', lineHeight: 1 }}>{total}</div>
+                <div style={{ fontSize: 14, color: '#64748b' }}>Score</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: 36, letterSpacing: 4, marginBottom: 4 }}>{starsDisplay(stars)}</div>
+                <div style={{ fontSize: 14, color: '#64748b' }}>{stars}/3 stars</div>
+              </div>
+            </div>
+
+            {/* Success / fail banner */}
+            <div style={{
+              textAlign: 'center', padding: '10px 0', marginBottom: 24, borderRadius: 8,
+              background: success ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+              border: `1px solid ${success ? '#22c55e' : '#ef4444'}`,
+              color: success ? '#22c55e' : '#ef4444', fontWeight: 600, fontSize: 15
+            }}>
+              {success ? '✓ Assembly successful — all junctions valid' : '✗ Assembly failed — errors in junction design'}
+            </div>
+          </div>
+
+          <div style={{ width: '100%', maxWidth: 900, padding: '0 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            {/* Score breakdown */}
+            <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 1, marginBottom: 12 }}>SCORE BREAKDOWN</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <tbody>
+                  {[
+                    { label: 'Assembly Accuracy', val: breakdown.accuracy, max: 400 },
+                    { label: 'Overlap Quality', val: breakdown.overlapQuality, max: 300 },
+                    { label: 'Design Efficiency', val: breakdown.efficiency, max: 200 },
+                    { label: 'Speed Bonus', val: breakdown.speed, max: 100 },
+                  ].map(r => (
+                    <tr key={r.label} style={{ borderTop: '1px solid #0f172a' }}>
+                      <td style={{ padding: '6px 0', color: '#94a3b8' }}>{r.label}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, color: r.val === r.max ? '#22c55e' : '#e2e8f0' }}>{r.val}</td>
+                      <td style={{ textAlign: 'right', color: '#475569', fontSize: 11 }}>/{r.max}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {(bonuses.length > 0 || penalties.length > 0) && (
+                <>
+                  <div style={{ borderTop: '1px solid #334155', marginTop: 10, paddingTop: 10 }}>
+                    {bonuses.map((b, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#22c55e', padding: '2px 0' }}>
+                        <span>+ {b.label}</span><span style={{ fontWeight: 700 }}>+{b.pts}</span>
+                      </div>
+                    ))}
+                    {penalties.map((p, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#ef4444', padding: '2px 0' }}>
+                        <span>− {p.label}</span><span style={{ fontWeight: 700 }}>{p.pts}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ borderTop: '1px solid #334155', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 14 }}>
+                    <span style={{ color: '#e2e8f0' }}>Total</span>
+                    <span style={{ color: gradeColor }}>{total}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Gel + junction details */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Gel */}
+              <div style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 1, marginBottom: 12 }}>AGAROSE GEL SIMULATION</div>
+                <GelView fragments={fragments} totalSize={level.sequence.length} success={success} />
+              </div>
+            </div>
+
+            {/* Junction detail table — full width */}
+            <div style={{ gridColumn: '1 / -1', background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 1, marginBottom: 12 }}>JUNCTION DETAILS</div>
+              {junctions.length === 0 ? (
+                <div style={{ color: '#475569', fontSize: 13 }}>No junctions (single fragment)</div>
+              ) : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ color: '#64748b', fontSize: 11, borderBottom: '1px solid #334155' }}>
+                      <th style={{ textAlign: 'left', paddingBottom: 6 }}>Junction</th>
+                      <th style={{ textAlign: 'right', paddingBottom: 6 }}>Position</th>
+                      <th style={{ textAlign: 'right', paddingBottom: 6 }}>Length</th>
+                      <th style={{ textAlign: 'right', paddingBottom: 6 }}>Tm (°C)</th>
+                      <th style={{ textAlign: 'right', paddingBottom: 6 }}>GC%</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 6 }}>Off-target</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 6 }}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {junctions.map((j, i) => (
+                      <tr key={i} style={{ borderTop: '1px solid #0f172a' }}>
+                        <td style={{ padding: '6px 0', fontWeight: 600 }}>J{i + 1}</td>
+                        <td style={{ textAlign: 'right', color: '#94a3b8' }}>{j.pos}</td>
+                        <td style={{ textAlign: 'right', color: j.actualLen >= 20 && j.actualLen <= 35 ? '#22c55e' : '#f59e0b' }}>{j.actualLen}</td>
+                        <td style={{ textAlign: 'right', color: j.tm >= 50 && j.tm <= 65 ? '#22c55e' : j.tm >= 45 ? '#f59e0b' : '#ef4444' }}>{j.tm.toFixed(1)}</td>
+                        <td style={{ textAlign: 'right', color: j.gc >= 40 && j.gc <= 60 ? '#22c55e' : '#f59e0b' }}>{j.gc.toFixed(1)}</td>
+                        <td style={{ textAlign: 'center', color: j.offTarget ? '#ef4444' : '#22c55e' }}>{j.offTarget ? 'Yes ⚠' : 'No ✓'}</td>
+                        <td style={{ textAlign: 'center' }}><StatusBadge status={j.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 16, marginTop: 28 }}>
+            <button onClick={onRetry} style={{ padding: '10px 28px', background: '#1e293b', border: '1px solid #334155', borderRadius: 8, color: '#e2e8f0', fontSize: 14, cursor: 'pointer', fontWeight: 600 }}>
+              Retry
+            </button>
+            {!isLastLevel && (
+              <button onClick={onNext} style={{ padding: '10px 28px', background: '#06b6d4', border: '1px solid #0e7490', borderRadius: 8, color: '#fff', fontSize: 14, cursor: 'pointer', fontWeight: 600 }}>
+                Next Level →
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── HINTS PANEL ──────────────────────────────────────────────────────────
+    function HintsPanel({ hints, hintsUsed, onHintUsed, isOpen }) {
+      const [hintIndex, setHintIndex] = useState(0);
+
+      if (!isOpen) return null;
+
+      function showHint() {
+        if (hintIndex < hints.length) {
+          onHintUsed();
+          if (hintIndex < hints.length - 1) setHintIndex(h => h + 1);
+        }
+      }
+
+      const shownHints = hints.slice(0, Math.min(hintsUsed + 1, hints.length));
+
+      return (
+        <div style={{
+          position: 'absolute', bottom: 60, right: 12, width: 300,
+          background: '#1e293b', border: '1px solid #f59e0b', borderRadius: 8,
+          padding: 14, zIndex: 50, boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#f59e0b', marginBottom: 10 }}>Hints ({hintsUsed}/{hints.length} used)</div>
+          {shownHints.map((h, i) => (
+            <div key={i} style={{ fontSize: 12, color: '#e2e8f0', padding: '4px 0', borderBottom: i < shownHints.length - 1 ? '1px solid #334155' : 'none', marginBottom: 4 }}>
+              <span style={{ color: '#f59e0b', marginRight: 6 }}>💡</span>{h}
+            </div>
+          ))}
+          {hintsUsed < hints.length && (
+            <button onClick={showHint} style={{
+              marginTop: 8, width: '100%', padding: '5px 0', background: 'rgba(245,158,11,0.1)', border: '1px solid #f59e0b',
+              borderRadius: 4, color: '#f59e0b', fontSize: 11, cursor: 'pointer', fontWeight: 600
+            }}>
+              Reveal Next Hint (−score)
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    // ─── TUTORIAL TOOLTIP ─────────────────────────────────────────────────────
+    function TutorialTooltip({ step, junctionsCount, allOk, onDismiss }) {
+      if (step >= 4) return null;
+
+      const steps = [
+        { title: 'Welcome to Fragment Forge!', body: 'Place a boundary by clicking anywhere on the DNA map below. This will split the sequence into fragments.', icon: '👆' },
+        { title: 'Junction Created!', body: 'Click the highlighted colored overlap zone on the DNA map to inspect the junction quality.', icon: '🔬' },
+        { title: 'Inspect the Junction', body: 'Check Tm (aim 50-65°C) and GC% (aim 40-60%). Use the slider below to adjust the overlap length.', icon: '📊' },
+        { title: 'Ready to Submit!', body: 'Your design looks good. Click "Submit Assembly" in the bottom-right panel to simulate the reaction.', icon: '🧬' },
+      ];
+
+      const s = steps[step] || steps[0];
+
+      return (
+        <div style={{
+          position: 'absolute', top: 60, right: 16, width: 260, zIndex: 60,
+          background: '#1e293b', border: '2px solid #06b6d4', borderRadius: 10, padding: 14,
+          boxShadow: '0 8px 24px rgba(6,182,212,0.2)',
+          animation: 'fade-in 0.3s ease'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 20 }}>{s.icon}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#06b6d4' }}>{s.title}</span>
+            </div>
+            <button onClick={onDismiss} style={{ background: 'transparent', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+          </div>
+          <p style={{ fontSize: 12, color: '#94a3b8', margin: 0, lineHeight: 1.6 }}>{s.body}</p>
+          <div style={{ marginTop: 8, display: 'flex', gap: 4 }}>
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: i === step ? '#06b6d4' : '#334155' }} />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── TITLE / LEVEL SELECT SCREEN ──────────────────────────────────────────
+    function TitleScreen({ onSelectLevel, levelScores, onSuiteMenu }) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#0f172a', display: 'flex', flexDirection: 'column' }}>
+          {/* Hero */}
+          <div className="dot-bg" style={{ padding: '56px 24px 40px', textAlign: 'center', borderBottom: '1px solid #1e293b', position: 'relative' }}>
+            <button onClick={onSuiteMenu} style={{ position: 'absolute', top: 16, left: 20, background: 'transparent', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12 }}>← Suite Menu</button>
+            <div style={{ fontSize: 11, letterSpacing: 4, color: '#06b6d4', textTransform: 'uppercase', marginBottom: 8 }}>Browser-Based Educational Game</div>
+            <h1 style={{ fontSize: 52, fontWeight: 900, margin: '0 0 8px', background: 'linear-gradient(135deg, #06b6d4, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Fragment Forge
+            </h1>
+            <p style={{ fontSize: 18, color: '#94a3b8', margin: '0 0 4px' }}>Master Gibson Assembly</p>
+            <p style={{ fontSize: 13, color: '#475569', maxWidth: 480, margin: '8px auto 0' }}>
+              Design overlap regions, evaluate junctions, and simulate multi-fragment Gibson Assembly reactions.
+            </p>
+          </div>
+
+          {/* Level cards */}
+          <div style={{ flex: 1, padding: '36px 24px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
+            <div style={{ fontSize: 12, color: '#64748b', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 20 }}>Select a Level</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 16 }}>
+              {LEVELS.map((level, i) => {
+                const result = levelScores[level.id];
+                const locked = false; // all levels unlocked
+                return (
+                  <div
+                    key={level.id}
+                    onClick={() => !locked && onSelectLevel(level.id)}
+                    style={{
+                      background: '#1e293b', border: '1px solid #334155', borderRadius: 12,
+                      padding: 18, cursor: locked ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s', position: 'relative', overflow: 'hidden',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.border = '1px solid #06b6d4'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.border = '1px solid #334155'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                  >
+                    {level.tutorial && (
+                      <div style={{ position: 'absolute', top: 8, right: 8, fontSize: 9, background: '#06b6d4', color: '#fff', padding: '2px 6px', borderRadius: 10, fontWeight: 700, letterSpacing: 1 }}>TUTORIAL</div>
+                    )}
+                    <div style={{ fontSize: 11, color: '#475569', marginBottom: 4 }}>Level {i + 1}</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: '#e2e8f0', marginBottom: 6 }}>{level.title}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.5, marginBottom: 12 }}>{level.description}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontSize: 16 }}>{starsDisplay(result ? result.stars : 0)}</div>
+                      {result && (
+                        <span style={{
+                          fontSize: 13, fontWeight: 800,
+                          color: result.grade === 'S' ? '#f59e0b' : result.grade === 'A' ? '#22c55e' : result.grade === 'B' ? '#06b6d4' : '#94a3b8'
+                        }}>{result.grade}</span>
+                      )}
+                    </div>
+                    {result && (
+                      <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>{result.total} pts</div>
+                    )}
+                    <div style={{ marginTop: 8, fontSize: 10, color: '#475569' }}>
+                      {level.sequence.length} bp · {level.minFragments === level.maxFragments ? `${level.minFragments} frag` : `${level.minFragments}-${level.maxFragments} frags`}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* How to play */}
+            <div style={{ marginTop: 40, padding: 20, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, maxWidth: 700 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#06b6d4', marginBottom: 10 }}>How to Play</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>
+                <div><span style={{ color: '#e2e8f0', fontWeight: 600 }}>1. Click the DNA map</span> to place fragment boundaries</div>
+                <div><span style={{ color: '#e2e8f0', fontWeight: 600 }}>2. Drag handles</span> to reposition boundaries</div>
+                <div><span style={{ color: '#e2e8f0', fontWeight: 600 }}>3. Click overlap zones</span> to inspect junction quality</div>
+                <div><span style={{ color: '#e2e8f0', fontWeight: 600 }}>4. Adjust overlap length</span> with the slider</div>
+                <div><span style={{ color: '#e2e8f0', fontWeight: 600 }}>5. Submit Assembly</span> when your design is ready</div>
+                <div><span style={{ color: '#e2e8f0', fontWeight: 600 }}>6. Double-click a handle</span> to remove a boundary</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ─── GAME SCREEN ──────────────────────────────────────────────────────────
+    function GameScreen({
+      level, boundaries, overlapLengths, selectedJunction, gamePhase,
+      startTime, attempts, hintsUsed, onMenu,
+      onAddBoundary, onBoundaryChange, onRemoveBoundary, onJunctionSelect,
+      onOverlapLengthChange, onSubmit, onReset, onHintUsed,
+      tutorialStep, onDismissTutorial, scoreResult, onAnimationComplete,
+    }) {
+      const elapsed = useElapsedTimer(startTime);
+      const [hintsOpen, setHintsOpen] = useState(false);
+
+      const junctions = useMemo(() => getJunctions(level.sequence, boundaries, overlapLengths), [level.sequence, boundaries, overlapLengths]);
+      const currentJunction = selectedJunction !== null ? junctions[selectedJunction] : null;
+      const currentOverlapLength = selectedJunction !== null ? (overlapLengths[selectedJunction] ?? 25) : 25;
+
+      const allJunctionsOk = junctions.length > 0 && junctions.every(j => j.status !== 'error');
+
+      return (
+        <div style={{ width: '100vw', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+          {/* Header bar */}
+          <div style={{ height: 52, background: '#1e293b', borderBottom: '1px solid #334155', display: 'flex', alignItems: 'center', padding: '0 16px', flexShrink: 0, gap: 12 }}>
+            <button onClick={onMenu} style={{ background: 'transparent', border: '1px solid #334155', color: '#94a3b8', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }}>← Menu</button>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <span style={{ fontWeight: 700, fontSize: 15, color: '#e2e8f0' }}>{level.title}</span>
+              <span style={{ marginLeft: 10, fontSize: 12, color: '#475569' }}>{level.description}</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, color: '#06b6d4', fontWeight: 600, fontFamily: 'monospace' }}>{formatTime(elapsed)}</span>
+              <button
+                onClick={() => setHintsOpen(h => !h)}
+                style={{ width: 30, height: 30, borderRadius: '50%', background: hintsOpen ? '#f59e0b' : '#1e293b', border: `1px solid ${hintsOpen ? '#f59e0b' : '#334155'}`, color: hintsOpen ? '#0f172a' : '#f59e0b', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}
+              >?</button>
+            </div>
+          </div>
+
+          {/* Main content area */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: 12, gap: 10 }}>
+
+            {/* Panel 1: Construct Map */}
+            <div className="dot-bg" style={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: '10px 16px 6px', flexShrink: 0 }}>
+              <div style={{ fontSize: 10, color: '#475569', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 700, color: '#64748b', letterSpacing: 1, textTransform: 'uppercase', fontSize: 10 }}>Construct Map — {level.sequence.length} bp</span>
+                <span style={{ color: '#334155' }}>Click to place boundary · Drag to move · Double-click to remove</span>
+              </div>
+              <ConstructMap
+                level={level}
+                boundaries={boundaries}
+                overlapLengths={overlapLengths}
+                selectedJunction={selectedJunction}
+                onAddBoundary={onAddBoundary}
+                onBoundaryChange={onBoundaryChange}
+                onRemoveBoundary={onRemoveBoundary}
+                onJunctionSelect={onJunctionSelect}
+              />
+            </div>
+
+            {/* Panels 2 + 3 side by side */}
+            <div style={{ flex: 1, display: 'flex', gap: 10, overflow: 'hidden', minHeight: 0 }}>
+
+              {/* Panel 2: Overlap Inspector */}
+              <div style={{ flex: 1, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: '10px 14px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8, flexShrink: 0 }}>Overlap Inspector</div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <OverlapInspector
+                    junction={currentJunction}
+                    overlapLength={currentOverlapLength}
+                    onOverlapLengthChange={len => onOverlapLengthChange(selectedJunction, len)}
+                  />
+                </div>
+              </div>
+
+              {/* Panel 3: Assembly Dashboard */}
+              <div style={{ flex: 1.4, background: '#1e293b', border: '1px solid #334155', borderRadius: 10, padding: '10px 14px', overflow: 'hidden' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 8 }}>Assembly Dashboard</div>
+                <div style={{ height: 'calc(100% - 28px)' }}>
+                  <AssemblyDashboard
+                    level={level}
+                    boundaries={boundaries}
+                    overlapLengths={overlapLengths}
+                    startTime={startTime}
+                    attempts={attempts}
+                    hintsUsed={hintsUsed}
+                    onSubmit={onSubmit}
+                    onReset={onReset}
+                    selectedJunction={selectedJunction}
+                    onJunctionSelect={onJunctionSelect}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Tutorial tooltip */}
+          {level.tutorial && (
+            <TutorialTooltip
+              step={tutorialStep}
+              junctionsCount={junctions.length}
+              allOk={allJunctionsOk}
+              onDismiss={onDismissTutorial}
+            />
+          )}
+
+          {/* Hints panel */}
+          <div style={{ position: 'absolute', bottom: 0, right: 0, zIndex: 50 }}>
+            <HintsPanel hints={level.hints} hintsUsed={hintsUsed} onHintUsed={onHintUsed} isOpen={hintsOpen} />
+          </div>
+
+          {/* Assembly animation overlay */}
+          {gamePhase === 'animating' && (
+            <AssemblyAnimation
+              level={level}
+              boundaries={boundaries}
+              overlapLengths={overlapLengths}
+              onComplete={onAnimationComplete}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // ─── APP ──────────────────────────────────────────────────────────────────
+    function App() {
+      const [screen, setScreen] = useState('title');
+      const [currentLevelId, setCurrentLevelId] = useState(null);
+      const [boundaries, setBoundaries] = useState([]);
+      const [overlapLengths, setOverlapLengths] = useState([]);
+      const [selectedJunction, setSelectedJunction] = useState(null);
+      const [gamePhase, setGamePhase] = useState('design');
+      const [startTime, setStartTime] = useState(null);
+      const [attempts, setAttempts] = useState(0);
+      const [hintsUsed, setHintsUsed] = useState(0);
+      const [levelScores, setLevelScores] = useState({});
+      const [scoreResult, setScoreResult] = useState(null);
+      const [tutorialStep, setTutorialStep] = useState(0);
+
+      const level = currentLevelId ? LEVELS.find(l => l.id === currentLevelId) : null;
+
+      // ── Boundary management ────────────────────────────────────────────────
+      function addBoundary(bp) {
+        setBoundaries(prev => {
+          const next = [...prev, bp].sort((a, b) => a - b);
+          const insertIdx = next.indexOf(bp);
+          setOverlapLengths(ol => {
+            const nol = [...ol];
+            nol.splice(insertIdx, 0, 25);
+            return nol;
+          });
+          return next;
+        });
+      }
+
+      // Use a ref to access latest overlapLengths inside drag callbacks without stale closures
+      const overlapLengthsRef = useRef(overlapLengths);
+      useEffect(() => { overlapLengthsRef.current = overlapLengths; }, [overlapLengths]);
+
+      function moveBoundary(idx, bp) {
+        const currentOl = overlapLengthsRef.current;
+        setBoundaries(prev => {
+          const combined = prev.map((b, i) => ({ b: i === idx ? bp : b, ol: currentOl[i] ?? 25 }));
+          combined.sort((a, b_) => a.b - b_.b);
+          setOverlapLengths(combined.map(c => c.ol));
+          return combined.map(c => c.b);
+        });
+      }
+
+      function removeBoundary(idx) {
+        setBoundaries(prev => {
+          const next = [...prev];
+          next.splice(idx, 1);
+          setOverlapLengths(ol => {
+            const nol = [...ol];
+            nol.splice(idx, 1);
+            return nol;
+          });
+          if (selectedJunction === idx || selectedJunction >= next.length) {
+            setSelectedJunction(next.length > 0 ? Math.min(idx, next.length - 1) : null);
+          }
+          return next;
+        });
+      }
+
+      function setOverlapLength(idx, len) {
+        setOverlapLengths(ol => {
+          const nol = [...ol];
+          nol[idx] = len;
+          return nol;
+        });
+      }
+
+      // ── Tutorial auto-advance ──────────────────────────────────────────────
+      useEffect(() => {
+        if (!level || !level.tutorial) return;
+        if (tutorialStep === 0 && boundaries.length >= 1) {
+          setTutorialStep(1);
+        }
+      }, [boundaries.length, level, tutorialStep]);
+
+      useEffect(() => {
+        if (!level || !level.tutorial) return;
+        if (tutorialStep === 1 && selectedJunction !== null) {
+          setTutorialStep(2);
+        }
+      }, [selectedJunction, level, tutorialStep]);
+
+      useEffect(() => {
+        if (!level || !level.tutorial) return;
+        if (tutorialStep === 2) {
+          const junctions = getJunctions(level.sequence, boundaries, overlapLengths);
+          const allOk = junctions.length > 0 && junctions.every(j => j.status !== 'error');
+          if (allOk && boundaries.length >= level.minFragments - 1) {
+            setTutorialStep(3);
+          }
+        }
+      }, [boundaries, overlapLengths, level, tutorialStep]);
+
+      // ── Screen transitions ─────────────────────────────────────────────────
+      function startLevel(levelId) {
+        setCurrentLevelId(levelId);
+        setBoundaries([]);
+        setOverlapLengths([]);
+        setSelectedJunction(null);
+        setGamePhase('design');
+        setStartTime(Date.now());
+        setAttempts(0);
+        setHintsUsed(0);
+        setScoreResult(null);
+        setTutorialStep(0);
+        setScreen('game');
+      }
+
+      function handleSubmit() {
+        if (!level) return;
+        const newAttempts = attempts + 1;
+        setAttempts(newAttempts);
+        const result = computeScore(level, boundaries, overlapLengths, startTime, newAttempts, hintsUsed);
+        setScoreResult(result);
+        setTutorialStep(4);
+        setGamePhase('animating');
+        setLevelScores(prev => {
+          const existing = prev[level.id];
+          if (!existing || result.total > existing.total) {
+            return { ...prev, [level.id]: { total: result.total, grade: result.grade, stars: result.stars } };
+          }
+          return prev;
+        });
+      }
+
+      function handleAnimationComplete() {
+        setGamePhase('results');
+        setScreen('results');
+      }
+
+      function handleRetry() {
+        setBoundaries([]);
+        setOverlapLengths([]);
+        setSelectedJunction(null);
+        setGamePhase('design');
+        setStartTime(Date.now());
+        setHintsUsed(0);
+        setScoreResult(null);
+        setTutorialStep(0);
+        setScreen('game');
+      }
+
+      function handleNextLevel() {
+        if (!level) return;
+        const idx = LEVELS.findIndex(l => l.id === level.id);
+        if (idx < LEVELS.length - 1) {
+          startLevel(LEVELS[idx + 1].id);
+        }
+      }
+
+      function handleReset() {
+        setBoundaries([]);
+        setOverlapLengths([]);
+        setSelectedJunction(null);
+      }
+
+      function handleMenu() {
+        setScreen('title');
+        setGamePhase('design');
+      }
+
+      function handleSuiteMenu() {
+        window.location.href = 'index.html';
+      }
+
+      const isLastLevel = level ? LEVELS[LEVELS.length - 1].id === level.id : false;
+
+      // ── Render ─────────────────────────────────────────────────────────────
+      if (screen === 'title') {
+        return <TitleScreen onSelectLevel={startLevel} levelScores={levelScores} onSuiteMenu={handleSuiteMenu} />;
+      }
+
+      if (screen === 'results' && scoreResult && level) {
+        return (
+          <ResultsScreen
+            level={level}
+            scoreResult={scoreResult}
+            onRetry={handleRetry}
+            onNext={handleNextLevel}
+            onMenu={handleMenu}
+            isLastLevel={isLastLevel}
+          />
+        );
+      }
+
+      if (screen === 'game' && level) {
+        return (
+          <GameScreen
+            level={level}
+            boundaries={boundaries}
+            overlapLengths={overlapLengths}
+            selectedJunction={selectedJunction}
+            gamePhase={gamePhase}
+            startTime={startTime}
+            attempts={attempts}
+            hintsUsed={hintsUsed}
+            onMenu={handleMenu}
+            onAddBoundary={addBoundary}
+            onBoundaryChange={moveBoundary}
+            onRemoveBoundary={removeBoundary}
+            onJunctionSelect={setSelectedJunction}
+            onOverlapLengthChange={setOverlapLength}
+            onSubmit={handleSubmit}
+            onReset={handleReset}
+            onHintUsed={() => setHintsUsed(h => h + 1)}
+            tutorialStep={tutorialStep}
+            onDismissTutorial={() => setTutorialStep(4)}
+            scoreResult={scoreResult}
+            onAnimationComplete={handleAnimationComplete}
+          />
+        );
+      }
+
+      // Fallback
+      return <TitleScreen onSelectLevel={startLevel} levelScores={levelScores} />;
+    }
+
+    // ─── MOUNT ────────────────────────────────────────────────────────────────
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
