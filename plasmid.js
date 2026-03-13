@@ -736,9 +736,11 @@ class PlasmidRenderer {
     _handleClick(event) {
         if (this._clickCallbacks.length === 0) return;
 
-        const rect  = this.canvas.getBoundingClientRect();
-        const mx    = event.clientX - rect.left;
-        const my    = event.clientY - rect.top;
+        const rect   = this.canvas.getBoundingClientRect();
+        const scaleX = this.canvas.width  / rect.width;
+        const scaleY = this.canvas.height / rect.height;
+        const mx     = (event.clientX - rect.left) * scaleX;
+        const my     = (event.clientY - rect.top)  * scaleY;
         const { cx, cy, outerRadius, innerRadius } = this._layout;
 
         const dx   = mx - cx;

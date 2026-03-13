@@ -171,7 +171,7 @@ a.btn-secondary {
 }
 #canvas-area {
   flex: 1; display: flex; align-items: center; justify-content: center;
-  background: var(--bg-dark); position: relative; overflow: hidden;
+  background: var(--bg-dark); position: relative; overflow: auto;
 }
 #editor-canvas {
   display: block;
@@ -401,6 +401,32 @@ a.btn-secondary {
 .donor-tab-btn:hover:not(.active) { color: var(--text); }
 #donor-tab-bar .separator { flex: 1; }
 
+/* Panel toggle buttons */
+.panel-toggle {
+  background: var(--bg-light); border: 1px solid var(--border);
+  color: var(--text-muted); padding: 4px 9px; font-size: 0.8rem;
+  border-radius: 4px; cursor: pointer; line-height: 1;
+}
+.panel-toggle:hover { color: var(--text); }
+.panel-toggle.active { border-color: var(--accent); color: var(--accent); }
+
+/* Zoom controls */
+.zoom-controls {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.82rem; color: var(--text-muted);
+}
+.zoom-controls button {
+  background: var(--bg-light); border: 1px solid var(--border);
+  color: var(--text); padding: 4px 8px; font-size: 0.84rem;
+  border-radius: 4px; cursor: pointer; line-height: 1;
+  min-width: 26px; text-align: center;
+}
+.zoom-controls button:hover { border-color: var(--accent); color: var(--accent); }
+#zoom-label {
+  min-width: 40px; text-align: center;
+  color: var(--text-muted); font-size: 0.82rem;
+}
+
 /* Scrollbars */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-dark); }
@@ -426,6 +452,11 @@ a.btn-secondary {
   <!-- Top bar -->
   <div id="topbar">
     <h1>🧬 Cloning Level Editor</h1>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <button class="panel-toggle active" id="toggle-left" title="Toggle level list">☰ Levels</button>
+      <button class="panel-toggle active" id="toggle-inspector" title="Toggle inspector panel">⊞ Inspector</button>
+      <button class="panel-toggle active" id="toggle-right" title="Toggle settings panel">⚙ Settings</button>
+    </div>
     <div id="topbar-right">
       <span id="dirty-indicator" class="hidden">● Unsaved changes</span>
       <button class="btn-primary" id="publish-btn">Publish to GitHub</button>
@@ -488,6 +519,13 @@ a.btn-secondary {
             <label for="meta-length">Length</label>
             <input type="number" id="meta-length" min="100" max="99999" style="width:90px;">
             <span style="color:var(--text-muted);font-size:0.82rem;">bp</span>
+          </div>
+          <div style="flex:1;"></div>
+          <div class="zoom-controls">
+            <button id="btn-zoom-out" title="Zoom out (scroll wheel)">−</button>
+            <span id="zoom-label">100%</span>
+            <button id="btn-zoom-reset" title="Reset zoom">1:1</button>
+            <button id="btn-zoom-in" title="Zoom in (scroll wheel)">+</button>
           </div>
         </div>
 
@@ -696,6 +734,11 @@ let hasDragged      = false;
 let undoStack       = [];     // stack of deep-copied {features, cut_sites} snapshots
 const MAX_UNDO      = 40;
 
+// Zoom
+const BASE_CANVAS_SIZE = 540;
+const ZOOM_STEPS = [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0];
+let zoomLevel = 1.0;
+
 // ---------------------------------------------------------------------------
 // DOM refs
 // ---------------------------------------------------------------------------
@@ -727,6 +770,21 @@ const featListEmpty  = document.getElementById('feat-list-empty');
 const inspEmpty      = document.getElementById('inspector-empty');
 const inspFeature    = document.getElementById('inspector-feature');
 const inspSite       = document.getElementById('inspector-site');
+
+// Zoom
+const btnZoomIn    = document.getElementById('btn-zoom-in');
+const btnZoomOut   = document.getElementById('btn-zoom-out');
+const btnZoomReset = document.getElementById('btn-zoom-reset');
+const zoomLabel    = document.getElementById('zoom-label');
+const canvasArea   = document.getElementById('canvas-area');
+
+// Panel toggles
+const toggleLeft      = document.getElementById('toggle-left');
+const toggleInspector = document.getElementById('toggle-inspector');
+const toggleRight     = document.getElementById('toggle-right');
+const leftPanel       = document.getElementById('left-panel');
+const inspectorEl     = document.getElementById('inspector');
+const rightPanel      = document.getElementById('right-panel');
 
 const fiName          = document.getElementById('fi-name');
 const fiType          = document.getElementById('fi-type');
@@ -1783,6 +1841,55 @@ editorCanvas.addEventListener('mouseup', () => {
   dragState = null;
   // hasDragged is cleared in the click handler after use
 });
+
+// ---------------------------------------------------------------------------
+// Zoom
+// ---------------------------------------------------------------------------
+function applyZoom(newZoom) {
+  zoomLevel = Math.max(0.4, Math.min(3.0, newZoom));
+  const size = Math.round(BASE_CANVAS_SIZE * zoomLevel);
+  editorCanvas.width  = size;
+  editorCanvas.height = size;
+  zoomLabel.textContent = Math.round(zoomLevel * 100) + '%';
+  if (renderer) refreshCanvas();
+}
+
+btnZoomIn.addEventListener('click', () => {
+  const idx = ZOOM_STEPS.findIndex(z => z > zoomLevel);
+  applyZoom(idx >= 0 ? ZOOM_STEPS[idx] : 3.0);
+});
+btnZoomOut.addEventListener('click', () => {
+  const idx = [...ZOOM_STEPS].reverse().findIndex(z => z < zoomLevel);
+  applyZoom(idx >= 0 ? ZOOM_STEPS[ZOOM_STEPS.length - 1 - idx] : 0.4);
+});
+btnZoomReset.addEventListener('click', () => applyZoom(1.0));
+
+canvasArea.addEventListener('wheel', (e) => {
+  if (!e.ctrlKey && !e.metaKey) return; // only zoom when Ctrl/Cmd held
+  e.preventDefault();
+  const delta = e.deltaY < 0 ? 1 : -1;
+  if (delta > 0) {
+    const idx = ZOOM_STEPS.findIndex(z => z > zoomLevel);
+    applyZoom(idx >= 0 ? ZOOM_STEPS[idx] : 3.0);
+  } else {
+    const idx = [...ZOOM_STEPS].reverse().findIndex(z => z < zoomLevel);
+    applyZoom(idx >= 0 ? ZOOM_STEPS[ZOOM_STEPS.length - 1 - idx] : 0.4);
+  }
+}, { passive: false });
+
+// ---------------------------------------------------------------------------
+// Panel toggles
+// ---------------------------------------------------------------------------
+function setupPanelToggle(btn, el) {
+  btn.addEventListener('click', () => {
+    const hidden = el.style.display === 'none';
+    el.style.display = hidden ? '' : 'none';
+    btn.classList.toggle('active', hidden);
+  });
+}
+setupPanelToggle(toggleLeft,      leftPanel);
+setupPanelToggle(toggleInspector, inspectorEl);
+setupPanelToggle(toggleRight,     rightPanel);
 
 // ---------------------------------------------------------------------------
 // Right panel — level settings form
