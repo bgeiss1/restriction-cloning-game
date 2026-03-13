@@ -679,7 +679,6 @@ const fiColorLabel    = document.getElementById('fi-color-label');
 const fiColorReset    = document.getElementById('fi-color-reset');
 const fiShowArrow     = document.getElementById('fi-show-arrow');
 const fiShowPromoter  = document.getElementById('fi-show-promoter');
-const btnDelFeature   = document.getElementById('btn-del-feature');
 
 const siEnzyme   = document.getElementById('si-enzyme');
 const siPosition = document.getElementById('si-position');
@@ -1166,7 +1165,7 @@ fiType.addEventListener('change', () => {
   const feat = selectedFeature();
   if (feat && !feat.color) updateColorUI(feat);
 });
-btnDelFeature.addEventListener('click', () => {
+function deleteSelectedFeature() {
   const data = currentPlasmidData();
   if (!data || selectedFeatureIdx < 0) return;
   pushUndo();
@@ -1174,7 +1173,7 @@ btnDelFeature.addEventListener('click', () => {
   selectedFeatureIdx = -1;
   showInspectorEmpty();
   markDirty(); renderCanvas();
-});
+}
 
 // Inspector site field listeners
 siEnzyme.addEventListener('change', () => {
@@ -1211,7 +1210,7 @@ function selectedSite() {
 }
 
 // Toolbar − Feature / − Restriction Site buttons
-btnDelFeatureTb.addEventListener('click', () => btnDelFeature.click());
+btnDelFeatureTb.addEventListener('click', deleteSelectedFeature);
 btnDelSiteTb.addEventListener('click',    () => btnDelSite.click());
 
 // + Feature / + Site buttons
