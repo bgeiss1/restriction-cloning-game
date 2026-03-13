@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ribosome Rush</title>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #1A2332;
+      --bg-mid: #243447;
+      --bg-light: #2D4060;
+      --accent: #4FC3F7;
+      --success: #66BB6A;
+      --warn: #FFB300;
+      --danger: #EF5350;
+      --border: #354A63;
+      --text: #E0E0E0;
+      --text-muted: #90A4AE;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg-dark); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+    #rrCanvas { position: fixed; inset: 0; z-index: 0; }
+
+    /* HUD */
+    #rrHud {
+      position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 10;
+      background: var(--bg-mid); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 20px;
+    }
+    .hud-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+    .hud-value { font-size: 22px; font-weight: 700; color: var(--accent); }
+    .hud-mono { font-family: 'Courier New', monospace; }
+    #rrHudLeft, #rrHudRight { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 120px; }
+    #rrHudRight { align-items: flex-end; flex-direction: row; gap: 12px; align-items: center; }
+    #rrHudCenter { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .btn-table { background: var(--bg-light); border: 1px solid var(--border); color: var(--accent); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .btn-table:hover { border-color: var(--accent); }
+    .btn-menu { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; text-decoration: none; display: flex; align-items: center; }
+    .btn-menu:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* Screens */
+    .rr-screen {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(26, 35, 50, 0.97);
+    }
+    .rr-screen h1 { font-size: 48px; font-weight: 900; color: var(--accent); margin-bottom: 8px; }
+    .rr-screen p { color: var(--text-muted); font-size: 15px; margin-bottom: 24px; max-width: 480px; text-align: center; }
+    .btn-primary { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 12px 32px; font-size: 16px; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+    .btn-primary:hover { background: #81D4FA; }
+    .btn-secondary { background: var(--bg-light); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 10px; text-decoration: none; display: inline-block; text-align: center; }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+    .score-display { font-size: 72px; font-weight: 900; color: var(--accent); margin: 16px 0; }
+    .grade-display { font-size: 32px; font-weight: 700; color: var(--warn); }
+
+    /* Instructions box on start screen */
+    .instructions { background: var(--bg-mid); border: 1px solid var(--border); border-radius: 10px; padding: 18px 24px; max-width: 520px; margin-bottom: 24px; text-align: left; }
+    .instructions h3 { color: var(--accent); font-size: 13px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+    .instructions li { font-size: 13px; color: var(--text-muted); line-height: 2; list-style: none; }
+    .instructions li::before { content: '\25B6 '; color: var(--accent); }
+
+    /* Codon table panel */
+    #codonTablePanel {
+      position: fixed; right: 16px; top: 64px; width: 340px; max-height: calc(100vh - 80px);
+      overflow-y: auto; z-index: 20;
+      background: var(--bg-mid); border: 1px solid var(--border); border-radius: 10px; padding: 12px;
+    }
+    .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .panel-header span { font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: 1px; text-transform: uppercase; }
+    .panel-close { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; line-height: 1; }
+    .codon-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .codon-cell { background: var(--bg-dark); border: 1px solid var(--border); border-radius: 4px; padding: 4px 3px; text-align: center; cursor: default; transition: background 0.1s; }
+    .codon-cell .codon-letters { font-family: 'Courier New', monospace; font-size: 11px; font-weight: 700; color: var(--text); }
+    .codon-cell .codon-aa { font-size: 9px; color: var(--text-muted); margin-top: 1px; }
+    .codon-cell.active { background: rgba(79,195,247,0.25); border-color: var(--accent); }
+    .codon-cell.stop-codon .codon-aa { color: var(--danger); }
+    .codon-cell.start-codon { border-color: var(--success); }
+
+    /* Score popups */
+    .score-pop {
+      position: fixed; z-index: 30; font-size: 18px; font-weight: 800; pointer-events: none;
+      animation: popUp 1s ease-out forwards;
+    }
+    @keyframes popUp { 0%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-60px)} }
+
+    /* Combo display */
+    #comboDisplay { font-size: 13px; font-weight: 700; color: var(--warn); min-width: 60px; text-align: center; }
+
+    /* Progress bar for codon window */
+    #codonProgress { height: 4px; background: var(--bg-light); border-radius: 2px; overflow: hidden; width: 200px; margin-top: 4px; }
+    #codonProgressBar { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.1s linear; width: 100%; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <canvas id="rrCanvas"></canvas>
+
+  <!-- HUD (always visible during gameplay) -->
+  <div id="rrHud" class="hidden">
+    <div id="rrHudLeft">
+      <span class="hud-label">Score</span>
+      <span class="hud-value" id="rrScore">0</span>
+    </div>
+    <div id="rrHudCenter">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div>
+          <span class="hud-label">Active Codon</span>
+          <div class="hud-value hud-mono" id="rrActiveCodon">---</div>
+        </div>
+        <div>
+          <span class="hud-label">Amino Acid</span>
+          <div style="font-size:14px; font-weight:700; color:var(--text)" id="rrAminoAcid">---</div>
+        </div>
+      </div>
+      <div id="codonProgress"><div id="codonProgressBar"></div></div>
+    </div>
+    <div id="rrHudRight">
+      <span id="comboDisplay">1&times;</span>
+      <button class="btn-table" id="btnCodonTable">Codon Table ?</button>
+      <a href="index.html" class="btn-menu">&#8592; Menu</a>
+    </div>
+  </div>
+
+  <!-- Codon table panel (toggled) -->
+  <div id="codonTablePanel" class="hidden"></div>
+
+  <!-- Start screen -->
+  <div id="startScreen" class="rr-screen">
+    <h1>&#128992; Ribosome Rush</h1>
+    <p>Translate mRNA into protein before codons scroll past the ribosome!</p>
+    <div class="instructions">
+      <h3>How to Play</h3>
+      <ul>
+        <li>Watch for the <strong>AUG</strong> start codon to enter the ribosome window</li>
+        <li>Drag the matching <strong>tRNA</strong> from the tray onto the codon</li>
+        <li>Match each codon until you reach a <strong>stop codon</strong></li>
+        <li>Place the <strong>STOP</strong> marker to finish translation</li>
+        <li>Miss a codon and the game ends!</li>
+      </ul>
+    </div>
+    <button class="btn-primary" id="btnStart">Start Translation</button>
+    <a href="index.html" class="btn-secondary" style="text-align:center; margin-top:10px;">&#8592; Back to Suite</a>
+  </div>
+
+  <!-- Game over screen -->
+  <div id="gameOverScreen" class="rr-screen hidden">
+    <h1 style="color:var(--danger)">Ribosome Stalled</h1>
+    <p>A codon slipped past the ribosome before you could place a tRNA.</p>
+    <div class="score-display" id="goScore">0</div>
+    <div class="grade-display" id="goChain"></div>
+    <button class="btn-primary" id="btnRestartGO">Try Again</button>
+    <a href="index.html" class="btn-secondary" style="text-align:center">&#8592; Suite Menu</a>
+  </div>
+
+  <!-- Victory screen -->
+  <div id="victoryScreen" class="rr-screen hidden">
+    <h1 style="color:var(--success)">Translation Complete!</h1>
+    <p>Your polypeptide chain:</p>
+    <div class="hud-mono" id="vicChain" style="font-size:24px; color:var(--accent); margin: 12px 0; letter-spacing:3px;"></div>
+    <div class="score-display" id="vicScore">0</div>
+    <div class="grade-display" id="vicGrade">A</div>
+    <button class="btn-primary" id="btnRestartVic">Translate Again</button>
+    <a href="index.html" class="btn-secondary" style="text-align:center">&#8592; Suite Menu</a>
+  </div>
+
+  <script>
+  // ============================================================
+  // Section 1: Constants
+  // ============================================================
+  const BASE_SIZE   = 38;
+  const BASE_STRIDE = BASE_SIZE + 8;
+  const CODON_GAP   = 14;
+  const CODON_WIDTH = BASE_STRIDE * 3 + CODON_GAP;
+  const STRAND_Y    = 0;
+  const SCROLL_SPEED = 45;
+  const RIBOSOME_WINDOW_X = 0;
+  const RIBOSOME_WINDOW_HALF = CODON_WIDTH * 0.6;
+  const SNAP_PAUSE_MS = 220;
+
+  // ============================================================
+  // Section 2: Codon / Amino Acid Tables
+  // ============================================================
+  const CODON_TABLE = {
+    'UUU':'Phe','UUC':'Phe',
+    'UUA':'Leu','UUG':'Leu','CUU':'Leu','CUC':'Leu','CUA':'Leu','CUG':'Leu',
+    'AUU':'Ile','AUC':'Ile','AUA':'Ile',
+    'AUG':'Met',
+    'GUU':'Val','GUC':'Val','GUA':'Val','GUG':'Val',
+    'UCU':'Ser','UCC':'Ser','UCA':'Ser','UCG':'Ser','AGU':'Ser','AGC':'Ser',
+    'CCU':'Pro','CCC':'Pro','CCA':'Pro','CCG':'Pro',
+    'ACU':'Thr','ACC':'Thr','ACA':'Thr','ACG':'Thr',
+    'GCU':'Ala','GCC':'Ala','GCA':'Ala','GCG':'Ala',
+    'UAU':'Tyr','UAC':'Tyr',
+    'UAA':'Stop','UAG':'Stop','UGA':'Stop',
+    'CAU':'His','CAC':'His',
+    'CAA':'Gln','CAG':'Gln',
+    'AAU':'Asn','AAC':'Asn',
+    'AAA':'Lys','AAG':'Lys',
+    'GAU':'Asp','GAC':'Asp',
+    'GAA':'Glu','GAG':'Glu',
+    'UGU':'Cys','UGC':'Cys',
+    'UGG':'Trp',
+    'CGU':'Arg','CGC':'Arg','CGA':'Arg','CGG':'Arg','AGA':'Arg','AGG':'Arg',
+    'GGU':'Gly','GGC':'Gly','GGA':'Gly','GGG':'Gly',
+  };
+
+  function getAnticodon(codon) {
+    const comp = {'A':'U','U':'A','G':'C','C':'G'};
+    return codon.split('').map(b => comp[b]).join('');
+  }
+
+  const AA_ONE = {
+    'Phe':'F','Leu':'L','Ile':'I','Met':'M','Val':'V',
+    'Ser':'S','Pro':'P','Thr':'T','Ala':'A','Tyr':'Y',
+    'His':'H','Gln':'Q','Asn':'N','Lys':'K','Asp':'D',
+    'Glu':'E','Cys':'C','Trp':'W','Arg':'R','Gly':'G',
+    'Stop':'*'
+  };
+
+  const AA_COLORS = {
+    'F':0xD4A96A,'L':0xD4A96A,'I':0xD4A96A,'M':0xD4A96A,'V':0xD4A96A,'A':0xD4A96A,'W':0xD4A96A,'P':0xD4A96A,
+    'S':0x4FC3F7,'T':0x4FC3F7,'C':0x4FC3F7,'Y':0x4FC3F7,'N':0x4FC3F7,'Q':0x4FC3F7,
+    'K':0x5C6BC0,'R':0x5C6BC0,'H':0x5C6BC0,
+    'D':0xEF5350,'E':0xEF5350,
+    'G':0xAB47BC,
+  };
+
+  const BASE_COLOR = { 'A': 0x4CAF50, 'U': 0xEF5350, 'G': 0xFFC107, 'C': 0x2196F3 };
+
+  // ============================================================
+  // Section 3: Base Shape Builders
+  // ============================================================
+  function buildBaseShape(base) {
+    const S = BASE_SIZE * 0.42;
+    const shape = new THREE.Shape();
+    if (base === 'C') {
+      shape.absarc(0, 0, S, Math.PI * 0.6, Math.PI * 1.4, false);
+      shape.lineTo(S * 0.1, -S * 0.55);
+      const hole = new THREE.Path();
+      hole.absarc(S * 0.35, 0, S * 0.55, Math.PI * 0.5, Math.PI * 1.5, true);
+      shape.holes.push(hole);
+    } else if (base === 'G') {
+      shape.moveTo(-S * 0.3, -S);
+      shape.lineTo(-S * 0.3, S);
+      shape.absarc(-S * 0.3, 0, S, Math.PI * 1.5, Math.PI * 0.5, true);
+      shape.closePath();
+    } else if (base === 'A') {
+      shape.moveTo(0, S);
+      shape.lineTo(S, -S);
+      shape.lineTo(-S, -S);
+      shape.closePath();
+    } else {
+      // U
+      shape.moveTo(0, -S);
+      shape.lineTo(S, S);
+      shape.lineTo(-S, S);
+      shape.closePath();
+    }
+    return new THREE.ShapeGeometry(shape);
+  }
+
+  function getComplementBase(base) {
+    return {'A':'U','U':'A','G':'C','C':'G'}[base];
+  }
+
+  // ============================================================
+  // Section 4: CanvasTexture Label System
+  // ============================================================
+  const TEXTURES = {};
+
+  function makeTextTexture(text, fontSize, color, bgColor) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    if (bgColor) { ctx.fillStyle = bgColor; ctx.fillRect(0, 0, 64, 64); }
+    ctx.fillStyle = color || '#ffffff';
+    ctx.font = `bold ${fontSize || 22}px 'Courier New', monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 32, 32);
+    return new THREE.CanvasTexture(canvas);
+  }
+
+  function initTextures() {
+    ['A','U','G','C'].forEach(b => {
+      TEXTURES['base_' + b] = makeTextTexture(b, 18, '#ffffff');
+    });
+    Object.values(AA_ONE).forEach(letter => {
+      TEXTURES['aa_' + letter] = makeTextTexture(letter, 20, '#ffffff');
+    });
+    TEXTURES['stop'] = makeTextTexture('STOP', 13, '#ffffff');
+  }
+
+  // ============================================================
+  // Section 5: mRNA Generation
+  // ============================================================
+  function randomRNABase() {
+    return ['A','U','G','C'][Math.floor(Math.random() * 4)];
+  }
+
+  function randomCodon(exclude) {
+    const stopCodons = ['UAA','UAG','UGA'];
+    let codon;
+    let attempts = 0;
+    do {
+      codon = randomRNABase() + randomRNABase() + randomRNABase();
+      attempts++;
+      if (attempts > 200) break;
+    } while ([...stopCodons, 'AUG', ...(exclude || [])].includes(codon));
+    return codon;
+  }
+
+  function generateMRNA(orfLength) {
+    const utr5Bases = 6 + Math.floor(Math.random() * 9);
+    const utr3Bases = 4 + Math.floor(Math.random() * 6);
+    const STOPS = ['UAA','UAG','UGA'];
+
+    const utr5 = [];
+    for (let i = 0; i < utr5Bases; i++) utr5.push(randomRNABase());
+
+    const orfCodons = [];
+    orfCodons.push({codon:'AUG', type:'aug'});
+    const usedCodons = ['AUG'];
+    for (let i = 0; i < orfLength; i++) {
+      const c = randomCodon(usedCodons);
+      orfCodons.push({codon:c, type:'coding'});
+      usedCodons.push(c);
+    }
+    const stop = STOPS[Math.floor(Math.random() * 3)];
+    orfCodons.push({codon:stop, type:'stop'});
+
+    const utr3 = [];
+    for (let i = 0; i < utr3Bases; i++) utr3.push(randomRNABase());
+
+    return { utr5, orfCodons, utr3 };
+  }
+
+  // ============================================================
+  // Section 6: Scene and Object Creation
+  // ============================================================
+  const canvas = document.getElementById('rrCanvas');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(0x1A2332);
+
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
+
+  function resizeRenderer() {
+    const W = window.innerWidth, H = window.innerHeight;
+    renderer.setSize(W, H);
+    camera.left   = -W / 2; camera.right  =  W / 2;
+    camera.top    =  H / 2; camera.bottom = -H / 2;
+    camera.updateProjectionMatrix();
+  }
+  resizeRenderer();
+  window.addEventListener('resize', resizeRenderer);
+
+  const scene = new THREE.Scene();
+
+  const strandGroup   = new THREE.Group();
+  const ribosomeGroup = new THREE.Group();
+  const peptideGroup  = new THREE.Group();
+  const trayGroup     = new THREE.Group();
+  const particleGroup = new THREE.Group();
+  scene.add(strandGroup, ribosomeGroup, peptideGroup, trayGroup, particleGroup);
+
+  // ============================================================
+  // Section 13: Game State Object (defined before use in build fns)
+  // ============================================================
+  const G = {
+    state: 'IDLE',
+    score: 0,
+    combo: 1.0,
+    scrollOffset: 0,
+    pauseUntil: 0,
+    codons: [],
+    bases: [],
+    trayTRNAs: [],
+    currentCodon: null,
+    orfIndex: 0,
+    orfCodons: [],
+    accepting: false,
+    pendingAnims: [],
+    mrnaData: null,
+  };
+
+  // ============================================================
+  // Section 12: Peptide Chain
+  // ============================================================
+  const AA_RADIUS = 16;
+  const AA_SPACING = 40;
+  let peptideChain = [];
+
+  function addAminoAcid(aaName) {
+    const letter = AA_ONE[aaName] || '?';
+    const color  = AA_COLORS[letter] || 0x78909C;
+    const idx    = peptideChain.length;
+
+    if (idx >= 7) {
+      peptideGroup.position.x -= AA_SPACING;
+    }
+
+    const group = new THREE.Group();
+
+    const geo = new THREE.CircleGeometry(AA_RADIUS, 32);
+    const mat = new THREE.MeshBasicMaterial({ color });
+    const circle = new THREE.Mesh(geo, mat);
+    group.add(circle);
+
+    const borderGeo = new THREE.RingGeometry(AA_RADIUS, AA_RADIUS + 2, 32);
+    const borderMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 });
+    const border = new THREE.Mesh(borderGeo, borderMat);
+    group.add(border);
+
+    const labelGeo = new THREE.PlaneGeometry(AA_RADIUS * 1.4, AA_RADIUS * 1.4);
+    const labelMat = new THREE.MeshBasicMaterial({ map: TEXTURES['aa_' + letter], transparent: true, depthWrite: false });
+    const label = new THREE.Mesh(labelGeo, labelMat);
+    label.position.z = 0.1;
+    group.add(label);
+
+    const H = window.innerHeight;
+    const targetX = idx * AA_SPACING;
+    const targetY = H / 2 - 80;
+    group.position.set(targetX, targetY, 0.5);
+    group.scale.set(0, 0, 0);
+    peptideGroup.add(group);
+
+    peptideChain.push({ aa: aaName, mesh: group });
+
+    // Bond line from previous AA
+    if (idx > 0) {
+      const prev = peptideChain[idx - 1].mesh;
+      const bondGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(prev.position.x + AA_RADIUS, targetY, 0.4),
+        new THREE.Vector3(targetX - AA_RADIUS, targetY, 0.4)
+      ]);
+      const bondMat = new THREE.LineBasicMaterial({ color: 0x90A4AE });
+      const bond = new THREE.Line(bondGeo, bondMat);
+      peptideGroup.add(bond);
+    }
+
+    G.pendingAnims.push({ type:'aa_pop', mesh:group, start:performance.now(), duration:300 });
+  }
+
+  // ============================================================
+  // Section 7: Build mRNA Strand
+  // ============================================================
+  function buildStrand(mrnaData) {
+    while (strandGroup.children.length) strandGroup.remove(strandGroup.children[0]);
+    G.codons = [];
+    G.bases = [];
+
+    const { utr5, orfCodons, utr3 } = mrnaData;
+    const W = window.innerWidth;
+
+    const totalBases = utr5.length + orfCodons.length * 3 + utr3.length;
+    const totalWidth = totalBases * BASE_STRIDE + orfCodons.length * CODON_GAP + 600;
+
+    // Backbone
+    const backboneGeo = new THREE.PlaneGeometry(totalWidth, 6);
+    const backboneMat = new THREE.MeshBasicMaterial({ color: 0x354A63 });
+    const backbone = new THREE.Mesh(backboneGeo, backboneMat);
+    backbone.position.set(totalWidth / 2 - 200, STRAND_Y, -0.1);
+    strandGroup.add(backbone);
+
+    let xCursor = 0;
+
+    // 5' UTR bases
+    utr5.forEach(base => {
+      const geo = new THREE.PlaneGeometry(BASE_SIZE * 0.7, BASE_SIZE * 0.7);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x37474F });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(xCursor, STRAND_Y, 0.2);
+
+      const labelGeo = new THREE.PlaneGeometry(BASE_SIZE * 0.5, BASE_SIZE * 0.5);
+      const labelMat = new THREE.MeshBasicMaterial({ map: TEXTURES['base_' + base], transparent: true, depthWrite: false });
+      const lMesh = new THREE.Mesh(labelGeo, labelMat);
+      lMesh.position.z = 0.1;
+      mesh.add(lMesh);
+
+      mesh.userData = { type:'utr', base };
+      strandGroup.add(mesh);
+      G.bases.push(mesh);
+      xCursor += BASE_STRIDE;
+    });
+
+    // ORF codons
+    orfCodons.forEach((cd, ci) => {
+      xCursor += ci === 0 ? CODON_GAP / 2 : CODON_GAP;
+
+      const codonGroup = new THREE.Group();
+      codonGroup.userData = {
+        type: 'codon',
+        codonStr: cd.codon,
+        codonType: cd.type,
+        orfIndex: ci,
+        filled: false
+      };
+
+      // Hover highlight box
+      const hlGeo = new THREE.PlaneGeometry(CODON_WIDTH, BASE_SIZE * 1.5);
+      const hlMat = new THREE.MeshBasicMaterial({ color: 0x4FC3F7, transparent: true, opacity: 0.12 });
+      const hlMesh = new THREE.Mesh(hlGeo, hlMat);
+      hlMesh.position.set(BASE_STRIDE, 0, -0.05);
+      hlMesh.userData.isHover = true;
+      hlMesh.visible = false;
+      codonGroup.add(hlMesh);
+
+      // Current codon highlight
+      const curGeo = new THREE.PlaneGeometry(CODON_WIDTH + 6, BASE_SIZE * 1.6);
+      const curMat = new THREE.MeshBasicMaterial({ color: 0xFFB300, transparent: true, opacity: 0.18 });
+      const curMesh = new THREE.Mesh(curGeo, curMat);
+      curMesh.position.set(BASE_STRIDE, 0, -0.04);
+      curMesh.userData.isHighlight = true;
+      curMesh.visible = false;
+      codonGroup.add(curMesh);
+
+      // The 3 bases
+      cd.codon.split('').forEach((base, bi) => {
+        const geo = buildBaseShape(base);
+        const mat = new THREE.MeshBasicMaterial({ color: BASE_COLOR[base] });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(bi * BASE_STRIDE, 0, 0.2);
+        mesh.userData = { type:'base', base, codonIndex:ci, posInCodon:bi };
+        codonGroup.add(mesh);
+
+        const lGeo = new THREE.PlaneGeometry(BASE_SIZE * 0.55, BASE_SIZE * 0.55);
+        const lMat = new THREE.MeshBasicMaterial({ map: TEXTURES['base_' + base], transparent: true, depthWrite: false });
+        const lMesh = new THREE.Mesh(lGeo, lMat);
+        lMesh.position.set(bi * BASE_STRIDE, 0, 0.3);
+        codonGroup.add(lMesh);
+      });
+
+      // Codon label below
+      const clCanvas = document.createElement('canvas');
+      clCanvas.width = 128; clCanvas.height = 40;
+      const clCtx = clCanvas.getContext('2d');
+      clCtx.fillStyle = cd.type === 'stop' ? '#EF5350' : cd.type === 'aug' ? '#66BB6A' : '#90A4AE';
+      clCtx.font = 'bold 20px Courier New';
+      clCtx.textAlign = 'center';
+      clCtx.textBaseline = 'middle';
+      clCtx.fillText(cd.codon, 64, 20);
+      const clTex = new THREE.CanvasTexture(clCanvas);
+      const clGeo = new THREE.PlaneGeometry(BASE_STRIDE * 2.5, 16);
+      const clMat = new THREE.MeshBasicMaterial({ map: clTex, transparent: true, depthWrite: false });
+      const clMesh = new THREE.Mesh(clGeo, clMat);
+      clMesh.position.set(BASE_STRIDE, -BASE_SIZE * 0.9, 0.2);
+      codonGroup.add(clMesh);
+
+      codonGroup.position.set(xCursor, STRAND_Y, 0);
+      strandGroup.add(codonGroup);
+      G.codons.push(codonGroup);
+
+      xCursor += BASE_STRIDE * 3;
+    });
+
+    xCursor += CODON_GAP / 2;
+
+    // 3' UTR bases
+    utr3.forEach(base => {
+      const geo = new THREE.PlaneGeometry(BASE_SIZE * 0.7, BASE_SIZE * 0.7);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x37474F });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(xCursor, STRAND_Y, 0.2);
+      mesh.userData = { type:'utr', base };
+      strandGroup.add(mesh);
+      G.bases.push(mesh);
+      xCursor += BASE_STRIDE;
+    });
+
+    // Position strandGroup so AUG codon starts off-screen right
+    const augCodonGroup = G.codons[0];
+    const augLocalX = augCodonGroup.position.x + BASE_STRIDE;
+    G.scrollOffset = -(W / 2 + 300 - augLocalX);
+    strandGroup.position.x = -G.scrollOffset;
+  }
+
+  // ============================================================
+  // Section 8: Ribosome Visual
+  // ============================================================
+  function buildRibosome() {
+    while (ribosomeGroup.children.length) ribosomeGroup.remove(ribosomeGroup.children[0]);
+    ribosomeGroup.position.set(0, STRAND_Y, 0.3);
+
+    // Large subunit (above strand)
+    const lsShape = new THREE.Shape();
+    lsShape.absellipse(0, BASE_SIZE * 0.8, 90, 50, 0, Math.PI * 2, false);
+    const lsGeo = new THREE.ShapeGeometry(lsShape);
+    const lsMat = new THREE.MeshBasicMaterial({ color: 0x4E342E, transparent: true, opacity: 0.85 });
+    ribosomeGroup.add(new THREE.Mesh(lsGeo, lsMat));
+
+    // Small subunit (below strand)
+    const ssShape = new THREE.Shape();
+    ssShape.absellipse(0, -BASE_SIZE * 0.85, 80, 40, 0, Math.PI * 2, false);
+    const ssGeo = new THREE.ShapeGeometry(ssShape);
+    const ssMat = new THREE.MeshBasicMaterial({ color: 0x6D4C41, transparent: true, opacity: 0.85 });
+    ribosomeGroup.add(new THREE.Mesh(ssGeo, ssMat));
+
+    // A-site border rectangle
+    const hw = CODON_WIDTH * 0.6, hh = BASE_SIZE * 1.1;
+    const wPts = [
+      new THREE.Vector3(-hw, hh, 0.4),
+      new THREE.Vector3(hw, hh, 0.4),
+      new THREE.Vector3(hw, -hh, 0.4),
+      new THREE.Vector3(-hw, -hh, 0.4)
+    ];
+    const wGeo = new THREE.BufferGeometry().setFromPoints([...wPts, wPts[0]]);
+    const wMat = new THREE.LineBasicMaterial({ color: 0x4FC3F7 });
+    ribosomeGroup.add(new THREE.Line(wGeo, wMat));
+
+    // "RIBOSOME" label
+    const rCanvas = document.createElement('canvas');
+    rCanvas.width = 160; rCanvas.height = 32;
+    const rCtx = rCanvas.getContext('2d');
+    rCtx.fillStyle = '#78909C';
+    rCtx.font = '11px Segoe UI, sans-serif';
+    rCtx.textAlign = 'center'; rCtx.textBaseline = 'middle';
+    rCtx.fillText('RIBOSOME', 80, 16);
+    const rTex = new THREE.CanvasTexture(rCanvas);
+    const rGeo = new THREE.PlaneGeometry(100, 16);
+    const rMat = new THREE.MeshBasicMaterial({ map: rTex, transparent: true, depthWrite: false });
+    const rLabel = new THREE.Mesh(rGeo, rMat);
+    rLabel.position.set(0, BASE_SIZE * 1.7, 0.4);
+    ribosomeGroup.add(rLabel);
+
+    // "A-site" label
+    const aCanvas = document.createElement('canvas');
+    aCanvas.width = 100; aCanvas.height = 28;
+    const aCtx = aCanvas.getContext('2d');
+    aCtx.fillStyle = '#4FC3F7';
+    aCtx.font = 'bold 12px Segoe UI, sans-serif';
+    aCtx.textAlign = 'center'; aCtx.textBaseline = 'middle';
+    aCtx.fillText('A-site', 50, 14);
+    const aTex = new THREE.CanvasTexture(aCanvas);
+    const aGeo = new THREE.PlaneGeometry(70, 14);
+    const aMat = new THREE.MeshBasicMaterial({ map: aTex, transparent: true, depthWrite: false });
+    const aLabel = new THREE.Mesh(aGeo, aMat);
+    aLabel.position.set(0, -BASE_SIZE * 1.6, 0.4);
+    ribosomeGroup.add(aLabel);
+
+    // Peptide exit tunnel arrow (left side)
+    const etCanvas = document.createElement('canvas');
+    etCanvas.width = 140; etCanvas.height = 24;
+    const etCtx = etCanvas.getContext('2d');
+    etCtx.fillStyle = '#546E7A';
+    etCtx.font = '10px Segoe UI, sans-serif';
+    etCtx.textAlign = 'center'; etCtx.textBaseline = 'middle';
+    etCtx.fillText('exit tunnel \u2190', 70, 12);
+    const etTex = new THREE.CanvasTexture(etCanvas);
+    const etGeo = new THREE.PlaneGeometry(90, 12);
+    const etMat = new THREE.MeshBasicMaterial({ map: etTex, transparent: true, depthWrite: false });
+    const etLabel = new THREE.Mesh(etGeo, etMat);
+    etLabel.position.set(-100, BASE_SIZE * 0.8, 0.4);
+    ribosomeGroup.add(etLabel);
+
+    scene.add(ribosomeGroup);
+  }
+
+  // ============================================================
+  // Section 9: Tray and tRNA Sprites
+  // ============================================================
+  function buildTray(orfCodons) {
+    while (trayGroup.children.length) trayGroup.remove(trayGroup.children[0]);
+    G.trayTRNAs = [];
+
+    const W = window.innerWidth, H = window.innerHeight;
+    const trayY = -H / 2 + 55;
+
+    // Tray background
+    const bgGeo = new THREE.PlaneGeometry(W - 20, 100);
+    const bgMat = new THREE.MeshBasicMaterial({ color: 0x243447 });
+    const bg = new THREE.Mesh(bgGeo, bgMat);
+    bg.position.set(0, trayY, 0);
+    trayGroup.add(bg);
+
+    // Border line
+    const borderPts = [
+      new THREE.Vector3(-W/2+10, trayY+50, 0.1),
+      new THREE.Vector3( W/2-10, trayY+50, 0.1),
+      new THREE.Vector3( W/2-10, trayY-50, 0.1),
+      new THREE.Vector3(-W/2+10, trayY-50, 0.1),
+    ];
+    const borderGeo = new THREE.BufferGeometry().setFromPoints([...borderPts, borderPts[0]]);
+    const borderMat = new THREE.LineBasicMaterial({ color: 0x354A63 });
+    trayGroup.add(new THREE.Line(borderGeo, borderMat));
+
+    // Tray label
+    const tlCanvas = document.createElement('canvas');
+    tlCanvas.width = 128; tlCanvas.height = 28;
+    const tlCtx = tlCanvas.getContext('2d');
+    tlCtx.fillStyle = '#546E7A';
+    tlCtx.font = 'bold 11px Segoe UI, sans-serif';
+    tlCtx.textAlign = 'left'; tlCtx.textBaseline = 'middle';
+    tlCtx.fillText('tRNA TRAY', 4, 14);
+    const tlTex = new THREE.CanvasTexture(tlCanvas);
+    const tlGeo = new THREE.PlaneGeometry(80, 14);
+    const tlMat = new THREE.MeshBasicMaterial({ map: tlTex, transparent: true, depthWrite: false });
+    const tlLabel = new THREE.Mesh(tlGeo, tlMat);
+    tlLabel.position.set(-W/2 + 60, trayY + 40, 0.2);
+    trayGroup.add(tlLabel);
+
+    // Collect needed codons
+    const neededCodons = orfCodons.filter(c => c.type !== 'stop').map(c => c.codon);
+    const uniqueCodons = [...new Set(neededCodons)];
+    const hasStop = orfCodons.some(c => c.type === 'stop');
+
+    // Pick 2 distractors
+    const allCodons = Object.keys(CODON_TABLE).filter(c =>
+      CODON_TABLE[c] !== 'Stop' && !uniqueCodons.includes(c) && c !== 'AUG'
+    );
+    const distractors = [];
+    const availDistractors = [...allCodons];
+    while (distractors.length < 2 && availDistractors.length > 0) {
+      const idx = Math.floor(Math.random() * availDistractors.length);
+      distractors.push(availDistractors.splice(idx, 1)[0]);
+    }
+
+    const allTRNACodons = [...uniqueCodons, ...distractors];
+    if (hasStop) allTRNACodons.push('STOP');
+
+    // Shuffle for variety
+    for (let i = allTRNACodons.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allTRNACodons[i], allTRNACodons[j]] = [allTRNACodons[j], allTRNACodons[i]];
+    }
+
+    const totalTRNAs = allTRNACodons.length;
+    const spacing = Math.min(CODON_WIDTH + 28, (W - 80) / totalTRNAs);
+    const startX = -(totalTRNAs - 1) * spacing / 2;
+
+    allTRNACodons.forEach((codonOrStop, i) => {
+      const isStop = codonOrStop === 'STOP';
+      const tRNA = createTRNASprite(codonOrStop, isStop);
+      const tx = startX + i * spacing;
+      tRNA.position.set(tx, trayY, 0.5);
+      trayGroup.add(tRNA);
+      G.trayTRNAs.push(tRNA);
+      tRNA.userData.trayX = tx;
+      tRNA.userData.trayY = trayY;
+    });
+  }
+
+  function createTRNASprite(codon, isStop) {
+    const group = new THREE.Group();
+    const W2 = CODON_WIDTH / 2 + 8;
+    const H2 = BASE_SIZE / 2 + 16;
+
+    // Background
+    const bgGeo = new THREE.PlaneGeometry(W2 * 2, H2 * 2);
+    const bgMat = new THREE.MeshBasicMaterial({ color: isStop ? 0x4A1010 : 0x2D4060 });
+    const bg = new THREE.Mesh(bgGeo, bgMat);
+    group.add(bg);
+
+    // Border
+    const bpts = [
+      new THREE.Vector3(-W2,  H2, 0.05),
+      new THREE.Vector3( W2,  H2, 0.05),
+      new THREE.Vector3( W2, -H2, 0.05),
+      new THREE.Vector3(-W2, -H2, 0.05)
+    ];
+    const bGeo = new THREE.BufferGeometry().setFromPoints([...bpts, bpts[0]]);
+    const bMat = new THREE.LineBasicMaterial({ color: isStop ? 0xEF5350 : (codon === 'AUG' ? 0x66BB6A : 0x4FC3F7) });
+    group.add(new THREE.Line(bGeo, bMat));
+
+    if (isStop) {
+      const labelGeo = new THREE.PlaneGeometry(W2 * 1.5, H2 * 0.8);
+      const labelMat = new THREE.MeshBasicMaterial({ map: TEXTURES['stop'], transparent: true, depthWrite: false });
+      const label = new THREE.Mesh(labelGeo, labelMat);
+      label.position.z = 0.1;
+      group.add(label);
+      group.userData = { type:'trna', isStop:true, codon:'STOP', aminoAcid:'Stop', anticodon:'---' };
+    } else {
+      const anticodon = getAnticodon(codon);
+      const aa = CODON_TABLE[codon] || '?';
+      const aaLetter = AA_ONE[aa] || '?';
+
+      // 3 anticodon base shapes (smaller)
+      anticodon.split('').forEach((base, bi) => {
+        const geo = buildBaseShape(base);
+        const mat = new THREE.MeshBasicMaterial({ color: BASE_COLOR[base] });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.scale.setScalar(0.65);
+        mesh.position.set((bi - 1) * BASE_STRIDE * 0.75, -4, 0.1);
+        group.add(mesh);
+      });
+
+      // AA label above
+      const aaCanvas = document.createElement('canvas');
+      aaCanvas.width = 128; aaCanvas.height = 32;
+      const aaCtx = aaCanvas.getContext('2d');
+      aaCtx.fillStyle = '#e0e0e0';
+      aaCtx.font = 'bold 14px Segoe UI, sans-serif';
+      aaCtx.textAlign = 'center'; aaCtx.textBaseline = 'middle';
+      aaCtx.fillText(aa + ' (' + aaLetter + ')', 64, 16);
+      const aaTex = new THREE.CanvasTexture(aaCanvas);
+      const aaGeo = new THREE.PlaneGeometry(W2 * 1.6, 14);
+      const aaMat = new THREE.MeshBasicMaterial({ map: aaTex, transparent: true, depthWrite: false });
+      const aaLabel = new THREE.Mesh(aaGeo, aaMat);
+      aaLabel.position.set(0, H2 - 12, 0.1);
+      group.add(aaLabel);
+
+      // Anticodon label below bases
+      const acCanvas = document.createElement('canvas');
+      acCanvas.width = 128; acCanvas.height = 28;
+      const acCtx = acCanvas.getContext('2d');
+      acCtx.fillStyle = '#90A4AE';
+      acCtx.font = '13px Courier New';
+      acCtx.textAlign = 'center'; acCtx.textBaseline = 'middle';
+      acCtx.fillText(anticodon, 64, 14);
+      const acTex = new THREE.CanvasTexture(acCanvas);
+      const acGeo = new THREE.PlaneGeometry(W2 * 1.2, 12);
+      const acMat = new THREE.MeshBasicMaterial({ map: acTex, transparent: true, depthWrite: false });
+      const acLabel = new THREE.Mesh(acGeo, acMat);
+      acLabel.position.set(0, -H2 + 10, 0.1);
+      group.add(acLabel);
+
+      group.userData = { type:'trna', isStop:false, codon, anticodon, aminoAcid:aa };
+    }
+
+    return group;
+  }
+
+  // ============================================================
+  // Section 10: Drag and Drop
+  // ============================================================
+  const raycaster = new THREE.Raycaster();
+  const pointer   = new THREE.Vector2();
+  const dropPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  const dropTarget = new THREE.Vector3();
+
+  const DRAG = { active:false, tRNA:null, ghost:null, originTRNA:null };
+
+  function getWorldPointer(event) {
+    const e = event.touches ? event.touches[0] : event;
+    pointer.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+    pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  }
+
+  function findTRNAFromHit(hitObject) {
+    // Walk up from hit object to find tRNA group
+    let obj = hitObject;
+    while (obj) {
+      if (obj.userData && obj.userData.type === 'trna') return obj;
+      obj = obj.parent;
+    }
+    return null;
+  }
+
+  function onPointerDown(event) {
+    if (!G.accepting) return;
+    if (G.state !== 'WAITING_FOR_AUG' && G.state !== 'READING_ORF') return;
+    getWorldPointer(event);
+    raycaster.setFromCamera(pointer, camera);
+
+    const allTrayMeshes = [];
+    G.trayTRNAs.forEach(t => {
+      t.traverse(m => { if (m.isMesh) allTrayMeshes.push(m); });
+    });
+
+    const hits = raycaster.intersectObjects(allTrayMeshes, false);
+    if (hits.length === 0) return;
+
+    const tRNA = findTRNAFromHit(hits[0].object);
+    if (!tRNA) return;
+    if (tRNA.userData.dimmed) return;
+
+    // Create ghost clone
+    DRAG.ghost = tRNA.clone();
+    DRAG.ghost.traverse(m => {
+      if (m.isMesh && m.material) {
+        m.material = m.material.clone();
+        m.material.transparent = true;
+        m.material.opacity = 0.75;
+      }
+    });
+    scene.add(DRAG.ghost);
+
+    DRAG.active = true;
+    DRAG.originTRNA = tRNA;
+    tRNA.userData.dimmed = true;
+    tRNA.traverse(c => {
+      if (c.isMesh && c.material) {
+        c.material = c.material.clone();
+        c.material.transparent = true;
+        c.material.opacity = 0.3;
+      }
+    });
+
+    event.preventDefault();
+  }
+
+  function onPointerMove(event) {
+    if (!DRAG.active) return;
+    getWorldPointer(event);
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.ray.intersectPlane(dropPlane, dropTarget);
+    DRAG.ghost.position.set(dropTarget.x, dropTarget.y, 2);
+
+    highlightNearestCodon(dropTarget.x);
+    event.preventDefault();
+  }
+
+  function onPointerUp(event) {
+    if (!DRAG.active) return;
+    getWorldPointer(event);
+    raycaster.setFromCamera(pointer, camera);
+    raycaster.ray.intersectPlane(dropPlane, dropTarget);
+
+    const placed = tryPlaceTRNA(DRAG.originTRNA, dropTarget);
+    if (!placed) {
+      returnToTray(DRAG.originTRNA);
+    }
+
+    scene.remove(DRAG.ghost);
+    DRAG.active = false;
+    DRAG.ghost = null;
+    DRAG.originTRNA = null;
+    event.preventDefault();
+  }
+
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('touchstart', onPointerDown, { passive:false });
+  canvas.addEventListener('touchmove', onPointerMove, { passive:false });
+  canvas.addEventListener('touchend', onPointerUp, { passive:false });
+
+  // ============================================================
+  // Section 11: Placement Logic
+  // ============================================================
+  function tryPlaceTRNA(tRNA, dropPos) {
+    // Must drop near the strand Y region (ribosome area)
+    const H = window.innerHeight;
+    const trayY = -H / 2 + 55;
+    // Accept drops anywhere above the tray
+    if (dropPos.y < trayY + 60) return false;
+
+    const activeCodon = G.currentCodon;
+    if (!activeCodon) return false;
+
+    const tmp = new THREE.Vector3();
+    activeCodon.getWorldPosition(tmp);
+    // Center of codon is at tmp.x + BASE_STRIDE (middle base)
+    const codonCenterX = tmp.x + BASE_STRIDE;
+
+    if (Math.abs(dropPos.x - codonCenterX) > CODON_WIDTH * 2) return false;
+
+    const codonData = activeCodon.userData;
+
+    if (G.state === 'WAITING_FOR_AUG') {
+      if (codonData.codonType !== 'aug') {
+        showPenalty('Find AUG first!', dropPos);
+        return false;
+      }
+      if (!tRNA.userData.isStop && tRNA.userData.codon === 'AUG') {
+        onCorrectPlacement(tRNA, activeCodon);
+        return true;
+      } else {
+        onWrongPlacement(tRNA, activeCodon, 'Wrong tRNA for AUG!');
+        return false;
+      }
+    }
+
+    if (G.state === 'READING_ORF') {
+      if (codonData.codonType === 'stop') {
+        if (tRNA.userData.isStop) {
+          onCorrectPlacement(tRNA, activeCodon);
+          return true;
+        } else {
+          onWrongPlacement(tRNA, activeCodon, 'Use STOP marker!');
+          return false;
+        }
+      } else {
+        const expectedAnticodon = getAnticodon(codonData.codonStr);
+        if (!tRNA.userData.isStop && tRNA.userData.anticodon === expectedAnticodon) {
+          onCorrectPlacement(tRNA, activeCodon);
+          return true;
+        } else {
+          onWrongPlacement(tRNA, activeCodon, 'Wrong tRNA!');
+          return false;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  function onCorrectPlacement(tRNA, codonGroup) {
+    codonGroup.userData.filled = true;
+
+    // Clone placed tRNA and attach to strandGroup so it scrolls with the strand
+    const placedGroup = tRNA.clone();
+    placedGroup.traverse(m => {
+      if (m.isMesh && m.material) {
+        m.material = m.material.clone();
+        m.material.transparent = true;
+        m.material.opacity = 0.9;
+      }
+    });
+
+    const worldPos = new THREE.Vector3();
+    codonGroup.getWorldPosition(worldPos);
+    worldPos.y += BASE_SIZE * 1.8;
+    worldPos.z = 0.6;
+    const localPos = strandGroup.worldToLocal(worldPos.clone());
+    // Adjust for codon center
+    localPos.x += BASE_STRIDE;
+    placedGroup.position.copy(localPos);
+    placedGroup.scale.set(0.75, 0.75, 0.75);
+    strandGroup.add(placedGroup);
+
+    // Restore tray tRNA
+    returnToTray(tRNA);
+
+    // Dim placed codon bases slightly
+    codonGroup.traverse(m => {
+      if (m.isMesh && m.material && m.userData.type === 'base') {
+        m.material = m.material.clone();
+        m.material.transparent = true;
+        m.material.opacity = 0.4;
+      }
+    });
+
+    // Score
+    const timeBonus = computeTimeBonus(codonGroup);
+    const pts = (codonGroup.userData.codonType === 'stop' ? 50 : 30) + timeBonus;
+    const ptsWithCombo = Math.round(pts * G.combo);
+    G.score += ptsWithCombo;
+    G.combo = Math.min(G.combo + 0.5, 3.0);
+
+    showScorePop('+' + ptsWithCombo, '#66BB6A', codonGroup);
+
+    // Grow peptide chain
+    if (codonGroup.userData.codonType !== 'stop') {
+      const aa = CODON_TABLE[codonGroup.userData.codonStr];
+      if (aa && aa !== 'Stop') addAminoAcid(aa);
+    }
+
+    G.pauseUntil = performance.now() + SNAP_PAUSE_MS;
+
+    if (codonGroup.userData.codonType === 'stop') {
+      G.state = 'VICTORY';
+      G.accepting = false;
+      setTimeout(() => triggerVictory(), 600);
+      return;
+    }
+
+    // State transition after AUG
+    if (G.state === 'WAITING_FOR_AUG') {
+      G.state = 'READING_ORF';
+    }
+
+    G.orfIndex++;
+    updateActiveCodon();
+    updateHUD();
+  }
+
+  function onWrongPlacement(tRNA, codonGroup, msg) {
+    G.score = Math.max(0, G.score - 15);
+    G.combo = 1.0;
+    showPenalty(msg || '-15', codonGroup);
+    shakeCodon(codonGroup);
+    returnToTray(tRNA);
+    updateHUD();
+  }
+
+  function returnToTray(tRNA) {
+    tRNA.userData.dimmed = false;
+    // Restore opacity by replacing cloned materials back
+    tRNA.traverse(c => {
+      if (c.isMesh && c.material) {
+        c.material.transparent = false;
+        c.material.opacity = 1.0;
+      }
+    });
+  }
+
+  // ============================================================
+  // Section 14: Game Loop
+  // ============================================================
+  let lastTime = 0;
+
+  function animate(time) {
+    requestAnimationFrame(animate);
+    const dt = Math.min((time - lastTime) / 1000, 0.05);
+    lastTime = time;
+
+    if (G.state === 'WAITING_FOR_AUG' || G.state === 'READING_ORF') {
+      if (time > G.pauseUntil) {
+        G.scrollOffset += SCROLL_SPEED * dt;
+        strandGroup.position.x = -G.scrollOffset;
+      }
+      updateActiveCodon();
+      checkCodonMissed();
+      updateCodonProgress();
+    }
+
+    processPendingAnims(time);
+    updateHUD();
+    renderer.render(scene, camera);
+  }
+
+  function processPendingAnims(time) {
+    G.pendingAnims = G.pendingAnims.filter(anim => {
+      const t = Math.min((time - anim.start) / anim.duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3);
+      if (anim.type === 'aa_pop') {
+        anim.mesh.scale.setScalar(ease);
+      }
+      return t < 1;
+    });
+  }
+
+  function updateActiveCodon() {
+    if (!G.orfCodons.length) return;
+    if (G.orfIndex >= G.orfCodons.length) return;
+    const cg = G.codons[G.orfIndex];
+    if (!cg) return;
+    G.currentCodon = cg;
+
+    // Highlight current codon
+    G.codons.forEach((c, i) => {
+      const isCurrent = (i === G.orfIndex && !c.userData.filled);
+      c.children.forEach(ch => {
+        if (ch.userData && ch.userData.isHighlight) ch.visible = isCurrent;
+      });
+    });
+
+    if (G.orfCodons[G.orfIndex]) {
+      highlightCodonInTable(G.orfCodons[G.orfIndex].codon);
+    }
+  }
+
+  function checkCodonMissed() {
+    if (!G.currentCodon) return;
+    const tmp = new THREE.Vector3();
+    G.currentCodon.getWorldPosition(tmp);
+    // Codon center world x = tmp.x + BASE_STRIDE
+    const codonRightEdge = tmp.x + BASE_STRIDE * 3;
+    if (codonRightEdge < -(RIBOSOME_WINDOW_HALF + CODON_WIDTH * 0.5)) {
+      triggerGameOver();
+    }
+  }
+
+  function computeTimeBonus(codonGroup) {
+    const tmp = new THREE.Vector3();
+    codonGroup.getWorldPosition(tmp);
+    const codonCenterX = tmp.x + BASE_STRIDE;
+    const dist = codonCenterX - RIBOSOME_WINDOW_X;
+    const maxDist = RIBOSOME_WINDOW_HALF * 2;
+    const ratio = Math.max(0, Math.min(1, dist / maxDist));
+    return Math.round(ratio * 20);
+  }
+
+  requestAnimationFrame(animate);
+
+  // ============================================================
+  // Section 15: Highlight and Effect Helpers
+  // ============================================================
+  function highlightNearestCodon(worldX) {
+    G.codons.forEach(cg => {
+      const tmp = new THREE.Vector3();
+      cg.getWorldPosition(tmp);
+      const codonCenterX = tmp.x + BASE_STRIDE;
+      const near = Math.abs(codonCenterX - worldX) < CODON_WIDTH;
+      cg.children.forEach(ch => {
+        if (ch.userData && ch.userData.isHover) ch.visible = near && !cg.userData.filled;
+      });
+    });
+  }
+
+  function shakeCodon(codonGroup) {
+    const originX = codonGroup.position.x;
+    let t = 0;
+    const id = setInterval(() => {
+      t += 0.06;
+      codonGroup.position.x = originX + Math.sin(t * 40) * 6 * (1 - t);
+      if (t >= 1) { codonGroup.position.x = originX; clearInterval(id); }
+    }, 16);
+  }
+
+  function showScorePop(text, color, codonGroup) {
+    const tmp = new THREE.Vector3();
+    codonGroup.getWorldPosition(tmp);
+    tmp.x += BASE_STRIDE;
+    const screen = tmp.clone().project(camera);
+    const x = (screen.x + 1) / 2 * window.innerWidth;
+    const y = (1 - (screen.y + 1) / 2) * window.innerHeight;
+
+    const el = document.createElement('div');
+    el.className = 'score-pop';
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top  = (y - 20) + 'px';
+    el.style.color = color || 'var(--accent)';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+
+  function showPenalty(text, posOrCodon) {
+    let x = window.innerWidth / 2, y = window.innerHeight / 2;
+    if (posOrCodon && posOrCodon.isGroup) {
+      const tmp = new THREE.Vector3();
+      posOrCodon.getWorldPosition(tmp);
+      tmp.x += BASE_STRIDE;
+      const screen = tmp.clone().project(camera);
+      x = (screen.x + 1) / 2 * window.innerWidth;
+      y = (1 - (screen.y + 1) / 2) * window.innerHeight;
+    } else if (posOrCodon && posOrCodon.x !== undefined) {
+      // world vec3
+      const screen = posOrCodon.clone().project(camera);
+      x = (screen.x + 1) / 2 * window.innerWidth;
+      y = (1 - (screen.y + 1) / 2) * window.innerHeight;
+    }
+    const el = document.createElement('div');
+    el.className = 'score-pop';
+    el.textContent = text;
+    el.style.left  = x + 'px';
+    el.style.top   = (y - 20) + 'px';
+    el.style.color = 'var(--danger)';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1000);
+  }
+
+  // ============================================================
+  // Section 16: Codon Table HTML
+  // ============================================================
+  function buildCodonTableHTML() {
+    const panel = document.getElementById('codonTablePanel');
+    const firstBases = ['U','C','A','G'];
+    let html = '<div class="panel-header"><span>Codon Table</span><button class="panel-close" onclick="document.getElementById(\'codonTablePanel\').classList.add(\'hidden\')">\u00D7</button></div><div class="codon-grid">';
+
+    firstBases.forEach(first => {
+      ['U','C','A','G'].forEach(second => {
+        ['U','C','A','G'].forEach(third => {
+          const codon = first + second + third;
+          const aa = CODON_TABLE[codon] || '?';
+          const isStop  = aa === 'Stop';
+          const isStart = codon === 'AUG';
+          html += `<div class="codon-cell${isStop?' stop-codon':''}${isStart?' start-codon':''}" data-codon="${codon}">
+            <div class="codon-letters">${codon}</div>
+            <div class="codon-aa">${isStop?'Stop':aa}</div>
+          </div>`;
+        });
+      });
+    });
+    html += '</div>';
+    panel.innerHTML = html;
+  }
+
+  function highlightCodonInTable(codon) {
+    document.querySelectorAll('.codon-cell.active').forEach(el => el.classList.remove('active'));
+    const cell = document.querySelector(`[data-codon="${codon}"]`);
+    if (cell) { cell.classList.add('active'); cell.scrollIntoView({ block:'nearest' }); }
+  }
+
+  // ============================================================
+  // Section 17: HUD Updates
+  // ============================================================
+  function updateHUD() {
+    document.getElementById('rrScore').textContent = G.score;
+    if (G.currentCodon && G.orfCodons[G.orfIndex]) {
+      const c = G.orfCodons[G.orfIndex];
+      document.getElementById('rrActiveCodon').textContent = c.codon;
+      document.getElementById('rrAminoAcid').textContent =
+        c.type === 'stop' ? 'STOP' : (CODON_TABLE[c.codon] || '?');
+    }
+    const comboEl = document.getElementById('comboDisplay');
+    if (G.combo > 1.0) {
+      comboEl.textContent = G.combo.toFixed(1) + '\u00D7';
+      comboEl.style.opacity = '1';
+    } else {
+      comboEl.style.opacity = '0.3';
+      comboEl.textContent = '1\u00D7';
+    }
+  }
+
+  function updateCodonProgress() {
+    if (!G.currentCodon) return;
+    const tmp = new THREE.Vector3();
+    G.currentCodon.getWorldPosition(tmp);
+    const codonRightEdge = tmp.x + BASE_STRIDE * 3;
+    const leftLimit  = -(RIBOSOME_WINDOW_HALF + CODON_WIDTH * 0.5);
+    const startX     = RIBOSOME_WINDOW_HALF + CODON_WIDTH * 1.5;
+    const ratio = Math.max(0, Math.min(1, (codonRightEdge - leftLimit) / (startX - leftLimit)));
+    const bar = document.getElementById('codonProgressBar');
+    bar.style.width = (ratio * 100) + '%';
+    bar.style.background = ratio > 0.4 ? 'var(--accent)' : ratio > 0.2 ? 'var(--warn)' : 'var(--danger)';
+  }
+
+  // ============================================================
+  // Section 18: Game Start / Restart / End
+  // ============================================================
+  function startGame() {
+    while (strandGroup.children.length) strandGroup.remove(strandGroup.children[0]);
+    while (peptideGroup.children.length) peptideGroup.remove(peptideGroup.children[0]);
+    while (trayGroup.children.length) trayGroup.remove(trayGroup.children[0]);
+    while (particleGroup.children.length) particleGroup.remove(particleGroup.children[0]);
+    peptideChain = [];
+    peptideGroup.position.set(-window.innerWidth / 2 + 60, 0, 0);
+
+    G.score = 0; G.combo = 1.0; G.scrollOffset = 0; G.pauseUntil = 0;
+    G.orfIndex = 0; G.codons = []; G.bases = [];
+    G.pendingAnims = [];
+    G.state = 'WAITING_FOR_AUG';
+    G.accepting = true;
+    G.currentCodon = null;
+
+    const orfLength = 5 + Math.floor(Math.random() * 11);
+    G.mrnaData = generateMRNA(orfLength);
+    G.orfCodons = G.mrnaData.orfCodons;
+
+    buildStrand(G.mrnaData);
+    buildRibosome();
+    buildTray(G.mrnaData.orfCodons);
+
+    showScreen('game');
+  }
+
+  function triggerGameOver() {
+    if (G.state === 'GAME_OVER' || G.state === 'VICTORY') return;
+    G.state = 'GAME_OVER';
+    G.accepting = false;
+    document.getElementById('goScore').textContent = G.score;
+    document.getElementById('goChain').textContent =
+      peptideChain.length + ' amino acid' + (peptideChain.length !== 1 ? 's' : '') + ' assembled';
+    showScreen('gameover');
+  }
+
+  function triggerVictory() {
+    if (G.state !== 'VICTORY') return;
+    G.accepting = false;
+    const bonus = 100;
+    G.score += bonus;
+    const grade = G.score >= 500 ? 'S' : G.score >= 350 ? 'A' : G.score >= 200 ? 'B' : G.score >= 100 ? 'C' : 'D';
+    document.getElementById('vicScore').textContent = G.score;
+    document.getElementById('vicGrade').textContent = grade;
+    document.getElementById('vicChain').textContent =
+      peptideChain.map(p => AA_ONE[p.aa] || '?').join('');
+    showScreen('victory');
+  }
+
+  function showScreen(name) {
+    ['startScreen','rrHud','gameOverScreen','victoryScreen'].forEach(id => {
+      document.getElementById(id).classList.add('hidden');
+    });
+    if (name === 'start')    document.getElementById('startScreen').classList.remove('hidden');
+    if (name === 'gameover') {
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+      document.getElementById('rrHud').classList.remove('hidden');
+    }
+    if (name === 'victory') {
+      document.getElementById('victoryScreen').classList.remove('hidden');
+      document.getElementById('rrHud').classList.remove('hidden');
+    }
+    if (name === 'game') document.getElementById('rrHud').classList.remove('hidden');
+  }
+
+  // ============================================================
+  // Section 19: Init and Event Wiring
+  // ============================================================
+  initTextures();
+  buildCodonTableHTML();
+
+  document.getElementById('btnStart').addEventListener('click', startGame);
+  document.getElementById('btnRestartGO').addEventListener('click', startGame);
+  document.getElementById('btnRestartVic').addEventListener('click', startGame);
+  document.getElementById('btnCodonTable').addEventListener('click', () => {
+    document.getElementById('codonTablePanel').classList.toggle('hidden');
+  });
+
+  showScreen('start');
+  </script>
+</body>
+</html>
