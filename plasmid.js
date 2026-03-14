@@ -367,8 +367,8 @@ class PlasmidRenderer {
                 ctx.restore();
             }
 
-            // Promoter symbol for resistance features (or any feature with showPromoter)
-            if (feature.type === 'resistance' || feature.showPromoter) {
+            // Promoter symbol for features with showPromoter explicitly set
+            if (feature.showPromoter) {
                 // Fixed at 340° clockwise from top of plasmid circle
                 const promAngle = 340 * Math.PI / 180 - Math.PI / 2;
                 const pcos = Math.cos(promAngle);

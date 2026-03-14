@@ -705,7 +705,6 @@ a.btn-secondary {
               <label>Display</label>
               <div class="toggle-row span3">
                 <label class="toggle-label"><input type="checkbox" id="fi-show-arrow"> Directional arrow</label>
-                <label class="toggle-label"><input type="checkbox" id="fi-show-promoter"> Promoter symbol</label>
               </div>
             </div>
           </div>
@@ -980,7 +979,6 @@ const fiColorSwatch   = document.getElementById('fi-color-swatch');
 const fiColorLabel    = document.getElementById('fi-color-label');
 const fiColorReset    = document.getElementById('fi-color-reset');
 const fiShowArrow     = document.getElementById('fi-show-arrow');
-const fiShowPromoter  = document.getElementById('fi-show-promoter');
 
 const siEnzyme   = document.getElementById('si-enzyme');
 const siPosition = document.getElementById('si-position');
@@ -1384,7 +1382,6 @@ function showInspectorFeature(feat) {
   fiLinewidth.value    = lw;
   fiLinewidthVal.textContent = lw;
   fiShowArrow.checked    = !!(feat.showArrow);
-  fiShowPromoter.checked = !!(feat.showPromoter);
   updateColorUI(feat);
   updateToolbarDeleteBtns();
 }
@@ -1469,13 +1466,7 @@ fiShowArrow.addEventListener('change', () => {
   if (fiShowArrow.checked) feat.showArrow = true; else delete feat.showArrow;
   markDirty(); refreshCanvas();
 });
-fiShowPromoter.addEventListener('change', () => {
-  const feat = selectedFeature();
-  if (!feat) return;
-  pushUndo();
-  if (fiShowPromoter.checked) feat.showPromoter = true; else delete feat.showPromoter;
-  markDirty(); refreshCanvas();
-});
+
 // Re-run color UI when type changes (default color may differ)
 fiType.addEventListener('change', () => {
   const feat = selectedFeature();
