@@ -702,14 +702,14 @@ function digestPlasmid(plasmid, enzymeNames) {
             cutEndBp:   cutEnd,
             origSeqLen: seqLen,
             leftEnd:  {
-                enzyme:   lSite.enzymeName,
-                overhang: lEnz.overhangSeq  || '',
-                type:     lEnz.overhangType || 'blunt'
+                enzyme:      lSite.enzymeName,
+                overhangSeq: lEnz.overhangSeq  || '',
+                type:        lEnz.overhangType || 'blunt'
             },
             rightEnd: {
-                enzyme:   rSite.enzymeName,
-                overhang: rEnz.overhangSeq  || '',
-                type:     rEnz.overhangType || 'blunt'
+                enzyme:      rSite.enzymeName,
+                overhangSeq: rEnz.overhangSeq  || '',
+                type:        rEnz.overhangType || 'blunt'
             },
             angleStart: aStart,
             angleEnd:   aEnd,

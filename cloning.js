@@ -187,8 +187,8 @@ const CloningWorkspace = (function () {
                 return { left: fragment.leftEnd, right: fragment.rightEnd };
             }
             return {
-                left:  { enzyme: fragment.rightEnd.enzyme, overhang: reverseComplement(fragment.rightEnd.overhang), type: fragment.rightEnd.type },
-                right: { enzyme: fragment.leftEnd.enzyme,  overhang: reverseComplement(fragment.leftEnd.overhang),  type: fragment.leftEnd.type  }
+                left:  { enzyme: fragment.rightEnd.enzyme, overhangSeq: reverseComplement(fragment.rightEnd.overhangSeq), type: fragment.rightEnd.type },
+                right: { enzyme: fragment.leftEnd.enzyme,  overhangSeq: reverseComplement(fragment.leftEnd.overhangSeq),  type: fragment.leftEnd.type  }
             };
         });
 
