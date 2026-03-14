@@ -1792,6 +1792,7 @@ function renderCanvas() {
   });
 
   renderer = new PlasmidRenderer(editorCanvas, p);
+  renderer.rsAngleOffset = currentTab === 'vector' ? 30 * Math.PI / 180 : 4.5 * Math.PI / 180;
   setupRendererEvents();
 
   // Pre-set restriction sites from level data (bypasses findCutSites)
