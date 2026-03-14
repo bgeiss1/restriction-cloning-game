@@ -16,6 +16,39 @@
 // ---------------------------------------------------------------------------
 // Colour palette for feature types and resistance genes
 // ---------------------------------------------------------------------------
+// Fixed colors per restriction enzyme — consistent across editor and game
+const ENZYME_COLORS = {
+    EcoRI:   '#FF6B6B',
+    BamHI:   '#FFD93D',
+    HindIII: '#6BCB77',
+    KpnI:    '#4D96FF',
+    SmaI:    '#C77DFF',
+    NheI:    '#FF9F43',
+    XbaI:    '#54A0FF',
+    SalI:    '#01CBC6',
+    PstI:    '#FD7272',
+    EcoRV:   '#A8E063',
+    XhoI:    '#F368E0',
+    NotI:    '#00D2D3',
+    SpeI:    '#FFEAA7',
+    ClaI:    '#A29BFE',
+    MluI:    '#FD79A8',
+};
+// Fallback palette for any enzyme not in the fixed map
+const _ENZYME_FALLBACK_PALETTE = [
+    '#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#C77DFF',
+    '#FF9F43','#54A0FF','#01CBC6','#FD7272','#A8E063'
+];
+const _enzymeColorCache = {};
+function enzymeColor(name) {
+    if (ENZYME_COLORS[name]) return ENZYME_COLORS[name];
+    if (!_enzymeColorCache[name]) {
+        const idx = Object.keys(_enzymeColorCache).length;
+        _enzymeColorCache[name] = _ENZYME_FALLBACK_PALETTE[idx % _ENZYME_FALLBACK_PALETTE.length];
+    }
+    return _enzymeColorCache[name];
+}
+
 const FEATURE_COLORS = {
     ori:        '#4FC3F7',   // light blue  — origin of replication
     resistance: '#EF5350',   // red         — antibiotic resistance (default)
@@ -463,24 +496,13 @@ class PlasmidRenderer {
 
         if (this._restrictionSites.length === 0) return;
 
-        // Colour palette — cycle through for each unique enzyme
-        const palette = [
-            '#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#C77DFF',
-            '#FF9F43','#54A0FF','#01CBC6','#FD7272','#A8E063'
-        ];
-        const enzymeColorMap = {};
-        let colorIdx = 0;
-
         const sites = this._restrictionSites.map(site => {
             const name = site.enzymeName || site.enzyme;
-            if (!enzymeColorMap[name]) {
-                enzymeColorMap[name] = palette[colorIdx++ % palette.length];
-            }
             return {
                 site,
                 name,
                 angle: this._bpToAngle(site.topStrandCut) + this.rsAngleOffset,
-                color: enzymeColorMap[name],
+                color: enzymeColor(name),
             };
         }).sort((a, b) => a.angle - b.angle);
 

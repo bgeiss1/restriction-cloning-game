@@ -1192,7 +1192,8 @@ function onCloningLevelLoaded(e) {
   _vectorRenderer.plasmid = CloningWorkspace.vectorPlasmid;
   _vectorRenderer._cutAnimState = null;
   _vectorRenderer._computeLayout();
-  _vectorRenderer.render(MCS_ENZYMES);
+  const vecSiteEnzymes = [...new Set((level.vector.cut_sites || []).map(s => s.enzyme))];
+  _vectorRenderer.render(vecSiteEnzymes);
 
   // Render first (active) donor
   document.getElementById('donorName').textContent = donors[0] ? donors[0].name : '';
