@@ -334,6 +334,7 @@ const ABEngine = (() => {
       targetId: target.id,
       alpha: 1,
       trail: [],
+      spin: 0,        // IgM rotates slowly while in flight
     });
 
     if (isIgG) {
@@ -355,17 +356,19 @@ const ABEngine = (() => {
   /*  INPUT HELPERS (called by ab_game.js)                               */
   /* ─────────────────────────────────────────────────────────────────── */
 
-  function cycleEpitope(dir) {
-    // dir: +1 = next, -1 = prev
-    const n = Math.min(
-      ABSprites.EPITOPE_KEYS.length,
-      waveConfig(wave).epitopeCount
-    );
-    _epitopeIdx = ((_epitopeIdx + dir) % n + n) % n;
-  }
-
-  function activateIgG() {
-    if (iggCount > 0) _isIgG = true;
+  /**
+   * Toggle between IgM (pentamer, 3 hits) and IgG (monomer, 1-shot).
+   * Switch to IgG only when charges are available; auto-reverts to IgM at 0.
+   * Returns the new isotype string: 'igm' | 'igg'
+   */
+  function toggleIsotype() {
+    if (_isIgG) {
+      _isIgG = false;
+    } else if (iggCount > 0) {
+      _isIgG = true;
+    }
+    onIgGChange(iggCount);  // trigger label refresh
+    return _isIgG ? 'igg' : 'igm';
   }
 
   function currentEpitopeType() {
@@ -392,38 +395,32 @@ const ABEngine = (() => {
         if (dist > p.r + 12) continue;  // no collision
 
         hit = true;
-        const epitopeColor = ABSprites.EPITOPE[proj.epitopeType]?.color ?? '#fff';
+        const hitColor = proj.type === 'igg' ? '#C8A951' : '#4D96FF';
 
-        // Check if epitope matches real type on this pathogen
-        if (proj.epitopeType === p.realType) {
-          // HIT!
-          const dmg = proj.type === 'igg' ? p.hp : 1;  // IgG = 1-shot
-          p.hp -= dmg;
-          p.hitFlash = 1;
+        // Any antibody damages any pathogen — isotype determines how many hits
+        const dmg = proj.type === 'igg' ? p.hp : 1;   // IgG = instant neutralize
+        p.hp -= dmg;
+        p.hitFlash = 1;
 
-          if (p.hp <= 0) {
-            // NEUTRALIZED
-            spawnNeutralizeParticles(p.x, p.y, epitopeColor);
-            const baseScore = 10 * wave;
-            score += proj.type === 'igg' ? baseScore * 2 : baseScore;
-            kills++;
-            waveKills++;
+        if (p.hp <= 0) {
+          // NEUTRALIZED
+          spawnNeutralizeParticles(p.x, p.y, hitColor);
+          const baseScore = 10 * wave;
+          score += proj.type === 'igg' ? baseScore * 2 : baseScore;
+          kills++;
+          waveKills++;
 
-            if (p.iggDrop) {
-              iggCount++;
-              onIgGPickup(p.x, p.y);
-              onIgGChange(iggCount);
-            }
-
-            pathogens.splice(ei, 1);
-          } else {
-            spawnHitParticles(p.x, p.y, epitopeColor);
+          if (p.iggDrop) {
+            iggCount++;
+            onIgGPickup(p.x, p.y);
+            onIgGChange(iggCount);
           }
-          onScoreChange(score);
+
+          pathogens.splice(ei, 1);
         } else {
-          // MISS (wrong epitope or hit a decoy)
-          spawnMissParticles(proj.x, proj.y);
+          spawnHitParticles(p.x, p.y, hitColor);
         }
+        onScoreChange(score);
         break;
       }
 
@@ -518,6 +515,7 @@ const ABEngine = (() => {
 
       proj.x += proj.vx;
       proj.y += proj.vy;
+      if (proj.type === 'igm') proj.spin += 0.06;  // IgM pentamer spins in flight
 
       // Remove if off-screen
       if (proj.x > W + 30 || proj.x < -30 || proj.y < 0 || proj.y > H) {
@@ -590,7 +588,7 @@ const ABEngine = (() => {
     const selCanvas = document.getElementById('abSelectorCanvas');
     if (selCanvas) {
       const sCtx = selCanvas.getContext('2d');
-      ABSprites.drawSelector(sCtx, currentEpitopeType(), _isIgG);
+      ABSprites.drawSelector(sCtx, _isIgG);
     }
   }
 
@@ -678,9 +676,7 @@ const ABEngine = (() => {
     resume,
     stop,
     fire,
-    cycleEpitope,
-    activateIgG,
-    currentEpitopeType,
+    toggleIsotype,
     isIgGActive,
     setTutorialMode,
     getState: () => ({ score, wave, kills, health, iggCount }),

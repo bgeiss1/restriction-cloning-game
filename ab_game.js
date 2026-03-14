@@ -33,9 +33,10 @@ const ABGame = (() => {
    * ─────────────────────────────────────────────────────────────────── */
   const TUT_STEPS = [
     {
-      title: '🦠 Match the epitope',
-      body:  'Each pathogen carries an <strong>epitope</strong> — the colored shape on its surface. '
-           + 'Fire an antibody whose shape matches that epitope to deal damage.',
+      title: '🦠 Neutralize pathogens!',
+      body:  'Pathogens display <strong>epitopes</strong> — colored shapes on their surface — '
+           + 'that your antibodies bind to. Fire antibodies at pathogens before they reach the host. '
+           + 'The selector panel (left) shows your active antibody.',
       diagram: `
         <svg viewBox="0 0 200 64" width="200" height="64" xmlns="http://www.w3.org/2000/svg">
           <!-- Pathogen body -->
@@ -64,27 +65,42 @@ const ABGame = (() => {
       btn: 'Next →',
     },
     {
-      title: '↕ Swipe to select',
-      body:  'The <strong>selector panel</strong> on the left shows your active antibody shape. '
-           + '<strong>Swipe up or down</strong> on the screen to cycle through shapes until it matches the pathogen\'s epitope. '
-           + 'Try it now — the swipe arrows are live!',
+      title: '↕ Switch antibody isotype',
+      body:  'The <strong>selector panel</strong> (left) shows your active antibody. '
+           + '<strong>Swipe up or down</strong> (mobile) or press <strong>↑ ↓</strong> (keyboard) '
+           + 'to toggle between <span class="igm">IgM</span> (pentamer) and <span class="igg">IgG</span> (monomer). '
+           + 'Try it now — switching is live!',
       diagram: `
-        <div style="display:flex;align-items:center;gap:14px;">
+        <div style="display:flex;align-items:center;gap:18px;justify-content:center;">
           <div class="tut-swipe-arrows"><span>▲</span><span>▼</span></div>
-          <svg viewBox="0 0 64 64" width="64" height="64" xmlns="http://www.w3.org/2000/svg">
-            <rect x="4" y="4" width="56" height="56" rx="10"
-                  fill="rgba(30,77,43,0.7)" stroke="rgba(200,169,81,0.35)" stroke-width="1.5"/>
-            <!-- Y shape in selector -->
-            <line x1="32" y1="32" x2="52" y2="32" stroke="#4D96FF" stroke-width="5" stroke-linecap="round"/>
-            <line x1="32" y1="32" x2="16" y2="18" stroke="#4D96FF" stroke-width="4" stroke-linecap="round"/>
-            <line x1="32" y1="32" x2="16" y2="46" stroke="#4D96FF" stroke-width="4" stroke-linecap="round"/>
-            <circle cx="32" cy="32" r="3.5" fill="#4D96FF"/>
-            <!-- Triangle tips -->
-            <polygon points="16,18 22,25 10,25" fill="#FF6B6B"/>
-            <polygon points="16,46 22,53 10,53" fill="#FF6B6B"/>
-          </svg>
-          <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.5;">
-            Shape in selector<br>= shape you fire
+          <div style="text-align:center;font-size:0.78rem;">
+            <svg viewBox="0 0 52 52" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+              <!-- IgM pentamer schematic (5 Y-shapes in ring) -->
+              <g stroke="#4D96FF" stroke-linecap="round" fill="none">
+                <line x1="26" y1="26" x2="26" y2="11" stroke-width="1.2" opacity="0.3"/>
+                <line x1="26" y1="26" x2="40" y2="19" stroke-width="1.2" opacity="0.3"/>
+                <line x1="26" y1="26" x2="37" y2="36" stroke-width="1.2" opacity="0.3"/>
+                <line x1="26" y1="26" x2="15" y2="36" stroke-width="1.2" opacity="0.3"/>
+                <line x1="26" y1="26" x2="12" y2="19" stroke-width="1.2" opacity="0.3"/>
+              </g>
+              <circle cx="26" cy="11" r="4" fill="#4D96FF" opacity="0.9"/>
+              <circle cx="40" cy="19" r="4" fill="#4D96FF" opacity="0.9"/>
+              <circle cx="37" cy="36" r="4" fill="#4D96FF" opacity="0.9"/>
+              <circle cx="15" cy="36" r="4" fill="#4D96FF" opacity="0.9"/>
+              <circle cx="12" cy="19" r="4" fill="#4D96FF" opacity="0.9"/>
+              <circle cx="26" cy="26" r="3" fill="#4D96FF" opacity="0.5"/>
+            </svg>
+            <div style="color:var(--igm-color);font-weight:700;font-size:0.8rem;">IgM</div>
+          </div>
+          <div style="font-size:1.2rem;color:var(--text-muted);">⇄</div>
+          <div style="text-align:center;font-size:0.78rem;">
+            <svg viewBox="0 0 52 52" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+              <line x1="26" y1="26" x2="44" y2="26" stroke="#C8A951" stroke-width="4" stroke-linecap="round"/>
+              <line x1="26" y1="26" x2="12" y2="14" stroke="#C8A951" stroke-width="3.5" stroke-linecap="round"/>
+              <line x1="26" y1="26" x2="12" y2="38" stroke="#C8A951" stroke-width="3.5" stroke-linecap="round"/>
+              <circle cx="26" cy="26" r="3" fill="#C8A951"/>
+            </svg>
+            <div style="color:var(--igg-color);font-weight:700;font-size:0.8rem;">IgG ✦</div>
           </div>
         </div>`,
       highlight: 'abSelector',
@@ -223,11 +239,15 @@ const ABGame = (() => {
   function updateAbLabel() {
     const lbl = el('abTypeLabel');
     if (!lbl) return;
-    const type  = ABEngine.currentEpitopeType();
-    const ep    = ABSprites.EPITOPE[type];
     const isIgG = ABEngine.isIgGActive();
-    lbl.textContent = (isIgG ? 'IgG ✦' : 'IgM') + ' · ' + (ep?.label ?? type);
-    lbl.style.color = isIgG ? 'var(--igg-color)' : 'var(--igm-color)';
+    const { iggCount } = ABEngine.getState();
+    if (isIgG) {
+      lbl.textContent = `IgG ✦ ×${iggCount}`;
+      lbl.style.color = 'var(--igg-color)';
+    } else {
+      lbl.textContent = iggCount > 0 ? `IgM  (✦ ×${iggCount} ready)` : 'IgM';
+      lbl.style.color = 'var(--igm-color)';
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -353,8 +373,8 @@ const ABGame = (() => {
     const ady = Math.abs(dy);
 
     if (ady > SWIPE_THRESHOLD && ady > adx * 1.2) {
-      // Vertical swipe — cycle epitope (works in tutorial too, so step 1 demo is live)
-      ABEngine.cycleEpitope(dy < 0 ? -1 : 1);
+      // Vertical swipe — toggle IgM ↔ IgG
+      ABEngine.toggleIsotype();
       updateAbLabel();
     } else if (adx < TAP_MAX_MOVE && ady < TAP_MAX_MOVE && dt < TAP_MAX_MS) {
       // Tap — only fire when playing (not during tutorial card)
@@ -373,7 +393,7 @@ const ABGame = (() => {
   function onKeyDown(e) {
     if (_state === 'tutorial') {
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        ABEngine.cycleEpitope(e.key === 'ArrowUp' ? -1 : 1);
+        ABEngine.toggleIsotype();
         updateAbLabel();
       }
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tutNext(); }
@@ -382,11 +402,20 @@ const ABGame = (() => {
     }
     if (_state !== 'playing') return;
     switch (e.key) {
-      case 'ArrowUp':   ABEngine.cycleEpitope(-1); updateAbLabel(); break;
-      case 'ArrowDown': ABEngine.cycleEpitope(1);  updateAbLabel(); break;
+      case 'ArrowUp':
+      case 'ArrowDown':
+        e.preventDefault();
+        ABEngine.toggleIsotype();
+        updateAbLabel();
+        break;
       case ' ':
-      case 'Enter':     e.preventDefault(); handleFire(); break;
-      case 'Escape':    pause(); break;
+      case 'Enter':
+        e.preventDefault();
+        handleFire();
+        break;
+      case 'Escape':
+        pause();
+        break;
     }
   }
 

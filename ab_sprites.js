@@ -107,6 +107,56 @@ const ABSprites = (() => {
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
+  /*  IgM PENTAMER                                                       */
+  /* ─────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Draw an IgM pentamer: 5 IgG monomers arranged in a ring with Fab arms
+   * pointing outward and Fc regions facing inward (linked by J-chain).
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} cx  center x
+   * @param {number} cy  center y
+   * @param {number} size  overall scale
+   * @param {string} color
+   * @param {number} alpha
+   */
+  function drawIgMPentamer(ctx, cx, cy, size, color, alpha = 1) {
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    const n     = 5;
+    const ringR = size * 0.48;   // radius of the monomer ring
+    const arm   = size * 0.37;   // each monomer's arm length
+    const lw    = Math.max(1, size * 0.08);
+
+    // J-chain: faint spokes from center to each Fc region
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = lw * 0.45;
+    ctx.lineCap     = 'round';
+    ctx.globalAlpha = alpha * 0.28;
+    for (let i = 0; i < n; i++) {
+      const a  = (i / n) * Math.PI * 2 - Math.PI / 2;
+      const ex = Math.cos(a) * ringR * 0.72;
+      const ey = Math.sin(a) * ringR * 0.72;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+
+    // 5 IgG monomers: hinge at ring position, Fab arms pointing outward
+    // drawYShape(angle = a) → Fab arms radiate outward, Fc stalk points inward ✓
+    for (let i = 0; i < n; i++) {
+      const a  = (i / n) * Math.PI * 2 - Math.PI / 2;
+      const ux = Math.cos(a) * ringR;
+      const uy = Math.sin(a) * ringR;
+      drawYShape(ctx, ux, uy, arm, color, a, alpha, null);
+    }
+
+    ctx.restore();
+  }
+
+  /* ─────────────────────────────────────────────────────────────────── */
   /*  Y-SHAPE ANTIBODY (reused for selector, projectile, overlay)       */
   /* ─────────────────────────────────────────────────────────────────── */
 
@@ -315,32 +365,35 @@ const ABSprites = (() => {
 
   /**
    * Draw a flying antibody projectile.
+   * IgM → pentamer (compact rotating ring of 5 Y-shapes)
+   * IgG → monomer (single Y-shape with gold glow)
    * @param {CanvasRenderingContext2D} ctx
-   * @param {Object} proj  { x, y, vx, vy, type:'igm'|'igg', epitopeType, alpha, trail[] }
+   * @param {Object} proj  { x, y, vx, vy, type:'igm'|'igg', alpha, trail[], spin }
    */
   function drawProjectile(ctx, proj) {
     const { x, y, vx, vy } = proj;
-    const color = proj.type === 'igg' ? '#C8A951' : '#4D96FF';
-    const size  = proj.type === 'igg' ? 13 : 10;
-    const angle = Math.atan2(vy, vx);  // point in travel direction
+    const isIgG = proj.type === 'igg';
+    const color = isIgG ? '#C8A951' : '#4D96FF';
+    const size  = isIgG ? 13 : 16;   // pentamer is slightly larger
+    const angle = Math.atan2(vy, vx);
 
-    // Trail
+    // Trail (dots)
     if (proj.trail) {
       for (let i = 0; i < proj.trail.length; i++) {
         const t = proj.trail[i];
-        const a = (i / proj.trail.length) * 0.35;
+        const a = (i / proj.trail.length) * 0.3;
         ctx.save();
         ctx.globalAlpha = a;
         ctx.beginPath();
-        ctx.arc(t.x, t.y, size * 0.25, 0, Math.PI * 2);
+        ctx.arc(t.x, t.y, size * 0.2, 0, Math.PI * 2);
         ctx.fillStyle = color;
         ctx.fill();
         ctx.restore();
       }
     }
 
-    // IgG gets a soft glow
-    if (proj.type === 'igg') {
+    if (isIgG) {
+      // Soft gold glow
       ctx.save();
       ctx.globalAlpha = 0.25;
       const glow = ctx.createRadialGradient(x, y, 0, x, y, size * 2.5);
@@ -351,9 +404,17 @@ const ABSprites = (() => {
       ctx.arc(x, y, size * 2.5, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+      // IgG monomer: single Y pointing in travel direction
+      drawYShape(ctx, x, y, size, color, angle, proj.alpha ?? 1, null);
+    } else {
+      // IgM pentamer: spins slowly as it flies
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(proj.spin ?? 0);
+      ctx.translate(-x, -y);
+      drawIgMPentamer(ctx, x, y, size, color, proj.alpha ?? 1);
+      ctx.restore();
     }
-
-    drawYShape(ctx, x, y, size, color, angle, proj.alpha ?? 1, proj.epitopeType);
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -480,18 +541,22 @@ const ABSprites = (() => {
 
   /**
    * Draw the antibody selector onto its dedicated 56×56 canvas.
+   * IgM → pentamer (blue), IgG → monomer (gold)
    * @param {CanvasRenderingContext2D} ctx  (from #abSelectorCanvas)
-   * @param {string} epitopeType  current epitope key
-   * @param {boolean} isIgG  true = IgG power-up active
+   * @param {boolean} isIgG
    */
-  function drawSelector(ctx, epitopeType, isIgG) {
+  function drawSelector(ctx, isIgG) {
     const W = ctx.canvas.width;
     const H = ctx.canvas.height;
     ctx.clearRect(0, 0, W, H);
 
-    const color = isIgG ? '#C8A951' : '#4D96FF';
-    // Y-shape pointing right, centered
-    drawYShape(ctx, W * 0.52, H * 0.5, W * 0.33, color, 0, 1, epitopeType);
+    if (isIgG) {
+      // IgG: single gold Y-shape pointing right
+      drawYShape(ctx, W * 0.5, H * 0.5, W * 0.33, '#C8A951', 0, 1, null);
+    } else {
+      // IgM: blue pentamer centered in box
+      drawIgMPentamer(ctx, W * 0.5, H * 0.5, W * 0.46, '#4D96FF', 1);
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -612,6 +677,7 @@ const ABSprites = (() => {
     PATHOGEN_COLORS,
     drawEpitope,
     drawYShape,
+    drawIgMPentamer,
     drawPathogen,
     drawProjectile,
     drawParticle,
