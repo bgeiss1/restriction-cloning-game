@@ -6,63 +6,10 @@
     "teaching_point": "Using three different enzymes (EcoRI+KpnI+BamHI) to create a 3-peice ligation product.",
     "sequence_note": "",
     "vector": {
-      "name": "pUC19",
+      "name": "New Plasmid",
       "length": 3000,
-      "features": [
-        {
-          "name": "MCS",
-          "start": 50,
-          "end": 200,
-          "type": "mcs",
-          "strand": 1,
-          "color": "#006600",
-          "lineWidth": 15,
-          "arrowSize": 0,
-          "showArrow": false,
-          "showPromoter": false
-        },
-        {
-          "name": "AmpR",
-          "start": 1500,
-          "end": 2000,
-          "type": "resistance",
-          "strand": -1,
-          "color": "#ccccff",
-          "lineWidth": 15,
-          "arrowSize": 0,
-          "showArrow": true,
-          "showPromoter": true
-        },
-        {
-          "name": "New Feature",
-          "start": 800,
-          "end": 1000,
-          "type": "ori",
-          "strand": 1,
-          "color": "#663333",
-          "lineWidth": 15,
-          "arrowSize": 0,
-          "showArrow": false,
-          "showPromoter": false
-        },
-        {
-          "name": "AmpR Promoter",
-          "start": 2058,
-          "end": 2055,
-          "type": "promoter_sym",
-          "strand": -1
-        }
-      ],
-      "cut_sites": [
-        {
-          "enzyme": "EcoRI",
-          "position": 60
-        },
-        {
-          "enzyme": "BamHI",
-          "position": 150
-        }
-      ]
+      "features": [],
+      "cut_sites": []
     },
     "donors": [
       {
@@ -120,7 +67,8 @@
           "EcoRI",
           "BamHI",
           "KpnI"
-        ]
+        ],
+        "base_id": "pgfp_mxhj3i"
       },
       {
         "name": "pCMV",
@@ -166,7 +114,8 @@
             "enzyme": "KpnI",
             "position": 600
           }
-        ]
+        ],
+        "base_id": "pcmv_id9d68"
       }
     ],
     "objectives": {
@@ -205,7 +154,8 @@
       "name": "Custom Vector",
       "length": 2686,
       "features": [],
-      "cut_sites": []
+      "cut_sites": [],
+      "base_id": "custom_vector_ko108v"
     },
     "donors": [
       {
@@ -262,7 +212,8 @@
         "mcs_enzymes": [
           "KpnI",
           "HindIII"
-        ]
+        ],
+        "base_id": "pLuc_donor_67d721"
       }
     ],
     "objectives": {
@@ -281,7 +232,7 @@
   {
     "id": "clone_03",
     "title": "Single-enzyme cloning (non-directional)",
-    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation â predict how many ligation products are possible.",
+    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation Ã¢ÂÂ predict how many ligation products are possible.",
     "teaching_point": "Single-enzyme cloning with a palindromic site creates two possible insert orientations and one self-ligation product. Colony screening by PCR or restriction digest is required.",
     "sequence_note": "",
     "vector": {
@@ -342,7 +293,8 @@
         ],
         "mcs_enzymes": [
           "EcoRI"
-        ]
+        ],
+        "base_id": "pTet_donor_abbdc2"
       }
     ],
     "objectives": {
@@ -436,7 +388,8 @@
         ],
         "mcs_enzymes": [
           "EcoRI"
-        ]
+        ],
+        "base_id": "pMulti_donor_912cc9"
       }
     ],
     "objectives": {
