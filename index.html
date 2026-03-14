@@ -620,6 +620,7 @@
       <div class="level-teach" id="cloningTeach"></div>
     </div>
     <div id="cloningNavBtns">
+      <button id="btnCloningPrev" style="display:none">&#8592; Prev Level</button>
       <button id="btnCloningReset">↺ Reset Level</button>
       <button id="btnCloningNext" class="success-btn" disabled>Next Level &#8594;</button>
     </div>
@@ -1008,6 +1009,7 @@ function initCloningWorkspace() {
 
   document.getElementById('btnCutVector').addEventListener('click', doCutVector);
   document.getElementById('btnCutDonor').addEventListener('click',  () => doCutDonor(_activeDonorIdx));
+  document.getElementById('btnCloningPrev').addEventListener('click', prevCloningLevel);
   document.getElementById('btnCloningReset').addEventListener('click', resetCloningLevel);
   document.getElementById('btnCloningNext').addEventListener('click', nextCloningLevel);
   document.getElementById('btnCloningMenu').addEventListener('click', () => showScreen('modeSelectScreen'));
@@ -1061,6 +1063,7 @@ function loadCloningLevel(idx) {
   CloningWorkspace.loadLevel(patchedLevel);
 
   document.getElementById('cloningLevelNum').textContent = (idx + 1) + '/' + _cloningLevels.length;
+  document.getElementById('btnCloningPrev').style.display = idx > 0 ? '' : 'none';
   document.getElementById('btnCloningNext').disabled = true;
 
   // ---- Multi-donor state ----
@@ -1719,6 +1722,10 @@ function updateLigHint() {
 // ---------------------------------------------------------------------------
 // Level navigation
 // ---------------------------------------------------------------------------
+function prevCloningLevel() {
+  if (_cloningLevelIdx > 0) loadCloningLevel(_cloningLevelIdx - 1);
+}
+
 function nextCloningLevel() {
   if (_cloningLevelIdx < _cloningLevels.length - 1) {
     loadCloningLevel(_cloningLevelIdx + 1);
