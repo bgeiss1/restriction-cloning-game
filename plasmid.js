@@ -280,8 +280,8 @@ class PlasmidRenderer {
             // MCS hidden from map
             if (feature.type === 'mcs') continue;
 
-            // lacZ / promoter_sym: draw only a promoter symbol, no arc or label
-            if (feature.type === 'lacZ' || feature.type === 'promoter_sym') {
+            // promoter_sym: draw only a promoter symbol, no arc or label
+            if (feature.type === 'promoter_sym') {
                 const startAngle = this._bpToAngle(feature.start);
                 const endAngle   = this._bpToAngle(feature.end + 1);
                 const color      = featureColor(feature);
