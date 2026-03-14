@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Antibody Rush — Sticky Ends</title>
+  <style>
+    /* ── Tokens ───────────────────────────────────────────────────── */
+    :root {
+      --green-dark:  #1E4D2B;
+      --green-mid:   #245c34;
+      --bg:          #0d1a10;
+      --gold:        #C8A951;
+      --gold-light:  #e0c060;
+      --text:        #e8f5e9;
+      --text-muted:  #a8c5a0;
+      --success:     #66BB6A;
+      --warn:        #FFA726;
+      --danger:      #EF5350;
+      --border:      rgba(200,169,81,0.28);
+      --igm-color:   #4D96FF;
+      --igg-color:   #C8A951;
+      --radius:      10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    /* ── Canvas ───────────────────────────────────────────────────── */
+    #gameCanvas {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      display: block;
+      touch-action: none;
+    }
+
+    /* ── HUD ──────────────────────────────────────────────────────── */
+    #hud {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: 52px; z-index: 10;
+      background: rgba(30,77,43,0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center;
+      justify-content: space-between; padding: 0 16px;
+    }
+    .hud-block { display: flex; flex-direction: column; align-items: center; min-width: 64px; }
+    .hud-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); }
+    .hud-value { font-size: 1.2rem; font-weight: 800; color: var(--text); font-family: monospace; line-height: 1; }
+    #hudScore  { color: var(--gold); }
+    #hudWave   { color: var(--text); }
+    #hudIgG    { color: var(--igg-color); }
+    #btnPause  {
+      padding: 6px 12px; border-radius: 8px;
+      border: 1.5px solid var(--border); background: none;
+      color: var(--text-muted); font-size: 13px; cursor: pointer;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Antibody selector (left edge, shown during game) ─────────── */
+    #abSelector {
+      position: fixed; left: 0; top: 52px; bottom: 0;
+      width: 72px; z-index: 10;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 8px;
+      pointer-events: none;
+    }
+    #abSelector canvas {
+      border-radius: 10px;
+      background: rgba(30,77,43,0.7);
+      border: 1.5px solid var(--border);
+    }
+    #abTypeLabel {
+      font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+      color: var(--gold); text-align: center;
+    }
+    .swipe-hint {
+      font-size: 18px; color: var(--text-muted); line-height: 1;
+      animation: swipePulse 1.8s ease-in-out infinite;
+    }
+    @keyframes swipePulse {
+      0%, 100% { opacity: 0.3; transform: translateY(0); }
+      50%       { opacity: 0.9; transform: translateY(-3px); }
+    }
+
+    /* ── Health bar ───────────────────────────────────────────────── */
+    #healthBar {
+      position: fixed; bottom: 12px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 10; display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+    }
+    #healthLabel { font-size: 10px; color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    #healthTrack {
+      width: 180px; height: 10px;
+      background: rgba(255,255,255,0.1); border-radius: 5px; overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    #healthFill {
+      height: 100%; width: 100%; border-radius: 5px;
+      background: var(--success);
+      transition: width 0.3s, background 0.3s;
+    }
+
+    /* ── Shared overlay base ─────────────────────────────────────── */
+    .overlay {
+      position: fixed; inset: 0; z-index: 20;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; padding: 32px 24px; text-align: center;
+    }
+    .overlay h1 {
+      font-size: 2.1rem; font-weight: 800;
+      color: var(--gold); letter-spacing: 0.06em;
+    }
+    .overlay p {
+      font-size: 0.95rem; color: var(--text-muted);
+      line-height: 1.7; max-width: 340px;
+    }
+    .info-box {
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 20px; text-align: left;
+      font-size: 0.88rem; color: var(--text-muted); line-height: 1.9;
+      width: 100%; max-width: 360px;
+    }
+    .info-box strong { color: var(--gold); }
+    .info-box .igm  { color: var(--igm-color); font-weight: 700; }
+    .info-box .igg  { color: var(--igg-color); font-weight: 700; }
+    .btn-primary {
+      width: 100%; max-width: 320px; padding: 15px;
+      border-radius: var(--radius); border: none;
+      background: var(--gold); color: #1a1a00;
+      font-size: 1.05rem; font-weight: 700; cursor: pointer;
+      touch-action: manipulation; transition: background 0.15s;
+    }
+    .btn-primary:active { background: var(--gold-light); }
+    .btn-back-menu {
+      font-size: 0.88rem; color: var(--text-muted);
+      text-decoration: none; padding: 7px 14px;
+      border-radius: 8px; border: 1.5px solid var(--border);
+      transition: border-color 0.15s, color 0.15s;
+      touch-action: manipulation;
+    }
+    .btn-back-menu:hover { border-color: var(--gold); color: var(--gold); }
+
+    /* ── Start screen ────────────────────────────────────────────── */
+    #startScreen {
+      background: linear-gradient(160deg, #1E4D2B 0%, #163820 60%, #0f2516 100%);
+    }
+
+    /* ── Pause screen ────────────────────────────────────────────── */
+    #pauseScreen {
+      background: rgba(10,24,14,0.92);
+      backdrop-filter: blur(6px);
+    }
+    #pauseScreen h1 { font-size: 2.4rem; }
+
+    /* ── Game over screen ────────────────────────────────────────── */
+    #gameOverScreen {
+      background: rgba(10,24,14,0.95);
+    }
+    #gameOverScreen h1 { color: var(--danger); }
+    .final-stat-box {
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 32px;
+      font-size: 0.9rem; color: var(--text-muted); line-height: 2;
+    }
+    .final-stat-box strong { font-size: 1.6rem; color: var(--gold); display: block; }
+
+    /* ── Wave banner ─────────────────────────────────────────────── */
+    #waveBanner {
+      position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+      z-index: 15; pointer-events: none;
+      font-size: 1.2rem; font-weight: 800; color: var(--gold);
+      letter-spacing: 0.08em; text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+      display: none;
+    }
+    #waveBanner.active {
+      display: block;
+      animation: waveIn 2.2s ease forwards;
+    }
+    @keyframes waveIn {
+      0%   { opacity: 0; transform: translateX(-50%) scale(0.8); }
+      15%  { opacity: 1; transform: translateX(-50%) scale(1.05); }
+      70%  { opacity: 1; transform: translateX(-50%) scale(1); }
+      100% { opacity: 0; transform: translateX(-50%) scale(1); }
+    }
+
+    /* ── IgG power-up flash ──────────────────────────────────────── */
+    #iggFlash {
+      position: fixed; top: 60px; right: 16px; z-index: 15;
+      font-size: 0.85rem; font-weight: 700; color: var(--igg-color);
+      pointer-events: none; display: none;
+      animation: iggPop 1.2s ease forwards;
+    }
+    @keyframes iggPop {
+      0%   { opacity: 0; transform: translateY(0) scale(0.8); }
+      20%  { opacity: 1; transform: translateY(-6px) scale(1.1); }
+      80%  { opacity: 1; transform: translateY(-10px) scale(1); }
+      100% { opacity: 0; transform: translateY(-16px) scale(1); }
+    }
+
+    /* ── Toast ───────────────────────────────────────────────────── */
+    #toastArea {
+      position: fixed; top: 62px; left: 50%; transform: translateX(-50%);
+      z-index: 18; display: flex; flex-direction: column;
+      align-items: center; gap: 6px; pointer-events: none;
+    }
+    .toast {
+      background: #1a3a22; border: 1px solid var(--border);
+      border-radius: 20px; padding: 8px 16px; font-size: 12px;
+      color: var(--text); white-space: nowrap;
+      animation: toastIn 0.2s ease, toastOut 0.3s 2s ease forwards;
+    }
+    .toast.warn    { border-color: var(--warn);    color: var(--warn); }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    .toast.igg     { border-color: var(--igg-color); color: var(--igg-color); }
+    @keyframes toastIn  { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+    @keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- GAME CANVAS                                                   -->
+<!-- ============================================================ -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- ============================================================ -->
+<!-- HUD (shown during gameplay)                                   -->
+<!-- ============================================================ -->
+<div id="hud" class="hidden">
+  <div class="hud-block">
+    <span class="hud-label">Wave</span>
+    <span class="hud-value" id="hudWave">1</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">Score</span>
+    <span class="hud-value" id="hudScore">0</span>
+  </div>
+  <div class="hud-block">
+    <span class="hud-label">IgG ✦</span>
+    <span class="hud-value" id="hudIgG">0</span>
+  </div>
+  <button id="btnPause" onclick="ABGame.pause()">⏸</button>
+</div>
+
+<!-- Antibody selector (left side during gameplay) -->
+<div id="abSelector" class="hidden">
+  <span class="swipe-hint">▲</span>
+  <canvas id="abSelectorCanvas" width="56" height="56"></canvas>
+  <span id="abTypeLabel">IgM</span>
+  <span class="swipe-hint">▼</span>
+</div>
+
+<!-- Health bar -->
+<div id="healthBar" class="hidden">
+  <span id="healthLabel">Host Health</span>
+  <div id="healthTrack"><div id="healthFill"></div></div>
+</div>
+
+<!-- Wave banner -->
+<div id="waveBanner"></div>
+
+<!-- IgG power-up flash -->
+<div id="iggFlash">✦ IgG Power-Up!</div>
+
+<!-- Toast area -->
+<div id="toastArea"></div>
+
+<!-- ============================================================ -->
+<!-- START SCREEN                                                  -->
+<!-- ============================================================ -->
+<div id="startScreen" class="overlay">
+
+  <!-- Antibody SVG icon -->
+  <svg viewBox="0 0 80 80" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+    <!-- Fc stem -->
+    <line x1="40" y1="42" x2="40" y2="70" stroke="#C8A951" stroke-width="8" stroke-linecap="round"/>
+    <!-- Left Fab arm -->
+    <line x1="40" y1="42" x2="14" y2="16" stroke="#a8c5a0" stroke-width="7" stroke-linecap="round"/>
+    <!-- Right Fab arm -->
+    <line x1="40" y1="42" x2="66" y2="16" stroke="#a8c5a0" stroke-width="7" stroke-linecap="round"/>
+    <!-- Hinge region -->
+    <circle cx="40" cy="42" r="5" fill="#245c34" stroke="#a8c5a0" stroke-width="1.5"/>
+    <!-- Antigen-binding tips (variable regions) -->
+    <circle cx="14" cy="16" r="7" fill="#FF6B6B" stroke="#e8f5e9" stroke-width="1.5"/>
+    <circle cx="66" cy="16" r="7" fill="#FF6B6B" stroke="#e8f5e9" stroke-width="1.5"/>
+    <!-- Fc receptor tip -->
+    <circle cx="40" cy="70" r="5" fill="#C8A951"/>
+    <!-- Pathogen (small, to the right) -->
+    <circle cx="68" cy="54" r="7" fill="#4A1060" stroke="#9B59B6" stroke-width="1.5"/>
+    <line x1="68" y1="47" x2="68" y2="44" stroke="#9B59B6" stroke-width="1.5"/>
+    <line x1="75" y1="54" x2="78" y2="54" stroke="#9B59B6" stroke-width="1.5"/>
+    <line x1="61" y1="54" x2="58" y2="54" stroke="#9B59B6" stroke-width="1.5"/>
+    <line x1="73" y1="49" x2="75" y2="47" stroke="#9B59B6" stroke-width="1.5"/>
+    <line x1="63" y1="49" x2="61" y2="47" stroke="#9B59B6" stroke-width="1.5"/>
+    <!-- Epitope on pathogen -->
+    <polygon points="68,51 71,56 65,56" fill="#FF6B6B"/>
+  </svg>
+
+  <h1>Antibody Rush</h1>
+  <p>Neutralize incoming pathogens by matching your antibody to the right epitope — before they reach the host!</p>
+
+  <div class="info-box">
+    <strong>Swipe up/down</strong> to cycle antibody type<br>
+    <strong>Tap</strong> to fire when your antibody matches the epitope<br>
+    <span class="igm">IgM</span> — first responder, pentamer, needs <strong>3 hits</strong> to neutralize<br>
+    <span class="igg">IgG ✦</span> — high affinity power-up, <strong>1-hit</strong> neutralize<br>
+    <strong>Decoy epitopes</strong> appear in later waves — don't be fooled!
+  </div>
+
+  <button class="btn-primary" id="btnStart" onclick="ABGame.start()">Start →</button>
+  <a href="index.html" class="btn-back-menu">← Menu</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- PAUSE SCREEN                                                  -->
+<!-- ============================================================ -->
+<div id="pauseScreen" class="overlay hidden">
+  <h1>⏸ Paused</h1>
+  <button class="btn-primary" onclick="ABGame.resume()">Resume</button>
+  <button class="btn-primary" style="background:var(--green-mid);color:var(--text);margin-top:-8px;"
+          onclick="ABGame.restart()">Restart</button>
+  <a href="index.html" class="btn-back-menu">← Menu</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- GAME OVER SCREEN                                              -->
+<!-- ============================================================ -->
+<div id="gameOverScreen" class="overlay hidden">
+  <div style="font-size:3rem;">🦠</div>
+  <h1>Host Infected</h1>
+  <p>The pathogens overwhelmed the immune response.</p>
+  <div class="final-stat-box">
+    <strong id="goFinalScore">0</strong>Final Score
+    <br>Wave reached: <span id="goWave" style="color:var(--gold);font-weight:700;">1</span>
+    &nbsp;|&nbsp; Neutralized: <span id="goKills" style="color:var(--success);font-weight:700;">0</span>
+  </div>
+  <button class="btn-primary" onclick="ABGame.restart()">Try Again</button>
+  <a href="index.html" class="btn-back-menu">← Menu</a>
+</div>
+
+<!-- ============================================================ -->
+<!-- SCRIPTS (loaded in dependency order)                          -->
+<!-- ============================================================ -->
+<script src="ab_sprites.js"></script>
+<script src="ab_engine.js"></script>
+<script src="ab_game.js"></script>
+
+</body>
+</html>
