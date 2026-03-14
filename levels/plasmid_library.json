@@ -149,6 +149,45 @@
           "position": 751
         }
       ]
+    },
+    {
+      "id": "pcam_8jpyxm",
+      "name": "pCAM",
+      "length": 2686,
+      "features": [
+        {
+          "name": "AmpR",
+          "start": 1969,
+          "end": 2324,
+          "type": "resistance",
+          "strand": 1
+        },
+        {
+          "name": "Ori",
+          "start": 1357,
+          "end": 1569,
+          "type": "ori",
+          "strand": 1
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "BamHI",
+          "position": 691
+        },
+        {
+          "enzyme": "NheI",
+          "position": 657
+        },
+        {
+          "enzyme": "EcoRI",
+          "position": 595
+        },
+        {
+          "enzyme": "SmaI",
+          "position": 624
+        }
+      ]
     }
   ],
   "donors": [
