@@ -993,7 +993,6 @@ function initCloningWorkspace() {
   // Initialise vector renderer
   const vCanvas = document.getElementById('vectorCanvas');
   _vectorRenderer = new PlasmidRenderer(vCanvas, Game.pUC19);
-  _vectorRenderer.rsAngleOffset = 30 * Math.PI / 180;
 
   // Populate vector enzyme dropdown
   populateEnzymeSelect('vectorEnzymeSelect');
@@ -1181,7 +1180,6 @@ function onCloningLevelLoaded(e) {
   const donors  = CloningWorkspace.donorPlasmids;
   _donorRenderers = donors.map(plasmid => {
     const r = new PlasmidRenderer(dCanvas, plasmid);
-    r.rsAngleOffset    = 4.5 * Math.PI / 180;
     r._cutAnimState    = null;
     r._computeLayout();
     return r;
