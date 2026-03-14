@@ -220,21 +220,47 @@
     }
     .hint-box strong { color: var(--gold); }
 
-    /* ── Result area ─────────────────────────────────────────────────── */
+    /* ── Result area (failed ligations only) ─────────────────────────── */
     #resultArea { text-align: center; margin-top: 12px; }
-    #resultCanvas { border-radius: 10px; background: #0d1a10; max-width: 100%; }
-    #resultCanvas.celebrate {
+    #resultMsg { font-size: 13px; line-height: 1.6; margin-top: 10px; }
+
+    /* ── Celebrate overlay ────────────────────────────────────────────── */
+    @keyframes cardSpin {
+      0%   { transform: scale(0.15) rotate(-360deg); opacity: 0; }
+      70%  { transform: scale(1.06) rotate(8deg);    opacity: 1; }
+      85%  { transform: scale(0.97) rotate(-3deg); }
+      100% { transform: scale(1)    rotate(0deg);    opacity: 1; }
+    }
+    @keyframes overlayFadeIn {
+      from { opacity: 0; } to { opacity: 1; }
+    }
+    #celebrateOverlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(8, 22, 12, 0.88);
+      display: flex; align-items: center; justify-content: center;
+      animation: overlayFadeIn 0.2s ease forwards;
+    }
+    .celebrate-card {
+      background: var(--green-dark);
+      border: 2px solid var(--gold);
+      border-radius: 18px;
+      padding: 24px 20px 20px;
+      width: min(92vw, 360px);
+      text-align: center;
+      box-shadow: 0 0 40px rgba(200,169,81,0.25);
       animation: cardSpin 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
-    @keyframes cardSpin {
-      0%   { transform: scale(0.2) rotate(-360deg); opacity: 0; }
-      70%  { transform: scale(1.08) rotate(8deg);   opacity: 1; }
-      85%  { transform: scale(0.96) rotate(-3deg); }
-      100% { transform: scale(1)    rotate(0deg);   opacity: 1; }
+    .celebrate-title {
+      font-size: 1.25rem; font-weight: 800;
+      color: var(--gold); margin-bottom: 14px;
+      letter-spacing: 0.05em;
     }
-    #resultMsg { font-size: 13px; line-height: 1.6; margin-top: 10px; }
-    #resultScore { font-size: 1.2rem; font-weight: 700; color: var(--gold);
-      margin-top: 4px; font-family: monospace; }
+    #celebrateCanvas { border-radius: 10px; background: #0d1a10; max-width: 100%; display: block; margin: 0 auto; }
+    #celebrateMsg { font-size: 13px; line-height: 1.6; margin-top: 12px; color: var(--text); }
+    #celebrateScore {
+      font-size: 1.4rem; font-weight: 700; color: var(--gold);
+      margin: 8px 0 16px; font-family: monospace;
+    }
 
     /* ── Bottom nav ───────────────────────────────────────────────────── */
     #bottomNav {
@@ -337,9 +363,7 @@
     <button class="action-btn primary" id="btnLigate" disabled onclick="doLigate()">⊕ Ligate!</button>
     <button class="action-btn" id="btnClearAsm" onclick="doClearAsm()" style="margin-top:-6px;">Clear Assembly</button>
     <div id="resultArea" style="display:none;">
-      <canvas id="resultCanvas" width="300" height="300"></canvas>
       <div id="resultMsg"></div>
-      <div id="resultScore"></div>
     </div>
   </div>
 
@@ -354,6 +378,17 @@
 
 <!-- Toast container -->
 <div id="toastArea"></div>
+
+<!-- Celebrate overlay (shown on successful ligation) -->
+<div id="celebrateOverlay" style="display:none;" onclick="handleOverlayTap(event)">
+  <div class="celebrate-card">
+    <div class="celebrate-title">🎉 Ligation Successful!</div>
+    <canvas id="celebrateCanvas"></canvas>
+    <div id="celebrateMsg"></div>
+    <div id="celebrateScore"></div>
+    <button class="action-btn primary" style="margin-bottom:0;" onclick="closeCelebration()">Continue →</button>
+  </div>
+</div>
 
 <!-- ================================================================== -->
 <script>
@@ -585,6 +620,7 @@ function loadLevel(idx) {
   document.getElementById('vectorFragList').innerHTML   = '';
   document.getElementById('donorFragList').innerHTML    = '';
   document.getElementById('resultArea').style.display  = 'none';
+  document.getElementById('celebrateOverlay').style.display = 'none';
   document.getElementById('btnLigate').disabled        = true;
 
   // Tab badges reset
@@ -901,20 +937,15 @@ function doClearAsm() {
 // ---------------------------------------------------------------------------
 function doLigate() {
   document.getElementById('resultArea').style.display = 'none';
+  document.getElementById('celebrateOverlay').style.display = 'none';
   CloningWorkspace.ligateFragments(_asmItems);
 }
 
 document.addEventListener('cloning:ligationResult', e => {
   const { result, items, points } = e.detail;
-  const resultArea  = document.getElementById('resultArea');
-  const resultMsg   = document.getElementById('resultMsg');
-  const resultScore = document.getElementById('resultScore');
-
-  resultScore.textContent = points > 0 ? '+' + points + ' pts' : '';
-  resultArea.style.display = 'block';
 
   if (result.success && result.correctCombination) {
-    // Build recombinant and render
+    // Build recombinant plasmid
     let recombSeq = '';
     const allFeatures = [], sitesOnRecomb = [];
     for (const item of items) {
@@ -931,8 +962,9 @@ document.addEventListener('cloning:ligationResult', e => {
       .flatMap(it => it.fragment.features.map(f => f.name)).filter(Boolean);
     const recombName = donorNames.join(' + ') || 'Recombinant';
 
-    const rSize   = Math.min(window.innerWidth - 28, 300);
-    const rCanvas = document.getElementById('resultCanvas');
+    // Render to celebrate canvas
+    const rSize   = Math.min(window.innerWidth - 48, 280);
+    const rCanvas = document.getElementById('celebrateCanvas');
     rCanvas.width = rCanvas.height = rSize;
     const recomb    = new Plasmid({ name: recombName, sequence: recombSeq, features: allFeatures });
     const rRenderer = new PlasmidRenderer(rCanvas, recomb);
@@ -940,25 +972,50 @@ document.addEventListener('cloning:ligationResult', e => {
     rRenderer._restrictionSites = sitesOnRecomb;
     rRenderer.render([]);
 
-    // Celebrate
-    rCanvas.classList.remove('celebrate');
-    void rCanvas.offsetWidth;
-    rCanvas.classList.add('celebrate');
+    const dirNote = result.orientationCorrect ? '' : '<br><em style="color:var(--warn)">Orientation reversed — partial score</em>';
+    document.getElementById('celebrateMsg').innerHTML = dirNote;
+    document.getElementById('celebrateScore').textContent = points > 0 ? '+' + points + ' pts' : '';
 
-    const dirNote = result.orientationCorrect ? '' : ' (reversed — partial score)';
-    resultMsg.innerHTML = `<strong style="color:var(--success)">✓ Ligation successful!</strong>${dirNote}`;
+    // Show overlay (re-trigger animation by replacing element)
+    const overlay = document.getElementById('celebrateOverlay');
+    const card    = overlay.querySelector('.celebrate-card');
+    overlay.style.display = 'flex';
+    // Re-trigger card spin animation
+    card.style.animation = 'none';
+    void card.offsetWidth;
+    card.style.animation = '';
+
     markTabDone('assemble');
     document.getElementById('btnNext').disabled = (_levelIdx >= _levels.length - 1);
 
-  } else if (result.success && !result.correctCombination) {
-    resultMsg.innerHTML = `<strong style="color:var(--warn)">Wrong fragments.</strong> `
-      + (result.wrongComboReason || 'Compatible ends but not a useful recombinant.') + ' Try again.';
   } else {
-    const failed = result.junctions.filter(j => !j.compatible);
-    resultMsg.innerHTML = `<strong style="color:var(--danger)">Ligation failed</strong> — `
-      + failed.map(j => j.note || 'incompatible ends').join('; ');
+    // Show inline failure/wrong combo message
+    const resultArea = document.getElementById('resultArea');
+    const resultMsg  = document.getElementById('resultMsg');
+    resultArea.style.display = 'block';
+
+    if (result.success && !result.correctCombination) {
+      resultMsg.innerHTML = `<strong style="color:var(--warn)">Wrong fragments.</strong> `
+        + (result.wrongComboReason || 'Compatible ends but not a useful recombinant.') + ' Try again.';
+    } else {
+      const failed = result.junctions.filter(j => !j.compatible);
+      resultMsg.innerHTML = `<strong style="color:var(--danger)">Ligation failed</strong> — `
+        + failed.map(j => j.note || 'incompatible ends').join('; ');
+    }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Celebration overlay controls
+// ---------------------------------------------------------------------------
+function closeCelebration() {
+  document.getElementById('celebrateOverlay').style.display = 'none';
+}
+
+function handleOverlayTap(e) {
+  // Dismiss if tapping the backdrop (not the card itself)
+  if (e.target === document.getElementById('celebrateOverlay')) closeCelebration();
+}
 
 document.addEventListener('cloning:feedback', e => {
   toast(e.detail.message, e.detail.type === 'warning' ? 'warn' : e.detail.type);
