@@ -16,9 +16,11 @@ const ABEngine = (() => {
   let canvas, ctx, W, H;
 
   /* ── Game state ───────────────────────────────────────────────────── */
-  let _running   = false;
-  let _rafId     = null;
-  let _tick      = 0;       // frame counter for background animation
+  let _running      = false;
+  let _rafId        = null;
+  let _tick         = 0;       // frame counter for background animation
+  let _tutorialMode = false;   // true while tutorial is active
+  let _tutStopX     = 0;       // x where tutorial pathogen freezes
 
   /* ── Entities ─────────────────────────────────────────────────────── */
   let pathogens  = [];      // active pathogens
@@ -117,6 +119,50 @@ const ABEngine = (() => {
     spawnInterval  = cfg.spawnDelay;
     spawnTimer     = 60;  // short initial delay
     waveKillTarget = cfg.killTarget;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────── */
+  /*  TUTORIAL MODE                                                       */
+  /* ─────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Enable or disable tutorial mode.
+   * When enabled: spawns one slow pathogen that freezes at center-right.
+   * When disabled: unfreezes it and resumes normal spawning.
+   * @param {boolean} on
+   * @param {string}  epitopeType  epitope shown on the tutorial pathogen
+   */
+  function setTutorialMode(on, epitopeType = 'tri') {
+    _tutorialMode = on;
+    if (on) {
+      spawnTimer = 999999;       // block normal spawning while tutorial runs
+      _tutStopX  = W * 0.58;
+      const r    = 30;
+      pathogens.push({
+        x:         W + r + 20,
+        y:         H * 0.48,
+        r,
+        vx:        -0.55,
+        vy:        0,
+        colorIdx:  0,
+        spikes:    Array.from({ length: 10 }, (_, i) => (i / 10) * Math.PI * 2),
+        epitopes:  [{ type: epitopeType, angle: -0.5, isDecoy: false }],
+        realType:  epitopeType,
+        hp:        3,
+        maxHp:     3,
+        hitFlash:  0,
+        scale:     1,
+        iggDrop:   true,         // guarantee IgG drop to teach that mechanic
+        isTutorial: true,
+        id:        'tutorial',
+      });
+    } else {
+      // Unfreeze tutorial pathogen, resume spawning
+      for (const p of pathogens) {
+        if (p.isTutorial) { p.isTutorial = false; p.vx = -0.65; }
+      }
+      if (spawnTimer > 999) spawnTimer = 80;
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -425,6 +471,18 @@ const ABEngine = (() => {
     for (let i = pathogens.length - 1; i >= 0; i--) {
       const p = pathogens[i];
 
+      // Tutorial pathogen: freeze at target x, no sinusoidal drift
+      if (p.isTutorial) {
+        if (p.x > _tutStopX) {
+          p.x += p.vx;
+        } else {
+          p.x = _tutStopX;
+          p.vx = 0;
+        }
+        if (p.hitFlash > 0) p.hitFlash -= 0.1;
+        continue;
+      }
+
       // Slight sinusoidal drift
       p.vy += Math.sin(_tick * 0.04 + i) * 0.015;
       p.vy  = clamp(p.vy, -0.8, 0.8);
@@ -624,6 +682,7 @@ const ABEngine = (() => {
     activateIgG,
     currentEpitopeType,
     isIgGActive,
+    setTutorialMode,
     getState: () => ({ score, wave, kills, health, iggCount }),
   };
 
