@@ -52,6 +52,33 @@
       -webkit-tap-highlight-color: transparent; flex-shrink: 0;
     }
     #btnMenu:active { background: rgba(200,169,81,0.1); }
+    #hdrTitle {
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+      text-decoration: underline dotted rgba(200,169,81,0.5);
+      text-underline-offset: 3px;
+    }
+
+    /* ── Level info modal ─────────────────────────────────────────────── */
+    #levelInfoOverlay {
+      position: fixed; inset: 0; z-index: 1001;
+      background: rgba(8,22,12,0.80);
+      display: flex; align-items: center; justify-content: center;
+      animation: overlayFadeIn 0.15s ease forwards;
+    }
+    #levelInfoCard {
+      background: var(--green-dark); border: 2px solid var(--gold);
+      border-radius: 16px; padding: 22px 20px 18px;
+      width: min(92vw, 380px); max-height: 85dvh; overflow-y: auto;
+      box-shadow: 0 0 30px rgba(200,169,81,0.2);
+      animation: cardSpin 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    #levelInfoCard h2 { font-size: 1.05rem; font-weight: 800; color: var(--gold);
+      margin-bottom: 12px; line-height: 1.3; }
+    .info-section { margin-bottom: 12px; }
+    .info-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-muted); margin-bottom: 4px; }
+    .info-body { font-size: 13px; color: var(--text); line-height: 1.6; }
+    .info-body.teaching { color: var(--gold-light); font-style: italic; }
 
     /* ── Tab bar ─────────────────────────────────────────────────────── */
     #tabBar {
@@ -397,6 +424,22 @@
 <!-- Toast container -->
 <div id="toastArea"></div>
 
+<!-- Level info modal -->
+<div id="levelInfoOverlay" style="display:none;" onclick="if(event.target===this)closeLevelInfo()">
+  <div id="levelInfoCard">
+    <h2 id="infoTitle"></h2>
+    <div class="info-section" id="infoDescSection">
+      <div class="info-label">Description</div>
+      <div class="info-body" id="infoDesc"></div>
+    </div>
+    <div class="info-section" id="infoTeachSection">
+      <div class="info-label">Teaching Point</div>
+      <div class="info-body teaching" id="infoTeach"></div>
+    </div>
+    <button class="action-btn primary" style="margin-bottom:0;" onclick="closeLevelInfo()">Got it</button>
+  </div>
+</div>
+
 <!-- Celebrate overlay (shown on successful ligation) -->
 <div id="celebrateOverlay" style="display:none;" onclick="handleOverlayTap(event)">
   <div class="celebrate-card">
@@ -587,7 +630,8 @@ function loadLevel(idx) {
   CloningWorkspace.loadLevel(patchedLevel);
 
   // Header
-  document.getElementById('hdrTitle').textContent = level.title || '';
+  document.getElementById('hdrTitle').innerHTML =
+    (level.title || '') + ' <span style="font-size:10px;opacity:0.5;">ⓘ</span>';
   document.getElementById('hdrDesc').textContent  = level.description || '';
   document.getElementById('levelNum').textContent = (idx + 1) + '/' + _levels.length;
   document.getElementById('btnPrev').disabled = idx === 0;
@@ -1044,8 +1088,32 @@ function closeCelebration() {
 }
 
 function handleOverlayTap(e) {
-  // Dismiss if tapping the backdrop (not the card itself)
   if (e.target === document.getElementById('celebrateOverlay')) closeCelebration();
+}
+
+// ---------------------------------------------------------------------------
+// Level info modal
+// ---------------------------------------------------------------------------
+document.getElementById('hdrTitle').addEventListener('click', () => {
+  const level = _levels[_levelIdx];
+  if (!level) return;
+  document.getElementById('infoTitle').textContent = level.title || 'Level Info';
+  const desc = level.description || '';
+  const teach = level.teaching_point || '';
+  document.getElementById('infoDesc').textContent = desc;
+  document.getElementById('infoTeach').textContent = teach;
+  document.getElementById('infoDescSection').style.display = desc ? '' : 'none';
+  document.getElementById('infoTeachSection').style.display = teach ? '' : 'none';
+  // Re-trigger card animation
+  const card = document.getElementById('levelInfoCard');
+  card.style.animation = 'none';
+  void card.offsetWidth;
+  card.style.animation = '';
+  document.getElementById('levelInfoOverlay').style.display = 'flex';
+});
+
+function closeLevelInfo() {
+  document.getElementById('levelInfoOverlay').style.display = 'none';
 }
 
 document.addEventListener('cloning:feedback', e => {
