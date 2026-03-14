@@ -253,23 +253,31 @@
       background: var(--green-dark);
       border: 2px solid var(--gold);
       border-radius: 18px;
-      padding: 24px 20px 20px;
+      padding: 20px 20px 18px;
       width: min(92vw, 360px);
+      max-height: 95dvh;
+      display: flex; flex-direction: column; align-items: center;
       text-align: center;
       box-shadow: 0 0 40px rgba(200,169,81,0.25);
       animation: cardSpin 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
     }
     .celebrate-title {
-      font-size: 1.25rem; font-weight: 800;
-      color: var(--gold); margin-bottom: 14px;
-      letter-spacing: 0.05em;
+      font-size: 1.1rem; font-weight: 800;
+      color: var(--gold); margin-bottom: 10px;
+      letter-spacing: 0.05em; flex-shrink: 0;
     }
-    #celebrateCanvas { border-radius: 10px; background: #0d1a10; max-width: 100%; display: block; margin: 0 auto; }
-    #celebrateMsg { font-size: 13px; line-height: 1.6; margin-top: 12px; color: var(--text); }
+    #celebrateCanvas {
+      border-radius: 10px; background: #0d1a10;
+      display: block; flex-shrink: 1;
+      max-width: 100%; max-height: 55dvh;
+    }
+    #celebrateMsg { font-size: 12px; line-height: 1.5; margin-top: 8px;
+      color: var(--text); flex-shrink: 0; }
     #celebrateScore {
-      font-size: 1.4rem; font-weight: 700; color: var(--gold);
-      margin: 8px 0 16px; font-family: monospace;
+      font-size: 1.2rem; font-weight: 700; color: var(--gold);
+      margin: 6px 0 12px; font-family: monospace; flex-shrink: 0;
     }
+    .celebrate-card .action-btn { flex-shrink: 0; width: 100%; }
 
     /* ── Bottom nav ───────────────────────────────────────────────────── */
     #bottomNav {
@@ -984,8 +992,9 @@ document.addEventListener('cloning:ligationResult', e => {
       .flatMap(it => it.fragment.features.map(f => f.name)).filter(Boolean);
     const recombName = donorNames.join(' + ') || 'Recombinant';
 
-    // Render to celebrate canvas
-    const rSize   = Math.min(window.innerWidth - 48, 280);
+    // Render to celebrate canvas — fit both width and height
+    // Card fixed overhead: padding (38px) + title (36px) + msg (~20px) + score (36px) + button (50px) + gaps ≈ 200px
+    const rSize   = Math.min(window.innerWidth - 48, window.innerHeight - 200, 280);
     const rCanvas = document.getElementById('celebrateCanvas');
     rCanvas.width = rCanvas.height = rSize;
     const recomb    = new Plasmid({ name: recombName, sequence: recombSeq, features: allFeatures });
