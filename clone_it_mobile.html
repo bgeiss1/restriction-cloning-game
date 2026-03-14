@@ -679,23 +679,15 @@ document.addEventListener('cloning:donorCut', e => {
   const trayEl = document.getElementById('donorFragList');
   trayEl.innerHTML = '';
 
-  _donorRenderers[di].renderCutAnimation(
-    [...new Set(
-      (CloningWorkspace.ws.level.donors || [CloningWorkspace.ws.level.donor])[di]
-        ?.cut_sites?.map(s => s.enzyme) || []
-    )][0] || 'EcoRI',
-    CloningWorkspace.donorPlasmids[di].findRestrictionSites(
-      _donorEnzsByIdx[di] || []
-    )[0]?.topStrandCut || 0,
-    () => {
-      _donorRenderers[di].animateDigest(fragments, trayEl, () => {
-        renderFragCards('donor', fragments, di, trayEl);
-        // Check if all donors are cut
-        if (_donorCutDone.every(Boolean)) markTabDone('donor');
-        toast(fragments.length + ' donor fragment(s) ready', 'success');
-      });
-    }
-  );
+  const enzName  = (_donorEnzsByIdx[di] || [])[0] || 'EcoRI';
+  const cutPos   = fragments[0]?.cutEndBp ?? 0;
+  _donorRenderers[di].renderCutAnimation(enzName, cutPos, () => {
+    _donorRenderers[di].animateDigest(fragments, trayEl, () => {
+      renderFragCards('donor', fragments, di, trayEl);
+      if (_donorCutDone.every(Boolean)) markTabDone('donor');
+      toast(fragments.length + ' donor fragment(s) ready', 'success');
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -911,12 +903,7 @@ function markTabDone(tabName) {
 function prevLevel() { if (_levelIdx > 0) loadLevel(_levelIdx - 1); }
 function nextLevel() { if (_levelIdx < _levels.length - 1) loadLevel(_levelIdx + 1); }
 
-// ---------------------------------------------------------------------------
-// Stub: Game.init needs TUTORIAL/CHALLENGE arrays but we only need Game.pUC19
-// ---------------------------------------------------------------------------
-if (typeof Game !== 'undefined' && typeof Game.init === 'function') {
-  Game.init([], []);
-}
+// Game.pUC19 is available as soon as game.js loads — no need to call Game.init()
 
 // ---------------------------------------------------------------------------
 // Bootstrap: fetch levels then load first
