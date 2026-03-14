@@ -1783,7 +1783,6 @@ function renderCanvas() {
   });
 
   renderer = new PlasmidRenderer(editorCanvas, p);
-  renderer.rsAngleOffset = currentTab === 'vector' ? 30 * Math.PI / 180 : 4.5 * Math.PI / 180;
   setupRendererEvents();
 
   // Pre-set restriction sites from level data (bypasses findCutSites)
@@ -2498,7 +2497,6 @@ function renderLibPickerPreview(entry) {
     features: entry.features || []
   });
   libPickerRenderer = new PlasmidRenderer(canvas, p);
-  libPickerRenderer.rsAngleOffset = currentTab === 'vector' ? 30 * Math.PI / 180 : 4.5 * Math.PI / 180;
   libPickerRenderer._restrictionSites = (entry.cut_sites || []).map(cs => ({
     enzymeName: cs.enzyme, topStrandCut: cs.position
   }));
@@ -2639,7 +2637,6 @@ function renderLibManagerPreview(entry) {
     features: entry.features || []
   });
   libManagerRenderer = new PlasmidRenderer(canvas, p);
-  libManagerRenderer.rsAngleOffset = libManagerCat === 'vectors' ? 30 * Math.PI / 180 : 4.5 * Math.PI / 180;
   libManagerRenderer._restrictionSites = (entry.cut_sites || []).map(cs => ({
     enzymeName: cs.enzyme, topStrandCut: cs.position
   }));
