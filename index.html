@@ -1360,26 +1360,58 @@ function onLigationResult(e) {
     // Build recombinant plasmid and render it on the result canvas
     const vecFrag   = items.find(it => it.source === 'vector');
     const donorFrag = items.find(it => it.source === 'donor');
+    const reversed  = donorFrag && donorFrag.orientation === 'reverse';
     const insSeq    = donorFrag
-      ? (donorFrag.orientation === 'reverse'
-          ? reverseComplement(donorFrag.fragment.sequence)
-          : donorFrag.fragment.sequence)
+      ? (reversed ? reverseComplement(donorFrag.fragment.sequence) : donorFrag.fragment.sequence)
       : '';
     const vecSeq    = vecFrag ? vecFrag.fragment.sequence : CloningWorkspace.vectorPlasmid.sequence;
     const recombSeq = vecSeq + insSeq;
+    const vecLen    = vecSeq.length;
 
-    const allFeatures = items.flatMap(it => it.fragment.features);
-    const recombName  = CloningWorkspace.vectorPlasmid.name
-      + (donorFrag ? ' + ' + (donorFrag.fragment.features[0]?.name || 'insert') : '');
+    // Remap features from source-plasmid coordinates to recombinant coordinates
+    function remapFeatures(features, cutStartBp, origSeqLen, offset, fragSize, rev) {
+      return features.map(f => {
+        const fs = (f.start - cutStartBp + origSeqLen) % origSeqLen;
+        const fe = (f.end   - cutStartBp + origSeqLen) % origSeqLen;
+        if (rev) {
+          return { ...f,
+            start:  offset + (fragSize - 1 - fe),
+            end:    offset + (fragSize - 1 - fs),
+            strand: -(f.strand || 1)
+          };
+        }
+        return { ...f, start: offset + fs, end: offset + fe };
+      });
+    }
+
+    const vecFeatures = vecFrag
+      ? remapFeatures(vecFrag.fragment.features,
+          vecFrag.fragment.cutStartBp, vecFrag.fragment.origSeqLen, 0, vecLen, false)
+      : [];
+    const donFeatures = donorFrag
+      ? remapFeatures(donorFrag.fragment.features,
+          donorFrag.fragment.cutStartBp, donorFrag.fragment.origSeqLen,
+          vecLen, insSeq.length, reversed)
+      : [];
+    const allFeatures = [...vecFeatures, ...donFeatures];
+
+    // Name: insert feature names only (no vector name)
+    const recombName = donFeatures.map(f => f.name).filter(Boolean).join(' + ') || 'Recombinant';
 
     const recomb = new Plasmid({ name: recombName, sequence: recombSeq, features: allFeatures });
     const rCanvas = document.getElementById('ligResultCanvas');
     const rRenderer = new PlasmidRenderer(rCanvas, recomb);
-    const enzymesUsed = [...new Set([
-      ...CloningWorkspace.ws.vectorEnzymes,
-      ...CloningWorkspace.ws.donorEnzymesByIdx.flat()
-    ])];
-    rRenderer.render(enzymesUsed);
+
+    // Set restriction sites directly at the known junction positions
+    const sitesOnRecomb = [];
+    if (vecFrag) {
+      sitesOnRecomb.push({ enzymeName: vecFrag.fragment.leftEnd.enzyme,  topStrandCut: 0 });
+      if (vecFrag.fragment.leftEnd.enzyme !== vecFrag.fragment.rightEnd.enzyme || vecLen > 0) {
+        sitesOnRecomb.push({ enzymeName: vecFrag.fragment.rightEnd.enzyme, topStrandCut: vecLen });
+      }
+    }
+    rRenderer._restrictionSites = sitesOnRecomb;
+    rRenderer.render([]);
     celebrateCorrect(points);
 
     const dirNote = result.orientationCorrect ? '' : ' (insert reversed — partial score)';

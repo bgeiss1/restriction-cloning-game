@@ -698,6 +698,9 @@ function digestPlasmid(plasmid, enzymeNames) {
             sequence:  seq,
             size:      seq.length,
             features:  fragFeatures,
+            cutStartBp: cutStart,
+            cutEndBp:   cutEnd,
+            origSeqLen: seqLen,
             leftEnd:  {
                 enzyme:   lSite.enzymeName,
                 overhang: lEnz.overhangSeq  || '',
