@@ -12,7 +12,7 @@
       "features": [
         {
           "name": "T7 Promoter",
-          "start": 440,
+          "start": 438,
           "end": 505,
           "type": "promoter",
           "strand": 1
@@ -53,7 +53,7 @@
           "position": 725
         }
       ],
-      "base_id": "pmip_ndldfc"
+      "base_id": "pmip_hp5dpd"
     },
     "donors": [
       {
