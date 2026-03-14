@@ -79,32 +79,34 @@
     /* Mode selection screen                                               */
     /* ------------------------------------------------------------------ */
     #modeSelectScreen {
-      position: fixed; inset: 0; background: var(--bg-dark);
+      position: fixed; inset: 0;
+      background: linear-gradient(160deg, #1E4D2B 0%, #163820 60%, #0f2516 100%);
       z-index: 200; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 28px;
     }
     #modeSelectScreen h1 {
-      font-size: 2.2rem; color: var(--accent);
+      font-size: 2.2rem; color: #C8A951;
       letter-spacing: 0.06em; text-align: center;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.5);
     }
     #modeSelectScreen p {
-      color: var(--text-muted); font-size: 1rem;
+      color: #a8c5a0; font-size: 1rem;
       text-align: center; max-width: 520px; line-height: 1.7;
     }
     .mode-buttons { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
     .mode-btn {
-      background: var(--bg-mid); border: 2px solid var(--border);
+      background: rgba(255,255,255,0.06); border: 2px solid rgba(200,169,81,0.35);
       border-radius: 12px; padding: 24px 32px; cursor: pointer;
       text-align: center; width: 175px;
       transition: border-color 0.2s, background 0.2s, transform 0.15s;
-      color: var(--text-main); font-family: var(--font-sans);
+      color: #e8f5e9; font-family: var(--font-sans);
     }
-    .mode-btn:hover { border-color: var(--accent); background: var(--bg-light); transform: translateY(-3px); }
-    .mode-btn.primary-mode { border-color: var(--accent); background: var(--bg-light); width: 210px; }
-    .mode-btn.primary-mode:hover { border-color: #81D4FA; transform: translateY(-4px); }
+    .mode-btn:hover { border-color: #C8A951; background: rgba(200,169,81,0.12); transform: translateY(-3px); }
+    .mode-btn.primary-mode { border-color: #C8A951; background: rgba(200,169,81,0.15); width: 210px; }
+    .mode-btn.primary-mode:hover { border-color: #e0c060; transform: translateY(-4px); }
     .mode-icon { font-size: 2.4rem; margin-bottom: 10px; }
-    .mode-label { font-size: 1rem; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
-    .mode-desc { font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+    .mode-label { font-size: 1rem; font-weight: 700; color: #C8A951; margin-bottom: 6px; }
+    .mode-desc { font-size: 11px; color: #a8c5a0; line-height: 1.5; }
 
     /* ------------------------------------------------------------------ */
     /* Shared header                                                        */
