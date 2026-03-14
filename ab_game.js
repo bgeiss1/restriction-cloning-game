@@ -65,11 +65,10 @@ const ABGame = (() => {
       btn: 'Next →',
     },
     {
-      title: '↕ Switch antibody isotype',
-      body:  'The <strong>selector panel</strong> (left) shows your active antibody. '
-           + '<strong>Swipe up or down</strong> (mobile) or press <strong>↑ ↓</strong> (keyboard) '
-           + 'to toggle between <span class="igm">IgM</span> (pentamer) and <span class="igg">IgG</span> (monomer). '
-           + 'Try it now — switching is live!',
+      title: '↕ Switch isotype  ·  ↔ Switch specificity',
+      body:  '<strong>Swipe up/down</strong> (or <strong>↑↓</strong>) — toggle <span class="igm">IgM</span> (pentamer, 3 hits) vs <span class="igg">IgG ✦</span> (monomer, 1-shot).<br>'
+           + '<strong>Tap the selector panel</strong> (or <strong>←→</strong>) — cycle the <strong>antigen specificity</strong> (which epitope shape your antibody targets). '
+           + 'Only the matching shape will work! Try both now.',
       diagram: `
         <div style="display:flex;align-items:center;gap:18px;justify-content:center;">
           <div class="tut-swipe-arrows"><span>▲</span><span>▼</span></div>
@@ -240,12 +239,15 @@ const ABGame = (() => {
     const lbl = el('abTypeLabel');
     if (!lbl) return;
     const isIgG = ABEngine.isIgGActive();
+    const type  = ABEngine.currentEpitopeType();
+    const shape = ABSprites.EPITOPE[type]?.label ?? type;
     const { iggCount } = ABEngine.getState();
     if (isIgG) {
-      lbl.textContent = `IgG ✦ ×${iggCount}`;
+      lbl.textContent = `IgG ✦ · ${shape}`;
       lbl.style.color = 'var(--igg-color)';
     } else {
-      lbl.textContent = iggCount > 0 ? `IgM  (✦ ×${iggCount} ready)` : 'IgM';
+      const hint = iggCount > 0 ? ` (✦×${iggCount})` : '';
+      lbl.textContent = `IgM · ${shape}${hint}`;
       lbl.style.color = 'var(--igm-color)';
     }
   }
@@ -312,14 +314,22 @@ const ABGame = (() => {
   const engineCallbacks = {
     onScoreChange: n => {
       setScore(n);
-      // First kill toast during tutorial / early game
       if (!_firstKillToasted && n > 0) {
         _firstKillToasted = true;
-        toast('Pathogen neutralized! Keep firing.', 'success');
+        toast('Pathogen neutralized! Keep going.', 'success');
       }
     },
     onHealthChange: n => setHealth(n),
-    onWaveChange:   n => setWave(n),
+    onWaveChange:   n => {
+      setWave(n);
+      // New wave may add a new epitope type — announce it
+      const cfg = { epitopeCount: Math.min(1 + Math.floor((n - 1) / 2), ABSprites.EPITOPE_KEYS.length) };
+      if (cfg.epitopeCount > 1 && n > 1) {
+        const newType = ABSprites.EPITOPE_KEYS[cfg.epitopeCount - 1];
+        const shape   = ABSprites.EPITOPE[newType]?.label ?? newType;
+        toast(`New epitope: ${shape} — tap selector to switch antibody!`, 'warn');
+      }
+    },
     onIgGChange: n => {
       setIgG(n);
       updateAbLabel();
@@ -337,7 +347,21 @@ const ABGame = (() => {
       showIgGFlash();
       toast('✦ IgG Power-Up! One-shot neutralize.', 'igg');
     },
+    onSpecificityMiss: (fired, required) => {
+      const firedShape    = ABSprites.EPITOPE[fired]?.label    ?? fired;
+      const requiredShape = ABSprites.EPITOPE[required]?.label ?? required;
+      toast(`Wrong antibody (${firedShape}) — needs ${requiredShape}`, 'warn');
+    },
   };
+
+  /* ─────────────────────────────────────────────────────────────────── */
+  /*  SPECIFICITY CYCLING                                                 */
+  /* ─────────────────────────────────────────────────────────────────── */
+
+  function cycleSpecificity(dir) {
+    ABEngine.cycleSpecificity(dir);
+    updateAbLabel();
+  }
 
   /* ─────────────────────────────────────────────────────────────────── */
   /*  INPUT — TOUCH                                                       */
@@ -393,8 +417,10 @@ const ABGame = (() => {
   function onKeyDown(e) {
     if (_state === 'tutorial') {
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        ABEngine.toggleIsotype();
-        updateAbLabel();
+        e.preventDefault(); ABEngine.toggleIsotype(); updateAbLabel();
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault(); cycleSpecificity(e.key === 'ArrowRight' ? 1 : -1);
       }
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tutNext(); }
       if (e.key === 'Escape') tutSkip();
@@ -407,6 +433,11 @@ const ABGame = (() => {
         e.preventDefault();
         ABEngine.toggleIsotype();
         updateAbLabel();
+        break;
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        e.preventDefault();
+        cycleSpecificity(e.key === 'ArrowRight' ? 1 : -1);
         break;
       case ' ':
       case 'Enter':
@@ -513,6 +544,6 @@ const ABGame = (() => {
   /*  PUBLIC API                                                          */
   /* ─────────────────────────────────────────────────────────────────── */
 
-  return { start, pause, resume, restart, tutNext, tutSkip };
+  return { start, pause, resume, restart, tutNext, tutSkip, cycleSpecificity };
 
 })();

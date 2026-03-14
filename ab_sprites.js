@@ -120,13 +120,16 @@ const ABSprites = (() => {
    * @param {string} color
    * @param {number} alpha
    */
-  function drawIgMPentamer(ctx, cx, cy, size, color, alpha = 1) {
+  /**
+   * @param {string|null} epitopeType  if set, draws the target epitope at all Fab tips
+   */
+  function drawIgMPentamer(ctx, cx, cy, size, color, alpha = 1, epitopeType = null) {
     ctx.save();
     ctx.translate(cx, cy);
 
     const n     = 5;
-    const ringR = size * 0.48;   // radius of the monomer ring
-    const arm   = size * 0.37;   // each monomer's arm length
+    const ringR = size * 0.48;
+    const arm   = size * 0.37;
     const lw    = Math.max(1, size * 0.08);
 
     // J-chain: faint spokes from center to each Fc region
@@ -144,13 +147,12 @@ const ABSprites = (() => {
       ctx.stroke();
     }
 
-    // 5 IgG monomers: hinge at ring position, Fab arms pointing outward
-    // drawYShape(angle = a) → Fab arms radiate outward, Fc stalk points inward ✓
+    // 5 IgG monomers: Fab arms point outward, Fc stalk points inward
     for (let i = 0; i < n; i++) {
       const a  = (i / n) * Math.PI * 2 - Math.PI / 2;
       const ux = Math.cos(a) * ringR;
       const uy = Math.sin(a) * ringR;
-      drawYShape(ctx, ux, uy, arm, color, a, alpha, null);
+      drawYShape(ctx, ux, uy, arm, color, a, alpha, epitopeType);
     }
 
     ctx.restore();
@@ -250,54 +252,63 @@ const ABSprites = (() => {
   /* ─────────────────────────────────────────────────────────────────── */
 
   /**
-   * Draw a virus-like pathogen.
+   * Draw a virus-like pathogen with spinning spikes and epitope shapes at tips.
    * @param {CanvasRenderingContext2D} ctx
-   * @param {Object} p  pathogen data:
-   *   { x, y, r, colorIdx, spikes[], epitopes[{type, angle, isDecoy}],
-   *     hp, maxHp, hitFlash, scale }
+   * @param {Object} p  { x, y, r, colorIdx, spikes[], spikeEpitopes[],
+   *                      rotation, hp, maxHp, hitFlash, scale }
    */
   function drawPathogen(ctx, p) {
     const { x, y, r } = p;
     const pal = PATHOGEN_COLORS[p.colorIdx % PATHOGEN_COLORS.length];
-    const sc = p.scale ?? 1;
+    const sc  = p.scale ?? 1;
 
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(sc, sc);
 
-    // ── Hit flash ────────────────────────────────────────────────────
-    if (p.hitFlash > 0) {
-      ctx.globalAlpha = 0.4 + 0.6 * (p.hitFlash);
+    // ── HP bar — drawn BEFORE rotation so it stays horizontal ─────────
+    if (p.hp < p.maxHp) {
+      ctx.save();
+      const bw = r * 1.9, bh = 5;
+      const bx = -bw / 2, by = -(r * sc + 18);
+      ctx.globalAlpha = 0.88;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 2); ctx.fill();
+      ctx.fillStyle = hpColor(p.hp / p.maxHp);
+      ctx.beginPath(); ctx.roundRect(bx, by, bw * (p.hp / p.maxHp), bh, 2); ctx.fill();
+      ctx.restore();
     }
 
-    // ── Spike proteins (corona-style) ────────────────────────────────
-    const spikeCount = p.spikes.length;
-    for (let i = 0; i < spikeCount; i++) {
-      const a = p.spikes[i];
+    // ── Apply rotation (spins spikes + body together) ─────────────────
+    ctx.rotate(p.rotation ?? 0);
+
+    // ── Spike proteins — epitope shape replaces the ball cap ──────────
+    ctx.lineCap = 'round';
+    for (let i = 0; i < p.spikes.length; i++) {
+      const a        = p.spikes[i];
+      const spikeLen = r * 0.5;
       const sx1 = Math.cos(a) * r;
       const sy1 = Math.sin(a) * r;
-      const spikeLen = r * 0.45;
       const sx2 = Math.cos(a) * (r + spikeLen);
       const sy2 = Math.sin(a) * (r + spikeLen);
 
-      // Spike stalk
+      // Stalk
       ctx.beginPath();
       ctx.moveTo(sx1, sy1);
       ctx.lineTo(sx2, sy2);
       ctx.strokeStyle = pal.rim;
-      ctx.lineWidth = r * 0.12;
-      ctx.lineCap = 'round';
+      ctx.lineWidth = r * 0.11;
       ctx.stroke();
 
-      // Spike head (small ball)
-      ctx.beginPath();
-      ctx.arc(sx2, sy2, r * 0.12, 0, Math.PI * 2);
-      ctx.fillStyle = pal.rim;
-      ctx.fill();
+      // Epitope shape at tip
+      const ep = p.spikeEpitopes?.[i];
+      if (ep) {
+        const eR = r * 0.24;
+        drawEpitope(ctx, sx2, sy2, ep.type, eR, ep.isDecoy ? 0.42 : 1, ep.isDecoy);
+      }
     }
 
-    // ── Body ─────────────────────────────────────────────────────────
-    // Radial gradient — lighter rim
+    // ── Body ──────────────────────────────────────────────────────────
     const grad = ctx.createRadialGradient(-r * 0.25, -r * 0.25, r * 0.1, 0, 0, r);
     grad.addColorStop(0, lighten(pal.body, 0.35));
     grad.addColorStop(0.6, pal.body);
@@ -310,50 +321,27 @@ const ABSprites = (() => {
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
-    // ── Surface texture (subtle) ──────────────────────────────────────
-    ctx.globalAlpha = (p.hitFlash > 0 ? 0.3 : 0.12);
+    // ── Surface texture (subtle internal markings) ────────────────────
+    ctx.save();
+    ctx.globalAlpha = 0.1;
     for (let k = 0; k < 4; k++) {
       const ta = (k / 4) * Math.PI * 2;
-      const tr = r * 0.35;
       ctx.beginPath();
-      ctx.arc(Math.cos(ta) * tr, Math.sin(ta) * tr, r * 0.18, 0, Math.PI * 2);
+      ctx.arc(Math.cos(ta) * r * 0.35, Math.sin(ta) * r * 0.35, r * 0.17, 0, Math.PI * 2);
       ctx.fillStyle = pal.rim;
       ctx.fill();
     }
-    ctx.globalAlpha = p.hitFlash > 0 ? 0.4 + 0.6 * p.hitFlash : 1;
+    ctx.restore();
 
-    // ── HP bar (above pathogen) ───────────────────────────────────────
-    if (p.hp < p.maxHp) {
-      const bw = r * 1.8;
-      const bh = 5;
-      const bx = -bw / 2;
-      const by = -(r + 16);
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    // ── White hit-flash overlay ───────────────────────────────────────
+    if (p.hitFlash > 0) {
+      ctx.save();
+      ctx.globalAlpha = p.hitFlash * 0.5;
+      ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.roundRect(bx, by, bw, bh, 2);
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = hpColor(p.hp / p.maxHp);
-      ctx.beginPath();
-      ctx.roundRect(bx, by, bw * (p.hp / p.maxHp), bh, 2);
-      ctx.fill();
-      ctx.globalAlpha = p.hitFlash > 0 ? 0.4 + 0.6 * p.hitFlash : 1;
-    }
-
-    // ── Epitopes (mounted on surface) ────────────────────────────────
-    for (const ep of p.epitopes) {
-      const ea = ep.angle;
-      const eDist = r + r * 0.3;  // sit on the surface
-      const ex = Math.cos(ea) * eDist;
-      const ey = Math.sin(ea) * eDist;
-      const eR = r * 0.28;
-
-      if (ep.isDecoy) {
-        // Decoy: drawn outline only (appears in later waves, drawn differently)
-        drawEpitope(ctx, ex, ey, ep.type, eR, 0.6, true);
-      } else {
-        drawEpitope(ctx, ex, ey, ep.type, eR, 1, false);
-      }
+      ctx.restore();
     }
 
     ctx.restore();
@@ -412,7 +400,7 @@ const ABSprites = (() => {
       ctx.translate(x, y);
       ctx.rotate(proj.spin ?? 0);
       ctx.translate(-x, -y);
-      drawIgMPentamer(ctx, x, y, size, color, proj.alpha ?? 1);
+      drawIgMPentamer(ctx, x, y, size, color, proj.alpha ?? 1, proj.epitopeType);
       ctx.restore();
     }
   }
@@ -541,21 +529,21 @@ const ABSprites = (() => {
 
   /**
    * Draw the antibody selector onto its dedicated 56×56 canvas.
-   * IgM → pentamer (blue), IgG → monomer (gold)
-   * @param {CanvasRenderingContext2D} ctx  (from #abSelectorCanvas)
+   * IgM → pentamer (blue), IgG → monomer (gold).
+   * Both show the current epitope specificity shape at the Fab tips.
+   * @param {CanvasRenderingContext2D} ctx
    * @param {boolean} isIgG
+   * @param {string}  epitopeType  current specificity key
    */
-  function drawSelector(ctx, isIgG) {
+  function drawSelector(ctx, isIgG, epitopeType) {
     const W = ctx.canvas.width;
     const H = ctx.canvas.height;
     ctx.clearRect(0, 0, W, H);
 
     if (isIgG) {
-      // IgG: single gold Y-shape pointing right
-      drawYShape(ctx, W * 0.5, H * 0.5, W * 0.33, '#C8A951', 0, 1, null);
+      drawYShape(ctx, W * 0.5, H * 0.5, W * 0.33, '#C8A951', 0, 1, epitopeType);
     } else {
-      // IgM: blue pentamer centered in box
-      drawIgMPentamer(ctx, W * 0.5, H * 0.5, W * 0.46, '#4D96FF', 1);
+      drawIgMPentamer(ctx, W * 0.5, H * 0.5, W * 0.44, '#4D96FF', 1, epitopeType);
     }
   }
 

@@ -39,12 +39,12 @@ const ABEngine = (() => {
   let waveLockTimer  = 0;
 
   /* ── Player / score ───────────────────────────────────────────────── */
-  let score      = 0;
-  let kills      = 0;
-  let health     = 100;     // 0–100
-  let iggCount   = 0;
-  let _isIgG     = false;   // active antibody type
-  let _epitopeIdx = 0;      // index into EPITOPE_KEYS (current target)
+  let score       = 0;
+  let kills       = 0;
+  let health      = 100;    // 0–100
+  let iggCount    = 0;
+  let _isIgG      = false;  // active antibody isotype
+  let _epitopeIdx = 0;      // index into EPITOPE_KEYS — current specificity
 
   /* ── Fire cooldown ───────────────────────────────────────────────── */
   let fireCooldown = 0;     // frames remaining before player can fire again
@@ -55,9 +55,10 @@ const ABEngine = (() => {
   let onHealthChange = () => {};
   let onWaveChange   = () => {};
   let onIgGChange    = () => {};
-  let onGameOver     = () => {};
-  let onWaveBanner   = () => {};
-  let onIgGPickup    = () => {};
+  let onGameOver       = () => {};
+  let onWaveBanner     = () => {};
+  let onIgGPickup      = () => {};
+  let onSpecificityMiss = () => {};
 
   /* ─────────────────────────────────────────────────────────────────── */
   /*  WAVE CONFIG                                                         */
@@ -138,23 +139,27 @@ const ABEngine = (() => {
       spawnTimer = 999999;       // block normal spawning while tutorial runs
       _tutStopX  = W * 0.58;
       const r    = 30;
+      const tutSpikes = Array.from({ length: 8 }, (_, i) => (i / 8) * Math.PI * 2);
       pathogens.push({
-        x:         W + r + 20,
-        y:         H * 0.48,
+        x:           W + r + 20,
+        y:           H * 0.48,
         r,
-        vx:        -0.55,
-        vy:        0,
-        colorIdx:  0,
-        spikes:    Array.from({ length: 10 }, (_, i) => (i / 10) * Math.PI * 2),
-        epitopes:  [{ type: epitopeType, angle: -0.5, isDecoy: false }],
-        realType:  epitopeType,
-        hp:        3,
-        maxHp:     3,
-        hitFlash:  0,
-        scale:     1,
-        iggDrop:   true,         // guarantee IgG drop to teach that mechanic
-        isTutorial: true,
-        id:        'tutorial',
+        vx:          -0.55,
+        vy:          0,
+        colorIdx:    0,
+        spikes:      tutSpikes,
+        spikeEpitopes: tutSpikes.map(() => ({ type: epitopeType, isDecoy: false })),
+        epitopes:    [{ type: epitopeType, angle: 0, isDecoy: false }],
+        realType:    epitopeType,
+        hp:          3,
+        maxHp:       3,
+        hitFlash:    0,
+        scale:       1,
+        rotation:    0,
+        rotSpeed:    0.004,
+        iggDrop:     true,
+        isTutorial:  true,
+        id:          'tutorial',
       });
     } else {
       // Unfreeze tutorial pathogen, resume spawning
@@ -202,11 +207,23 @@ const ABEngine = (() => {
       }
     }
 
-    // Spike positions
-    const spikeCount = 7 + Math.floor(Math.random() * 5);
+    // Spikes — fewer (6–9) so epitope shapes on tips are clearly readable
+    const spikeCount = 6 + Math.floor(Math.random() * 4);
     const spikes = Array.from({ length: spikeCount }, (_, i) =>
-      (i / spikeCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.3
+      (i / spikeCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.25
     );
+
+    // Assign an epitope type to each spike tip.
+    // Most spikes show the real epitope; some show decoys in later waves.
+    const spikeEpitopes = spikes.map(() => {
+      if (cfg.decoyChance > 0 && availKeys.length > 1 &&
+          Math.random() < cfg.decoyChance * 0.55) {
+        const decoys = availKeys.filter(t => t !== realType);
+        const dt = decoys[Math.floor(Math.random() * decoys.length)];
+        return { type: dt, isDecoy: true };
+      }
+      return { type: realType, isDecoy: false };
+    });
 
     pathogens.push({
       x:         W + r + 20,
@@ -216,12 +233,15 @@ const ABEngine = (() => {
       vy:        (Math.random() - 0.5) * 0.4,
       colorIdx:  Math.floor(Math.random() * ABSprites.PATHOGEN_COLORS.length),
       spikes,
-      epitopes,
+      spikeEpitopes,
+      epitopes,        // kept for data reference (realType derivation)
       realType,
       hp:        cfg.hp,
       maxHp:     cfg.hp,
       hitFlash:  0,
       scale:     1,
+      rotation:  Math.random() * Math.PI * 2,          // random start angle
+      rotSpeed:  (0.003 + Math.random() * 0.004) * (Math.random() < 0.5 ? 1 : -1),
       iggDrop:   Math.random() < cfg.iggChance,
       id:        _tick + Math.random(),
     });
@@ -325,16 +345,16 @@ const ABEngine = (() => {
     const speed = 9;
 
     projectiles.push({
-      x: fireX,
-      y: fireY,
-      vx: (dx / dist) * speed,
-      vy: (dy / dist) * speed,
-      type: isIgG ? 'igg' : 'igm',
-      epitopeType: currentEpitope,
-      targetId: target.id,
-      alpha: 1,
-      trail: [],
-      spin: 0,        // IgM rotates slowly while in flight
+      x:           fireX,
+      y:           fireY,
+      vx:          (dx / dist) * speed,
+      vy:          (dy / dist) * speed,
+      type:        isIgG ? 'igg' : 'igm',
+      epitopeType: currentEpitopeType(),   // current specificity
+      targetId:    target.id,
+      alpha:       1,
+      trail:       [],
+      spin:        0,
     });
 
     if (isIgG) {
@@ -359,7 +379,6 @@ const ABEngine = (() => {
   /**
    * Toggle between IgM (pentamer, 3 hits) and IgG (monomer, 1-shot).
    * Switch to IgG only when charges are available; auto-reverts to IgM at 0.
-   * Returns the new isotype string: 'igm' | 'igg'
    */
   function toggleIsotype() {
     if (_isIgG) {
@@ -367,8 +386,17 @@ const ABEngine = (() => {
     } else if (iggCount > 0) {
       _isIgG = true;
     }
-    onIgGChange(iggCount);  // trigger label refresh
-    return _isIgG ? 'igg' : 'igm';
+    onIgGChange(iggCount);  // trigger label + selector refresh
+  }
+
+  /**
+   * Cycle through antigen specificities (which epitope type this antibody targets).
+   * Works across all 5 types from the start so players can learn the full palette.
+   */
+  function cycleSpecificity(dir) {
+    _epitopeIdx = ((_epitopeIdx + dir) % ABSprites.EPITOPE_KEYS.length
+                   + ABSprites.EPITOPE_KEYS.length) % ABSprites.EPITOPE_KEYS.length;
+    onIgGChange(iggCount);  // reuse callback to trigger label refresh
   }
 
   function currentEpitopeType() {
@@ -397,25 +425,29 @@ const ABEngine = (() => {
         hit = true;
         const hitColor = proj.type === 'igg' ? '#C8A951' : '#4D96FF';
 
-        // Any antibody damages any pathogen — isotype determines how many hits
-        const dmg = proj.type === 'igg' ? p.hp : 1;   // IgG = instant neutralize
+        // Specificity check — antibody must match pathogen's real epitope
+        if (proj.epitopeType !== p.realType) {
+          spawnMissParticles(proj.x, proj.y);
+          onSpecificityMiss(proj.epitopeType, p.realType);
+          break;
+        }
+
+        // Correct specificity — isotype determines damage
+        const dmg = proj.type === 'igg' ? p.hp : 1;
         p.hp -= dmg;
         p.hitFlash = 1;
 
         if (p.hp <= 0) {
-          // NEUTRALIZED
           spawnNeutralizeParticles(p.x, p.y, hitColor);
           const baseScore = 10 * wave;
           score += proj.type === 'igg' ? baseScore * 2 : baseScore;
           kills++;
           waveKills++;
-
           if (p.iggDrop) {
             iggCount++;
             onIgGPickup(p.x, p.y);
             onIgGChange(iggCount);
           }
-
           pathogens.splice(ei, 1);
         } else {
           spawnHitParticles(p.x, p.y, hitColor);
@@ -476,6 +508,7 @@ const ABEngine = (() => {
           p.x = _tutStopX;
           p.vx = 0;
         }
+        p.rotation += p.rotSpeed ?? 0.004;
         if (p.hitFlash > 0) p.hitFlash -= 0.1;
         continue;
       }
@@ -490,7 +523,8 @@ const ABEngine = (() => {
       if (p.y - p.r < 56)  { p.y = 56  + p.r; p.vy = Math.abs(p.vy); }
       if (p.y + p.r > H - 44) { p.y = H - 44 - p.r; p.vy = -Math.abs(p.vy); }
 
-      // Decay hit flash
+      // Spin and decay hit flash
+      p.rotation += p.rotSpeed ?? 0.003;
       if (p.hitFlash > 0) p.hitFlash -= 0.1;
 
       // Pathogen reached player — damage host
@@ -588,7 +622,7 @@ const ABEngine = (() => {
     const selCanvas = document.getElementById('abSelectorCanvas');
     if (selCanvas) {
       const sCtx = selCanvas.getContext('2d');
-      ABSprites.drawSelector(sCtx, _isIgG);
+      ABSprites.drawSelector(sCtx, _isIgG, currentEpitopeType());
     }
   }
 
@@ -648,13 +682,14 @@ const ABEngine = (() => {
 
   function _setCallbacks(cb) {
     if (!cb) return;
-    if (cb.onScoreChange)  onScoreChange  = cb.onScoreChange;
-    if (cb.onHealthChange) onHealthChange = cb.onHealthChange;
-    if (cb.onWaveChange)   onWaveChange   = cb.onWaveChange;
-    if (cb.onIgGChange)    onIgGChange    = cb.onIgGChange;
-    if (cb.onGameOver)     onGameOver     = cb.onGameOver;
-    if (cb.onWaveBanner)   onWaveBanner   = cb.onWaveBanner;
-    if (cb.onIgGPickup)    onIgGPickup    = cb.onIgGPickup;
+    if (cb.onScoreChange)     onScoreChange     = cb.onScoreChange;
+    if (cb.onHealthChange)    onHealthChange    = cb.onHealthChange;
+    if (cb.onWaveChange)      onWaveChange      = cb.onWaveChange;
+    if (cb.onIgGChange)       onIgGChange       = cb.onIgGChange;
+    if (cb.onGameOver)        onGameOver        = cb.onGameOver;
+    if (cb.onWaveBanner)      onWaveBanner      = cb.onWaveBanner;
+    if (cb.onIgGPickup)       onIgGPickup       = cb.onIgGPickup;
+    if (cb.onSpecificityMiss) onSpecificityMiss = cb.onSpecificityMiss;
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -677,6 +712,8 @@ const ABEngine = (() => {
     stop,
     fire,
     toggleIsotype,
+    cycleSpecificity,
+    currentEpitopeType,
     isIgGActive,
     setTutorialMode,
     getState: () => ({ score, wave, kills, health, iggCount }),
