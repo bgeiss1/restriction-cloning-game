@@ -2,8 +2,8 @@
   {
     "id": "clone_01",
     "title": "Clone GFP into pUC19",
-    "description": "The first donor plasmid carries a GFP gene flanked by EcoRI and BamHI sites. Cut both plasmids with the same two enzymes, then drag the GFP fragment into the vector backbone.",
-    "teaching_point": "Using two different enzymes (EcoRI + BamHI) creates incompatible ends on each side — the insert can only ligate in one orientation.",
+    "description": "The vector in this level is pUC19, a common cloning vector with ampicilling resistance and a high-copy origin of replication. The donor plasmids include pGFP and pCMV. The goal of this level is to clone the CMV and GFP fragments into pUC19. ",
+    "teaching_point": "Using three different enzymes (EcoRI+KpnI+BamHI) to create a 3-peice ligation product.",
     "sequence_note": "",
     "vector": {
       "name": "pUC19",
@@ -66,7 +66,7 @@
     },
     "donors": [
       {
-        "name": "pDonor-GFP-test",
+        "name": "pGFP",
         "length": 3200,
         "features": [
           {
@@ -104,18 +104,6 @@
             "arrowSize": 0,
             "showArrow": true,
             "showPromoter": false
-          },
-          {
-            "name": "New Feature",
-            "start": 0,
-            "end": 100,
-            "type": "promoter",
-            "strand": 1,
-            "color": "#90caf9",
-            "lineWidth": 15,
-            "arrowSize": 0,
-            "showArrow": true,
-            "showPromoter": true
           }
         ],
         "cut_sites": [
@@ -135,7 +123,7 @@
         ]
       },
       {
-        "name": "New Plasmid",
+        "name": "pCMV",
         "length": 5000,
         "features": [
           {
@@ -163,7 +151,7 @@
           },
           {
             "name": "New Feature",
-            "start": 511,
+            "start": 502,
             "end": 1250,
             "type": "promoter_sym",
             "strand": 1
@@ -187,11 +175,11 @@
         "BamHI"
       ],
       "donor_enzymes": [
-        "BamHI",
+        "EcoRI",
         "KpnI",
-        "EcoRI"
+        "BamHI"
       ],
-      "correct_fragment": "CMV",
+      "correct_fragment": "sfGFP",
       "correct_orientation": "forward",
       "correct_fragments": [
         {
@@ -203,7 +191,8 @@
           "orientation": "forward"
         }
       ]
-    }
+    },
+    "mcs_enzymes": []
   },
   {
     "id": "clone_02",
@@ -212,8 +201,11 @@
     "teaching_point": "KpnI leaves a 3' overhang (GTAC) while HindIII leaves a 5' overhang (AGCT). Incompatible end types prevent reverse-orientation ligation.",
     "sequence_note": "",
     "vector": {
-      "use_pUC19": true,
-      "name": "pUC19"
+      "use_pUC19": false,
+      "name": "Custom Vector",
+      "length": 2686,
+      "features": [],
+      "cut_sites": []
     },
     "donors": [
       {
@@ -289,7 +281,7 @@
   {
     "id": "clone_03",
     "title": "Single-enzyme cloning (non-directional)",
-    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation — predict how many ligation products are possible.",
+    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation â predict how many ligation products are possible.",
     "teaching_point": "Single-enzyme cloning with a palindromic site creates two possible insert orientations and one self-ligation product. Colony screening by PCR or restriction digest is required.",
     "sequence_note": "",
     "vector": {
