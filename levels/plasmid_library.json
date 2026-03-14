@@ -64,6 +64,38 @@
           "position": 150
         }
       ]
+    },
+    {
+      "id": "custom_vector_ko108v",
+      "name": "Custom Vector",
+      "length": 2686,
+      "features": [],
+      "cut_sites": []
+    },
+    {
+      "id": "test_vector_1_0qbpxx",
+      "name": "test_vector_1",
+      "length": 2686,
+      "features": [
+        {
+          "name": "HI",
+          "start": 424,
+          "end": 671,
+          "type": "gene",
+          "strand": -1,
+          "showArrow": true
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "EcoRI",
+          "position": 731
+        },
+        {
+          "enzyme": "BamHI",
+          "position": 330
+        }
+      ]
     }
   ],
   "donors": [
@@ -357,6 +389,106 @@
         {
           "enzyme": "EcoRI",
           "position": 3900
+        }
+      ]
+    },
+    {
+      "id": "pgfp_mxhj3i",
+      "name": "pGFP",
+      "length": 3200,
+      "features": [
+        {
+          "name": "sfGFP",
+          "start": 795,
+          "end": 1551,
+          "type": "gene",
+          "strand": 1,
+          "color": "#33ff33",
+          "lineWidth": 14,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "kanR",
+          "start": 1800,
+          "end": 2669,
+          "type": "resistance",
+          "strand": -1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "pSC101 ori",
+          "start": 100,
+          "end": 550,
+          "type": "ori",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "BamHI",
+          "position": 1700
+        },
+        {
+          "enzyme": "KpnI",
+          "position": 700
+        }
+      ]
+    },
+    {
+      "id": "pcmv_id9d68",
+      "name": "pCMV",
+      "length": 5000,
+      "features": [
+        {
+          "name": "CMV",
+          "start": 100,
+          "end": 500,
+          "type": "promoter",
+          "strand": 1,
+          "color": "#90caf9",
+          "lineWidth": 9,
+          "arrowSize": 0,
+          "showPromoter": false
+        },
+        {
+          "name": "Ori",
+          "start": 1400,
+          "end": 1500,
+          "type": "ori",
+          "strand": 1,
+          "color": "#ff0000",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": false,
+          "showPromoter": false
+        },
+        {
+          "name": "New Feature",
+          "start": 502,
+          "end": 1250,
+          "type": "promoter_sym",
+          "strand": 1
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "EcoRI",
+          "position": 1
+        },
+        {
+          "enzyme": "KpnI",
+          "position": 600
         }
       ]
     }
