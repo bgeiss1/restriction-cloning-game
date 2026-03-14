@@ -569,7 +569,25 @@
     </button>
     -->
     <a class="mode-btn" href="clone_it_mobile.html" style="text-decoration:none;">
-      <div class="mode-icon">📱</div>
+      <div class="mode-icon">
+        <svg viewBox="0 0 80 80" width="58" height="58" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
+          <!-- Backbone -->
+          <circle cx="40" cy="40" r="30" fill="none" stroke="#a8c5a0" stroke-width="2"/>
+          <!-- GFP gene arc: 25°→155° -->
+          <path d="M 52.7,12.8 A 30,30 0 0,1 52.7,67.2" fill="none" stroke="#6BCB77" stroke-width="7" stroke-linecap="round"/>
+          <!-- AmpR arc: 185°→325° -->
+          <path d="M 37.4,69.9 A 30,30 0 0,1 22.8,15.4" fill="none" stroke="#FF9F43" stroke-width="7" stroke-linecap="round"/>
+          <!-- ori arc: 340°→15° -->
+          <path d="M 29.7,11.8 A 30,30 0 0,1 47.8,11.0" fill="none" stroke="#4D96FF" stroke-width="7" stroke-linecap="round"/>
+          <!-- EcoRI tick at 25° -->
+          <line x1="51.0" y1="16.4" x2="54.4" y2="9.2" stroke="#FF6B6B" stroke-width="2" stroke-linecap="round"/>
+          <!-- BamHI tick at 155° -->
+          <line x1="51.0" y1="63.6" x2="54.4" y2="70.8" stroke="#FFD93D" stroke-width="2" stroke-linecap="round"/>
+          <!-- Center label -->
+          <text x="40" y="37" text-anchor="middle" fill="#C8A951" font-size="7.5" font-weight="700" font-family="sans-serif">pUC19</text>
+          <text x="40" y="48" text-anchor="middle" fill="#a8c5a0" font-size="5.5" font-family="monospace">2686 bp</text>
+        </svg>
+      </div>
       <div class="mode-label">Clone It!</div>
       <div class="mode-desc">Tap-based restriction cloning — optimized for phones and tablets.</div>
     </a>
