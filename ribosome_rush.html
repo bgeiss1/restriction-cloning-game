@@ -175,7 +175,6 @@
     <p>Your polypeptide chain:</p>
     <div class="hud-mono" id="vicChain" style="font-size:26px;color:var(--accent);letter-spacing:4px;margin:8px 0;"></div>
     <div class="score-display" id="vicScore">0</div>
-    <div class="grade-display" id="vicGrade">A</div>
     <button class="btn-primary" id="btnRestartVic">Translate Again</button>
     <a href="index.html" class="btn-secondary">← Menu</a>
   </div>
@@ -763,9 +762,7 @@
   function doVictory() {
     if (G.state!=='VICTORY') return;
     G.score+=100;
-    const grade=G.score>=500?'S':G.score>=350?'A':G.score>=200?'B':G.score>=100?'C':'D';
     document.getElementById('vicScore').textContent=G.score;
-    document.getElementById('vicGrade').textContent='Grade '+grade;
     document.getElementById('vicChain').textContent=G.chain.map(a=>a.letter).join('');
     showScreen('victory');
   }
