@@ -46,6 +46,12 @@
       letter-spacing: 0.05em; }
     #header .level-info { font-size: 11px; color: var(--text-muted); text-align: right; }
     #header .level-title { font-size: 12px; color: var(--text); font-weight: 600; }
+    #btnMenu {
+      padding: 7px 11px; border-radius: 8px; border: 1.5px solid var(--border);
+      background: none; color: var(--text-muted); font-size: 12px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; flex-shrink: 0;
+    }
+    #btnMenu:active { background: rgba(200,169,81,0.1); }
 
     /* ── Tab bar ─────────────────────────────────────────────────────── */
     #tabBar {
@@ -199,15 +205,18 @@
     .asm-item-name  { font-size: 13px; font-weight: 700; color: var(--text); }
     .asm-item-ends  { font-size: 10px; font-family: monospace; color: var(--text-muted); margin-top: 2px; }
     .asm-item-source { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-    .asm-btns { display: flex; gap: 5px; }
+    .asm-btns { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
     .asm-btn {
-      padding: 7px 10px; border-radius: 7px; border: 1.5px solid var(--border);
+      padding: 6px 9px; border-radius: 7px; border: 1.5px solid var(--border);
       background: none; color: var(--text-muted); font-size: 12px; cursor: pointer;
       -webkit-tap-highlight-color: transparent; transition: all 0.15s;
     }
-    .asm-btn.flip { border-color: var(--warn); color: var(--warn); }
-    .asm-btn.rm   { border-color: var(--danger); color: var(--danger); }
-    .asm-btn:active { transform: scale(0.93); }
+    .asm-btn.flip { border-color: var(--warn);    color: var(--warn); }
+    .asm-btn.rm   { border-color: var(--danger);  color: var(--danger); }
+    .asm-btn.up, .asm-btn.dn { border-color: rgba(200,169,81,0.4); color: var(--text-muted); }
+    .asm-btn.up:not(:disabled):active, .asm-btn.dn:not(:disabled):active { transform: scale(0.93); }
+    .asm-btn:disabled { opacity: 0.2; cursor: default; }
+    .asm-btn:not(.up):not(.dn):active { transform: scale(0.93); }
     #asmEmpty { color: var(--text-muted); font-size: 13px; text-align: center;
       padding: 24px 0; }
 
@@ -304,10 +313,11 @@
 <!-- Header -->
 <div id="header">
   <h1>Clone It!</h1>
-  <div style="text-align:right;">
+  <div style="text-align:right; flex:1; min-width:0; margin: 0 10px;">
     <div class="level-title" id="hdrTitle">—</div>
-    <div class="level-info" id="hdrDesc" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+    <div class="level-info" id="hdrDesc" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
   </div>
+  <button id="btnMenu" onclick="window.location.href='index.html'">⌂ Menu</button>
 </div>
 
 <!-- Tab bar -->
@@ -875,6 +885,7 @@ function renderAsmList() {
     return;
   }
   list.innerHTML = '';
+  const n = _asmItems.length;
   _asmItems.forEach((item, i) => {
     const frag = item.fragment;
     const rev  = item.orientation === 'reverse';
@@ -892,13 +903,25 @@ function renderAsmList() {
       <div class="asm-item-label">
         <div class="asm-item-name">${name}</div>
         <div class="asm-item-ends">${leftEnd?.enzyme||'blunt'} ——— ${rightEnd?.enzyme||'blunt'}</div>
-        <div class="asm-item-source">${item.source} ${item.orientation === 'reverse' ? '↩ reversed' : ''}</div>
+        <div class="asm-item-source">${item.source}${item.orientation === 'reverse' ? ' ↩ reversed' : ''}</div>
       </div>
       <div class="asm-btns">
+        <button class="asm-btn up" title="Move up"   ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button class="asm-btn dn" title="Move down" ${i === n - 1 ? 'disabled' : ''}>▼</button>
         <button class="asm-btn flip" title="Flip orientation">↩</button>
         <button class="asm-btn rm"   title="Remove">✕</button>
       </div>`;
 
+    row.querySelector('.asm-btn.up').addEventListener('click', () => {
+      if (i === 0) return;
+      [_asmItems[i - 1], _asmItems[i]] = [_asmItems[i], _asmItems[i - 1]];
+      renderAsmList();
+    });
+    row.querySelector('.asm-btn.dn').addEventListener('click', () => {
+      if (i === _asmItems.length - 1) return;
+      [_asmItems[i], _asmItems[i + 1]] = [_asmItems[i + 1], _asmItems[i]];
+      renderAsmList();
+    });
     row.querySelector('.asm-btn.flip').addEventListener('click', () => {
       _asmItems[i].orientation = rev ? 'forward' : 'reverse';
       renderAsmList();
@@ -908,7 +931,6 @@ function renderAsmList() {
       renderAsmList();
       document.getElementById('btnLigate').disabled = _asmItems.length < 2;
       document.getElementById('resultArea').style.display = 'none';
-      // Un-highlight card if it exists
       refreshFragCardStates();
     });
     list.appendChild(row);
