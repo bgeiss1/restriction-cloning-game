@@ -6,17 +6,9 @@
     "teaching_point": "Using three different enzymes (EcoRI+KpnI+BamHI) to create a 3-peice ligation product.",
     "sequence_note": "",
     "vector": {
-      "name": "test_vector_1_1",
+      "name": "pCAM",
       "length": 2686,
       "features": [
-        {
-          "name": "HI",
-          "start": 424,
-          "end": 671,
-          "type": "gene",
-          "strand": -1,
-          "showArrow": true
-        },
         {
           "name": "AmpR",
           "start": 1969,
@@ -34,15 +26,23 @@
       ],
       "cut_sites": [
         {
-          "enzyme": "EcoRI",
-          "position": 306
+          "enzyme": "BamHI",
+          "position": 691
         },
         {
-          "enzyme": "BamHI",
-          "position": 751
+          "enzyme": "NheI",
+          "position": 657
+        },
+        {
+          "enzyme": "EcoRI",
+          "position": 595
+        },
+        {
+          "enzyme": "SmaI",
+          "position": 624
         }
       ],
-      "base_id": "test_vector_1_1_g1wi7c"
+      "base_id": "pcam_8jpyxm"
     },
     "donors": [
       {
@@ -265,7 +265,7 @@
   {
     "id": "clone_03",
     "title": "Single-enzyme cloning (non-directional)",
-    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ predict how many ligation products are possible.",
+    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ predict how many ligation products are possible.",
     "teaching_point": "Single-enzyme cloning with a palindromic site creates two possible insert orientations and one self-ligation product. Colony screening by PCR or restriction digest is required.",
     "sequence_note": "",
     "vector": {
