@@ -35,11 +35,11 @@
       "cut_sites": [
         {
           "enzyme": "EcoRI",
-          "position": 121
+          "position": 306
         },
         {
           "enzyme": "BamHI",
-          "position": 513
+          "position": 751
         }
       ],
       "base_id": "test_vector_1_x6l0le"
@@ -265,7 +265,7 @@
   {
     "id": "clone_03",
     "title": "Single-enzyme cloning (non-directional)",
-    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ predict how many ligation products are possible.",
+    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ predict how many ligation products are possible.",
     "teaching_point": "Single-enzyme cloning with a palindromic site creates two possible insert orientations and one self-ligation product. Colony screening by PCR or restriction digest is required.",
     "sequence_note": "",
     "vector": {
