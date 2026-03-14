@@ -6,7 +6,7 @@ Usage:
     python3 level_editor.py [levels/cloning.json]
 """
 
-import sys, json, math
+import sys, json, math, uuid
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 from copy import deepcopy
@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (
     QColorDialog, QFileDialog, QDialog, QDialogButtonBox, QFormLayout,
     QGroupBox, QCheckBox, QScrollArea, QMessageBox, QMenu, QAction,
     QSplitter, QFrame, QTabWidget, QListWidgetItem, QTextEdit, QGridLayout,
-    QToolBar, QSizePolicy
+    QToolBar, QSizePolicy, QInputDialog
 )
 from PyQt5.QtCore import Qt, QPointF, QRectF, pyqtSignal
 from PyQt5.QtGui import (
@@ -57,7 +57,8 @@ BG_LIGHT = QColor('#2C3E50')
 TEXT_COL = QColor('#CFD8DC')
 ACCENT   = QColor('#4D96FF')
 
-DEFAULT_LEVELS_FILE = Path(__file__).parent / 'levels' / 'cloning.json'
+DEFAULT_LEVELS_FILE   = Path(__file__).parent / 'levels' / 'cloning.json'
+DEFAULT_LIBRARY_FILE  = Path(__file__).parent / 'levels' / 'plasmid_library.json'
 
 # ---------------------------------------------------------------------------
 # Data models
@@ -89,6 +90,7 @@ class PlasmidModel:
     length:    int                   = 3000
     features:  List[Feature]         = field(default_factory=list)
     cut_sites: List[RestrictionSite] = field(default_factory=list)
+    base_id:   str                   = ''   # library entry id this was derived from
 
 
 @dataclass
@@ -122,8 +124,9 @@ def _plasmid_from_dict(d: dict) -> PlasmidModel:
     valid_feat = set(Feature.__dataclass_fields__)
     valid_site = set(RestrictionSite.__dataclass_fields__)
     m = PlasmidModel()
-    m.name   = d.get('name', 'Plasmid')
-    m.length = d.get('length', 3000)
+    m.name    = d.get('name', 'Plasmid')
+    m.length  = d.get('length', 3000)
+    m.base_id = d.get('base_id', '')
     m.features  = [Feature(**{k: v for k, v in f.items() if k in valid_feat})
                    for f in d.get('features', [])]
     m.cut_sites = [RestrictionSite(**{k: v for k, v in s.items() if k in valid_site})
@@ -132,12 +135,15 @@ def _plasmid_from_dict(d: dict) -> PlasmidModel:
 
 
 def _plasmid_to_dict(m: PlasmidModel) -> dict:
-    return {
+    d = {
         'name':      m.name,
         'length':    m.length,
         'features':  [asdict(f) for f in m.features],
         'cut_sites': [asdict(s) for s in m.cut_sites],
     }
+    if m.base_id:
+        d['base_id'] = m.base_id
+    return d
 
 
 def level_from_dict(d: dict) -> LevelModel:
@@ -151,7 +157,7 @@ def level_from_dict(d: dict) -> LevelModel:
     vec = d.get('vector', {})
     if vec.get('use_pUC19'):
         lm.vector_use_puc19 = True
-        lm.vector = PlasmidModel(name='pUC19')
+        lm.vector = PlasmidModel(name='pUC19', base_id=vec.get('base_id', ''))
     else:
         lm.vector_use_puc19 = False
         lm.vector = _plasmid_from_dict(vec)
@@ -181,6 +187,8 @@ def level_from_dict(d: dict) -> LevelModel:
 def level_to_dict(lm: LevelModel) -> dict:
     if lm.vector_use_puc19:
         vector_dict = {'use_pUC19': True, 'name': 'pUC19'}
+        if lm.vector.base_id:
+            vector_dict['base_id'] = lm.vector.base_id
     else:
         vector_dict = _plasmid_to_dict(lm.vector)
 
@@ -219,6 +227,112 @@ def level_to_dict(lm: LevelModel) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Plasmid Library
+# ---------------------------------------------------------------------------
+
+@dataclass
+class LibraryEntry:
+    id:       str
+    category: str          # 'vector' or 'donor'
+    plasmid:  PlasmidModel
+
+
+class PlasmidLibrary:
+    """Manages a persistent library of reusable base plasmids."""
+
+    def __init__(self):
+        self._entries: List[LibraryEntry] = []
+        self._path: Optional[Path] = None
+
+    # ------------------------------------------------------------------
+    # Load / save
+    # ------------------------------------------------------------------
+
+    def load(self, path: Path):
+        self._path = path
+        if not path.exists():
+            self._entries = []
+            return
+        with open(path) as f:
+            data = json.load(f)
+        self._entries = []
+        for cat in ('vector', 'donor'):
+            for raw in data.get(cat + 's', []):
+                entry_id = raw.get('id', self._generate_id(raw.get('name', 'entry')))
+                pm = _plasmid_from_dict(raw)
+                self._entries.append(LibraryEntry(id=entry_id, category=cat, plasmid=pm))
+
+    def save(self, path: Path = None, backup: bool = True):
+        p = path or self._path
+        if p is None:
+            return
+        if backup and p.exists():
+            ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+            bak = p.with_suffix(f'.bak_{ts}.json')
+            try:
+                bak.write_text(p.read_text())
+            except Exception:
+                pass
+        vectors, donors = [], []
+        for e in self._entries:
+            d = {'id': e.id}
+            d.update(_plasmid_to_dict(e.plasmid))
+            (vectors if e.category == 'vector' else donors).append(d)
+        with open(p, 'w') as f:
+            json.dump({'vectors': vectors, 'donors': donors}, f, indent=2)
+
+    # ------------------------------------------------------------------
+    # Queries
+    # ------------------------------------------------------------------
+
+    def get_all(self, category: str) -> List[LibraryEntry]:
+        return [e for e in self._entries if e.category == category]
+
+    def get_vectors(self) -> List[LibraryEntry]:
+        return self.get_all('vector')
+
+    def get_donors(self) -> List[LibraryEntry]:
+        return self.get_all('donor')
+
+    def get_by_id(self, entry_id: str) -> Optional[LibraryEntry]:
+        for e in self._entries:
+            if e.id == entry_id:
+                return e
+        return None
+
+    # ------------------------------------------------------------------
+    # CRUD
+    # ------------------------------------------------------------------
+
+    def add(self, category: str, plasmid: PlasmidModel) -> str:
+        entry_id = self._generate_id(plasmid.name)
+        self._entries.append(LibraryEntry(id=entry_id, category=category,
+                                          plasmid=deepcopy(plasmid)))
+        return entry_id
+
+    def update(self, entry_id: str, plasmid: PlasmidModel):
+        for e in self._entries:
+            if e.id == entry_id:
+                e.plasmid = deepcopy(plasmid)
+                return
+
+    def delete(self, entry_id: str):
+        self._entries = [e for e in self._entries if e.id != entry_id]
+
+    def find_or_add(self, category: str, plasmid: PlasmidModel) -> str:
+        """Return existing entry ID matching name+category, or create a new one."""
+        for e in self._entries:
+            if e.category == category and e.plasmid.name == plasmid.name:
+                return e.id
+        return self.add(category, plasmid)
+
+    def _generate_id(self, name: str) -> str:
+        slug = ''.join(c if c.isalnum() else '_' for c in name)[:20].strip('_') or 'entry'
+        uid  = str(uuid.uuid4())[:6]
+        return f'{slug}_{uid}'
+
+
+# ---------------------------------------------------------------------------
 # Canvas  (copied from plasmid_editor.py; _main_window → _editor_widget)
 # ---------------------------------------------------------------------------
 
@@ -231,8 +345,9 @@ class PlasmidCanvas(QWidget):
     INNER_R  = 0.23
     FEAT_OFF = 0.048
 
-    def __init__(self, parent=None):
+    def __init__(self, interactive=True, parent=None):
         super().__init__(parent)
+        self._interactive  = interactive
         self.model         = PlasmidModel()
         self._selected     = None
         self._drag_handle  = None
@@ -547,6 +662,8 @@ class PlasmidCanvas(QWidget):
     # ------------------------------------------------------------------
 
     def mousePressEvent(self, event):
+        if not self._interactive:
+            return
         if event.button() == Qt.LeftButton:
             item, handle = self._hit(QPointF(event.pos()))
             self._selected = item
@@ -562,6 +679,8 @@ class PlasmidCanvas(QWidget):
                 self._context_menu(event.globalPos(), item)
 
     def mouseMoveEvent(self, event):
+        if not self._interactive:
+            return
         if self._drag_handle:
             handle, feat = self._drag_handle
             cx, cy = self.width()/2, self.height()/2
@@ -580,9 +699,13 @@ class PlasmidCanvas(QWidget):
             self.update()
 
     def mouseReleaseEvent(self, _):
+        if not self._interactive:
+            return
         self._drag_handle = None
 
     def wheelEvent(self, event):
+        if not self._interactive:
+            return
         delta = event.angleDelta().y()
         factor = 1.15 if delta > 0 else 1 / 1.15
         self._zoom = max(0.4, min(5.0, self._zoom * factor))
@@ -927,20 +1050,62 @@ class PropertiesPanel(QWidget):
 class PlasmidEditorWidget(QWidget):
     """Wraps PlasmidCanvas + PropertiesPanel in a horizontal splitter.
 
-    Exposes edit_feature / edit_restriction_site so _editor_widget() resolves
-    to this widget via hasattr(w, 'edit_feature').
+    Pass library + category to enable the library toolbar (Pick from Library,
+    Reset to Base, Edit Base Plasmid toggle).
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, library=None, category='donor', parent=None):
         super().__init__(parent)
+        self._library  = library
+        self._category = category
+        self._base_id  = ''
+        self._edit_base_mode    = False
+        self._frozen_level_model: Optional[PlasmidModel] = None
         self._build()
 
     def _build(self):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(4)
+        root.setSpacing(2)
 
-        # pUC19 checkbox row (hidden by default)
+        # ---- Library toolbar (shown when library is set) ----
+        self._lib_bar = QWidget()
+        lib_layout = QHBoxLayout(self._lib_bar)
+        lib_layout.setContentsMargins(6, 4, 6, 2)
+        lib_layout.setSpacing(6)
+        self._source_label = QLabel('Source: —')
+        self._source_label.setStyleSheet('color: #90A4AE; font-size: 11px;')
+        lib_layout.addWidget(self._source_label)
+        lib_layout.addStretch()
+        self._pick_btn = QPushButton('Pick from Library')
+        self._pick_btn.setFixedWidth(130)
+        self._pick_btn.clicked.connect(self._pick_from_library)
+        lib_layout.addWidget(self._pick_btn)
+        self._reset_btn = QPushButton('Reset to Base')
+        self._reset_btn.setFixedWidth(110)
+        self._reset_btn.setEnabled(False)
+        self._reset_btn.clicked.connect(self._reset_to_base)
+        lib_layout.addWidget(self._reset_btn)
+        self._edit_base_cb = QCheckBox('Edit Base Plasmid')
+        self._edit_base_cb.setToolTip(
+            'When checked, edits modify the shared library entry.\n'
+            'The level copy is not updated until you click "Reset to Base".')
+        self._edit_base_cb.setEnabled(False)
+        self._edit_base_cb.toggled.connect(self._on_edit_base_toggled)
+        lib_layout.addWidget(self._edit_base_cb)
+        self._lib_bar.setVisible(library is not None)
+        root.addWidget(self._lib_bar)
+
+        # ---- Edit-base mode banner ----
+        self._edit_base_banner = QLabel(
+            '  \u26a0  Editing shared library plasmid — '
+            'level copy is frozen until "Reset to Base"')
+        self._edit_base_banner.setStyleSheet(
+            'background: #3D2E00; color: #FFB300; padding: 4px 8px; font-size: 11px;')
+        self._edit_base_banner.setVisible(False)
+        root.addWidget(self._edit_base_banner)
+
+        # ---- pUC19 checkbox row (hidden by default, shown for vector tab) ----
         self._puc19_row = QWidget()
         row_layout = QHBoxLayout(self._puc19_row)
         row_layout.setContentsMargins(6, 4, 6, 0)
@@ -951,7 +1116,7 @@ class PlasmidEditorWidget(QWidget):
         self._puc19_row.setVisible(False)
         root.addWidget(self._puc19_row)
 
-        # Zoom control strip
+        # ---- Zoom control strip ----
         zoom_bar = QWidget()
         zbl = QHBoxLayout(zoom_bar)
         zbl.setContentsMargins(6, 2, 6, 2)
@@ -974,7 +1139,7 @@ class PlasmidEditorWidget(QWidget):
         zbl.addStretch()
         root.addWidget(zoom_bar)
 
-        # Canvas + props splitter
+        # ---- Canvas + props splitter ----
         self._splitter = QSplitter(Qt.Horizontal)
         self.canvas = PlasmidCanvas()
         self.canvas.zoomChanged.connect(self._on_zoom_changed)
@@ -990,6 +1155,117 @@ class PlasmidEditorWidget(QWidget):
         self._splitter.setStretchFactor(0, 3)
         self._splitter.setStretchFactor(1, 1)
         root.addWidget(self._splitter)
+
+    # ------------------------------------------------------------------
+    # Library toolbar
+    # ------------------------------------------------------------------
+
+    def _update_source_label(self):
+        if not self._library:
+            return
+        if not self._base_id:
+            self._source_label.setText('Source: — (custom)')
+        else:
+            entry = self._library.get_by_id(self._base_id)
+            name  = entry.plasmid.name if entry else '(missing)'
+            self._source_label.setText(f'Source: {name}')
+
+    def _update_toolbar_state(self):
+        has_base = bool(self._base_id) and self._library is not None
+        self._reset_btn.setEnabled(has_base and not self._edit_base_mode)
+        self._edit_base_cb.setEnabled(has_base)
+        if not has_base:
+            self._edit_base_cb.blockSignals(True)
+            self._edit_base_cb.setChecked(False)
+            self._edit_base_cb.blockSignals(False)
+
+    def _pick_from_library(self):
+        if self._library is None:
+            return
+        if self._edit_base_mode:
+            self._edit_base_cb.setChecked(False)   # saves + exits edit-base first
+        dlg = LibraryPickerDialog(self._library, self._category, self)
+        if dlg.exec_() != QDialog.Accepted:
+            return
+        entry = dlg.selected_entry()
+        if entry is None:
+            # "Start from Scratch"
+            self._base_id = ''
+            self.canvas.model = PlasmidModel()
+        else:
+            self._base_id = entry.id
+            self.canvas.model = deepcopy(entry.plasmid)
+        self.canvas.model.base_id = ''   # stored via self._base_id
+        self.canvas._selected = None
+        self.props._refresh()
+        self.canvas.update()
+        self._update_source_label()
+        self._update_toolbar_state()
+
+    def _reset_to_base(self):
+        if not self._base_id or self._library is None:
+            return
+        if self._edit_base_mode:
+            self._edit_base_cb.setChecked(False)
+        entry = self._library.get_by_id(self._base_id)
+        if entry is None:
+            QMessageBox.warning(self, 'Library Entry Not Found',
+                f'Library entry "{self._base_id}" no longer exists.')
+            return
+        reply = QMessageBox.question(
+            self, 'Reset to Base',
+            f'Replace this level\'s plasmid with the library version of '
+            f'"{entry.plasmid.name}"?\nLocal edits will be lost.',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        self.canvas.model = deepcopy(entry.plasmid)
+        self.canvas.model.base_id = ''
+        self.canvas._selected = None
+        self.props._refresh()
+        self.canvas.update()
+
+    def _on_edit_base_toggled(self, checked: bool):
+        if checked:
+            self._enter_edit_base_mode()
+        else:
+            self._exit_edit_base_mode()
+
+    def _enter_edit_base_mode(self):
+        if not self._base_id or self._library is None:
+            self._edit_base_cb.blockSignals(True)
+            self._edit_base_cb.setChecked(False)
+            self._edit_base_cb.blockSignals(False)
+            return
+        entry = self._library.get_by_id(self._base_id)
+        if entry is None:
+            return
+        self._frozen_level_model = deepcopy(self.canvas.model)
+        self._frozen_level_model.base_id = self._base_id
+        self.canvas.model = deepcopy(entry.plasmid)
+        self.canvas._selected = None
+        self._edit_base_mode = True
+        self.props._refresh()
+        self.canvas.update()
+        self._edit_base_banner.setVisible(True)
+        self._reset_btn.setEnabled(False)
+
+    def _exit_edit_base_mode(self):
+        if not self._edit_base_mode:
+            return
+        # Persist canvas state → library
+        if self._library and self._base_id:
+            self._library.update(self._base_id, self.canvas.model)
+            self._library.save(backup=False)
+        # Restore frozen level copy
+        if self._frozen_level_model is not None:
+            self.canvas.model = self._frozen_level_model
+            self._frozen_level_model = None
+        self._edit_base_mode = False
+        self.props._refresh()
+        self.canvas.update()
+        self._edit_base_banner.setVisible(False)
+        self._update_toolbar_state()
 
     # ------------------------------------------------------------------
     # Zoom helpers
@@ -1015,6 +1291,8 @@ class PlasmidEditorWidget(QWidget):
 
     def _on_puc19_toggled(self, checked: bool):
         self._splitter.setEnabled(not checked)
+        if self._library is not None:
+            self._lib_bar.setEnabled(not checked)
 
     def enable_puc19_toggle(self, visible: bool):
         self._puc19_row.setVisible(visible)
@@ -1024,6 +1302,8 @@ class PlasmidEditorWidget(QWidget):
         self._puc19_cb.setChecked(value)
         self._puc19_cb.blockSignals(False)
         self._splitter.setEnabled(not value)
+        if self._library is not None:
+            self._lib_bar.setEnabled(not value)
 
     def get_use_puc19(self) -> bool:
         return self._puc19_cb.isChecked()
@@ -1033,13 +1313,32 @@ class PlasmidEditorWidget(QWidget):
     # ------------------------------------------------------------------
 
     def load_plasmid(self, model: PlasmidModel):
-        self.canvas.model     = deepcopy(model)
+        # Exit edit-base mode silently (no library save — caller owns the data)
+        if self._edit_base_mode:
+            self._edit_base_mode = False
+            self._frozen_level_model = None
+            self._edit_base_banner.setVisible(False)
+            self._edit_base_cb.blockSignals(True)
+            self._edit_base_cb.setChecked(False)
+            self._edit_base_cb.blockSignals(False)
+        self._base_id = model.base_id
+        self.canvas.model = deepcopy(model)
+        self.canvas.model.base_id = ''   # keep base_id only in self._base_id
         self.canvas._selected = None
         self.props._refresh()
         self.canvas.update()
+        if self._library is not None:
+            self._update_source_label()
+            self._update_toolbar_state()
 
     def get_plasmid(self) -> PlasmidModel:
-        return deepcopy(self.canvas.model)
+        """Return the level's copy of the plasmid (frozen copy if in edit-base mode)."""
+        if self._edit_base_mode and self._frozen_level_model is not None:
+            m = deepcopy(self._frozen_level_model)
+        else:
+            m = deepcopy(self.canvas.model)
+        m.base_id = self._base_id
+        return m
 
     # ------------------------------------------------------------------
     # Edit helpers (called from canvas context menu and sidebar)
@@ -1064,6 +1363,279 @@ class PlasmidEditorWidget(QWidget):
             self.canvas._selected = updated
             self.props._refresh()
             self.canvas.update()
+
+
+# ---------------------------------------------------------------------------
+# LibraryPickerDialog
+# ---------------------------------------------------------------------------
+
+class LibraryPickerDialog(QDialog):
+    """Pick a plasmid from the library, or start from scratch."""
+
+    def __init__(self, library: PlasmidLibrary, category: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f'Pick from Library — {category.title()}s')
+        self.setMinimumSize(820, 560)
+        self._library  = library
+        self._category = category
+        self._selected: Optional[LibraryEntry] = None
+        self._build()
+
+    def _build(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(10, 10, 10, 10)
+        root.setSpacing(8)
+
+        splitter = QSplitter(Qt.Horizontal)
+
+        # Left: entry list
+        left = QWidget()
+        lv = QVBoxLayout(left)
+        lv.setContentsMargins(0, 0, 0, 0)
+        lv.addWidget(QLabel(f'Available {self._category}s:'))
+        self._list = QListWidget()
+        self._list.currentRowChanged.connect(self._on_row_changed)
+        self._list.itemDoubleClicked.connect(lambda _: self._on_pick())
+        lv.addWidget(self._list)
+        splitter.addWidget(left)
+
+        # Right: read-only preview canvas
+        right = QWidget()
+        rv = QVBoxLayout(right)
+        rv.setContentsMargins(0, 0, 0, 0)
+        rv.addWidget(QLabel('Preview:'))
+        self._preview = PlasmidCanvas(interactive=False)
+        self._preview.setMinimumSize(420, 420)
+        rv.addWidget(self._preview)
+        splitter.addWidget(right)
+
+        splitter.setSizes([220, 580])
+        root.addWidget(splitter)
+
+        # Buttons
+        btn_row = QHBoxLayout()
+        self._pick_btn = QPushButton('Pick Selected')
+        self._pick_btn.setEnabled(False)
+        self._pick_btn.clicked.connect(self._on_pick)
+        scratch_btn = QPushButton('Start from Scratch')
+        scratch_btn.clicked.connect(self._on_scratch)
+        cancel_btn = QPushButton('Cancel')
+        cancel_btn.clicked.connect(self.reject)
+        btn_row.addWidget(self._pick_btn)
+        btn_row.addWidget(scratch_btn)
+        btn_row.addStretch()
+        btn_row.addWidget(cancel_btn)
+        root.addLayout(btn_row)
+
+        # Populate list
+        entries = self._library.get_all(self._category)
+        for e in entries:
+            item = QListWidgetItem(f'{e.plasmid.name}  ({e.plasmid.length:,} bp)')
+            item.setData(Qt.UserRole, e.id)
+            self._list.addItem(item)
+        if entries:
+            self._list.setCurrentRow(0)
+
+    def _on_row_changed(self, row):
+        entries = self._library.get_all(self._category)
+        if 0 <= row < len(entries):
+            self._selected = entries[row]
+            self._preview.model = deepcopy(entries[row].plasmid)
+            self._preview.update()
+            self._pick_btn.setEnabled(True)
+        else:
+            self._selected = None
+            self._pick_btn.setEnabled(False)
+
+    def _on_pick(self):
+        if self._selected is not None:
+            self.accept()
+
+    def _on_scratch(self):
+        self._selected = None
+        self.accept()
+
+    def selected_entry(self) -> Optional[LibraryEntry]:
+        return self._selected
+
+
+# ---------------------------------------------------------------------------
+# LibraryManagerDialog
+# ---------------------------------------------------------------------------
+
+class LibraryManagerDialog(QDialog):
+    """Manage the shared plasmid library (add, edit, delete entries)."""
+
+    def __init__(self, library: PlasmidLibrary, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('Plasmid Library Manager')
+        self.setMinimumSize(1050, 660)
+        self._library = library
+        # Per-category state: (list_widget, editor_widget, current_id_ref)
+        self._vec_current_id: Optional[str] = None
+        self._don_current_id: Optional[str] = None
+        self._build()
+
+    def _build(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
+
+        self._tabs = QTabWidget()
+        self._tabs.addTab(self._build_category_tab('vector'), 'Vectors')
+        self._tabs.addTab(self._build_category_tab('donor'),  'Donors')
+        root.addWidget(self._tabs)
+
+        close_btn = QPushButton('Save && Close')
+        close_btn.setFixedWidth(120)
+        close_btn.clicked.connect(self.accept)
+        row = QHBoxLayout()
+        row.addStretch()
+        row.addWidget(close_btn)
+        root.addLayout(row)
+
+    def _build_category_tab(self, category: str) -> QWidget:
+        tab = QWidget()
+        h = QHBoxLayout(tab)
+        h.setContentsMargins(4, 4, 4, 4)
+        h.setSpacing(6)
+
+        # Left: list + CRUD buttons
+        left = QWidget()
+        left.setMaximumWidth(230)
+        lv = QVBoxLayout(left)
+        lv.setContentsMargins(0, 0, 0, 0)
+        lv.setSpacing(4)
+
+        lst = QListWidget()
+        lv.addWidget(lst)
+
+        btn_row = QHBoxLayout()
+        new_btn = QPushButton('New');   new_btn.setFixedWidth(50)
+        dup_btn = QPushButton('Dup');   dup_btn.setFixedWidth(50)
+        del_btn = QPushButton('Delete')
+        for b in [new_btn, dup_btn, del_btn]:
+            btn_row.addWidget(b)
+        lv.addLayout(btn_row)
+        h.addWidget(left)
+
+        # Right: editor (no library toolbar — always editing library directly)
+        editor = PlasmidEditorWidget()
+        h.addWidget(editor)
+
+        # Store refs on the tab widget for access in slots
+        tab._list     = lst
+        tab._editor   = editor
+        tab._category = category
+
+        # Wire list selection
+        lst.currentRowChanged.connect(
+            lambda row, t=tab: self._on_list_row_changed(t, row))
+
+        # Wire CRUD buttons
+        new_btn.clicked.connect(lambda _, t=tab: self._new_entry(t))
+        dup_btn.clicked.connect(lambda _, t=tab: self._dup_entry(t))
+        del_btn.clicked.connect(lambda _, t=tab: self._del_entry(t))
+
+        self._refresh_list(tab)
+        return tab
+
+    # ---- helpers ----
+
+    def _current_id(self, tab) -> Optional[str]:
+        return (self._vec_current_id
+                if tab._category == 'vector' else self._don_current_id)
+
+    def _set_current_id(self, tab, id_val: Optional[str]):
+        if tab._category == 'vector':
+            self._vec_current_id = id_val
+        else:
+            self._don_current_id = id_val
+
+    def _refresh_list(self, tab, select_id: str = None):
+        entries = self._library.get_all(tab._category)
+        tab._list.blockSignals(True)
+        tab._list.clear()
+        select_row = 0
+        for i, e in enumerate(entries):
+            item = QListWidgetItem(f'{e.plasmid.name}  ({e.plasmid.length:,} bp)')
+            item.setData(Qt.UserRole, e.id)
+            tab._list.addItem(item)
+            if e.id == select_id:
+                select_row = i
+        tab._list.blockSignals(False)
+        if entries:
+            tab._list.setCurrentRow(select_row)
+            self._load_entry_into_editor(tab, entries[select_row])
+        else:
+            self._set_current_id(tab, None)
+
+    def _save_current_entry(self, tab):
+        cid = self._current_id(tab)
+        if cid is not None:
+            self._library.update(cid, tab._editor.get_plasmid())
+
+    def _load_entry_into_editor(self, tab, entry: LibraryEntry):
+        self._set_current_id(tab, entry.id)
+        tab._editor.load_plasmid(entry.plasmid)
+
+    def _on_list_row_changed(self, tab, row: int):
+        self._save_current_entry(tab)
+        entries = self._library.get_all(tab._category)
+        if 0 <= row < len(entries):
+            self._load_entry_into_editor(tab, entries[row])
+        else:
+            self._set_current_id(tab, None)
+
+    def _new_entry(self, tab):
+        self._save_current_entry(tab)
+        label = 'Vector' if tab._category == 'vector' else 'Donor'
+        pm = PlasmidModel(name=f'New {label}')
+        new_id = self._library.add(tab._category, pm)
+        self._refresh_list(tab, select_id=new_id)
+
+    def _dup_entry(self, tab):
+        cid = self._current_id(tab)
+        if cid is None:
+            return
+        self._save_current_entry(tab)
+        entry = self._library.get_by_id(cid)
+        if not entry:
+            return
+        pm = deepcopy(entry.plasmid)
+        pm.name += ' (copy)'
+        new_id = self._library.add(tab._category, pm)
+        self._refresh_list(tab, select_id=new_id)
+
+    def _del_entry(self, tab):
+        cid = self._current_id(tab)
+        if cid is None:
+            return
+        entry = self._library.get_by_id(cid)
+        if not entry:
+            return
+        reply = QMessageBox.question(
+            self, 'Delete Entry',
+            f'Delete "{entry.plasmid.name}" from the library?\n'
+            'Levels using it as their base will keep their own copies.',
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        self._library.delete(cid)
+        self._set_current_id(tab, None)
+        self._refresh_list(tab)
+
+    def accept(self):
+        # Save whatever is currently displayed in each tab
+        for i in range(self._tabs.count()):
+            tab = self._tabs.widget(i)
+            if hasattr(tab, '_editor'):
+                self._save_current_entry(tab)
+        self._library.save()
+        super().accept()
+
+    def reject(self):
+        self.accept()
 
 
 # ---------------------------------------------------------------------------
@@ -1393,6 +1965,7 @@ class LevelEditorWindow(QMainWindow):
         self._current_idx: int = -1
         self._levels_file: Path = DEFAULT_LEVELS_FILE
         self._loading: bool = False
+        self._library: PlasmidLibrary = PlasmidLibrary()   # populated in load_levels_file
 
         self._build_ui()
         self._build_menu()
@@ -1435,7 +2008,7 @@ class LevelEditorWindow(QMainWindow):
 
         # Middle: tab widget with vector / donor editors
         self._tabs = QTabWidget()
-        self.vector_editor = PlasmidEditorWidget()
+        self.vector_editor = PlasmidEditorWidget(library=self._library, category='vector')
         self.vector_editor.enable_puc19_toggle(True)
         self._tabs.addTab(self.vector_editor, 'Vector')
 
@@ -1480,17 +2053,19 @@ class LevelEditorWindow(QMainWindow):
 
     def _rebuild_donor_tabs(self, initial_count=None):
         """Remove all donor tabs and recreate them from self.donor_editors."""
-        # Remove existing donor tabs (keep Vector tab at index 0)
         while self._tabs.count() > 1:
             self._tabs.removeTab(1)
         if initial_count is not None:
-            self.donor_editors = [PlasmidEditorWidget() for _ in range(initial_count)]
+            self.donor_editors = [
+                PlasmidEditorWidget(library=self._library, category='donor')
+                for _ in range(initial_count)
+            ]
         for i, ed in enumerate(self.donor_editors):
             self._tabs.addTab(ed, f'Donor {i + 1}')
 
     def _add_donor_tab(self):
         self._save_current_to_model()
-        new_ed = PlasmidEditorWidget()
+        new_ed = PlasmidEditorWidget(library=self._library, category='donor')
         self.donor_editors.append(new_ed)
         self._tabs.addTab(new_ed, f'Donor {len(self.donor_editors)}')
         self._tabs.setCurrentWidget(new_ed)
@@ -1534,6 +2109,22 @@ class LevelEditorWindow(QMainWindow):
         quit_act.triggered.connect(self.close)
         fm.addAction(quit_act)
 
+        lm = mb.addMenu('Library')
+
+        manage_act = QAction('Manage Library…', self)
+        manage_act.triggered.connect(self._open_library_manager)
+        lm.addAction(manage_act)
+
+        lm.addSeparator()
+
+        imp_vec_act = QAction('Import current vector to library', self)
+        imp_vec_act.triggered.connect(lambda: self._import_to_library('vector'))
+        lm.addAction(imp_vec_act)
+
+        imp_don_act = QAction('Import current donor to library', self)
+        imp_don_act.triggered.connect(lambda: self._import_to_library('donor'))
+        lm.addAction(imp_don_act)
+
     # ------------------------------------------------------------------
     # File operations
     # ------------------------------------------------------------------
@@ -1549,6 +2140,16 @@ class LevelEditorWindow(QMainWindow):
                 data = json.load(f)
             self._levels = [level_from_dict(d) for d in data]
             self._levels_file = path
+
+            # Load (or create) the sibling library file, then migrate
+            lib_path = path.parent / 'plasmid_library.json'
+            self._library.load(lib_path)
+            self._migrate_to_library()
+
+            # Propagate updated library reference to existing vector editor
+            self.vector_editor._library = self._library
+            self.vector_editor._lib_bar.setVisible(True)
+
             self.statusBar().showMessage(str(path))
             if self._levels:
                 self.list_panel.set_levels(self._levels, 0)
@@ -1558,6 +2159,20 @@ class LevelEditorWindow(QMainWindow):
                 self._current_idx = -1
         except Exception as e:
             QMessageBox.critical(self, 'Error opening file', str(e))
+
+    def _migrate_to_library(self):
+        """Assign base_ids to any plasmids that don't yet have one."""
+        changed = False
+        for lm in self._levels:
+            if not lm.vector_use_puc19 and not lm.vector.base_id:
+                lm.vector.base_id = self._library.find_or_add('vector', lm.vector)
+                changed = True
+            for donor in lm.donors:
+                if not donor.base_id:
+                    donor.base_id = self._library.find_or_add('donor', donor)
+                    changed = True
+        if changed:
+            self._library.save()
 
     def save_levels_file(self):
         self._save_current_to_model()
@@ -1613,7 +2228,10 @@ class LevelEditorWindow(QMainWindow):
             self.vector_editor.set_use_puc19(lm.vector_use_puc19)
 
             # Rebuild donor tabs to match number of donors in the level
-            self.donor_editors = [PlasmidEditorWidget() for _ in lm.donors]
+            self.donor_editors = [
+                PlasmidEditorWidget(library=self._library, category='donor')
+                for _ in lm.donors
+            ]
             self._rebuild_donor_tabs()
             for ed, donor in zip(self.donor_editors, lm.donors):
                 ed.load_plasmid(donor)
@@ -1643,6 +2261,46 @@ class LevelEditorWindow(QMainWindow):
             for ed in self.donor_editors
             for f in ed.canvas.model.features))
         self.settings_panel.update_objectives_options(feat_names, vec_enzymes, don_enzymes)
+
+    def _open_library_manager(self):
+        self._save_current_to_model()
+        dlg = LibraryManagerDialog(self._library, self)
+        dlg.exec_()
+        # Refresh source labels in the current level editors (names may have changed)
+        self.vector_editor._update_source_label()
+        for ed in self.donor_editors:
+            ed._update_source_label()
+
+    def _import_to_library(self, category: str):
+        if category == 'vector':
+            if self.vector_editor.get_use_puc19():
+                QMessageBox.information(self, 'Import to Library',
+                    'Cannot import pUC19 placeholder.\n'
+                    'Uncheck "Use built-in pUC19" first.')
+                return
+            editor = self.vector_editor
+        else:
+            # Use currently visible donor tab, or first donor
+            tab_idx = self._tabs.currentIndex() - 1
+            if tab_idx < 0 or tab_idx >= len(self.donor_editors):
+                tab_idx = 0
+            if not self.donor_editors:
+                return
+            editor = self.donor_editors[tab_idx]
+
+        plasmid = editor.get_plasmid()
+        name, ok = QInputDialog.getText(self, 'Import to Library',
+                                        'Library entry name:', text=plasmid.name)
+        if not ok or not name.strip():
+            return
+        plasmid.name = name.strip()
+        new_id = self._library.add(category, plasmid)
+        self._library.save()
+        editor._base_id = new_id
+        editor._update_source_label()
+        editor._update_toolbar_state()
+        QMessageBox.information(self, 'Imported',
+            f'"{plasmid.name}" added to library as a {category}.')
 
     def _new_level(self):
         self._save_current_to_model()

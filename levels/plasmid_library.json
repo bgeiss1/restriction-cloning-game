@@ -1,0 +1,364 @@
+{
+  "vectors": [
+    {
+      "id": "pUC19_1fee90",
+      "name": "pUC19",
+      "length": 3000,
+      "features": [
+        {
+          "name": "MCS",
+          "start": 50,
+          "end": 200,
+          "type": "mcs",
+          "strand": 1,
+          "color": "#006600",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": false,
+          "showPromoter": false
+        },
+        {
+          "name": "AmpR",
+          "start": 1500,
+          "end": 2000,
+          "type": "resistance",
+          "strand": -1,
+          "color": "#ccccff",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": true
+        },
+        {
+          "name": "New Feature",
+          "start": 800,
+          "end": 1000,
+          "type": "ori",
+          "strand": 1,
+          "color": "#663333",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": false,
+          "showPromoter": false
+        },
+        {
+          "name": "AmpR Promoter",
+          "start": 2058,
+          "end": 2055,
+          "type": "promoter_sym",
+          "strand": -1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "EcoRI",
+          "position": 60
+        },
+        {
+          "enzyme": "BamHI",
+          "position": 150
+        }
+      ]
+    }
+  ],
+  "donors": [
+    {
+      "id": "pDonor_GFP_test_918149",
+      "name": "pDonor-GFP-test",
+      "length": 3200,
+      "features": [
+        {
+          "name": "sfGFP",
+          "start": 795,
+          "end": 1551,
+          "type": "gene",
+          "strand": 1,
+          "color": "#33ff33",
+          "lineWidth": 14,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "kanR",
+          "start": 1800,
+          "end": 2669,
+          "type": "resistance",
+          "strand": -1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "pSC101 ori",
+          "start": 100,
+          "end": 550,
+          "type": "ori",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "New Feature",
+          "start": 0,
+          "end": 100,
+          "type": "promoter",
+          "strand": 1,
+          "color": "#90caf9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": true
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "BamHI",
+          "position": 1700
+        },
+        {
+          "enzyme": "KpnI",
+          "position": 700
+        }
+      ]
+    },
+    {
+      "id": "New_Plasmid_ea2766",
+      "name": "New Plasmid",
+      "length": 5000,
+      "features": [
+        {
+          "name": "CMV",
+          "start": 100,
+          "end": 500,
+          "type": "promoter",
+          "strand": 1,
+          "color": "#90caf9",
+          "lineWidth": 9,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "Ori",
+          "start": 1400,
+          "end": 1500,
+          "type": "ori",
+          "strand": 1,
+          "color": "#ff0000",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": false,
+          "showPromoter": false
+        },
+        {
+          "name": "New Feature",
+          "start": 511,
+          "end": 1250,
+          "type": "promoter_sym",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "EcoRI",
+          "position": 1
+        },
+        {
+          "enzyme": "KpnI",
+          "position": 600
+        }
+      ]
+    },
+    {
+      "id": "pLuc_donor_67d721",
+      "name": "pLuc-donor",
+      "length": 4100,
+      "features": [
+        {
+          "name": "Luciferase",
+          "start": 900,
+          "end": 2600,
+          "type": "gene",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "ampR",
+          "start": 2900,
+          "end": 3760,
+          "type": "resistance",
+          "strand": -1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "ColE1 ori",
+          "start": 200,
+          "end": 650,
+          "type": "ori",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "KpnI",
+          "position": 860
+        },
+        {
+          "enzyme": "HindIII",
+          "position": 2640
+        }
+      ]
+    },
+    {
+      "id": "pTet_donor_abbdc2",
+      "name": "pTet-donor",
+      "length": 2900,
+      "features": [
+        {
+          "name": "tetR",
+          "start": 600,
+          "end": 1700,
+          "type": "resistance",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "ampR",
+          "start": 2000,
+          "end": 2860,
+          "type": "resistance",
+          "strand": -1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "pMB1 ori",
+          "start": 100,
+          "end": 550,
+          "type": "ori",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "EcoRI",
+          "position": 560
+        },
+        {
+          "enzyme": "EcoRI",
+          "position": 1720
+        }
+      ]
+    },
+    {
+      "id": "pMulti_donor_912cc9",
+      "name": "pMulti-donor",
+      "length": 5400,
+      "features": [
+        {
+          "name": "mCherry",
+          "start": 1200,
+          "end": 2000,
+          "type": "gene",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "kanR",
+          "start": 3000,
+          "end": 3860,
+          "type": "resistance",
+          "strand": -1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "tetR",
+          "start": 4200,
+          "end": 5100,
+          "type": "resistance",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        },
+        {
+          "name": "pSC101 ori",
+          "start": 200,
+          "end": 700,
+          "type": "ori",
+          "strand": 1,
+          "color": "#90CAF9",
+          "lineWidth": 15,
+          "arrowSize": 0,
+          "showArrow": true,
+          "showPromoter": false
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "EcoRI",
+          "position": 1140
+        },
+        {
+          "enzyme": "EcoRI",
+          "position": 2060
+        },
+        {
+          "enzyme": "EcoRI",
+          "position": 3900
+        }
+      ]
+    }
+  ]
+}
