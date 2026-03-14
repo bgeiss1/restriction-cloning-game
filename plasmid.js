@@ -592,17 +592,18 @@ class PlasmidRenderer {
         const ctx = this.ctx;
         const { cx, cy } = this._layout;
         const sizeKb = (this.plasmid.length / 1000).toFixed(1);
+        const s = this.centerLabelScale || 1;
 
         ctx.textAlign    = 'center';
         ctx.textBaseline = 'middle';
 
-        ctx.font      = 'bold 23px sans-serif';
+        ctx.font      = `bold ${Math.round(23 * s)}px sans-serif`;
         ctx.fillStyle = '#CFD8DC';
-        ctx.fillText(this.plasmid.name, cx, cy - 14);
+        ctx.fillText(this.plasmid.name, cx, cy - Math.round(14 * s));
 
-        ctx.font      = '18px monospace';
+        ctx.font      = `${Math.round(18 * s)}px monospace`;
         ctx.fillStyle = '#90A4AE';
-        ctx.fillText(`${this.plasmid.length.toLocaleString()} bp`, cx, cy + 10);
+        ctx.fillText(`${this.plasmid.length.toLocaleString()} bp`, cx, cy + Math.round(10 * s));
 
         if (this._cutAnimState && this._cutAnimState.enzyme) {
             ctx.font      = '16px sans-serif';

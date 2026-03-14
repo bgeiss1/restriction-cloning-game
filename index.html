@@ -1139,8 +1139,8 @@ function switchDonorTab(idx) {
     document.getElementById('donorCutStatus').className   = 'cut-status';
   }
 
-  // Re-render the donor canvas for the active donor
-  if (_donorRenderers[idx]) {
+  // Re-render the donor canvas for the active donor (skip if already cut — cut state is preserved)
+  if (_donorRenderers[idx] && !_donorCutDone[idx]) {
     const donorEnzymes = [...new Set(
       (CloningWorkspace.donorPlasmids[idx]
         ? CloningWorkspace.donorPlasmids[idx].features.map(() => null) // just re-render
@@ -1357,22 +1357,13 @@ function onLigationResult(e) {
   resultScr.textContent = '+' + points + ' pts';
 
   if (result.success && result.correctCombination) {
-    // Build recombinant plasmid and render it on the result canvas
-    const vecFrag   = items.find(it => it.source === 'vector');
-    const donorFrag = items.find(it => it.source === 'donor');
-    const reversed  = donorFrag && donorFrag.orientation === 'reverse';
-    const insSeq    = donorFrag
-      ? (reversed ? reverseComplement(donorFrag.fragment.sequence) : donorFrag.fragment.sequence)
-      : '';
-    const vecSeq    = vecFrag ? vecFrag.fragment.sequence : CloningWorkspace.vectorPlasmid.sequence;
-    const recombSeq = vecSeq + insSeq;
-    const vecLen    = vecSeq.length;
-
     // Remap features from source-plasmid coordinates to recombinant coordinates
     function remapFeatures(features, cutStartBp, origSeqLen, offset, fragSize, rev) {
+      const startBp = cutStartBp ?? 0;
+      const seqLen  = origSeqLen  ?? fragSize;
       return features.map(f => {
-        const fs = (f.start - cutStartBp + origSeqLen) % origSeqLen;
-        const fe = (f.end   - cutStartBp + origSeqLen) % origSeqLen;
+        const fs = (f.start - startBp + seqLen) % seqLen;
+        const fe = (f.end   - startBp + seqLen) % seqLen;
         if (rev) {
           return { ...f,
             start:  offset + (fragSize - 1 - fe),
@@ -1384,32 +1375,36 @@ function onLigationResult(e) {
       });
     }
 
-    const vecFeatures = vecFrag
-      ? remapFeatures(vecFrag.fragment.features,
-          vecFrag.fragment.cutStartBp, vecFrag.fragment.origSeqLen, 0, vecLen, false)
-      : [];
-    const donFeatures = donorFrag
-      ? remapFeatures(donorFrag.fragment.features,
-          donorFrag.fragment.cutStartBp, donorFrag.fragment.origSeqLen,
-          vecLen, insSeq.length, reversed)
-      : [];
-    const allFeatures = [...vecFeatures, ...donFeatures];
+    // Assemble recombinant from all items in order; collect features and restriction sites
+    let recombSeq = '';
+    const allFeatures = [];
+    const sitesOnRecomb = [];
 
-    // Name: insert feature names only (no vector name)
-    const recombName = donFeatures.map(f => f.name).filter(Boolean).join(' + ') || 'Recombinant';
+    for (const item of items) {
+      const frag = item.fragment;
+      const rev  = item.orientation === 'reverse';
+      const seq  = rev ? reverseComplement(frag.sequence) : frag.sequence;
+      const fragLen = seq.length;
+      const offset  = recombSeq.length;
+
+      const leftEnz = rev ? frag.rightEnd?.enzyme : frag.leftEnd?.enzyme;
+      if (leftEnz) sitesOnRecomb.push({ enzymeName: leftEnz, topStrandCut: offset });
+
+      allFeatures.push(...remapFeatures(frag.features, frag.cutStartBp, frag.origSeqLen, offset, fragLen, rev));
+      recombSeq += seq;
+    }
+
+    // Name: concatenate all donor fragment feature names
+    const donorFeatureNames = items
+      .filter(it => it.source === 'donor')
+      .flatMap(it => it.fragment.features.map(f => f.name))
+      .filter(Boolean);
+    const recombName = donorFeatureNames.join(' + ') || 'Recombinant';
 
     const recomb = new Plasmid({ name: recombName, sequence: recombSeq, features: allFeatures });
     const rCanvas = document.getElementById('ligResultCanvas');
     const rRenderer = new PlasmidRenderer(rCanvas, recomb);
-
-    // Set restriction sites directly at the known junction positions
-    const sitesOnRecomb = [];
-    if (vecFrag) {
-      sitesOnRecomb.push({ enzymeName: vecFrag.fragment.leftEnd.enzyme,  topStrandCut: 0 });
-      if (vecFrag.fragment.leftEnd.enzyme !== vecFrag.fragment.rightEnd.enzyme || vecLen > 0) {
-        sitesOnRecomb.push({ enzymeName: vecFrag.fragment.rightEnd.enzyme, topStrandCut: vecLen });
-      }
-    }
+    rRenderer.centerLabelScale = 0.5;
     rRenderer._restrictionSites = sitesOnRecomb;
     rRenderer.render([]);
     celebrateCorrect(points);
