@@ -458,12 +458,25 @@ function cutDNA(sequence, cutSite) {
 //   }
 // ---------------------------------------------------------------------------
 function areEndsCompatible(end1, end2) {
+    const seq1  = (end1.overhangSeq || '').toUpperCase();
+    const seq2  = (end2.overhangSeq || '').toUpperCase();
+    const type1 = end1.type === '5prime' ? "5'" : end1.type === '3prime' ? "3'" : 'blunt';
+    const type2 = end2.type === '5prime' ? "5'" : end2.type === '3prime' ? "3'" : 'blunt';
+
+    // Human-readable end label: "EcoRI (5' AATT)"
+    function endLabel(name, type, seq) {
+        if (!name) return seq ? `${type} ${seq}` : type;
+        return seq ? `${name} (${type} ${seq})` : `${name} (${type})`;
+    }
+    const label1 = endLabel(end1.enzyme, type1, seq1);
+    const label2 = endLabel(end2.enzyme, type2, seq2);
+
     // Both must be the same overhang type
     if (end1.type !== end2.type) {
         return {
             compatible:   false,
             destroysSite: false,
-            note: `Incompatible end types: ${end1.type} cannot ligate with ${end2.type}.`
+            note: `${label1} cannot ligate with ${label2} — mismatched overhang types (${type1} vs ${type2}).`
         };
     }
 
@@ -477,19 +490,14 @@ function areEndsCompatible(end1, end2) {
     }
 
     // For sticky ends: overhangs must be reverse complements of each other
-    const rc1 = reverseComplement(end1.overhangSeq || '');
-    const rc2 = reverseComplement(end2.overhangSeq || '');
-    const seq1 = (end1.overhangSeq || '').toUpperCase();
-    const seq2 = (end2.overhangSeq || '').toUpperCase();
-
-    // Overhangs anneal when one is the RC of the other
-    const anneal = (seq1 === rc2) || (seq2 === rc1);
+    const rc2   = reverseComplement(seq2);
+    const anneal = (seq1 === rc2) || (reverseComplement(seq1) === seq2);
 
     if (!anneal) {
         return {
             compatible:   false,
             destroysSite: false,
-            note: `Overhangs ${seq1} and ${seq2} are not complementary and cannot ligate.`
+            note: `${label1} and ${label2} — overhangs are not complementary and cannot ligate.`
         };
     }
 
@@ -501,20 +509,19 @@ function areEndsCompatible(end1, end2) {
     const enz2 = end2.enzyme ? EnzymeDB[end2.enzyme] : null;
 
     if (enz1 && enz2 && enz1.name !== enz2.name) {
-        // Cross-enzyme ligation: check destroysSiteWith lists
         if (
             (enz1.destroysSiteWith && enz1.destroysSiteWith.includes(enz2.name)) ||
             (enz2.destroysSiteWith && enz2.destroysSiteWith.includes(enz1.name))
         ) {
             destroysSite = true;
-            destroyNote  = ` WARNING: Ligation of ${enz1.name} + ${enz2.name} ends creates a hybrid site that is NOT cut by either enzyme.`;
+            destroyNote  = ` Note: ligation of ${enz1.name} + ${enz2.name} ends creates a hybrid site not cut by either enzyme.`;
         }
     }
 
     return {
         compatible:   true,
         destroysSite: destroysSite,
-        note: `Compatible: ${seq1} anneals with ${seq2}.` + destroyNote
+        note: `${label1} anneals with ${label2}.` + destroyNote
     };
 }
 
