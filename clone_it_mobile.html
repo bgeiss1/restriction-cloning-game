@@ -350,7 +350,6 @@
   <h1>Clone It!</h1>
   <div style="text-align:left; flex:1; min-width:0; margin: 0 10px;">
     <div class="level-title" id="hdrTitle">—</div>
-    <div class="level-info" id="hdrDesc" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
   </div>
   <button id="btnMenu" onclick="window.location.href='index.html'">⌂ Menu</button>
 </div>
@@ -632,7 +631,6 @@ function loadLevel(idx) {
   // Header
   document.getElementById('hdrTitle').innerHTML =
     (level.title || '') + ' <span style="font-size:10px;opacity:0.5;">ⓘ</span>';
-  document.getElementById('hdrDesc').textContent  = level.description || '';
   document.getElementById('levelNum').textContent = (idx + 1) + '/' + _levels.length;
   document.getElementById('btnPrev').disabled = idx === 0;
   document.getElementById('btnNext').disabled = true;
