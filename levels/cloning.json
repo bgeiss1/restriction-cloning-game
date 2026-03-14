@@ -6,10 +6,29 @@
     "teaching_point": "Using three different enzymes (EcoRI+KpnI+BamHI) to create a 3-peice ligation product.",
     "sequence_note": "",
     "vector": {
-      "name": "New Plasmid",
-      "length": 3000,
-      "features": [],
-      "cut_sites": []
+      "name": "test_vector_1",
+      "length": 2686,
+      "features": [
+        {
+          "name": "HI",
+          "start": 424,
+          "end": 671,
+          "type": "gene",
+          "strand": -1,
+          "showArrow": true
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "EcoRI",
+          "position": 731
+        },
+        {
+          "enzyme": "BamHI",
+          "position": 330
+        }
+      ],
+      "base_id": "test_vector_1_0qbpxx"
     },
     "donors": [
       {
