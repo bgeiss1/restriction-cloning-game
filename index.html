@@ -1031,7 +1031,7 @@ function initCloningWorkspace() {
     if (e.detail.side) showCanvasFlash(e.detail.side, e.detail.message, e.detail.type, 2600);
   });
 
-  const GITHUB_RAW = 'https://raw.githubusercontent.com/bgeiss1/restriction-cloning-game/main/levels/cloning.json';
+  const GITHUB_RAW = `https://raw.githubusercontent.com/bgeiss1/restriction-cloning-game/main/levels/cloning.json?t=${Date.now()}`;
   fetch(GITHUB_RAW)
     .then(r => r.ok ? r.json() : Promise.reject('github'))
     .catch(() => fetch('levels/cloning.json').then(r => r.ok ? r.json() : Promise.reject('local')))
