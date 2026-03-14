@@ -6,7 +6,7 @@
     "teaching_point": "Using three different enzymes (EcoRI+KpnI+BamHI) to create a 3-peice ligation product.",
     "sequence_note": "",
     "vector": {
-      "name": "test_vector_1",
+      "name": "test_vector_1_1",
       "length": 2686,
       "features": [
         {
