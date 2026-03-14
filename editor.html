@@ -431,6 +431,105 @@ a.btn-secondary {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg-dark); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Library toolbar ─────────────────────────────── */
+#lib-toolbar {
+  background: var(--bg-mid);
+  border-bottom: 1px solid var(--border);
+  padding: 5px 12px;
+  display: none;
+  align-items: center; gap: 8px; flex-wrap: wrap;
+  flex-shrink: 0;
+  font-size: 0.83rem;
+}
+#lib-source-label {
+  color: var(--text-muted); flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#edit-base-banner {
+  display: none;
+  background: rgba(255,179,0,.1);
+  border-bottom: 1px solid var(--warn);
+  color: var(--warn);
+  padding: 4px 14px;
+  font-size: 0.82rem; font-weight: 600;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+/* ── Modals ──────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,.65);
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-box {
+  background: var(--bg-mid);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,.5);
+}
+.modal-header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.modal-header h2 { font-size: 1.0rem; color: var(--accent); }
+.modal-body { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+.modal-footer {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end; gap: 8px;
+  flex-shrink: 0;
+}
+.lib-split-list {
+  width: 215px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.lib-split-list-header {
+  padding: 6px 10px;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: .05em;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.lib-list-scroll { flex: 1; overflow-y: auto; }
+.lib-list-item {
+  padding: 7px 12px;
+  cursor: pointer; font-size: 0.86rem; color: var(--text);
+  border-left: 3px solid transparent;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lib-list-item:hover { background: var(--bg-light); }
+.lib-list-item.active {
+  border-left-color: var(--accent); background: var(--bg-light);
+  color: var(--accent); font-weight: 600;
+}
+.lib-split-buttons {
+  padding: 5px 7px; display: flex; gap: 4px;
+  border-top: 1px solid var(--border); flex-shrink: 0;
+}
+.lib-preview-col {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--bg-dark); gap: 6px; padding: 10px; overflow: hidden;
+}
+.lib-empty-preview { color: var(--text-muted); font-size: 0.85rem; font-style: italic; }
+.modal-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--bg-mid); flex-shrink: 0;
+}
+.modal-tab-btn {
+  padding: 7px 18px;
+  background: none; border: none; border-radius: 0;
+  color: var(--text-muted); font-size: 0.9rem; cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.modal-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.modal-tab-btn:hover:not(.active) { color: var(--text); }
 </style>
 </head>
 <body>
@@ -459,6 +558,7 @@ a.btn-secondary {
     </div>
     <div id="topbar-right">
       <span id="dirty-indicator" class="hidden">● Unsaved changes</span>
+      <button class="btn-secondary" id="btn-open-lib-manager">🗂 Library</button>
       <button class="btn-primary" id="publish-btn">Publish to GitHub</button>
       <a class="btn-secondary" href="index.html">← Game</a>
     </div>
@@ -494,6 +594,18 @@ a.btn-secondary {
           <button class="btn-secondary btn-small" id="btn-add-donor">+ Donor</button>
           <button class="btn-danger btn-small" id="btn-del-donor">× Remove</button>
         </div>
+
+        <!-- Library source toolbar -->
+        <div id="lib-toolbar">
+          <span id="lib-source-label">Base: —</span>
+          <button class="btn-secondary btn-small" id="btn-pick-lib">Pick from Library</button>
+          <button class="btn-secondary btn-small" id="btn-reset-to-base" disabled>Reset to Base</button>
+          <button class="btn-secondary btn-small" id="btn-import-to-lib">→ Library</button>
+          <label class="toggle-label" style="margin-left:4px;color:var(--text-muted);">
+            <input type="checkbox" id="edit-base-cb"> Edit Base
+          </label>
+        </div>
+        <div id="edit-base-banner">⚠ Editing base plasmid — changes will update the library on exit</div>
 
         <div id="canvas-area">
           <canvas id="editor-canvas" width="540" height="540"></canvas>
@@ -668,15 +780,75 @@ a.btn-secondary {
   </div><!-- /main -->
 </div><!-- /app -->
 
+<!-- ── Library Picker Modal ───────────────────────────────────────── -->
+<div id="lib-picker-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="width:680px;height:460px;">
+    <div class="modal-header">
+      <h2>Pick from Library</h2>
+      <button class="btn-secondary btn-small" id="lib-picker-close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="lib-split-list">
+        <div class="lib-split-list-header" id="lib-picker-cat-label">Donors</div>
+        <div class="lib-list-scroll" id="lib-picker-list"></div>
+      </div>
+      <div class="lib-preview-col">
+        <canvas id="lib-picker-canvas" width="340" height="340" style="background:var(--bg-dark);display:none;"></canvas>
+        <div class="lib-empty-preview" id="lib-picker-empty">Select an entry to preview</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" id="lib-picker-scratch">From Scratch</button>
+      <button class="btn-primary" id="lib-picker-pick" disabled>Pick</button>
+      <button class="btn-secondary" id="lib-picker-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Library Manager Modal ─────────────────────────────────────── -->
+<div id="lib-manager-modal" class="modal-overlay" style="display:none;">
+  <div class="modal-box" style="width:780px;height:520px;">
+    <div class="modal-header">
+      <h2>Plasmid Library</h2>
+      <button class="btn-secondary btn-small" id="lib-manager-x">✕</button>
+    </div>
+    <div class="modal-tabs" id="lib-manager-tabs">
+      <button class="modal-tab-btn active" data-cat="vectors">Vectors</button>
+      <button class="modal-tab-btn" data-cat="donors">Donors</button>
+    </div>
+    <div class="modal-body">
+      <div class="lib-split-list">
+        <div class="lib-split-list-header" id="lib-manager-cat-label">Vectors</div>
+        <div class="lib-list-scroll" id="lib-manager-list"></div>
+        <div class="lib-split-buttons">
+          <button class="btn-secondary btn-small" id="lib-mgr-new">+ New</button>
+          <button class="btn-secondary btn-small" id="lib-mgr-dup" title="Duplicate">⧉</button>
+          <button class="btn-danger btn-small" id="lib-mgr-del">🗑</button>
+        </div>
+      </div>
+      <div class="lib-preview-col">
+        <canvas id="lib-manager-canvas" width="370" height="370" style="background:var(--bg-dark);display:none;"></canvas>
+        <div class="lib-empty-preview" id="lib-manager-empty">Select an entry to preview</div>
+        <div id="lib-manager-info" style="display:none;font-size:0.78rem;color:var(--text-muted);text-align:center;"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-primary" id="lib-manager-save">Save &amp; Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const GITHUB_REPO    = 'bgeiss1/restriction-cloning-game';
-const GITHUB_FILE    = 'levels/cloning.json';
-const GITHUB_API     = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+const GITHUB_REPO         = 'bgeiss1/restriction-cloning-game';
+const GITHUB_FILE         = 'levels/cloning.json';
+const GITHUB_API          = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+const GITHUB_LIBRARY_FILE = 'levels/plasmid_library.json';
+const GITHUB_LIBRARY_API  = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_LIBRARY_FILE}`;
 const MCS_ENZYMES    = ['EcoRI','KpnI','SmaI','BamHI','HindIII'];
 
 const PUC19_DATA = {
@@ -733,6 +905,16 @@ let dragState       = null;   // {type:'feat_start'|'feat_end'|'site', idx:numbe
 let hasDragged      = false;
 let undoStack       = [];     // stack of deep-copied {features, cut_sites} snapshots
 const MAX_UNDO      = 40;
+
+// Library
+let library    = {vectors: [], donors: []};
+let librarySha = '';
+let isLibDirty = false;
+
+// Edit-base mode
+let editBaseMode       = false;
+let frozenLevelPlasmid = null;  // deep-clone of the level's plasmid before entering edit-base
+let editBasePlasmid    = null;  // working copy of the library entry being edited
 
 // Zoom
 const BASE_CANVAS_SIZE = 540;
@@ -882,7 +1064,10 @@ connectBtn.addEventListener('click', async () => {
   connectBtn.textContent = 'Connecting…';
   connectError.textContent = '';
   try {
-    const data = await githubGetFile(pat);
+    const [data, libData] = await Promise.all([
+      githubGetFile(pat),
+      githubGetLibraryFile(pat)
+    ]);
     sessionStorage.setItem('rr_editor_pat', pat);
     currentSha = data.sha;
     const json = atob(data.content.replace(/\n/g, ''));
@@ -892,6 +1077,15 @@ connectBtn.addEventListener('click', async () => {
       if (lv.donor && !lv.donors) { lv.donors = [lv.donor]; delete lv.donor; }
       if (!lv.donors) lv.donors = [];
     });
+    // Load library
+    if (libData) {
+      librarySha = libData.sha;
+      library = JSON.parse(atob(libData.content.replace(/\n/g, '')));
+    } else {
+      library = {vectors: [], donors: []};
+      librarySha = '';
+    }
+    migrateToLibrary();
     connectOverlay.style.display = 'none';
     appEl.style.display = 'flex';
     renderLevelList();
@@ -957,6 +1151,8 @@ async function publish() {
   currentSha = data.content.sha;
   isDirty = false;
   updateDirtyUI();
+  // Also publish library if it has pending changes (e.g. base_id migration)
+  if (isLibDirty) await publishLibrary();
 }
 
 // ---------------------------------------------------------------------------
@@ -974,6 +1170,7 @@ function renderLevelList() {
 }
 
 function selectLevel(idx) {
+  if (editBaseMode) exitEditBaseMode();
   currentIdx = idx;
   currentDonorIdx = 0;
   selectedFeatureIdx = -1;
@@ -1036,6 +1233,7 @@ document.getElementById('btn-delete').addEventListener('click', () => {
 // ---------------------------------------------------------------------------
 tabBtns.forEach(btn => {
   btn.addEventListener('click', () => {
+    if (editBaseMode) exitEditBaseMode();
     currentTab = btn.dataset.tab;
     tabBtns.forEach(b => b.classList.toggle('active', b === btn));
     selectedFeatureIdx = -1;
@@ -1055,10 +1253,10 @@ function syncToolbarToLevel() {
   if (currentIdx < 0) return;
   const lv = levels[currentIdx];
 
-  const isVectorPUC19 = currentTab === 'vector' && lv.vector && lv.vector.use_pUC19;
+  const isVectorPUC19 = !editBaseMode && currentTab === 'vector' && lv.vector && lv.vector.use_pUC19;
 
-  // pUC19 toggle row: only visible on vector tab
-  if (currentTab === 'vector') {
+  // pUC19 toggle row: only visible on vector tab when NOT in edit-base mode
+  if (currentTab === 'vector' && !editBaseMode) {
     puc19ToggleRow.style.display = 'flex';
     puc19Checkbox.checked = !!(lv.vector && lv.vector.use_pUC19);
   } else {
@@ -1069,21 +1267,22 @@ function syncToolbarToLevel() {
   btnAddFeature.style.display = isVectorPUC19 ? 'none' : '';
   btnAddSite.style.display    = isVectorPUC19 ? 'none' : '';
 
-  // Meta fields
-  const plasmidData = currentTab === 'donor'
-    ? (lv.donors || [])[currentDonorIdx]
-    : lv.vector;
+  // Meta fields — use editBasePlasmid when in edit-base mode
+  const plasmidData = editBaseMode ? editBasePlasmid :
+    (currentTab === 'donor' ? (lv.donors || [])[currentDonorIdx] : lv.vector);
   if (isVectorPUC19) {
     metaName.value   = 'pUC19';
     metaLength.value = 2686;
     metaName.disabled   = true;
     metaLength.disabled = true;
-  } else {
+  } else if (plasmidData) {
     metaName.value   = plasmidData.name   || '';
     metaLength.value = plasmidData.length || 3000;
     metaName.disabled   = false;
     metaLength.disabled = false;
   }
+
+  syncLibToolbar();
 }
 
 // pUC19 checkbox
@@ -1124,6 +1323,7 @@ metaLength.addEventListener('change', () => {
 });
 
 function currentPlasmidData() {
+  if (editBaseMode) return editBasePlasmid;
   if (currentIdx < 0) return null;
   const lv = levels[currentIdx];
   if (currentTab === 'donor') {
@@ -1543,11 +1743,10 @@ function renderFeatureList() {
 function refreshCanvas() {
   if (!renderer || currentIdx < 0) { renderCanvas(); return; }
   const lv = levels[currentIdx];
-  if (currentTab === 'vector' && lv.vector && lv.vector.use_pUC19) return;
+  if (!editBaseMode && currentTab === 'vector' && lv.vector && lv.vector.use_pUC19) return;
 
-  const plasmidData = currentTab === 'donor'
-    ? (lv.donors || [])[currentDonorIdx]
-    : lv.vector;
+  const plasmidData = editBaseMode ? editBasePlasmid :
+    (currentTab === 'donor' ? (lv.donors || [])[currentDonorIdx] : lv.vector);
   if (!plasmidData) return;
 
   const len = plasmidData.length || 3000;
@@ -1576,14 +1775,13 @@ function renderCanvas() {
   if (currentIdx < 0) return;
   const lv = levels[currentIdx];
 
-  if (currentTab === 'vector' && lv.vector && lv.vector.use_pUC19) {
+  if (!editBaseMode && currentTab === 'vector' && lv.vector && lv.vector.use_pUC19) {
     renderPUC19();
     return;
   }
 
-  const plasmidData = currentTab === 'donor'
-    ? (lv.donors || [])[currentDonorIdx]
-    : lv.vector;
+  const plasmidData = editBaseMode ? editBasePlasmid :
+    (currentTab === 'donor' ? (lv.donors || [])[currentDonorIdx] : lv.vector);
   if (!plasmidData) return;
 
   const len = plasmidData.length || 3000;
@@ -2025,6 +2223,500 @@ function makeEnzymeCheckbox(enzName, id) {
   label.appendChild(document.createTextNode(enzName));
   return label;
 }
+
+// ---------------------------------------------------------------------------
+// Library — GitHub helpers
+// ---------------------------------------------------------------------------
+async function githubGetLibraryFile(pat) {
+  const resp = await fetch(GITHUB_LIBRARY_API, {
+    headers: {
+      'Authorization': `token ${pat}`,
+      'Accept': 'application/vnd.github.v3+json'
+    }
+  });
+  if (resp.status === 404) return null;
+  if (!resp.ok) throw new Error(`GitHub ${resp.status}: ${(await resp.text()).slice(0,200)}`);
+  return resp.json();
+}
+
+async function publishLibrary() {
+  const pat = sessionStorage.getItem('rr_editor_pat');
+  if (!pat) return;
+  const message = `Update plasmid library — ${new Date().toISOString().slice(0,16)} (Level Editor)`;
+  const contentStr = JSON.stringify(library, null, 2);
+  const content = btoa(unescape(encodeURIComponent(contentStr)));
+  const body = {message, content};
+  if (librarySha) body.sha = librarySha;
+  const resp = await fetch(GITHUB_LIBRARY_API, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${pat}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) throw new Error(await resp.text());
+  const data = await resp.json();
+  librarySha = data.content.sha;
+  isLibDirty = false;
+}
+
+// ---------------------------------------------------------------------------
+// Library — migration and entry management
+// ---------------------------------------------------------------------------
+function libraryCopyOf(plasmid) {
+  const slug = (plasmid.name || 'plasmid')
+    .toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 20);
+  const id = slug + '_' + Math.random().toString(36).slice(2, 8);
+  return {
+    id,
+    name:      plasmid.name || 'Unnamed',
+    length:    plasmid.length || 3000,
+    features:  JSON.parse(JSON.stringify(plasmid.features  || [])),
+    cut_sites: JSON.parse(JSON.stringify(plasmid.cut_sites || []))
+  };
+}
+
+function migrateToLibrary() {
+  let levelsChanged = false;
+  levels.forEach(lv => {
+    // Vector
+    if (lv.vector && !lv.vector.use_pUC19 && !lv.vector.base_id) {
+      const match = library.vectors.find(v => v.name === lv.vector.name);
+      if (match) {
+        lv.vector.base_id = match.id;
+      } else {
+        const entry = libraryCopyOf(lv.vector);
+        library.vectors.push(entry);
+        lv.vector.base_id = entry.id;
+        isLibDirty = true;
+      }
+      levelsChanged = true;
+    }
+    // Donors
+    (lv.donors || []).forEach(d => {
+      if (!d.base_id) {
+        const match = library.donors.find(v => v.name === d.name);
+        if (match) {
+          d.base_id = match.id;
+        } else {
+          const entry = libraryCopyOf(d);
+          library.donors.push(entry);
+          d.base_id = entry.id;
+          isLibDirty = true;
+        }
+        levelsChanged = true;
+      }
+    });
+  });
+  if (levelsChanged) isDirty = true;
+}
+
+// ---------------------------------------------------------------------------
+// Library toolbar
+// ---------------------------------------------------------------------------
+function syncLibToolbar() {
+  const libToolbar  = document.getElementById('lib-toolbar');
+  const sourceLabel = document.getElementById('lib-source-label');
+  const btnReset    = document.getElementById('btn-reset-to-base');
+  const editBaseCb  = document.getElementById('edit-base-cb');
+  if (!libToolbar) return;
+
+  if (currentIdx < 0) { libToolbar.style.display = 'none'; return; }
+  const lv = levels[currentIdx];
+  if (!editBaseMode && currentTab === 'vector' && lv.vector && lv.vector.use_pUC19) {
+    libToolbar.style.display = 'none';
+    return;
+  }
+  libToolbar.style.display = 'flex';
+
+  const pd    = editBaseMode ? frozenLevelPlasmid : currentPlasmidData();
+  const list  = currentTab === 'vector' ? library.vectors : library.donors;
+  const entry = pd && pd.base_id ? list.find(e => e.id === pd.base_id) : null;
+
+  if (entry) {
+    sourceLabel.textContent = `Base: ${entry.name}`;
+    btnReset.disabled       = editBaseMode;
+    editBaseCb.disabled     = false;
+  } else {
+    sourceLabel.textContent = 'No base plasmid';
+    btnReset.disabled       = true;
+    editBaseCb.disabled     = true;
+  }
+  editBaseCb.checked = editBaseMode;
+}
+
+// ---------------------------------------------------------------------------
+// Edit-base mode
+// ---------------------------------------------------------------------------
+function enterEditBaseMode() {
+  const pd = currentPlasmidData();
+  if (!pd || !pd.base_id) return;
+  const list  = currentTab === 'vector' ? library.vectors : library.donors;
+  const entry = list.find(e => e.id === pd.base_id);
+  if (!entry) return;
+
+  frozenLevelPlasmid = JSON.parse(JSON.stringify(pd));
+  editBasePlasmid    = JSON.parse(JSON.stringify(entry));
+  editBasePlasmid.base_id = entry.id;  // retain so we know which entry to update on exit
+
+  editBaseMode = true;
+  clearUndo();
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  document.getElementById('edit-base-banner').style.display = '';
+  syncLibToolbar();
+  syncToolbarToLevel();
+  renderCanvas();
+  showInspectorEmpty();
+}
+
+function exitEditBaseMode() {
+  if (!editBaseMode) return;
+
+  // Save editBasePlasmid back to library entry
+  const list  = currentTab === 'vector' ? library.vectors : library.donors;
+  const entry = list.find(e => e.id === editBasePlasmid.base_id);
+  if (entry) {
+    entry.name      = editBasePlasmid.name;
+    entry.length    = editBasePlasmid.length;
+    entry.features  = JSON.parse(JSON.stringify(editBasePlasmid.features  || []));
+    entry.cut_sites = JSON.parse(JSON.stringify(editBasePlasmid.cut_sites || []));
+    isLibDirty = true;
+    publishLibrary().catch(err => console.warn('Library publish failed:', err));
+  }
+
+  // Restore frozen level plasmid
+  const lv = levels[currentIdx];
+  if (lv) {
+    if (currentTab === 'vector') {
+      lv.vector = JSON.parse(JSON.stringify(frozenLevelPlasmid));
+    } else {
+      if (!lv.donors) lv.donors = [];
+      lv.donors[currentDonorIdx] = JSON.parse(JSON.stringify(frozenLevelPlasmid));
+    }
+  }
+
+  frozenLevelPlasmid = null;
+  editBasePlasmid    = null;
+  editBaseMode       = false;
+  clearUndo();
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  document.getElementById('edit-base-banner').style.display = 'none';
+  const cb = document.getElementById('edit-base-cb');
+  if (cb) cb.checked = false;
+}
+
+// Edit-base checkbox
+document.getElementById('edit-base-cb').addEventListener('change', e => {
+  if (e.target.checked) { enterEditBaseMode(); }
+  else                   { exitEditBaseMode(); syncToolbarToLevel(); syncLibToolbar(); renderCanvas(); showInspectorEmpty(); }
+});
+
+// Pick from Library button
+document.getElementById('btn-pick-lib').addEventListener('click', openLibPicker);
+
+// Reset to Base button
+document.getElementById('btn-reset-to-base').addEventListener('click', () => {
+  const pd = currentPlasmidData();
+  if (!pd || !pd.base_id) return;
+  const list  = currentTab === 'vector' ? library.vectors : library.donors;
+  const entry = list.find(e => e.id === pd.base_id);
+  if (!entry) return;
+  if (!confirm(`Reset "${pd.name}" to base plasmid "${entry.name}"?`)) return;
+  pushUndo();
+  pd.name      = entry.name;
+  pd.length    = entry.length;
+  pd.features  = JSON.parse(JSON.stringify(entry.features  || []));
+  pd.cut_sites = JSON.parse(JSON.stringify(entry.cut_sites || []));
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  markDirty();
+  syncToolbarToLevel();
+  renderCanvas();
+  showInspectorEmpty();
+});
+
+// Import to Library button
+document.getElementById('btn-import-to-lib').addEventListener('click', () => {
+  const pd = currentPlasmidData();
+  if (!pd) return;
+  const entry = libraryCopyOf(pd);
+  const list  = currentTab === 'vector' ? library.vectors : library.donors;
+  list.push(entry);
+  pd.base_id = entry.id;
+  isLibDirty = true;
+  markDirty();
+  syncLibToolbar();
+  alert(`"${entry.name}" added to library.`);
+});
+
+// Library manager button (topbar)
+document.getElementById('btn-open-lib-manager').addEventListener('click', openLibManager);
+
+// ---------------------------------------------------------------------------
+// Library Picker modal
+// ---------------------------------------------------------------------------
+let libPickerSelectedId = null;
+let libPickerRenderer   = null;
+
+function openLibPicker() {
+  libPickerSelectedId = null;
+  document.getElementById('lib-picker-pick').disabled = true;
+  document.getElementById('lib-picker-canvas').style.display = 'none';
+  document.getElementById('lib-picker-empty').style.display  = '';
+  document.getElementById('lib-picker-cat-label').textContent =
+    currentTab === 'vector' ? 'Vectors' : 'Donors';
+  renderLibPickerList();
+  document.getElementById('lib-picker-modal').style.display = 'flex';
+}
+
+function renderLibPickerList() {
+  const list    = document.getElementById('lib-picker-list');
+  list.innerHTML = '';
+  const entries = currentTab === 'vector' ? library.vectors : library.donors;
+  if (entries.length === 0) {
+    list.innerHTML = '<div style="padding:10px;color:var(--text-muted);font-size:.82rem;font-style:italic;">No entries yet.</div>';
+    return;
+  }
+  entries.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'lib-list-item' + (entry.id === libPickerSelectedId ? ' active' : '');
+    item.textContent = `${entry.name} (${entry.length || 0} bp)`;
+    item.addEventListener('click', () => {
+      libPickerSelectedId = entry.id;
+      document.getElementById('lib-picker-pick').disabled = false;
+      renderLibPickerList();
+      renderLibPickerPreview(entry);
+    });
+    list.appendChild(item);
+  });
+}
+
+function renderLibPickerPreview(entry) {
+  const canvas = document.getElementById('lib-picker-canvas');
+  const empty  = document.getElementById('lib-picker-empty');
+  canvas.style.display = '';
+  empty.style.display  = 'none';
+  const p = new Plasmid({
+    name:     entry.name,
+    sequence: 'N'.repeat(entry.length || 3000),
+    features: entry.features || []
+  });
+  libPickerRenderer = new PlasmidRenderer(canvas, p);
+  libPickerRenderer._restrictionSites = (entry.cut_sites || []).map(cs => ({
+    enzymeName: cs.enzyme, topStrandCut: cs.position
+  }));
+  libPickerRenderer.render([]);
+}
+
+document.getElementById('lib-picker-pick').addEventListener('click', () => {
+  const entries = currentTab === 'vector' ? library.vectors : library.donors;
+  const entry   = entries.find(e => e.id === libPickerSelectedId);
+  if (!entry) return;
+  pickLibraryEntry(entry);
+  document.getElementById('lib-picker-modal').style.display = 'none';
+});
+
+document.getElementById('lib-picker-scratch').addEventListener('click', () => {
+  pickFromScratch();
+  document.getElementById('lib-picker-modal').style.display = 'none';
+});
+
+document.getElementById('lib-picker-cancel').addEventListener('click', () => {
+  document.getElementById('lib-picker-modal').style.display = 'none';
+});
+
+document.getElementById('lib-picker-close').addEventListener('click', () => {
+  document.getElementById('lib-picker-modal').style.display = 'none';
+});
+
+function pickLibraryEntry(entry) {
+  if (currentIdx < 0) return;
+  const lv   = levels[currentIdx];
+  const copy = JSON.parse(JSON.stringify(entry));
+  const id   = copy.id;
+  delete copy.id;
+  copy.base_id = id;
+  if (currentTab === 'vector') {
+    lv.vector = copy;
+  } else {
+    if (!lv.donors) lv.donors = [];
+    lv.donors[currentDonorIdx] = copy;
+  }
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  clearUndo();
+  showInspectorEmpty();
+  markDirty();
+  syncToolbarToLevel();
+  renderDonorTabBar();
+  renderCanvas();
+}
+
+function pickFromScratch() {
+  if (currentIdx < 0) return;
+  const lv    = levels[currentIdx];
+  const blank = {name: 'New Plasmid', length: 3000, features: [], cut_sites: []};
+  if (currentTab === 'vector') {
+    lv.vector = blank;
+  } else {
+    if (!lv.donors) lv.donors = [];
+    lv.donors[currentDonorIdx] = blank;
+  }
+  selectedFeatureIdx = -1;
+  selectedSiteIdx    = -1;
+  clearUndo();
+  showInspectorEmpty();
+  markDirty();
+  syncToolbarToLevel();
+  renderCanvas();
+}
+
+// ---------------------------------------------------------------------------
+// Library Manager modal
+// ---------------------------------------------------------------------------
+let libManagerCat        = 'vectors';
+let libManagerSelectedId = null;
+let libManagerRenderer   = null;
+
+function openLibManager() {
+  libManagerCat        = 'vectors';
+  libManagerSelectedId = null;
+  document.querySelectorAll('#lib-manager-tabs .modal-tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', i === 0);
+  });
+  document.getElementById('lib-manager-cat-label').textContent = 'Vectors';
+  document.getElementById('lib-manager-canvas').style.display = 'none';
+  document.getElementById('lib-manager-empty').style.display  = '';
+  document.getElementById('lib-manager-info').style.display   = 'none';
+  renderLibManagerList();
+  document.getElementById('lib-manager-modal').style.display = 'flex';
+}
+
+document.getElementById('lib-manager-tabs').addEventListener('click', e => {
+  const btn = e.target.closest('.modal-tab-btn');
+  if (!btn) return;
+  document.querySelectorAll('#lib-manager-tabs .modal-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  libManagerCat        = btn.dataset.cat;
+  libManagerSelectedId = null;
+  document.getElementById('lib-manager-cat-label').textContent = libManagerCat === 'vectors' ? 'Vectors' : 'Donors';
+  document.getElementById('lib-manager-canvas').style.display = 'none';
+  document.getElementById('lib-manager-empty').style.display  = '';
+  document.getElementById('lib-manager-info').style.display   = 'none';
+  renderLibManagerList();
+});
+
+function renderLibManagerList() {
+  const list    = document.getElementById('lib-manager-list');
+  list.innerHTML = '';
+  const entries = library[libManagerCat] || [];
+  if (entries.length === 0) {
+    list.innerHTML = '<div style="padding:10px;color:var(--text-muted);font-size:.82rem;font-style:italic;">No entries.</div>';
+    return;
+  }
+  entries.forEach(entry => {
+    const item = document.createElement('div');
+    item.className = 'lib-list-item' + (entry.id === libManagerSelectedId ? ' active' : '');
+    item.textContent = `${entry.name} (${entry.length || 0} bp)`;
+    item.addEventListener('click', () => {
+      libManagerSelectedId = entry.id;
+      renderLibManagerList();
+      renderLibManagerPreview(entry);
+    });
+    list.appendChild(item);
+  });
+}
+
+function renderLibManagerPreview(entry) {
+  const canvas = document.getElementById('lib-manager-canvas');
+  const empty  = document.getElementById('lib-manager-empty');
+  const info   = document.getElementById('lib-manager-info');
+  canvas.style.display = '';
+  empty.style.display  = 'none';
+  info.style.display   = '';
+  const featCount = entry.features?.length  || 0;
+  const siteCount = entry.cut_sites?.length || 0;
+  info.textContent = `${featCount} feature${featCount !== 1 ? 's' : ''} · ${siteCount} site${siteCount !== 1 ? 's' : ''} · ID: ${entry.id}`;
+  const p = new Plasmid({
+    name:     entry.name,
+    sequence: 'N'.repeat(entry.length || 3000),
+    features: entry.features || []
+  });
+  libManagerRenderer = new PlasmidRenderer(canvas, p);
+  libManagerRenderer._restrictionSites = (entry.cut_sites || []).map(cs => ({
+    enzymeName: cs.enzyme, topStrandCut: cs.position
+  }));
+  libManagerRenderer.render([]);
+}
+
+document.getElementById('lib-mgr-new').addEventListener('click', () => {
+  const cat   = libManagerCat === 'vectors' ? 'vector' : 'donor';
+  const id    = cat + '_' + Math.random().toString(36).slice(2, 8);
+  const label = libManagerCat === 'vectors' ? 'Vector' : 'Donor';
+  const entry = {id, name: `New ${label}`, length: 3000, features: [], cut_sites: []};
+  library[libManagerCat].push(entry);
+  libManagerSelectedId = id;
+  isLibDirty = true;
+  renderLibManagerList();
+  renderLibManagerPreview(entry);
+});
+
+document.getElementById('lib-mgr-dup').addEventListener('click', () => {
+  if (!libManagerSelectedId) return;
+  const src = (library[libManagerCat] || []).find(e => e.id === libManagerSelectedId);
+  if (!src) return;
+  const copy = JSON.parse(JSON.stringify(src));
+  const cat  = libManagerCat === 'vectors' ? 'vector' : 'donor';
+  copy.id    = cat + '_' + Math.random().toString(36).slice(2, 8);
+  copy.name  = copy.name + ' (copy)';
+  library[libManagerCat].push(copy);
+  libManagerSelectedId = copy.id;
+  isLibDirty = true;
+  renderLibManagerList();
+  renderLibManagerPreview(copy);
+});
+
+document.getElementById('lib-mgr-del').addEventListener('click', () => {
+  if (!libManagerSelectedId) return;
+  const entries = library[libManagerCat] || [];
+  const src     = entries.find(e => e.id === libManagerSelectedId);
+  if (!src) return;
+  if (!confirm(`Delete "${src.name}" from library?`)) return;
+  const idx = entries.findIndex(e => e.id === libManagerSelectedId);
+  entries.splice(idx, 1);
+  libManagerSelectedId = null;
+  isLibDirty = true;
+  document.getElementById('lib-manager-canvas').style.display = 'none';
+  document.getElementById('lib-manager-empty').style.display  = '';
+  document.getElementById('lib-manager-info').style.display   = 'none';
+  renderLibManagerList();
+});
+
+document.getElementById('lib-manager-save').addEventListener('click', async () => {
+  const btn = document.getElementById('lib-manager-save');
+  if (isLibDirty) {
+    btn.disabled    = true;
+    btn.textContent = 'Saving…';
+    try {
+      await publishLibrary();
+    } catch (err) {
+      alert('Library save failed: ' + err.message);
+      btn.disabled    = false;
+      btn.textContent = 'Save & Close';
+      return;
+    }
+    btn.disabled    = false;
+    btn.textContent = 'Save & Close';
+  }
+  document.getElementById('lib-manager-modal').style.display = 'none';
+});
+
+document.getElementById('lib-manager-x').addEventListener('click', () => {
+  document.getElementById('lib-manager-modal').style.display = 'none';
+});
 </script>
 </body>
 </html>
