@@ -586,7 +586,36 @@
     </a>
     -->
     <a class="mode-btn" href="ribosome_rush.html" style="text-decoration:none;">
-      <div class="mode-icon">&#128992;</div>
+      <div class="mode-icon">
+        <svg viewBox="0 0 80 70" width="58" height="58" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
+          <defs>
+            <radialGradient id="ribLSU" cx="38%" cy="28%" r="62%">
+              <stop offset="0%" stop-color="#7BBDE8"/>
+              <stop offset="100%" stop-color="#2464A0"/>
+            </radialGradient>
+            <radialGradient id="ribSSU" cx="50%" cy="30%" r="58%">
+              <stop offset="0%" stop-color="#9DD0F5"/>
+              <stop offset="100%" stop-color="#3A80BA"/>
+            </radialGradient>
+          </defs>
+          <!-- Nascent peptide chain emerging from exit tunnel -->
+          <circle cx="35" cy="4"  r="2.8" fill="#6BCB77" opacity="0.95"/>
+          <circle cx="38" cy="9"  r="2.8" fill="#6BCB77" opacity="0.95"/>
+          <circle cx="34" cy="14" r="2.8" fill="#6BCB77" opacity="0.95"/>
+          <!-- Large subunit (50S) -->
+          <ellipse cx="40" cy="30" rx="22" ry="19" fill="url(#ribLSU)" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
+          <!-- mRNA channel shadow -->
+          <rect x="18" y="44" width="44" height="5" rx="2" fill="#0a1a0d" opacity="0.55"/>
+          <!-- mRNA: wavy left tail -->
+          <path d="M0,47 C3,45 6,49 9,47 C12,45 15,49 18,47" stroke="#C8A951" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- mRNA: dashed through ribosome -->
+          <line x1="18" y1="47" x2="62" y2="47" stroke="#C8A951" stroke-width="2.5" stroke-dasharray="5,3"/>
+          <!-- mRNA: wavy right tail -->
+          <path d="M62,47 C65,45 68,49 71,47 C74,45 77,49 80,47" stroke="#C8A951" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- Small subunit (30S) -->
+          <ellipse cx="40" cy="58" rx="23" ry="9.5" fill="url(#ribSSU)" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+        </svg>
+      </div>
       <div class="mode-label">Ribosome Rush</div>
       <div class="mode-desc">Drag tRNAs onto scrolling mRNA codons to translate a protein &mdash; before they scroll past!</div>
     </a>
