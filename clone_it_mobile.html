@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Clone It!</title>
+  <script src="enzymes.js"></script>
+  <script src="plasmid.js"></script>
+  <script src="game.js"></script>
+  <script src="cloning.js"></script>
+  <style>
+    /* ── Reset & tokens ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green-dark:  #1E4D2B;
+      --green-mid:   #245c34;
+      --green-light: #2d7040;
+      --gold:        #C8A951;
+      --gold-light:  #e0c060;
+      --bg:          #111c15;
+      --bg-card:     rgba(255,255,255,0.07);
+      --border:      rgba(200,169,81,0.25);
+      --text:        #e8f5e9;
+      --text-muted:  #a8c5a0;
+      --success:     #66BB6A;
+      --warn:        #FFA726;
+      --danger:      #EF5350;
+      --accent:      #C8A951;
+      --radius:      10px;
+      --tab-h:       52px;
+      --header-h:    54px;
+      --bottom-h:    58px;
+    }
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 15px; overflow: hidden; }
+
+    /* ── Header ──────────────────────────────────────────────────────── */
+    #header {
+      height: var(--header-h); background: var(--green-dark);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; flex-shrink: 0;
+    }
+    #header h1 { font-size: 1.15rem; font-weight: 700; color: var(--gold);
+      letter-spacing: 0.05em; }
+    #header .level-info { font-size: 11px; color: var(--text-muted); text-align: right; }
+    #header .level-title { font-size: 12px; color: var(--text); font-weight: 600; }
+
+    /* ── Tab bar ─────────────────────────────────────────────────────── */
+    #tabBar {
+      height: var(--tab-h); background: var(--green-dark);
+      border-bottom: 2px solid var(--border);
+      display: flex; flex-shrink: 0;
+    }
+    .tab {
+      flex: 1; border: none; background: none; color: var(--text-muted);
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      border-bottom: 3px solid transparent; transition: color 0.15s, border-color 0.15s;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 2px; padding-bottom: 4px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tab .tab-icon { font-size: 16px; }
+    .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+    .tab.done   { color: var(--success); }
+    .tab.done.active { color: var(--gold); border-bottom-color: var(--gold); }
+    .tab-badge {
+      display: inline-block; background: var(--success); color: #fff;
+      border-radius: 8px; font-size: 9px; padding: 1px 5px; margin-left: 4px;
+    }
+
+    /* ── Scroll area ─────────────────────────────────────────────────── */
+    #content {
+      flex: 1; overflow-y: auto; overflow-x: hidden;
+      /* height = 100vh - header - tabs - bottom nav */
+      height: calc(100dvh - var(--header-h) - var(--tab-h) - var(--bottom-h));
+    }
+    .tab-panel { display: none; padding: 12px 14px 20px; }
+    .tab-panel.active { display: block; }
+
+    /* ── Canvas ──────────────────────────────────────────────────────── */
+    .canvas-wrap {
+      display: flex; justify-content: center; margin-bottom: 14px;
+    }
+    canvas { border-radius: 10px; background: #0d1a10;
+      max-width: 100%; display: block; }
+
+    /* ── Section labels ──────────────────────────────────────────────── */
+    .section-label {
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-muted); margin-bottom: 8px;
+    }
+
+    /* ── Enzyme pills ────────────────────────────────────────────────── */
+    .enzyme-row {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .enz-pill {
+      padding: 8px 14px; border-radius: 20px;
+      border: 1.5px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .enz-pill.selected {
+      border-color: var(--gold); background: rgba(200,169,81,0.18);
+      color: var(--gold);
+    }
+    .enz-pill.locked {
+      border-color: var(--success); background: rgba(102,187,106,0.15);
+      color: var(--success); cursor: default;
+    }
+
+    /* extra enzyme dropdown */
+    .extra-enz-wrap { margin-bottom: 12px; }
+    .extra-enz-wrap select {
+      width: 100%; padding: 10px 12px; border-radius: var(--radius);
+      border: 1.5px solid var(--border); background: var(--bg-card);
+      color: var(--text); font-size: 13px; appearance: none;
+    }
+
+    /* ── Action button ────────────────────────────────────────────────── */
+    .action-btn {
+      width: 100%; padding: 14px; border-radius: var(--radius);
+      border: none; background: var(--green-mid); color: var(--text);
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+      margin-bottom: 14px;
+    }
+    .action-btn:active { transform: scale(0.97); }
+    .action-btn.primary { background: var(--gold); color: #1a1a00; }
+    .action-btn.primary:active { background: var(--gold-light); }
+    .action-btn:disabled { opacity: 0.4; cursor: default; }
+
+    /* ── Cut status ───────────────────────────────────────────────────── */
+    .cut-status { font-size: 12px; color: var(--text-muted); text-align: center;
+      margin-bottom: 10px; min-height: 16px; }
+    .cut-status.done { color: var(--success); font-weight: 600; }
+
+    /* ── Fragment cards ───────────────────────────────────────────────── */
+    .frag-list { display: flex; flex-direction: column; gap: 8px; }
+    .frag-card {
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 10px 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .frag-card.in-assembly { border-color: var(--success); opacity: 0.6; }
+    .frag-card.trashed     { opacity: 0.3; text-decoration: line-through; }
+    .frag-color-bar { width: 5px; min-height: 44px; border-radius: 3px; flex-shrink: 0; }
+    .frag-info { flex: 1; min-width: 0; }
+    .frag-name { font-size: 13px; font-weight: 700; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .frag-ends { font-size: 10px; font-family: monospace; color: var(--text-muted);
+      margin-top: 2px; }
+    .frag-size { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .frag-actions { display: flex; flex-direction: column; gap: 5px; }
+    .frag-btn {
+      padding: 7px 11px; border-radius: 7px; border: 1.5px solid var(--border);
+      background: none; color: var(--text-muted); font-size: 13px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; transition: all 0.15s;
+    }
+    .frag-btn.add  { border-color: var(--gold);   color: var(--gold); }
+    .frag-btn.trash { border-color: var(--danger); color: var(--danger); }
+    .frag-btn:active { transform: scale(0.93); }
+
+    /* ── Donor sub-tabs ───────────────────────────────────────────────── */
+    #donorSubTabs {
+      display: none; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;
+    }
+    .donor-sub-tab {
+      padding: 6px 14px; border-radius: 20px;
+      border: 1.5px solid var(--border); background: var(--bg-card);
+      color: var(--text-muted); font-size: 12px; font-weight: 600;
+      cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .donor-sub-tab.active { border-color: var(--gold); color: var(--gold); }
+    .donor-sub-tab.cut-done { border-color: var(--success); color: var(--success); }
+
+    /* ── Assembly panel ───────────────────────────────────────────────── */
+    .asm-item {
+      background: var(--bg-card); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 10px 12px;
+      display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    }
+    .asm-item-label { flex: 1; min-width: 0; }
+    .asm-item-name  { font-size: 13px; font-weight: 700; color: var(--text); }
+    .asm-item-ends  { font-size: 10px; font-family: monospace; color: var(--text-muted); margin-top: 2px; }
+    .asm-item-source { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+    .asm-btns { display: flex; gap: 5px; }
+    .asm-btn {
+      padding: 7px 10px; border-radius: 7px; border: 1.5px solid var(--border);
+      background: none; color: var(--text-muted); font-size: 12px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; transition: all 0.15s;
+    }
+    .asm-btn.flip { border-color: var(--warn); color: var(--warn); }
+    .asm-btn.rm   { border-color: var(--danger); color: var(--danger); }
+    .asm-btn:active { transform: scale(0.93); }
+    #asmEmpty { color: var(--text-muted); font-size: 13px; text-align: center;
+      padding: 24px 0; }
+
+    /* ── Hint text ────────────────────────────────────────────────────── */
+    .hint-box {
+      background: rgba(200,169,81,0.08); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px;
+      font-size: 12px; color: var(--text-muted); line-height: 1.5;
+      margin-bottom: 14px;
+    }
+    .hint-box strong { color: var(--gold); }
+
+    /* ── Result area ─────────────────────────────────────────────────── */
+    #resultArea { text-align: center; margin-top: 12px; }
+    #resultCanvas { border-radius: 10px; background: #0d1a10; max-width: 100%; }
+    #resultCanvas.celebrate {
+      animation: cardSpin 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes cardSpin {
+      0%   { transform: scale(0.2) rotate(-360deg); opacity: 0; }
+      70%  { transform: scale(1.08) rotate(8deg);   opacity: 1; }
+      85%  { transform: scale(0.96) rotate(-3deg); }
+      100% { transform: scale(1)    rotate(0deg);   opacity: 1; }
+    }
+    #resultMsg { font-size: 13px; line-height: 1.6; margin-top: 10px; }
+    #resultScore { font-size: 1.2rem; font-weight: 700; color: var(--gold);
+      margin-top: 4px; font-family: monospace; }
+
+    /* ── Bottom nav ───────────────────────────────────────────────────── */
+    #bottomNav {
+      height: var(--bottom-h); background: var(--green-dark);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 14px; flex-shrink: 0;
+    }
+    .nav-btn {
+      padding: 10px 18px; border-radius: var(--radius);
+      border: 1.5px solid var(--border); background: var(--bg-card);
+      color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; transition: all 0.15s;
+    }
+    .nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .nav-btn:active:not(:disabled) { transform: scale(0.95); }
+    #levelNum { font-size: 13px; color: var(--text-muted); font-family: monospace; }
+
+    /* ── Toast ────────────────────────────────────────────────────────── */
+    #toastArea {
+      position: fixed; top: calc(var(--header-h) + var(--tab-h) + 8px);
+      left: 50%; transform: translateX(-50%);
+      z-index: 999; display: flex; flex-direction: column;
+      align-items: center; gap: 6px; pointer-events: none;
+    }
+    .toast {
+      background: #1a3a22; border: 1px solid var(--border);
+      border-radius: 20px; padding: 9px 18px; font-size: 12px;
+      color: var(--text); white-space: nowrap;
+      animation: toastIn 0.2s ease, toastOut 0.3s 2.4s ease forwards;
+    }
+    .toast.warn   { border-color: var(--warn);    color: var(--warn); }
+    .toast.danger { border-color: var(--danger);  color: var(--danger); }
+    .toast.success { border-color: var(--success); color: var(--success); }
+    @keyframes toastIn  { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+    @keyframes toastOut { from { opacity:1; } to { opacity:0; } }
+  </style>
+</head>
+<body style="display:flex; flex-direction:column; height:100dvh;">
+
+<!-- Header -->
+<div id="header">
+  <h1>Clone It!</h1>
+  <div style="text-align:right;">
+    <div class="level-title" id="hdrTitle">—</div>
+    <div class="level-info" id="hdrDesc" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></div>
+  </div>
+</div>
+
+<!-- Tab bar -->
+<div id="tabBar">
+  <button class="tab active" data-tab="vector" onclick="switchTab('vector')">
+    <span class="tab-icon">🧫</span>Vector
+  </button>
+  <button class="tab" data-tab="donor" onclick="switchTab('donor')">
+    <span class="tab-icon">🧬</span>Donor
+  </button>
+  <button class="tab" data-tab="assemble" onclick="switchTab('assemble')">
+    <span class="tab-icon">⊕</span>Assemble
+  </button>
+</div>
+
+<!-- Scrollable content -->
+<div id="content">
+
+  <!-- ── Vector tab ─────────────────────────────────────────────────── -->
+  <div id="tab-vector" class="tab-panel active">
+    <div class="canvas-wrap"><canvas id="vectorCanvas"></canvas></div>
+    <div class="section-label">Select enzyme(s)</div>
+    <div class="enzyme-row" id="vectorEnzRow"></div>
+    <button class="action-btn" id="btnCutVector" onclick="doCutVector()">✂ Cut Vector</button>
+    <div class="cut-status" id="vecCutStatus"></div>
+    <div class="frag-list" id="vectorFragList"></div>
+  </div>
+
+  <!-- ── Donor tab ──────────────────────────────────────────────────── -->
+  <div id="tab-donor" class="tab-panel">
+    <div id="donorSubTabs"></div>
+    <div class="canvas-wrap"><canvas id="donorCanvas"></canvas></div>
+    <div class="section-label">Select enzyme(s)</div>
+    <div class="enzyme-row" id="donorEnzRow"></div>
+    <button class="action-btn" id="btnCutDonor" onclick="doCutDonor()">✂ Cut Donor</button>
+    <div class="cut-status" id="donorCutStatus"></div>
+    <div class="frag-list" id="donorFragList"></div>
+  </div>
+
+  <!-- ── Assemble tab ───────────────────────────────────────────────── -->
+  <div id="tab-assemble" class="tab-panel">
+    <div class="hint-box" id="asmHint">
+      Cut both plasmids first, then add fragments here.
+    </div>
+    <div class="section-label">Assembly</div>
+    <div id="asmList"><div id="asmEmpty">No fragments added yet.</div></div>
+    <button class="action-btn primary" id="btnLigate" disabled onclick="doLigate()">⊕ Ligate!</button>
+    <button class="action-btn" id="btnClearAsm" onclick="doClearAsm()" style="margin-top:-6px;">Clear Assembly</button>
+    <div id="resultArea" style="display:none;">
+      <canvas id="resultCanvas" width="300" height="300"></canvas>
+      <div id="resultMsg"></div>
+      <div id="resultScore"></div>
+    </div>
+  </div>
+
+</div><!-- /#content -->
+
+<!-- Bottom navigation -->
+<div id="bottomNav">
+  <button class="nav-btn" id="btnPrev" onclick="prevLevel()" disabled>← Prev</button>
+  <span id="levelNum">1/1</span>
+  <button class="nav-btn" id="btnNext" onclick="nextLevel()" disabled>Next →</button>
+</div>
+
+<!-- Toast container -->
+<div id="toastArea"></div>
+
+<!-- ================================================================== -->
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Build synthetic donor sequence (same logic as index.html)
+// ---------------------------------------------------------------------------
+function buildDonorSequence(donorDef) {
+  const length   = donorDef.length || 3000;
+  const cutSites = donorDef.cut_sites || [];
+  const fill     = 'ACGTACGTACGT';
+  let arr = [];
+  while (arr.length < length) arr.push(...fill.split(''));
+  arr = arr.slice(0, length);
+  for (const cs of cutSites) {
+    const enz = EnzymeDB[cs.enzyme];
+    if (!enz) continue;
+    const rec = enz.recognitionSeq;
+    for (let i = 0; i < rec.length; i++) {
+      if (cs.position + i < length) arr[cs.position + i] = rec[i];
+    }
+  }
+  return arr.join('').toUpperCase();
+}
+
+// ---------------------------------------------------------------------------
+// Remap fragment features to recombinant coordinates
+// ---------------------------------------------------------------------------
+function remapFeatures(features, cutStartBp, origSeqLen, offset, fragSize, rev) {
+  const startBp = cutStartBp ?? 0;
+  const seqLen  = origSeqLen  ?? fragSize;
+  return features.map(f => {
+    const fs = (f.start - startBp + seqLen) % seqLen;
+    const fe = (f.end   - startBp + seqLen) % seqLen;
+    if (rev) {
+      return { ...f, start: offset + (fragSize - 1 - fe),
+                     end:   offset + (fragSize - 1 - fs),
+                     strand: -(f.strand || 1) };
+    }
+    return { ...f, start: offset + fs, end: offset + fe };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Inline fallback levels
+// ---------------------------------------------------------------------------
+const CLONING_LEVELS_INLINE = [
+  {
+    id: 'clone_01', title: 'Clone GFP into pUC19',
+    description: 'Cut both plasmids with EcoRI and BamHI, then ligate the GFP fragment into the vector.',
+    teaching_point: 'Two different enzymes create directional insertion.',
+    vector: { use_pUC19: true, name: 'pUC19' },
+    donor: {
+      name: 'pDonor-GFP', length: 3200,
+      features: [
+        { name: 'GFP',        start: 820,  end: 1520, type: 'gene',       strand:  1 },
+        { name: 'kanR',       start: 1800, end: 2660, type: 'resistance', strand: -1 },
+        { name: 'pSC101 ori', start: 100,  end: 550,  type: 'ori',        strand:  1 }
+      ],
+      cut_sites: [{ enzyme: 'EcoRI', position: 766 }, { enzyme: 'BamHI', position: 1540 }]
+    },
+    objectives: { vector_enzymes: ['EcoRI','BamHI'], donor_enzymes: ['EcoRI','BamHI'],
+                  correct_fragment: 'GFP', correct_orientation: 'forward' }
+  }
+];
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let _levels       = CLONING_LEVELS_INLINE;
+let _levelIdx     = 0;
+let _activeDonorIdx = 0;
+let _donorCutDone   = [];
+let _donorEnzsByIdx = [];   // string[][] — selected enzymes per donor
+let _vecEnzymes     = [];
+let _asmItems       = [];   // { fragment, orientation, source, donorIdx }
+
+let _vecRenderer    = null;
+let _donorRenderers = [];
+
+// ---------------------------------------------------------------------------
+// Toast
+// ---------------------------------------------------------------------------
+function toast(msg, type = 'info') {
+  const area = document.getElementById('toastArea');
+  const el = document.createElement('div');
+  el.className = 'toast' + (type !== 'info' ? ' ' + type : '');
+  el.textContent = msg;
+  area.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
+}
+
+// ---------------------------------------------------------------------------
+// Canvas sizing
+// ---------------------------------------------------------------------------
+function canvasSize() {
+  return Math.min(window.innerWidth - 28, 380);
+}
+
+// ---------------------------------------------------------------------------
+// Tab switching
+// ---------------------------------------------------------------------------
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
+}
+
+// ---------------------------------------------------------------------------
+// Enzyme pill rows
+// ---------------------------------------------------------------------------
+function buildEnzRow(containerId, enzymes, getSelected, onToggle) {
+  const row = document.getElementById(containerId);
+  row.innerHTML = '';
+  enzymes.forEach(name => {
+    const btn = document.createElement('button');
+    btn.className = 'enz-pill' + (getSelected().includes(name) ? ' selected' : '');
+    btn.textContent = name;
+    btn.onclick = () => {
+      onToggle(name);
+      btn.classList.toggle('selected', getSelected().includes(name));
+    };
+    row.appendChild(btn);
+  });
+}
+
+function refreshVecEnzRow() {
+  const level = _levels[_levelIdx];
+  const enzymes = [...new Set((level.vector?.cut_sites || []).map(s => s.enzyme))];
+  buildEnzRow('vectorEnzRow', enzymes,
+    () => _vecEnzymes,
+    name => {
+      const i = _vecEnzymes.indexOf(name);
+      if (i === -1) _vecEnzymes.push(name); else _vecEnzymes.splice(i, 1);
+    }
+  );
+}
+
+function refreshDonorEnzRow(donorDef) {
+  const enzymes = [...new Set((donorDef.cut_sites || []).map(s => s.enzyme))];
+  buildEnzRow('donorEnzRow', enzymes,
+    () => _donorEnzsByIdx[_activeDonorIdx] || [],
+    name => {
+      if (!_donorEnzsByIdx[_activeDonorIdx]) _donorEnzsByIdx[_activeDonorIdx] = [];
+      const arr = _donorEnzsByIdx[_activeDonorIdx];
+      const i = arr.indexOf(name);
+      if (i === -1) arr.push(name); else arr.splice(i, 1);
+    }
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Load level
+// ---------------------------------------------------------------------------
+function loadLevel(idx) {
+  if (idx < 0 || idx >= _levels.length) return;
+  _levelIdx = idx;
+
+  const level = _levels[idx];
+
+  // Patch donor sequences and vector sequence
+  const donorDefs = level.donors ? level.donors : (level.donor ? [level.donor] : []);
+  donorDefs.forEach(d => { if (!d.sequence) d.sequence = buildDonorSequence(d); });
+  if (level.vector && !level.vector.use_pUC19 && !level.vector.sequence) {
+    level.vector.sequence = buildDonorSequence(level.vector);
+  }
+  const patchedLevel = { ...level, donors: donorDefs };
+
+  // Reset state
+  _activeDonorIdx = 0;
+  _donorCutDone   = donorDefs.map(() => false);
+  _donorEnzsByIdx = donorDefs.map(() => []);
+  _vecEnzymes     = [];
+  _asmItems       = [];
+
+  CloningWorkspace.loadLevel(patchedLevel);
+
+  // Header
+  document.getElementById('hdrTitle').textContent = level.title || '';
+  document.getElementById('hdrDesc').textContent  = level.description || '';
+  document.getElementById('levelNum').textContent = (idx + 1) + '/' + _levels.length;
+  document.getElementById('btnPrev').disabled = idx === 0;
+  document.getElementById('btnNext').disabled = true;
+
+  // Vector canvas
+  const vSize = canvasSize();
+  const vCanvas = document.getElementById('vectorCanvas');
+  vCanvas.width = vCanvas.height = vSize;
+  _vecRenderer = new PlasmidRenderer(vCanvas, CloningWorkspace.vectorPlasmid);
+  _vecRenderer._computeLayout();
+  const vecSiteEnzymes = [...new Set((level.vector?.cut_sites || []).map(s => s.enzyme))];
+  _vecRenderer.render(vecSiteEnzymes);
+
+  // Donor canvases (share one canvas element, swap plasmid)
+  const dCanvas = document.getElementById('donorCanvas');
+  dCanvas.width = dCanvas.height = vSize;
+  _donorRenderers = CloningWorkspace.donorPlasmids.map(p => {
+    const r = new PlasmidRenderer(dCanvas, p);
+    r._computeLayout();
+    return r;
+  });
+
+  // Donor sub-tabs (shown only if >1 donor)
+  const subBar = document.getElementById('donorSubTabs');
+  if (donorDefs.length > 1) {
+    subBar.style.display = 'flex';
+    subBar.innerHTML = donorDefs.map((d, i) =>
+      `<button class="donor-sub-tab${i === 0 ? ' active' : ''}"
+               onclick="switchDonorSubTab(${i})">${d.name || 'Donor ' + (i+1)}</button>`
+    ).join('');
+  } else {
+    subBar.style.display = 'none';
+  }
+
+  // Render first donor
+  renderActiveDonor();
+
+  // Enzyme rows
+  refreshVecEnzRow();
+  refreshDonorEnzRow(donorDefs[_activeDonorIdx]);
+
+  // UI resets
+  document.getElementById('vecCutStatus').textContent  = '';
+  document.getElementById('vecCutStatus').className    = 'cut-status';
+  document.getElementById('donorCutStatus').textContent = '';
+  document.getElementById('donorCutStatus').className   = 'cut-status';
+  document.getElementById('vectorFragList').innerHTML   = '';
+  document.getElementById('donorFragList').innerHTML    = '';
+  document.getElementById('resultArea').style.display  = 'none';
+  document.getElementById('btnLigate').disabled        = true;
+
+  // Tab badges reset
+  document.querySelectorAll('.tab').forEach(t => { t.classList.remove('done'); });
+
+  renderAsmList();
+  switchTab('vector');
+
+  // Hint
+  const obj = level.objectives || {};
+  const hint = level.teaching_point
+    ? `<strong>Goal:</strong> ${level.description || ''}<br><em>${level.teaching_point}</em>`
+    : level.description || '';
+  document.getElementById('asmHint').innerHTML = hint;
+}
+
+function renderActiveDonor() {
+  const level = _levels[_levelIdx];
+  const donorDefs = level.donors || (level.donor ? [level.donor] : []);
+  if (!_donorRenderers[_activeDonorIdx]) return;
+  if (_donorCutDone[_activeDonorIdx]) return; // preserve cut state
+  const donorDef = donorDefs[_activeDonorIdx];
+  _donorRenderers[_activeDonorIdx].plasmid = CloningWorkspace.donorPlasmids[_activeDonorIdx];
+  const siteEnzymes = [...new Set((donorDef.cut_sites || []).map(s => s.enzyme))];
+  _donorRenderers[_activeDonorIdx].render(siteEnzymes);
+}
+
+// ---------------------------------------------------------------------------
+// Donor sub-tab switching
+// ---------------------------------------------------------------------------
+function switchDonorSubTab(idx) {
+  _activeDonorIdx = idx;
+  document.querySelectorAll('.donor-sub-tab').forEach((b, i) => {
+    b.classList.toggle('active', i === idx);
+  });
+  const level = _levels[_levelIdx];
+  const donorDefs = level.donors || (level.donor ? [level.donor] : []);
+  refreshDonorEnzRow(donorDefs[idx]);
+  renderActiveDonor();
+
+  // Rebuild fragment list for this donor if already cut
+  const donorFragList = document.getElementById('donorFragList');
+  if (_donorCutDone[idx]) {
+    const frags = CloningWorkspace.ws.donorFragmentsByIdx[idx] || [];
+    renderFragCards('donor', frags, idx, donorFragList);
+    document.getElementById('donorCutStatus').textContent = '✓ cut';
+    document.getElementById('donorCutStatus').className   = 'cut-status done';
+  } else {
+    donorFragList.innerHTML = '';
+    document.getElementById('donorCutStatus').textContent = '';
+    document.getElementById('donorCutStatus').className   = 'cut-status';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Cut vector
+// ---------------------------------------------------------------------------
+function doCutVector() {
+  CloningWorkspace.setVectorEnzymes(_vecEnzymes);
+  if (!CloningWorkspace.cutVector()) return;
+}
+
+document.addEventListener('cloning:vectorCut', e => {
+  const { fragments } = e.detail;
+  const statusEl = document.getElementById('vecCutStatus');
+  statusEl.textContent = '✓ ' + fragments.length + ' fragment(s)';
+  statusEl.className   = 'cut-status done';
+
+  const trayEl = document.getElementById('vectorFragList');
+  trayEl.innerHTML = '';
+
+  _vecRenderer.renderCutAnimation(
+    [...new Set(e.detail.sites.map(s => s.enzymeName))][0],
+    e.detail.sites[0].topStrandCut,
+    () => {
+      _vecRenderer.animateDigest(fragments, trayEl, () => {
+        renderFragCards('vector', fragments, null, trayEl);
+        markTabDone('vector');
+        toast(fragments.length + ' vector fragment(s) ready', 'success');
+      });
+    }
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Cut donor
+// ---------------------------------------------------------------------------
+function doCutDonor() {
+  CloningWorkspace.setDonorEnzymes(_donorEnzsByIdx[_activeDonorIdx] || [], _activeDonorIdx);
+  if (!CloningWorkspace.cutDonor(_activeDonorIdx)) return;
+}
+
+document.addEventListener('cloning:donorCut', e => {
+  const { fragments, donorIdx } = e.detail;
+  const di = donorIdx || 0;
+  _donorCutDone[di] = true;
+
+  // Update sub-tab badge
+  const subBtns = document.querySelectorAll('.donor-sub-tab');
+  if (subBtns[di]) subBtns[di].classList.add('cut-done');
+
+  if (di !== _activeDonorIdx) return; // not active tab, skip visual
+
+  const statusEl = document.getElementById('donorCutStatus');
+  statusEl.textContent = '✓ ' + fragments.length + ' fragment(s)';
+  statusEl.className   = 'cut-status done';
+
+  const trayEl = document.getElementById('donorFragList');
+  trayEl.innerHTML = '';
+
+  _donorRenderers[di].renderCutAnimation(
+    [...new Set(
+      (CloningWorkspace.ws.level.donors || [CloningWorkspace.ws.level.donor])[di]
+        ?.cut_sites?.map(s => s.enzyme) || []
+    )][0] || 'EcoRI',
+    CloningWorkspace.donorPlasmids[di].findRestrictionSites(
+      _donorEnzsByIdx[di] || []
+    )[0]?.topStrandCut || 0,
+    () => {
+      _donorRenderers[di].animateDigest(fragments, trayEl, () => {
+        renderFragCards('donor', fragments, di, trayEl);
+        // Check if all donors are cut
+        if (_donorCutDone.every(Boolean)) markTabDone('donor');
+        toast(fragments.length + ' donor fragment(s) ready', 'success');
+      });
+    }
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Fragment cards
+// ---------------------------------------------------------------------------
+function featureColorFor(frag) {
+  if (frag.features && frag.features.length > 0) {
+    const f = frag.features[0];
+    if (f.color) return f.color;
+    return FEATURE_COLORS[f.type] || FEATURE_COLORS.default;
+  }
+  return FEATURE_COLORS.default;
+}
+
+function renderFragCards(source, fragments, donorIdx, container) {
+  container.innerHTML = '';
+  fragments.forEach(frag => {
+    const alreadyIn = _asmItems.some(
+      it => it.source === source && it.fragment.id === frag.id && it.donorIdx === (donorIdx ?? null)
+    );
+    const trashed = CloningWorkspace.ws.trashedFragments.has(frag.id);
+    const card = document.createElement('div');
+    card.className = 'frag-card' + (alreadyIn ? ' in-assembly' : '') + (trashed ? ' trashed' : '');
+    card.dataset.fragId = frag.id;
+
+    const color = featureColorFor(frag);
+    const name = frag.features.map(f => f.name).join(', ') || (source === 'vector' ? 'Backbone' : 'Fragment');
+
+    card.innerHTML = `
+      <div class="frag-color-bar" style="background:${color};"></div>
+      <div class="frag-info">
+        <div class="frag-name">${name}</div>
+        <div class="frag-ends">${frag.leftEnd?.enzyme || 'blunt'} ——— ${frag.rightEnd?.enzyme || 'blunt'}</div>
+        <div class="frag-size">${(frag.size / 1000).toFixed(1)} kb</div>
+      </div>
+      <div class="frag-actions">
+        <button class="frag-btn add" title="Add to assembly">＋</button>
+        <button class="frag-btn trash" title="Trash">🗑</button>
+      </div>`;
+
+    card.querySelector('.frag-btn.add').addEventListener('click', () => {
+      addToAsm(frag, source, donorIdx);
+      card.classList.add('in-assembly');
+    });
+    card.querySelector('.frag-btn.trash').addEventListener('click', () => {
+      CloningWorkspace.trashFragment(frag.id);
+      card.classList.add('trashed');
+      toast('Fragment trashed');
+    });
+
+    container.appendChild(card);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Assembly
+// ---------------------------------------------------------------------------
+function addToAsm(frag, source, donorIdx) {
+  const key = it => it.source + '|' + it.fragment.id + '|' + (it.donorIdx ?? '');
+  const newKey = source + '|' + frag.id + '|' + (donorIdx ?? '');
+  if (_asmItems.some(it => key(it) === newKey)) {
+    toast('Already in assembly', 'warn'); return;
+  }
+  _asmItems.push({ fragment: frag, orientation: 'forward', source, donorIdx: donorIdx ?? null });
+  renderAsmList();
+  document.getElementById('btnLigate').disabled = _asmItems.length < 2;
+  toast('Added to assembly');
+  switchTab('assemble');
+}
+
+function renderAsmList() {
+  const list = document.getElementById('asmList');
+  if (_asmItems.length === 0) {
+    list.innerHTML = '<div id="asmEmpty">No fragments added yet.</div>';
+    return;
+  }
+  list.innerHTML = '';
+  _asmItems.forEach((item, i) => {
+    const frag = item.fragment;
+    const rev  = item.orientation === 'reverse';
+    const leftEnd  = rev ? frag.rightEnd : frag.leftEnd;
+    const rightEnd = rev ? frag.leftEnd  : frag.rightEnd;
+    const name = frag.features.map(f => f.name).join(', ')
+               || (item.source === 'vector' ? 'Backbone' : 'Fragment');
+    const color = featureColorFor(frag);
+
+    const row = document.createElement('div');
+    row.className = 'asm-item';
+    row.style.borderLeftColor = color;
+    row.style.borderLeftWidth = '3px';
+    row.innerHTML = `
+      <div class="asm-item-label">
+        <div class="asm-item-name">${name}</div>
+        <div class="asm-item-ends">${leftEnd?.enzyme||'blunt'} ——— ${rightEnd?.enzyme||'blunt'}</div>
+        <div class="asm-item-source">${item.source} ${item.orientation === 'reverse' ? '↩ reversed' : ''}</div>
+      </div>
+      <div class="asm-btns">
+        <button class="asm-btn flip" title="Flip orientation">↩</button>
+        <button class="asm-btn rm"   title="Remove">✕</button>
+      </div>`;
+
+    row.querySelector('.asm-btn.flip').addEventListener('click', () => {
+      _asmItems[i].orientation = rev ? 'forward' : 'reverse';
+      renderAsmList();
+    });
+    row.querySelector('.asm-btn.rm').addEventListener('click', () => {
+      _asmItems.splice(i, 1);
+      renderAsmList();
+      document.getElementById('btnLigate').disabled = _asmItems.length < 2;
+      document.getElementById('resultArea').style.display = 'none';
+      // Un-highlight card if it exists
+      refreshFragCardStates();
+    });
+    list.appendChild(row);
+  });
+}
+
+function refreshFragCardStates() {
+  document.querySelectorAll('.frag-card').forEach(card => {
+    const id  = card.dataset.fragId;
+    const src = card.dataset.source; // not set on mobile cards — check by frag id
+    const inAsm = _asmItems.some(it => it.fragment.id === id);
+    card.classList.toggle('in-assembly', inAsm);
+  });
+}
+
+function doClearAsm() {
+  _asmItems = [];
+  renderAsmList();
+  document.getElementById('btnLigate').disabled = true;
+  document.getElementById('resultArea').style.display = 'none';
+  document.querySelectorAll('.frag-card').forEach(c => c.classList.remove('in-assembly'));
+}
+
+// ---------------------------------------------------------------------------
+// Ligate
+// ---------------------------------------------------------------------------
+function doLigate() {
+  document.getElementById('resultArea').style.display = 'none';
+  CloningWorkspace.ligateFragments(_asmItems);
+}
+
+document.addEventListener('cloning:ligationResult', e => {
+  const { result, items, points } = e.detail;
+  const resultArea  = document.getElementById('resultArea');
+  const resultMsg   = document.getElementById('resultMsg');
+  const resultScore = document.getElementById('resultScore');
+
+  resultScore.textContent = points > 0 ? '+' + points + ' pts' : '';
+  resultArea.style.display = 'block';
+
+  if (result.success && result.correctCombination) {
+    // Build recombinant and render
+    let recombSeq = '';
+    const allFeatures = [], sitesOnRecomb = [];
+    for (const item of items) {
+      const frag = item.fragment;
+      const rev  = item.orientation === 'reverse';
+      const seq  = rev ? reverseComplement(frag.sequence) : frag.sequence;
+      const offset = recombSeq.length;
+      const leftEnz = rev ? frag.rightEnd?.enzyme : frag.leftEnd?.enzyme;
+      if (leftEnz) sitesOnRecomb.push({ enzymeName: leftEnz, topStrandCut: offset });
+      allFeatures.push(...remapFeatures(frag.features, frag.cutStartBp, frag.origSeqLen, offset, seq.length, rev));
+      recombSeq += seq;
+    }
+    const donorNames = items.filter(it => it.source === 'donor')
+      .flatMap(it => it.fragment.features.map(f => f.name)).filter(Boolean);
+    const recombName = donorNames.join(' + ') || 'Recombinant';
+
+    const rSize   = Math.min(window.innerWidth - 28, 300);
+    const rCanvas = document.getElementById('resultCanvas');
+    rCanvas.width = rCanvas.height = rSize;
+    const recomb    = new Plasmid({ name: recombName, sequence: recombSeq, features: allFeatures });
+    const rRenderer = new PlasmidRenderer(rCanvas, recomb);
+    rRenderer.centerLabelScale  = 0.5;
+    rRenderer._restrictionSites = sitesOnRecomb;
+    rRenderer.render([]);
+
+    // Celebrate
+    rCanvas.classList.remove('celebrate');
+    void rCanvas.offsetWidth;
+    rCanvas.classList.add('celebrate');
+
+    const dirNote = result.orientationCorrect ? '' : ' (reversed — partial score)';
+    resultMsg.innerHTML = `<strong style="color:var(--success)">✓ Ligation successful!</strong>${dirNote}`;
+    markTabDone('assemble');
+    document.getElementById('btnNext').disabled = (_levelIdx >= _levels.length - 1);
+
+  } else if (result.success && !result.correctCombination) {
+    resultMsg.innerHTML = `<strong style="color:var(--warn)">Wrong fragments.</strong> `
+      + (result.wrongComboReason || 'Compatible ends but not a useful recombinant.') + ' Try again.';
+  } else {
+    const failed = result.junctions.filter(j => !j.compatible);
+    resultMsg.innerHTML = `<strong style="color:var(--danger)">Ligation failed</strong> — `
+      + failed.map(j => j.note || 'incompatible ends').join('; ');
+  }
+});
+
+document.addEventListener('cloning:feedback', e => {
+  toast(e.detail.message, e.detail.type === 'warning' ? 'warn' : e.detail.type);
+});
+
+// ---------------------------------------------------------------------------
+// Tab done badges
+// ---------------------------------------------------------------------------
+function markTabDone(tabName) {
+  document.querySelector(`.tab[data-tab="${tabName}"]`)?.classList.add('done');
+}
+
+// ---------------------------------------------------------------------------
+// Level navigation
+// ---------------------------------------------------------------------------
+function prevLevel() { if (_levelIdx > 0) loadLevel(_levelIdx - 1); }
+function nextLevel() { if (_levelIdx < _levels.length - 1) loadLevel(_levelIdx + 1); }
+
+// ---------------------------------------------------------------------------
+// Stub: Game.init needs TUTORIAL/CHALLENGE arrays but we only need Game.pUC19
+// ---------------------------------------------------------------------------
+if (typeof Game !== 'undefined' && typeof Game.init === 'function') {
+  Game.init([], []);
+}
+
+// ---------------------------------------------------------------------------
+// Bootstrap: fetch levels then load first
+// ---------------------------------------------------------------------------
+const GITHUB_RAW = `https://raw.githubusercontent.com/bgeiss1/restriction-cloning-game/main/levels/cloning.json?t=${Date.now()}`;
+fetch(GITHUB_RAW)
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .catch(() => fetch('levels/cloning.json').then(r => r.ok ? r.json() : Promise.reject()))
+  .then(data => { if (Array.isArray(data) && data.length) _levels = data; })
+  .catch(() => {/* keep inline fallback */})
+  .finally(() => loadLevel(0));
+
+// Resize handler
+window.addEventListener('resize', () => {
+  if (_vecRenderer) {
+    const s = canvasSize();
+    const vc = document.getElementById('vectorCanvas');
+    vc.width = vc.height = s;
+    _vecRenderer._computeLayout();
+    const level = _levels[_levelIdx];
+    const vecSiteEnzymes = [...new Set((level.vector?.cut_sites || []).map(cs => cs.enzyme))];
+    _vecRenderer.render(vecSiteEnzymes);
+  }
+});
+</script>
+</body>
+</html>
