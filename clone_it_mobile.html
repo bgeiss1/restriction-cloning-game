@@ -44,6 +44,10 @@
     }
     #header h1 { font-size: 1.15rem; font-weight: 700; color: var(--gold);
       letter-spacing: 0.05em; }
+    #scoreDisplay {
+      font-size: 11px; font-family: monospace; font-weight: 700;
+      color: var(--gold); opacity: 0.85; letter-spacing: 0.03em;
+    }
     #header .level-info { font-size: 11px; color: var(--text-muted); text-align: right; }
     #header .level-title { font-size: 12px; color: var(--text); font-weight: 600; }
     #btnMenu {
@@ -347,7 +351,10 @@
 
 <!-- Header -->
 <div id="header">
-  <h1>Clone It!</h1>
+  <div style="display:flex; flex-direction:column; align-items:flex-start; flex-shrink:0; gap:1px;">
+    <h1>Clone It!</h1>
+    <div id="scoreDisplay">0 pts</div>
+  </div>
   <div style="text-align:left; flex:1; min-width:0; margin: 0 10px;">
     <div class="level-title" id="hdrTitle">—</div>
   </div>
@@ -521,6 +528,7 @@ const CLONING_LEVELS_INLINE = [
 // ---------------------------------------------------------------------------
 let _levels       = CLONING_LEVELS_INLINE;
 let _levelIdx     = 0;
+let _totalScore   = 0;
 let _activeDonorIdx = 0;
 let _donorCutDone   = [];
 let _donorEnzsByIdx = [];   // string[][] — selected enzymes per donor
@@ -529,6 +537,13 @@ let _asmItems       = [];   // { fragment, orientation, source, donorIdx }
 
 let _vecRenderer    = null;
 let _donorRenderers = [];
+
+// ---------------------------------------------------------------------------
+// Score display
+// ---------------------------------------------------------------------------
+function updateScoreDisplay() {
+  document.getElementById('scoreDisplay').textContent = _totalScore + ' pts';
+}
 
 // ---------------------------------------------------------------------------
 // Toast
@@ -1058,6 +1073,8 @@ document.addEventListener('cloning:ligationResult', e => {
     void card.offsetWidth;
     card.style.animation = '';
 
+    _totalScore += points;
+    updateScoreDisplay();
     markTabDone('assemble');
     document.getElementById('btnNext').disabled = (_levelIdx >= _levels.length - 1);
 
