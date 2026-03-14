@@ -1,0 +1,34 @@
+{
+  "name": "test plasmid",
+  "length": 4000,
+  "features": [
+    {
+      "name": "Amp",
+      "start": 0,
+      "end": 100,
+      "type": "promoter",
+      "strand": 1
+    },
+    {
+      "name": "promoter de jour",
+      "start": 134,
+      "end": 150,
+      "type": "promoter",
+      "strand": 1
+    }
+  ],
+  "cut_sites": [
+    {
+      "enzyme": "EcoRI",
+      "position": 150
+    },
+    {
+      "enzyme": "KpnI",
+      "position": 554
+    },
+    {
+      "enzyme": "SalI",
+      "position": 700
+    }
+  ]
+}

@@ -738,7 +738,7 @@ class PropertiesPanel(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Plasmid Map Editor — Restriction Cloning Game')
+        self.setWindowTitle('Sticky Ends — Plasmid Editor')
         self.resize(1000, 680)
         self._build_ui()
         self._build_menu()

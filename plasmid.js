@@ -1,6 +1,6 @@
 /**
  * plasmid.js — Plasmid data model and Canvas-based circular renderer
- * for the Restriction Cloning Educational Game.
+ * for Sticky Ends.
  *
  * Depends on enzymes.js being loaded first (uses findCutSites, EnzymeDB).
  * All classes attached to window (no ES modules).

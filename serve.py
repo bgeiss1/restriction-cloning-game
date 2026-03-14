@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simple HTTP server for the Restriction Cloning Game."""
+"""Simple HTTP server for Sticky Ends."""
 
 import http.server
 import socketserver
@@ -17,7 +17,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     with socketserver.TCPServer(("0.0.0.0", PORT), Handler) as httpd:
-        print(f"Serving Restriction Cloning Game at:")
+        print(f"Serving Sticky Ends at:")
         print(f"  http://10.2.35.64:{PORT}/index.html")
         print(f"  http://localhost:{PORT}/index.html")
         print(f"Press Ctrl+C to stop.")

@@ -1,5 +1,5 @@
 /**
- * ui.js — UI controller for the Restriction Cloning Educational Game.
+ * ui.js — UI controller for Sticky Ends.
  *
  * Depends on: enzymes.js, plasmid.js, scoring.js, game.js  (loaded before this)
  * Attach everything to window.UI (no ES modules).

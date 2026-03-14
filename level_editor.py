@@ -1958,7 +1958,7 @@ class LevelListPanel(QWidget):
 class LevelEditorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('Level Editor — Restriction Cloning Game')
+        self.setWindowTitle('Sticky Ends — Level Editor')
         self.resize(1300, 800)
 
         self._levels: List[LevelModel] = []

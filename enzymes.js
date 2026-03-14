@@ -1,6 +1,6 @@
 /**
  * enzymes.js — Restriction enzyme database and cut/ligation logic
- * for the Restriction Cloning Educational Game.
+ * for Sticky Ends.
  *
  * All exports are attached to window globals (no ES modules).
  * Usage:  <script src="enzymes.js"></script>

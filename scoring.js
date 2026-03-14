@@ -1,5 +1,5 @@
 /**
- * scoring.js — Scoring engine for the Restriction Cloning Educational Game.
+ * scoring.js — Scoring engine for Sticky Ends.
  *
  * Attach everything to window.Scoring (no ES modules).
  * Usage: <script src="scoring.js"></script>  → window.Scoring
