@@ -96,13 +96,6 @@
           "position": 330
         }
       ]
-    },
-    {
-      "id": "new_plasmid_3t3tio",
-      "name": "New Plasmid",
-      "length": 3000,
-      "features": [],
-      "cut_sites": []
     }
   ],
   "donors": [
