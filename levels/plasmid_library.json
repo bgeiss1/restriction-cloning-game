@@ -73,7 +73,7 @@
       "cut_sites": []
     },
     {
-      "id": "test_vector_1_x6l0le",
+      "id": "test_vector_1_b95d4t",
       "name": "test_vector_1",
       "length": 2686,
       "features": [
@@ -103,11 +103,11 @@
       "cut_sites": [
         {
           "enzyme": "EcoRI",
-          "position": 121
+          "position": 306
         },
         {
           "enzyme": "BamHI",
-          "position": 513
+          "position": 751
         }
       ]
     }
