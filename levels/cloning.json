@@ -184,11 +184,53 @@
     "sequence_note": "",
     "vector": {
       "use_pUC19": false,
-      "name": "Custom Vector",
+      "name": "pMIP",
       "length": 2686,
-      "features": [],
-      "cut_sites": [],
-      "base_id": "custom_vector_ko108v"
+      "features": [
+        {
+          "name": "T7 Promoter",
+          "start": 440,
+          "end": 505,
+          "type": "promoter",
+          "strand": 1
+        },
+        {
+          "name": "New Feature",
+          "start": 532,
+          "end": 671,
+          "type": "promoter_sym",
+          "strand": 1
+        },
+        {
+          "name": "KanR",
+          "start": 1903,
+          "end": 2316,
+          "type": "resistance",
+          "strand": 1
+        },
+        {
+          "name": "ColE1 Ori",
+          "start": 1303,
+          "end": 1467,
+          "type": "ori",
+          "strand": 1
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "KpnI",
+          "position": 601
+        },
+        {
+          "enzyme": "HindIII",
+          "position": 664
+        },
+        {
+          "enzyme": "XbaI",
+          "position": 725
+        }
+      ],
+      "base_id": "pmip_ndldfc"
     },
     "donors": [
       {
@@ -265,7 +307,7 @@
   {
     "id": "clone_03",
     "title": "Single-enzyme cloning (non-directional)",
-    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ predict how many ligation products are possible.",
+    "description": "Clone a resistance cassette using only EcoRI. Because both ends are identical, the insert can ligate in either orientation ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ predict how many ligation products are possible.",
     "teaching_point": "Single-enzyme cloning with a palindromic site creates two possible insert orientations and one self-ligation product. Colony screening by PCR or restriction digest is required.",
     "sequence_note": "",
     "vector": {
