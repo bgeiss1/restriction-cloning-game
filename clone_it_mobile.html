@@ -113,6 +113,16 @@
       color: var(--success); cursor: default;
     }
 
+    /* Reset button */
+    .reset-btn {
+      padding: 7px 13px; border-radius: 20px; white-space: nowrap;
+      border: 1.5px solid var(--warn); background: none;
+      color: var(--warn); font-size: 12px; font-weight: 600; cursor: pointer;
+      -webkit-tap-highlight-color: transparent; transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .reset-btn:active { background: rgba(255,167,38,0.15); }
+
     /* extra enzyme dropdown */
     .extra-enz-wrap { margin-bottom: 12px; }
     .extra-enz-wrap select {
@@ -296,7 +306,10 @@
     <div class="section-label">Select enzyme(s)</div>
     <div class="enzyme-row" id="vectorEnzRow"></div>
     <button class="action-btn" id="btnCutVector" onclick="doCutVector()">✂ Cut Vector</button>
-    <div class="cut-status" id="vecCutStatus"></div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <div class="cut-status" id="vecCutStatus" style="margin:0; flex:1;"></div>
+      <button class="reset-btn" id="btnResetVector" onclick="resetVector()" style="display:none;">↺ Re-cut</button>
+    </div>
     <div class="frag-list" id="vectorFragList"></div>
   </div>
 
@@ -307,7 +320,10 @@
     <div class="section-label">Select enzyme(s)</div>
     <div class="enzyme-row" id="donorEnzRow"></div>
     <button class="action-btn" id="btnCutDonor" onclick="doCutDonor()">✂ Cut Donor</button>
-    <div class="cut-status" id="donorCutStatus"></div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <div class="cut-status" id="donorCutStatus" style="margin:0; flex:1;"></div>
+      <button class="reset-btn" id="btnResetDonor" onclick="resetDonor(_activeDonorIdx)" style="display:none;">↺ Re-cut</button>
+    </div>
     <div class="frag-list" id="donorFragList"></div>
   </div>
 
@@ -616,11 +632,67 @@ function switchDonorSubTab(idx) {
     renderFragCards('donor', frags, idx, donorFragList);
     document.getElementById('donorCutStatus').textContent = '✓ cut';
     document.getElementById('donorCutStatus').className   = 'cut-status done';
+    document.getElementById('btnResetDonor').style.display = '';
   } else {
     donorFragList.innerHTML = '';
     document.getElementById('donorCutStatus').textContent = '';
     document.getElementById('donorCutStatus').className   = 'cut-status';
+    document.getElementById('btnResetDonor').style.display = 'none';
   }
+}
+
+// ---------------------------------------------------------------------------
+// Per-panel reset (re-render full plasmid, clear cut state, remove from assembly)
+// ---------------------------------------------------------------------------
+function resetVector() {
+  _vecRenderer._cutAnimState = null;
+  const level = _levels[_levelIdx];
+  const vecSiteEnzymes = [...new Set((level.vector?.cut_sites || []).map(s => s.enzyme))];
+  _vecRenderer.render(vecSiteEnzymes);
+
+  _vecEnzymes = [];
+  refreshVecEnzRow();
+
+  document.getElementById('vecCutStatus').textContent = '';
+  document.getElementById('vecCutStatus').className   = 'cut-status';
+  document.getElementById('vectorFragList').innerHTML  = '';
+  document.getElementById('btnResetVector').style.display = 'none';
+  document.querySelector('.tab[data-tab="vector"]')?.classList.remove('done');
+
+  _asmItems = _asmItems.filter(it => it.source !== 'vector');
+  renderAsmList();
+  document.getElementById('btnLigate').disabled = _asmItems.length < 2;
+  document.getElementById('resultArea').style.display = 'none';
+}
+
+function resetDonor(di) {
+  _donorCutDone[di] = false;
+  const donorRenderer = _donorRenderers[di];
+  if (!donorRenderer) return;
+
+  donorRenderer._cutAnimState = null;
+  const level = _levels[_levelIdx];
+  const donorDefs = level.donors || (level.donor ? [level.donor] : []);
+  const siteEnzymes = [...new Set((donorDefs[di]?.cut_sites || []).map(s => s.enzyme))];
+  donorRenderer.plasmid = CloningWorkspace.donorPlasmids[di];
+  donorRenderer.render(siteEnzymes);
+
+  _donorEnzsByIdx[di] = [];
+  refreshDonorEnzRow(donorDefs[di]);
+
+  document.getElementById('donorCutStatus').textContent = '';
+  document.getElementById('donorCutStatus').className   = 'cut-status';
+  document.getElementById('donorFragList').innerHTML    = '';
+  document.getElementById('btnResetDonor').style.display = 'none';
+  document.querySelectorAll('.donor-sub-tab')[di]?.classList.remove('cut-done');
+
+  if (!_donorCutDone.some(Boolean))
+    document.querySelector('.tab[data-tab="donor"]')?.classList.remove('done');
+
+  _asmItems = _asmItems.filter(it => !(it.source === 'donor' && it.donorIdx === di));
+  renderAsmList();
+  document.getElementById('btnLigate').disabled = _asmItems.length < 2;
+  document.getElementById('resultArea').style.display = 'none';
 }
 
 // ---------------------------------------------------------------------------
@@ -636,6 +708,7 @@ document.addEventListener('cloning:vectorCut', e => {
   const statusEl = document.getElementById('vecCutStatus');
   statusEl.textContent = '✓ ' + fragments.length + ' fragment(s)';
   statusEl.className   = 'cut-status done';
+  document.getElementById('btnResetVector').style.display = '';
 
   const trayEl = document.getElementById('vectorFragList');
   trayEl.innerHTML = '';
@@ -675,6 +748,7 @@ document.addEventListener('cloning:donorCut', e => {
   const statusEl = document.getElementById('donorCutStatus');
   statusEl.textContent = '✓ ' + fragments.length + ' fragment(s)';
   statusEl.className   = 'cut-status done';
+  if (di === _activeDonorIdx) document.getElementById('btnResetDonor').style.display = '';
 
   const trayEl = document.getElementById('donorFragList');
   trayEl.innerHTML = '';

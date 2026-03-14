@@ -258,13 +258,27 @@ const CloningWorkspace = (function () {
                         correctCombination = false;
                         wrongComboReason = 'No donor insert in assembly.';
                     } else {
-                        const targetGene = (obj.correct_fragment || '').toLowerCase();
-                        const donorHasInsert = !targetGene || donorItem.fragment.features.some(
-                            f => f.name.toLowerCase().includes(targetGene)
-                        );
+                        const targetGene = obj.correct_fragment != null
+                            ? String(obj.correct_fragment).toLowerCase().trim()
+                            : null;
+                        let donorHasInsert;
+                        if (targetGene === null) {
+                            // objective not set — no fragment constraint
+                            donorHasInsert = true;
+                        } else if (targetGene === '') {
+                            // objective set but empty — require at least one non-backbone feature
+                            donorHasInsert = donorItem.fragment.features.some(
+                                f => !['ori', 'resistance', 'mcs'].includes(f.type)
+                            );
+                            if (!donorHasInsert) wrongComboReason = 'Donor fragment appears to be a backbone — no insert gene detected.';
+                        } else {
+                            donorHasInsert = donorItem.fragment.features.some(
+                                f => f.name.toLowerCase().includes(targetGene)
+                            );
+                            if (!donorHasInsert) wrongComboReason = `Donor fragment does not contain "${obj.correct_fragment}".`;
+                        }
                         if (!donorHasInsert) {
                             correctCombination = false;
-                            wrongComboReason = `Donor fragment does not contain "${obj.correct_fragment}".`;
                         }
                         if (obj.correct_orientation && donorItem.orientation !== obj.correct_orientation) {
                             orientationCorrect = false;
