@@ -188,6 +188,55 @@
           "position": 624
         }
       ]
+    },
+    {
+      "id": "pmip_ndldfc",
+      "name": "pMIP",
+      "length": 2686,
+      "features": [
+        {
+          "name": "T7 Promoter",
+          "start": 440,
+          "end": 505,
+          "type": "promoter",
+          "strand": 1
+        },
+        {
+          "name": "New Feature",
+          "start": 532,
+          "end": 671,
+          "type": "promoter_sym",
+          "strand": 1
+        },
+        {
+          "name": "KanR",
+          "start": 1903,
+          "end": 2316,
+          "type": "resistance",
+          "strand": 1
+        },
+        {
+          "name": "ColE1 Ori",
+          "start": 1303,
+          "end": 1467,
+          "type": "ori",
+          "strand": 1
+        }
+      ],
+      "cut_sites": [
+        {
+          "enzyme": "KpnI",
+          "position": 601
+        },
+        {
+          "enzyme": "HindIII",
+          "position": 664
+        },
+        {
+          "enzyme": "XbaI",
+          "position": 725
+        }
+      ]
     }
   ],
   "donors": [
