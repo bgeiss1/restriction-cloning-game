@@ -612,9 +612,30 @@ async function connectWithPat(pat, silent) {
 async function githubGet(pat, filename) {
   filename = filename || currentFilename;
   const resp = await fetch(githubFileApi(filename), {
+    cache: 'no-store',
     headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' }
   });
   if (!resp.ok) throw new Error(`GitHub ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+  return resp.json();
+}
+
+// Always fetches a fresh SHA immediately before the PUT to avoid 409 conflicts.
+async function githubPut(pat, filename, contentStr, message) {
+  let sha = '';
+  try { const existing = await githubGet(pat, filename); sha = existing.sha; } catch {}
+  const content = btoa(unescape(encodeURIComponent(contentStr)));
+  const body = { message, content };
+  if (sha) body.sha = sha;
+  const resp = await fetch(githubFileApi(filename), {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${pat}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) throw new Error(await resp.text());
   return resp.json();
 }
 
@@ -639,21 +660,8 @@ async function publishToGitHub() {
   btn.disabled = true; btn.textContent = 'Publishing…';
   try {
     const contentStr = JSON.stringify(db, null, 2);
-    const content = btoa(unescape(encodeURIComponent(contentStr)));
     const message = `Update ${currentFilename} — ${new Date().toISOString().slice(0,16)} (Micro ID Editor)`;
-    const body = { message, content };
-    if (currentSha) body.sha = currentSha;
-    const resp = await fetch(githubFileApi(currentFilename), {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${pat}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-    if (!resp.ok) throw new Error(await resp.text());
-    const data = await resp.json();
+    const data = await githubPut(pat, currentFilename, contentStr, message);
     currentSha = data.content.sha;
     dirty = false;
     updateDirty();
@@ -682,32 +690,12 @@ async function updateGameDatabase() {
   const btn = document.getElementById('btn-update-game');
   btn.disabled = true; btn.textContent = 'Updating…';
   try {
-    // get existing SHA of microid_db.json so the PUT doesn't fail
-    let gameSha = '';
-    try { const existing = await githubGet(pat, gameFile); gameSha = existing.sha; } catch {}
-
     const contentStr = JSON.stringify(db, null, 2);
-    const content = btoa(unescape(encodeURIComponent(contentStr)));
     const message = `Set game DB to ${currentFilename} — ${new Date().toISOString().slice(0,16)} (Micro ID Editor)`;
-    const body = { message, content };
-    if (gameSha) body.sha = gameSha;
-
-    const resp = await fetch(githubFileApi(gameFile), {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${pat}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-    if (!resp.ok) throw new Error(await resp.text());
+    const data = await githubPut(pat, gameFile, contentStr, message);
 
     // if we just overwrote our own file, update SHA so next publish still works
-    if (currentFilename === gameFile) {
-      const data = await resp.json();
-      currentSha = data.content.sha;
-    }
+    if (currentFilename === gameFile) currentSha = data.content.sha;
 
     btn.textContent = '✓ Game Updated!';
     setTimeout(() => { btn.textContent = '▶ Update Game DB'; }, 2500);
