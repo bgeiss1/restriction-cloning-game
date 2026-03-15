@@ -7,7 +7,8 @@
   },
   "masterRef": "master.json",
   "selectedIds": [
-    "s_aureus"
+    "s_aureus",
+    "ebola"
   ],
   "organisms": [
     {
@@ -73,6 +74,50 @@
       "treatment": "Antistaphylococcal penicillins; vancomycin for MRSA",
       "prevention": "Hand hygiene; wound care; contact precautions for MRSA",
       "learnMore": "S. aureus is one of the most common causes of skin infections worldwide. About 30% of the population are asymptomatic nasal carriers. MRSA (methicillin-resistant S. aureus) is a major hospital and community pathogen.",
+      "vector": ""
+    },
+    {
+      "id": "ebola",
+      "name": "Ebola virus",
+      "commonName": "Ebola",
+      "type": "virus",
+      "subtype": "RNA_virus",
+      "difficulty": 3,
+      "morphology": "Enveloped negative-sense ssRNA filovirus; characteristic filamentous or shepherd's crook shape",
+      "images": [
+        {
+          "file": "ebola_virus_tem.jpg",
+          "caption": "Transmission electron micrograph ÃÂ¢ÃÂÃÂ filamentous filovirus particles"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Ebola virus disease (EVD)",
+          "symptoms": [
+            "sudden fever",
+            "severe headache",
+            "myalgia",
+            "hemorrhagic manifestations",
+            "vomiting",
+            "diarrhea",
+            "multi-organ failure"
+          ]
+        }
+      ],
+      "transmission": [
+        "direct contact with blood or body fluids of infected person or animal"
+      ],
+      "reservoir": "Fruit bats (suspected); non-human primates",
+      "labFindings": [
+        "RT-PCR on blood (gold standard)",
+        "ELISA for Ebola antigen",
+        "BSL-4 laboratory required for culture",
+        "Thrombocytopenia; elevated liver enzymes",
+        "Coagulopathy (DIC)"
+      ],
+      "treatment": "Supportive care; IV fluid resuscitation; mAb therapies (Inmazeb, Ebanga) for EVD-Zaire",
+      "prevention": "rVSV-ZEBOV vaccine (Ervebo) for Zaire ebolavirus; strict contact and droplet precautions; PPE",
+      "learnMore": "Ebola causes viral hemorrhagic fever with case fatality rates of 25ÃÂ¢ÃÂÃÂ90%. It triggers a massive cytokine storm and interferes with coagulation. The 2013ÃÂ¢ÃÂÃÂ2016 West Africa outbreak killed over 11,000 people.",
       "vector": ""
     }
   ]
