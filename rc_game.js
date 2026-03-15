@@ -1,5 +1,5 @@
 /**
- * rc_game.js — Reverse Complement Game
+ * rc_game.js — Antisense
  *
  * Phases:
  *   1. Single base DNA, 5'→3'
