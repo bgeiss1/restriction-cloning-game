@@ -726,8 +726,7 @@ async function switchDb(filename) {
     document.getElementById('emptyState').style.display = '';
     document.getElementById('org-editor').style.display = 'none';
     // refresh list to update the active highlight
-    const pat = sessionStorage.getItem('microid_editor_pat');
-    if (pat && !dbFiles.includes(filename)) refreshDbList(pat); else renderDbPanel();
+    if (!dbFiles.includes(filename)) refreshDbList(pat); else renderDbPanel();
     if (isChildDb() && pat) ensureMaster(pat).then(() => { checkStaleness(); renderMasterBrowser(); }).catch(() => {});
   } catch (err) {
     alert('Could not load ' + filename + ': ' + err.message);
