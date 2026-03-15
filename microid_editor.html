@@ -98,8 +98,70 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   padding: 10px 16px; background: var(--green); font-size: 0.8rem;
   font-weight: 700; letter-spacing: 0.05em; color: var(--gold); text-transform: uppercase;
   display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
 }
+.section-title:hover { background: #245c34; }
+.section-chevron { font-size: 0.75rem; color: var(--muted); transition: transform 0.15s; margin-left: 6px; }
+.section.collapsed .section-chevron { transform: rotate(-90deg); }
+.section.collapsed .section-body { display: none; }
 .section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ── SIDEBAR DB PANEL ── */
+#db-panel {
+  border-bottom: 2px solid var(--border); flex-shrink: 0;
+}
+#db-panel-header {
+  padding: 8px 12px 4px;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted);
+  display: flex; align-items: center; justify-content: space-between;
+}
+#db-list-items { max-height: 160px; overflow-y: auto; }
+.db-item {
+  padding: 7px 12px; cursor: pointer; font-size: 0.83rem;
+  border-bottom: 1px solid rgba(200,169,81,0.08); color: var(--muted);
+  display: flex; align-items: center; gap: 6px; line-height: 1.3;
+}
+.db-item:hover { background: rgba(200,169,81,0.07); color: var(--text); }
+.db-item.active { color: var(--gold); font-weight: 600; }
+.db-item-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--gold); opacity: 0; }
+.db-item.active .db-item-dot { opacity: 1; }
+#db-panel-actions {
+  padding: 6px 8px; display: flex; gap: 6px;
+  border-top: 1px solid rgba(200,169,81,0.1);
+}
+#db-panel-actions button {
+  flex: 1; padding: 5px 6px; border-radius: var(--radius); font-size: 0.78rem; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(200,169,81,0.1); color: var(--gold);
+}
+#db-panel-actions button:hover { background: rgba(200,169,81,0.2); }
+#db-panel-no-conn {
+  padding: 8px 12px 10px; font-size: 0.8rem; color: var(--muted);
+  display: flex; flex-direction: column; gap: 6px;
+}
+#db-panel-no-conn button {
+  padding: 6px 10px; border-radius: var(--radius); font-size: 0.82rem; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(200,169,81,0.1); color: var(--gold);
+}
+#db-panel-no-conn button:hover { background: rgba(200,169,81,0.2); }
+
+/* ── ORG PANEL HEADER ── */
+#org-panel-header {
+  padding: 8px 12px 4px;
+  font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted);
+  border-bottom: 1px solid rgba(200,169,81,0.1);
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* ── ORG ITEM DELETE BUTTON ── */
+.org-del {
+  visibility: hidden; padding: 1px 5px; border-radius: 4px; border: none;
+  background: rgba(239,83,80,0.15); color: var(--danger);
+  font-size: 0.8rem; cursor: pointer; line-height: 1; flex-shrink: 0;
+}
+.org-item:hover .org-del { visibility: visible; }
+.org-del:hover { background: rgba(239,83,80,0.35); }
 
 /* ── FORM ELEMENTS ── */
 .field-row { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -261,9 +323,6 @@ input[type=number] { width: 80px; }
     </div>
     <div id="topbar-right">
       <span id="dirty" class="hidden">● Unsaved changes</span>
-      <button class="btn-open" id="btn-switch-db" onclick="showDbSwitcher()" style="display:none;">⇄ Switch DB</button>
-      <button class="btn-open" id="btn-new-db" onclick="newDatabase()" style="display:none;">＋ New DB</button>
-      <button class="btn-open" onclick="openFile()">Open File…</button>
       <button class="btn-secondary" onclick="newOrganism()">+ Organism</button>
       <button class="btn-secondary" onclick="saveDB()">⬇ Download</button>
       <button class="btn-primary" id="publish-btn" onclick="publishToGitHub()" style="display:none;">Publish to GitHub</button>
@@ -274,13 +333,39 @@ input[type=number] { width: 80px; }
   </div>
 
   <div id="body">
-    <!-- SIDEBAR: organism list -->
+    <!-- SIDEBAR -->
     <div id="sidebar">
-      <div id="sidebar-header">
-        <input id="searchBox" type="text" placeholder="Search organisms…" oninput="filterList()">
+
+      <!-- DB BROWSER -->
+      <div id="db-panel">
+        <div id="db-panel-header">
+          <span>Databases</span>
+        </div>
+        <!-- shown when connected to GitHub -->
+        <div id="db-panel-connected" style="display:none;">
+          <div id="db-list-items"></div>
+          <div id="db-panel-actions">
+            <button onclick="newDatabase()">＋ New DB</button>
+            <button onclick="openFile()">Load File…</button>
+          </div>
+        </div>
+        <!-- shown when not connected -->
+        <div id="db-panel-no-conn">
+          <span>Connect with a GitHub PAT to browse and switch databases.</span>
+          <button onclick="openFile()">Load Local File…</button>
+        </div>
       </div>
-      <div id="org-list"></div>
+
+      <!-- ORGANISM LIST -->
+      <div id="org-panel-header">
+        <span>Organisms (<span id="org-count">0</span>)</span>
+        <input id="searchBox" type="text" placeholder="Search…" oninput="filterList()"
+          style="width:90px;padding:3px 6px;font-size:0.78rem;border-radius:4px;
+                 border:1px solid var(--border);background:var(--bg-input);color:var(--text);">
+      </div>
+      <div id="org-list" style="flex:1;overflow-y:auto;"></div>
       <button class="sidebar-add-btn" onclick="newOrganism()">＋ Add organism</button>
+
     </div>
 
     <!-- MAIN PANEL -->
@@ -321,31 +406,6 @@ input[type=number] { width: 80px; }
   </div>
 </div>
 
-<!-- DB Switcher Modal -->
-<div id="db-switcher-modal" class="hidden" style="
-  position:fixed;inset:0;z-index:300;display:flex;align-items:flex-start;justify-content:flex-end;
-  padding:52px 16px 0 0;pointer-events:none;">
-  <div style="
-    background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
-    min-width:260px;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
-    pointer-events:all;overflow:hidden;">
-    <div style="padding:10px 14px;background:var(--green);display:flex;align-items:center;justify-content:space-between;">
-      <span style="font-size:0.8rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;">Switch Database</span>
-      <button onclick="closeDbSwitcher()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;padding:0 4px;">✕</button>
-    </div>
-    <div id="db-switcher-list" style="max-height:280px;overflow-y:auto;padding:6px 0;"></div>
-  </div>
-</div>
-
-<style>
-.db-switch-item {
-  padding: 9px 16px; cursor: pointer; font-size: 0.88rem;
-  border-bottom: 1px solid rgba(200,169,81,0.08); color: var(--text);
-}
-.db-switch-item:hover { background: rgba(200,169,81,0.08); }
-.db-switch-item.active { color: var(--gold); font-weight: 600; }
-</style>
-
 <!-- hidden file input -->
 <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
 
@@ -369,6 +429,7 @@ let dirty = false;
 let filterText = '';
 let currentSha = '';         // GitHub blob SHA — required for PUT
 let currentFilename = 'microid_db.json'; // which file is loaded
+let dbFiles = [];            // list of .json files in microid_dbs/ (from GitHub)
 
 // ═══════════════════════════════════════════════════════════════════════
 //  INIT
@@ -385,7 +446,7 @@ window.addEventListener('DOMContentLoaded', async () => {
       showConnectOverlay();
     }
   } else {
-    // Local dev: auto-load via fetch, show Publish button only if PAT is cached
+    // Local dev: auto-load via fetch
     try {
       const resp = await fetch(DB_DIR + currentFilename + '?t=' + Date.now());
       if (!resp.ok) throw new Error('not found');
@@ -395,8 +456,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     if (savedPat) {
       document.getElementById('publish-btn').style.display = '';
-      document.getElementById('btn-switch-db').style.display = '';
-      document.getElementById('btn-new-db').style.display = '';
+      refreshDbList(savedPat);
+    } else {
+      renderDbPanel(); // show "not connected" state
     }
     renderAll();
   }
@@ -431,11 +493,10 @@ async function connectWithPat(pat, silent) {
     if (!db.organisms) db.organisms = [];
     document.getElementById('connect-overlay').classList.add('hidden');
     document.getElementById('publish-btn').style.display = '';
-    document.getElementById('btn-switch-db').style.display = '';
-    document.getElementById('btn-new-db').style.display = '';
     updateFilenameDisplay();
     currentIdx = null;
     renderAll();
+    refreshDbList(pat);
   } catch (err) {
     if (silent) {
       // PAT may be expired — fall back to fetch
@@ -535,6 +596,9 @@ async function switchDb(filename) {
     renderAll();
     document.getElementById('emptyState').style.display = '';
     document.getElementById('org-editor').style.display = 'none';
+    // refresh list to update the active highlight
+    const pat = sessionStorage.getItem('microid_editor_pat');
+    if (pat && !dbFiles.includes(filename)) refreshDbList(pat); else renderDbPanel();
   } catch (err) {
     alert('Could not load ' + filename + ': ' + err.message);
   }
@@ -556,37 +620,42 @@ async function newDatabase() {
   renderAll();
   document.getElementById('emptyState').style.display = '';
   document.getElementById('org-editor').style.display = 'none';
+  // add to local list immediately (will be confirmed on next publish)
+  if (!dbFiles.includes(filename)) { dbFiles = [...dbFiles, filename].sort(); renderDbPanel(); }
 }
 
-async function showDbSwitcher() {
-  const pat = sessionStorage.getItem('microid_editor_pat');
-  if (!pat) { alert('Not connected to GitHub.'); return; }
-  const btn = document.getElementById('btn-switch-db');
-  btn.disabled = true; btn.textContent = 'Loading…';
+async function refreshDbList(pat) {
   try {
-    const files = await githubListDbs(pat);
-    const modal = document.getElementById('db-switcher-modal');
-    const list  = document.getElementById('db-switcher-list');
-    list.innerHTML = files.map(f =>
-      `<div class="db-switch-item${f === currentFilename ? ' active' : ''}" onclick="switchDb('${f}');closeDbSwitcher()">
-        ${f === currentFilename ? '● ' : ''}${f}
-       </div>`
-    ).join('') || '<div style="color:var(--muted);padding:8px;">No microid_*.json files found.</div>';
-    modal.classList.remove('hidden');
-  } catch (err) {
-    alert('Could not list databases: ' + err.message);
-  } finally {
-    btn.disabled = false; btn.textContent = '⇄ Switch DB';
+    dbFiles = await githubListDbs(pat);
+  } catch {
+    dbFiles = [];
   }
+  renderDbPanel();
 }
 
-function closeDbSwitcher() {
-  document.getElementById('db-switcher-modal').classList.add('hidden');
+function renderDbPanel() {
+  const connected = !!sessionStorage.getItem('microid_editor_pat');
+  document.getElementById('db-panel-connected').style.display = connected ? '' : 'none';
+  document.getElementById('db-panel-no-conn').style.display  = connected ? 'none' : '';
+
+  if (!connected) return;
+
+  const list = document.getElementById('db-list-items');
+  if (!dbFiles.length) {
+    list.innerHTML = '<div style="padding:7px 12px;font-size:0.8rem;color:var(--muted);">No databases found.</div>';
+    return;
+  }
+  list.innerHTML = dbFiles.map(f =>
+    `<div class="db-item${f === currentFilename ? ' active' : ''}" onclick="switchDb('${esc(f)}')">
+       <span class="db-item-dot"></span>${esc(f)}
+     </div>`
+  ).join('');
 }
 
 function updateFilenameDisplay() {
   const el = document.getElementById('filename-display');
   if (el) el.textContent = currentFilename;
+  renderDbPanel();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -605,9 +674,9 @@ function handleFileLoad(e) {
       if (!db.organisms) db.organisms = [];
       currentFilename = file.name;
       currentSha = '';
-      updateFilenameDisplay();
       currentIdx = null;
       dirty = false;
+      updateFilenameDisplay();
       renderAll();
     } catch {
       alert('Invalid JSON file.');
@@ -664,7 +733,10 @@ function filterList() {
 
 function renderSidebar() {
   const list = document.getElementById('org-list');
+  const countEl = document.getElementById('org-count');
+  if (countEl) countEl.textContent = db ? db.organisms.length : 0;
   list.innerHTML = '';
+  if (!db) return;
   db.organisms.forEach((org, i) => {
     if (filterText && !org.name.toLowerCase().includes(filterText) &&
         !(org.commonName || '').toLowerCase().includes(filterText)) return;
@@ -676,7 +748,8 @@ function renderSidebar() {
     el.innerHTML = `
       <span class="drag-handle" title="Drag to reorder">⠿</span>
       <span class="org-type-dot dot-${typeCls}"></span>
-      <span class="org-name-text">${esc(org.name || '(unnamed)')}</span>`;
+      <span class="org-name-text">${esc(org.name || '(unnamed)')}</span>
+      <button class="org-del" title="Delete organism" onclick="deleteOrgAt(event,${i})">✕</button>`;
     el.addEventListener('click', () => selectOrg(i));
     el.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', i); });
     el.addEventListener('dragover', e => e.preventDefault());
@@ -735,14 +808,23 @@ function newOrganism() {
 
 function deleteCurrentOrg() {
   if (currentIdx === null) return;
-  const name = db.organisms[currentIdx].name || 'this organism';
+  deleteOrgAt(null, currentIdx);
+}
+
+function deleteOrgAt(e, i) {
+  if (e) e.stopPropagation();
+  const name = db.organisms[i].name || 'this organism';
   if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-  db.organisms.splice(currentIdx, 1);
-  currentIdx = null;
+  db.organisms.splice(i, 1);
+  if (currentIdx === i) {
+    currentIdx = null;
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('org-editor').style.display = 'none';
+  } else if (currentIdx > i) {
+    currentIdx--;
+  }
   markDirty();
   renderAll();
-  document.getElementById('emptyState').style.display = '';
-  document.getElementById('org-editor').style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -778,6 +860,7 @@ function v(id) {
 // ═══════════════════════════════════════════════════════════════════════
 function renderAll() {
   renderMeta();
+  renderDbPanel();
   renderSidebar();
   if (currentIdx !== null && db.organisms[currentIdx]) {
     renderOrgEditor();
@@ -797,9 +880,9 @@ function renderOrgEditor() {
   const html = `
     <!-- IDENTITY -->
     <div class="section">
-      <div class="section-title">
-        Identity
-        <button class="btn-danger" onclick="deleteCurrentOrg()">✕ Delete Organism</button>
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+        <span>Identity <span class="section-chevron">▼</span></span>
+        <button class="btn-danger" onclick="event.stopPropagation();deleteCurrentOrg()">✕ Delete Organism</button>
       </div>
       <div class="section-body">
         <div class="field-row">
@@ -848,8 +931,9 @@ function renderOrgEditor() {
 
     <!-- IMAGES -->
     <div class="section">
-      <div class="section-title">Images
-        <button class="btn-small" onclick="addImage()">＋ Add Image</button>
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+        <span>Images <span class="section-chevron">▼</span></span>
+        <button class="btn-small" onclick="event.stopPropagation();addImage()">＋ Add Image</button>
       </div>
       <div class="section-body" id="images-list">
         ${renderImagesHTML(org, imgDir)}
@@ -858,8 +942,9 @@ function renderOrgEditor() {
 
     <!-- DISEASES -->
     <div class="section">
-      <div class="section-title">Diseases
-        <button class="btn-small" onclick="addDisease()">＋ Add Disease</button>
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+        <span>Diseases <span class="section-chevron">▼</span></span>
+        <button class="btn-small" onclick="event.stopPropagation();addDisease()">＋ Add Disease</button>
       </div>
       <div class="section-body" id="disease-list">
         ${renderDiseasesHTML(org)}
@@ -868,7 +953,7 @@ function renderOrgEditor() {
 
     <!-- TRANSMISSION & VECTOR -->
     <div class="section">
-      <div class="section-title">Transmission &amp; Epidemiology</div>
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">Transmission &amp; Epidemiology <span class="section-chevron">▼</span></div>
       <div class="section-body">
         <div class="field full">
           <label>Transmission Routes</label>
@@ -895,7 +980,7 @@ function renderOrgEditor() {
 
     <!-- LAB FINDINGS -->
     <div class="section">
-      <div class="section-title">Lab Findings</div>
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">Lab Findings <span class="section-chevron">▼</span></div>
       <div class="section-body">
         <div class="tag-list" id="tag-labFindings">
           ${renderTags(org.labFindings || [], 'labFindings')}
@@ -909,7 +994,7 @@ function renderOrgEditor() {
 
     <!-- TREATMENT & PREVENTION -->
     <div class="section">
-      <div class="section-title">Treatment &amp; Prevention</div>
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">Treatment &amp; Prevention <span class="section-chevron">▼</span></div>
       <div class="section-body">
         <div class="field full">
           <label>Treatment</label>
@@ -924,7 +1009,7 @@ function renderOrgEditor() {
 
     <!-- LEARN MORE -->
     <div class="section">
-      <div class="section-title">Learn More (shown in detail panel)</div>
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">Learn More <span class="section-chevron">▼</span></div>
       <div class="section-body">
         <div class="field full">
           <textarea id="f-learnMore" style="min-height:96px;" oninput="markDirty()">${esc(org.learnMore || '')}</textarea>
@@ -990,6 +1075,14 @@ function renderTags(arr, field) {
   return (arr || []).map((t, i) =>
     `<span class="tag">${esc(t)}<span class="tag-del" onclick="removeTag('${field}',${i})">×</span></span>`
   ).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  COLLAPSIBLE SECTIONS
+// ═══════════════════════════════════════════════════════════════════════
+function toggleSection(sectionEl) {
+  if (!sectionEl) return;
+  sectionEl.classList.toggle('collapsed');
 }
 
 // ═══════════════════════════════════════════════════════════════════════
