@@ -589,14 +589,16 @@ function drawRack() {
   const totalW = nItems * TW + (nItems - 1) * AW;
   const sx = Math.max(10, (cssW - totalW) / 2);
 
-  // Liquid tube colors (green → teal → blue-green as more diluted)
-  const tubeLiqColors = [
-    'rgba(40,180,100,0.55)',
-    'rgba(60,180,140,0.5)',
-    'rgba(80,180,170,0.45)',
-    'rgba(90,160,190,0.4)',
-    'rgba(100,140,200,0.38)',
-  ];
+  // Map cumulative dilution factor → liquid color
+  // log10(1)=0 → dark green; log10(1e6)=6 → very pale cyan
+  function dilutionColor(cumFactor) {
+    const t = Math.min(1, Math.log10(Math.max(1, cumFactor)) / 6);
+    const r = Math.round(40  + t * 140); // 40  → 180
+    const g = Math.round(185 + t * 35);  // 185 → 220
+    const b = Math.round(95  + t * 130); // 95  → 225
+    const a = (0.62 - t * 0.38).toFixed(2); // 0.62 → 0.24
+    return `rgba(${r},${g},${b},${a})`;
+  }
 
   function drawTube(cx, topY, w, h, fillColor, strokeColor, isDashed) {
     const hw = w / 2;
@@ -663,7 +665,7 @@ function drawRack() {
   const fW = TW + 6;
   const fCx = x + fW / 2;
   drawTube(fCx, TY, fW, TH, 'rgba(30,80,50,0.3)', '#4a9a5a', false);
-  drawTubeLiquid(fCx, TY, fW, TH, 0.55, 'rgba(50,170,100,0.50)');
+  drawTubeLiquid(fCx, TY, fW, TH, 0.55, dilutionColor(1));
   // Flask rim cap
   ctx.fillStyle = '#3a7a4a';
   ctx.fillRect(fCx - fW / 2, TY - 5, fW, 5);
@@ -677,12 +679,13 @@ function drawRack() {
     drawArrow(x, midTube);
     x += AW;
     const tcx = x + TW / 2;
-    const lColor = tubeLiqColors[Math.min(i, tubeLiqColors.length - 1)];
+    let cumFactor = 1;
+    for (let j = 0; j <= i; j++) cumFactor *= state.tubes[j];
+    const lColor = dilutionColor(cumFactor);
     drawTube(tcx, TY, TW, TH, 'rgba(20,60,50,0.25)', '#3a8a6a', false);
     drawTubeLiquid(tcx, TY, TW, TH, 0.45, lColor);
     label(tcx, TY - 7, `1:${state.tubes[i]}`, '#a8c5a0', 8.5);
-    let c = level.initialConc;
-    for (let j = 0; j <= i; j++) c /= state.tubes[j];
+    const c = level.initialConc / cumFactor;
     label(tcx, TY + TH + 13, fmtConcShort(c), '#7a9a7a', 8);
     label(tcx, TY + TH + 22, 'CFU/mL', '#5a7a5a', 7);
     x += TW;
