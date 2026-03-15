@@ -101,7 +101,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   cursor: pointer; user-select: none;
 }
 .section-title:hover { background: #245c34; }
-.section-chevron { font-size: 0.75rem; color: var(--muted); transition: transform 0.15s; margin-left: 6px; }
+.section-chevron { font-size: 0.75rem; color: var(--muted); transition: transform 0.15s; margin-left: 6px; display: inline-block; }
 .section.collapsed .section-chevron { transform: rotate(-90deg); }
 .section.collapsed .section-body { display: none; }
 .section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
@@ -325,6 +325,21 @@ input[type=number] { width: 80px; }
   padding: 5px 8px; font-size: 0.82rem;
 }
 
+/* ── CUSTOM QUESTIONS ── */
+.cq-card {
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.cq-card-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cq-prompt-preview { flex: 1; font-size: 0.85rem; color: var(--text); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cq-toggle-label { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.cq-edit-body { display: none; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.cq-edit-body.open { display: flex; }
+.cq-choices-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#btn-show-questions { background: rgba(79,195,247,0.1); border-color: rgba(79,195,247,0.3); color: #4FC3F7; }
+#btn-show-questions:hover { background: rgba(79,195,247,0.22); }
+#btn-show-questions.active { background: rgba(79,195,247,0.22); }
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -419,6 +434,7 @@ input[type=number] { width: 80px; }
                  border:1px solid var(--border);background:var(--bg-input);color:var(--text);">
       </div>
       <div id="org-list" style="flex:1;overflow-y:auto;"></div>
+      <button class="sidebar-add-btn" id="btn-show-questions" onclick="showCustomQuestions()">📝 Questions (<span id="cq-count">0</span>)</button>
       <button class="sidebar-add-btn" onclick="newOrganism()">＋ Add organism</button>
 
     </div>
@@ -436,7 +452,7 @@ input[type=number] { width: 80px; }
 
       <!-- MASTER BROWSER — visible only for child DBs -->
       <div id="master-browser" style="display:none;">
-        <div class="section">
+        <div class="section collapsed">
           <div class="section-title" onclick="toggleSection(this.closest('.section'))">
             <span>Master Organisms <span class="section-chevron">▼</span></span>
             <button class="btn-compile" id="btn-compile" onclick="event.stopPropagation();compileFromMaster()">⟳ Compile from Master</button>
@@ -489,6 +505,17 @@ input[type=number] { width: 80px; }
 
       <!-- ORGANISM EDITOR — rendered here -->
       <div id="org-editor" style="display:none;"></div>
+
+      <!-- CUSTOM QUESTIONS PANEL -->
+      <div id="custom-questions-panel" style="display:none;">
+        <div class="section">
+          <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+            <span>Custom Questions <span class="section-chevron">▼</span></span>
+            <button class="btn-small" onclick="event.stopPropagation();addCustomQuestion()">＋ Add Question</button>
+          </div>
+          <div class="section-body" id="cq-list"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -579,6 +606,7 @@ async function connectWithPat(pat, silent) {
     db = JSON.parse(json);
     if (!db.meta) db.meta = {};
     if (!db.organisms) db.organisms = [];
+    if (!db.questions) db.questions = [];
     document.getElementById('connect-overlay').classList.add('hidden');
     document.getElementById('publish-btn').style.display = '';
       document.getElementById('btn-update-game').style.display = '';
@@ -718,6 +746,7 @@ async function switchDb(filename) {
     db = JSON.parse(atob(data.content.replace(/\n/g, '')));
     if (!db.meta) db.meta = {};
     if (!db.organisms) db.organisms = [];
+    if (!db.questions) db.questions = [];
     currentIdx = null;
     dirty = false;
     updateDirty();
@@ -742,8 +771,8 @@ async function newDatabase() {
   currentFilename = filename;
   currentSha = '';
   db = filename === 'master.json'
-    ? { meta: { unit: 'Master Database', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] }
-    : { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, masterRef: 'master.json', selectedIds: [], organisms: [] };
+    ? { meta: { unit: 'Master Database', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [], questions: [] }
+    : { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, masterRef: 'master.json', selectedIds: [], organisms: [], questions: [] };
   currentIdx = null;
   dirty = false;
   updateDirty();
@@ -810,6 +839,7 @@ function handleFileLoad(e) {
       db = JSON.parse(ev.target.result);
       if (!db.meta) db.meta = {};
       if (!db.organisms) db.organisms = [];
+      if (!db.questions) db.questions = [];
       currentFilename = file.name;
       currentSha = '';
       currentIdx = null;
@@ -917,6 +947,8 @@ function selectOrg(i) {
   renderOrgEditor();
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('org-editor').style.display = '';
+  document.getElementById('custom-questions-panel').style.display = 'none';
+  document.getElementById('btn-show-questions').classList.remove('active');
 }
 
 function newOrganism() {
@@ -1001,7 +1033,11 @@ function renderAll() {
   renderDbPanel();
   renderMasterBrowser();
   renderSidebar();
-  if (currentIdx !== null && db.organisms[currentIdx]) {
+  const cqCount = document.getElementById('cq-count');
+  if (cqCount) cqCount.textContent = (db && db.questions) ? db.questions.length : 0;
+  const cqPanel = document.getElementById('custom-questions-panel');
+  if (cqPanel && cqPanel.style.display !== 'none') renderCustomQuestions();
+  if (currentIdx !== null && db && db.organisms[currentIdx]) {
     renderOrgEditor();
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('org-editor').style.display = '';
@@ -1542,6 +1578,137 @@ function checkStaleness() {
   } else {
     el.style.display = 'none';
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  CUSTOM QUESTIONS
+// ═══════════════════════════════════════════════════════════════════════
+function showCustomQuestions() {
+  syncCurrentOrgToDb();
+  currentIdx = null;
+  renderSidebar();
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('org-editor').style.display = 'none';
+  document.getElementById('custom-questions-panel').style.display = '';
+  document.getElementById('btn-show-questions').classList.add('active');
+  renderCustomQuestions();
+}
+
+function renderCustomQuestions() {
+  if (!db) return;
+  if (!db.questions) db.questions = [];
+  const cqCount = document.getElementById('cq-count');
+  if (cqCount) cqCount.textContent = db.questions.length;
+  const list = document.getElementById('cq-list');
+  if (!list) return;
+  if (db.questions.length === 0) {
+    list.innerHTML = '<span style="color:var(--muted);font-size:0.85rem;">No custom questions yet. Click ＋ Add Question to create one.</span>';
+    return;
+  }
+  list.innerHTML = db.questions.map((q, i) => {
+    const diffLabel = ['','Easy','Medium','Hard'][q.difficulty] || 'Medium';
+    const diffClass = ['','diff-1','diff-2','diff-3'][q.difficulty] || 'diff-2';
+    return `
+    <div class="cq-card" id="cq-card-${i}">
+      <div class="cq-card-header">
+        <span class="diff-chip ${diffClass}">${diffLabel}</span>
+        <span class="cq-prompt-preview">${esc(q.prompt || '(no prompt yet)')}</span>
+        <label class="cq-toggle-label" title="Enable in game">
+          <input type="checkbox" ${q.enabled !== false ? 'checked' : ''} onchange="toggleCustomQuestion(${i},this.checked)"> On
+        </label>
+        <button class="btn-small" onclick="toggleCqEdit(${i})">Edit</button>
+        <button class="btn-del-disease" onclick="deleteCustomQuestion(${i})">✕</button>
+      </div>
+      <div class="cq-edit-body" id="cq-edit-${i}">
+        <div class="field full">
+          <label>Question Prompt</label>
+          <textarea oninput="updateCustomQuestion(${i},'prompt',this.value)">${esc(q.prompt || '')}</textarea>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Difficulty</label>
+            <select onchange="updateCustomQuestion(${i},'difficulty',parseInt(this.value))">
+              <option value="1" ${q.difficulty===1?'selected':''}>1 — Easy</option>
+              <option value="2" ${q.difficulty===2?'selected':''}>2 — Medium</option>
+              <option value="3" ${q.difficulty===3?'selected':''}>3 — Hard</option>
+            </select>
+          </div>
+          <div class="field grow">
+            <label>Label (shown in game UI)</label>
+            <input type="text" value="${esc(q.label||'Custom Question')}" oninput="updateCustomQuestion(${i},'label',this.value)">
+          </div>
+        </div>
+        <label>Answer Choices — select the radio button next to the correct answer</label>
+        <div class="cq-choices-grid">
+          ${(q.choices||['','','','']).map((c,ci) => `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <input type="radio" name="cq-correct-${i}" value="${esc(c)}" ${c && c===q.correct?'checked':''}
+                     onchange="updateCustomQuestion(${i},'correct',this.value)" title="Correct answer">
+              <input type="text" value="${esc(c)}" placeholder="Choice ${ci+1}"
+                     oninput="updateCqChoice(${i},${ci},this.value)" style="flex:1;">
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCqEdit(i) {
+  const body = document.getElementById('cq-edit-' + i);
+  if (body) body.classList.toggle('open');
+}
+
+function addCustomQuestion() {
+  if (!db.questions) db.questions = [];
+  db.questions.push({ id: 'cq_' + Date.now(), enabled: true, difficulty: 2, label: 'Custom Question', prompt: '', choices: ['','','',''], correct: '' });
+  markDirty();
+  renderCustomQuestions();
+  setTimeout(() => {
+    const body = document.getElementById('cq-edit-' + (db.questions.length - 1));
+    if (body) body.classList.add('open');
+  }, 0);
+}
+
+function deleteCustomQuestion(i) {
+  if (!confirm('Delete this question?')) return;
+  db.questions.splice(i, 1);
+  markDirty();
+  renderCustomQuestions();
+}
+
+function toggleCustomQuestion(i, enabled) {
+  if (!db.questions || !db.questions[i]) return;
+  db.questions[i].enabled = enabled;
+  markDirty();
+}
+
+function updateCustomQuestion(i, field, value) {
+  if (!db.questions || !db.questions[i]) return;
+  db.questions[i][field] = value;
+  if (field === 'prompt') {
+    const preview = document.querySelector('#cq-card-' + i + ' .cq-prompt-preview');
+    if (preview) preview.textContent = value || '(no prompt yet)';
+  }
+  if (field === 'difficulty') {
+    const diffLabel = ['','Easy','Medium','Hard'][value] || 'Medium';
+    const diffClass = ['','diff-1','diff-2','diff-3'][value] || 'diff-2';
+    const chip = document.querySelector('#cq-card-' + i + ' .diff-chip');
+    if (chip) { chip.textContent = diffLabel; chip.className = 'diff-chip ' + diffClass; }
+  }
+  markDirty();
+}
+
+function updateCqChoice(qIdx, choiceIdx, value) {
+  if (!db.questions || !db.questions[qIdx]) return;
+  const q = db.questions[qIdx];
+  if (!q.choices) q.choices = ['','','',''];
+  const oldValue = q.choices[choiceIdx];
+  q.choices[choiceIdx] = value;
+  if (q.correct === oldValue) { q.correct = value; }
+  // update radio values in DOM
+  const radios = document.querySelectorAll(`input[name="cq-correct-${qIdx}"]`);
+  radios.forEach((r, ri) => { if (ri < q.choices.length) r.value = q.choices[ri]; });
+  markDirty();
 }
 
 // ═══════════════════════════════════════════════════════════════════════

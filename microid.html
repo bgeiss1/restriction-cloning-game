@@ -996,10 +996,27 @@ function buildRound() {
     ...Array(hardN).fill(3)
   ];
 
+  // Build custom question pools by difficulty (enabled, non-empty only)
+  const customPools = { 1: [], 2: [], 3: [] };
+  if (db.questions && db.questions.length > 0) {
+    db.questions
+      .filter(q => q.enabled !== false && q.prompt && q.correct && q.choices && q.choices.filter(Boolean).length >= 2)
+      .forEach(q => { const d = q.difficulty || 2; if (customPools[d]) customPools[d].push(q); });
+    for (const d of [1,2,3]) customPools[d] = shuffle(customPools[d]);
+  }
+
   const usedOrgIds = new Set();
   const questions = [];
 
   for (const diff of slots) {
+    // Use a custom question ~50% of the time when one is available at this difficulty
+    if (customPools[diff].length > 0 && Math.random() < 0.5) {
+      const cq = customPools[diff].shift();
+      questions.push({ prompt: cq.prompt, correct: cq.correct, choices: shuffle([...cq.choices.filter(Boolean)]),
+        qtypeLabel: cq.label || 'Custom Question', qtypeId: 'custom', difficulty: diff, org: null });
+      continue;
+    }
+
     // orgs of this difficulty
     let diffOrgs = db.organisms.filter(o => o.difficulty === diff);
     // fallback: use any org if not enough
@@ -1123,7 +1140,7 @@ function renderQuestion(q) {
     imgCaption.textContent = q.image.caption + (q.image.credit ? ' — ' + q.image.credit : '');
     qImg.onerror = () => {
       qImg.style.display = 'none';
-      imgPlaceholder.textContent = 'Image not available' + (q.org.morphology ? ` — ${q.org.morphology}` : '');
+      imgPlaceholder.textContent = 'Image not available' + (q.org && q.org.morphology ? ` — ${q.org.morphology}` : '');
       imgPlaceholder.classList.add('visible');
     };
   } else {
@@ -1201,8 +1218,8 @@ function handleAnswer(btn, chosen, q) {
     showScorePopup('-5', false);
   }
 
-  // Record spaced repetition
-  recordAnswer(q.org.id, isCorrect);
+  // Record spaced repetition (skip for custom questions)
+  if (q.org) recordAnswer(q.org.id, isCorrect);
 
   // Update header score
   headerScore.textContent = `${score} pts${streak >= 3 ? ' 🔥' + streak : ''}`;
@@ -1248,6 +1265,10 @@ function openLearnMore() {
 }
 
 function buildLearnMore(org) {
+  if (!org) {
+    learnMoreContent.innerHTML = '<div style="color:var(--text-muted);font-size:0.85rem;font-style:italic;">No additional information for this question.</div>';
+    return;
+  }
   const imgDir = db.meta.imageDir || 'microid_images/';
   const typeLabel = org.type ? (org.type.charAt(0).toUpperCase() + org.type.slice(1)) : 'Unknown';
   const typeClass = ['bacteria','virus','fungus','parasite','prion'].includes(org.type) ? org.type : 'other';
