@@ -1054,13 +1054,14 @@ function initDb(data) {
 
 async function fetchDefaultDb() {
   const dbFile = new URLSearchParams(location.search).get('db') || 'microid_db.json';
+  const dbPath = 'microid_dbs/' + dbFile;
   try {
-    const resp = await fetch(dbFile + '?t=' + Date.now());
+    const resp = await fetch(dbPath + '?t=' + Date.now());
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     initDb(data);
   } catch(e) {
-    dbInfoEl.textContent = `Could not load ${dbFile}.`;
+    dbInfoEl.textContent = `Could not load ${dbPath}.`;
     dbInfoEl.className = 'error';
   }
 }

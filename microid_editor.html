@@ -354,9 +354,10 @@ input[type=number] { width: 80px; }
 //  GITHUB CONFIG
 // ═══════════════════════════════════════════════════════════════════════
 const GITHUB_REPO     = 'bgeiss1/restriction-cloning-game';
-const GITHUB_REPO_API = `https://api.github.com/repos/${GITHUB_REPO}/contents/`;
+const DB_DIR          = 'microid_dbs/';
+const GITHUB_DIR_API  = `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_DIR}`;
 function githubFileApi(filename) {
-  return `https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`;
+  return `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_DIR}${filename}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -386,7 +387,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   } else {
     // Local dev: auto-load via fetch, show Publish button only if PAT is cached
     try {
-      const resp = await fetch('microid_db.json?t=' + Date.now());
+      const resp = await fetch(DB_DIR + currentFilename + '?t=' + Date.now());
       if (!resp.ok) throw new Error('not found');
       db = await resp.json();
     } catch {
@@ -440,7 +441,7 @@ async function connectWithPat(pat, silent) {
       // PAT may be expired — fall back to fetch
       sessionStorage.removeItem('microid_editor_pat');
       try {
-        const resp = await fetch('microid_db.json?t=' + Date.now());
+        const resp = await fetch(DB_DIR + currentFilename + '?t=' + Date.now());
         db = await resp.json();
         renderAll();
       } catch {
@@ -467,14 +468,15 @@ async function githubGet(pat, filename) {
 }
 
 async function githubListDbs(pat) {
-  const resp = await fetch(GITHUB_REPO_API, {
+  const resp = await fetch(GITHUB_DIR_API, {
     headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' }
   });
   if (!resp.ok) throw new Error(`GitHub ${resp.status}`);
   const files = await resp.json();
   return files
-    .filter(f => f.type === 'file' && f.name.startsWith('microid_') && f.name.endsWith('.json'))
-    .map(f => f.name);
+    .filter(f => f.type === 'file' && f.name.endsWith('.json'))
+    .map(f => f.name)
+    .sort();
 }
 
 async function publishToGitHub() {
@@ -540,11 +542,10 @@ async function switchDb(filename) {
 
 async function newDatabase() {
   if (dirty && !confirm('You have unsaved changes. Create new database anyway?')) return;
-  const name = prompt('New database filename (will be prefixed microid_ and suffixed .json):');
+  const name = prompt('New database filename (no spaces; .json will be added automatically):');
   if (!name) return;
-  // Sanitize and enforce naming convention
-  const slug = name.toLowerCase().replace(/[^a-z0-9_-]/g, '_').replace(/^microid_/, '');
-  const filename = 'microid_' + slug + '.json';
+  const slug = name.toLowerCase().replace(/[^a-z0-9_-]/g, '_').replace(/\.json$/i, '');
+  const filename = slug + '.json';
   currentFilename = filename;
   currentSha = '';
   db = { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] };
