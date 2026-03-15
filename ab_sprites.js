@@ -610,7 +610,7 @@ const ABSprites = (() => {
     const H       = ctx.canvas.height;
     const size    = 9;          // fixed arm-length in px — consistent on all screen sizes
     const spacing = 20;         // px between shape centers
-    const pad     = 6;          // left/right padding
+    const pad     = 10;         // left padding — must be > size*sin(fabAngle)≈5.3 to avoid clipping
 
     // Resize canvas to content width so it never gets bitmap-stretched
     ctx.canvas.width = count > 0 ? pad + count * spacing : pad;
@@ -620,7 +620,7 @@ const ABSprites = (() => {
 
     for (let i = 0; i < count; i++) {
       // -Math.PI/2 rotates the Y 90° counter-clockwise → Fab arms up, Fc stem down
-      drawYShape(ctx, pad * 0.5 + i * spacing, H * 0.5, size, '#C8A951', -Math.PI / 2, 0.9, null);
+      drawYShape(ctx, pad + i * spacing, H * 0.5, size, '#C8A951', -Math.PI / 2, 0.9, null);
     }
   }
 
