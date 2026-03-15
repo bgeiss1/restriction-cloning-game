@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sticky Ends</title>
+  <title>MIP Molecular Madness</title>
 
   <style>
     /* ------------------------------------------------------------------ */
@@ -107,6 +107,40 @@
     .mode-icon { font-size: 2.4rem; margin-bottom: 10px; }
     .mode-label { font-size: 1rem; font-weight: 700; color: #C8A951; margin-bottom: 6px; }
     .mode-desc { font-size: 11px; color: #a8c5a0; line-height: 1.5; }
+
+    /* ------------------------------------------------------------------ */
+    /* Institutional banner                                                 */
+    /* ------------------------------------------------------------------ */
+    #instBanner {
+      background: #f5f0e8;
+      border: 2px solid #C8A951;
+      border-radius: 10px;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.4);
+    }
+    #instBanner img {
+      height: 60px;
+      width: 60px;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+    #instBanner .inst-text { display: flex; flex-direction: column; gap: 2px; }
+    #instBanner .inst-dept {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #1E4D2B;
+      line-height: 1.3;
+    }
+    #instBanner .inst-univ {
+      font-size: 0.8rem;
+      color: #4a7a58;
+      font-weight: 500;
+    }
 
     /* ------------------------------------------------------------------ */
     /* Shared header                                                        */
@@ -559,7 +593,14 @@
 
 <!-- ===== MODE SELECTION ===== -->
 <div id="modeSelectScreen">
-  <h1>Sticky Ends</h1>
+  <div id="instBanner">
+    <img src="images/CSU-Symbol.png" alt="CSU" />
+    <div class="inst-text">
+      <span class="inst-dept">Department of Microbiology, Immunology and Pathology</span>
+      <span class="inst-univ">Colorado State University</span>
+    </div>
+  </div>
+  <h1>MIP Molecular Madness</h1>
   <div class="mode-buttons">
     <!-- Clone It! desktop — hidden in favour of mobile version
     <button class="mode-btn primary-mode" id="btnClone">
