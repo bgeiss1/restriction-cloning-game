@@ -117,8 +117,24 @@
       ],
       "treatment": "Supportive care; IV fluid resuscitation; mAb therapies (Inmazeb, Ebanga) for EVD-Zaire",
       "prevention": "rVSV-ZEBOV vaccine (Ervebo) for Zaire ebolavirus; strict contact and droplet precautions; PPE",
-      "learnMore": "Ebola causes viral hemorrhagic fever with case fatality rates of 25ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ90%. It triggers a massive cytokine storm and interferes with coagulation. The 2013ÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ2016 West Africa outbreak killed over 11,000 people.",
+      "learnMore": "Ebola causes viral hemorrhagic fever with case fatality rates of 25ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ90%. It triggers a massive cytokine storm and interferes with coagulation. The 2013ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ2016 West Africa outbreak killed over 11,000 people.",
       "vector": ""
+    }
+  ],
+  "questions": [
+    {
+      "id": "cq_1773618724302",
+      "enabled": true,
+      "difficulty": 1,
+      "label": "Custom Question",
+      "prompt": "Test custom question",
+      "choices": [
+        "Q1",
+        "Q3",
+        "Q2",
+        "Q4"
+      ],
+      "correct": "Q1"
     }
   ]
 }
