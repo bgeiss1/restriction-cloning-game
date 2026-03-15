@@ -1,5 +1,5 @@
 /**
- * ab_sprites.js — Canvas drawing library for Antibody Rush
+ * ab_sprites.js — Canvas drawing library for Antibody Attack
  *
  * All drawing is pure canvas 2D; no images required.
  * Exports a single global: ABSprites

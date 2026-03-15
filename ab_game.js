@@ -1,5 +1,5 @@
 /**
- * ab_game.js — Input, HUD wiring, and state machine for Antibody Rush
+ * ab_game.js — Input, HUD wiring, and state machine for Antibody Attack
  *
  * Depends on: ab_sprites.js, ab_engine.js
  * Exports global: ABGame
