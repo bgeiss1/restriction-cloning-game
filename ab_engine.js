@@ -313,10 +313,9 @@ const ABEngine = (() => {
   /* ─────────────────────────────────────────────────────────────────── */
 
   /**
-   * Fire the current antibody at a pathogen.
-   * When tapX/tapY are provided (touch input): hit-test the tapped position
-   * against pathogen bodies; only fires if a pathogen was directly tapped.
-   * When no coordinates (keyboard): fires at the nearest pathogen.
+   * Fire the current antibody.
+   * Touch: fires in the direction of the tap from the launch point (free-aim).
+   * Keyboard: fires at the nearest non-neutralized pathogen.
    * Returns true if a shot was fired.
    */
   function fire(tapX, tapY) {
@@ -326,36 +325,30 @@ const ABEngine = (() => {
     const fireX = getFireX();
     const fireY = H / 2;
 
-    let target = null;
+    let dx, dy;
 
     if (tapX !== undefined && tapY !== undefined) {
-      // Tap-on-pathogen: find which pathogen body (including spike area) was tapped
-      for (const p of pathogens) {
-        if (p.neutralized) continue;
-        const dx   = tapX - p.x;
-        const dy   = tapY - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        // Hit radius includes spike tips (r * 1.6)
-        if (dist <= p.r * 1.6) { target = p; break; }
-      }
-      if (!target) return false;  // tapped empty space — no shot
+      // Free-aim: shoot toward the tapped position
+      dx = tapX - fireX;
+      dy = tapY - fireY;
     } else {
-      // Keyboard / fallback: nearest non-neutralized pathogen
-      let best = Infinity;
+      // Keyboard / fallback: aim at nearest non-neutralized pathogen
+      let target = null;
+      let best   = Infinity;
       for (const p of pathogens) {
         if (p.neutralized) continue;
         if (p.x < fireX - p.r) continue;
-        const dx = p.x - fireX;
-        const dy = p.y - fireY;
-        const d  = Math.sqrt(dx * dx + dy * dy);
+        const ddx = p.x - fireX;
+        const ddy = p.y - fireY;
+        const d   = Math.sqrt(ddx * ddx + ddy * ddy);
         if (d < best) { best = d; target = p; }
       }
       if (!target) return false;
+      dx = target.x - fireX;
+      dy = target.y - fireY;
     }
 
-    const dx = target.x - fireX;
-    const dy = target.y - fireY;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const dist  = Math.sqrt(dx * dx + dy * dy) || 1;
     const speed = 9;
 
     projectiles.push({
@@ -365,7 +358,6 @@ const ABEngine = (() => {
       vy:          (dy / dist) * speed,
       type:        isIgG ? 'igg' : 'igm',
       epitopeType: currentEpitopeType(),
-      targetId:    target.id,
       alpha:       1,
       trail:       [],
       spin:        0,
