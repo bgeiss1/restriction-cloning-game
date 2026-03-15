@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Micro ID — MIP Molecular Madness</title>
+<style>
+:root {
+  --bg: #111c15;
+  --green-dark: #1E4D2B;
+  --green-mid: #245c34;
+  --gold: #C8A951;
+  --gold-light: #e0c060;
+  --text: #e8f5e9;
+  --text-muted: #a8c5a0;
+  --success: #66BB6A;
+  --warn: #FFA726;
+  --danger: #EF5350;
+  --border: rgba(200,169,81,0.26);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  touch-action: manipulation;
+}
+
+/* ── START SCREEN ── */
+#startScreen {
+  position: fixed; inset: 0; z-index: 20;
+  background: linear-gradient(160deg, #1E4D2B 0%, #163820 60%, #0f2516 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 28px 20px; gap: 18px; overflow-y: auto;
+}
+#startScreen.hidden { display: none; }
+#startScreen .icon {
+  font-size: 3rem; line-height: 1;
+}
+#startScreen h1 {
+  font-size: 2.1rem; font-weight: 800;
+  color: var(--gold); letter-spacing: 0.06em;
+  text-align: center;
+}
+.rules-box {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 0.88rem; line-height: 1.9;
+  max-width: 420px; width: 100%;
+}
+.rules-box strong { color: var(--gold); }
+.rules-box ul { padding-left: 1.2em; }
+.rules-box li { margin-bottom: 4px; }
+
+#dbInfo {
+  font-size: 0.85rem; color: var(--text-muted);
+  text-align: center;
+  max-width: 360px;
+}
+#dbInfo.error { color: var(--danger); }
+#dbInfo.ok { color: var(--success); }
+
+.start-btn-group {
+  display: flex; flex-direction: column; gap: 10px;
+  width: 100%; max-width: 320px;
+}
+.btn-start {
+  width: 100%;
+  padding: 15px;
+  background: var(--gold); color: #1a1a00;
+  font-size: 1.05rem; font-weight: 700;
+  border: none; border-radius: 8px;
+  cursor: pointer; touch-action: manipulation;
+}
+.btn-start:disabled {
+  opacity: 0.45; cursor: default;
+}
+.btn-start:not(:disabled):active { opacity: 0.85; }
+
+.btn-secondary {
+  width: 100%;
+  padding: 11px;
+  background: none;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted); font-size: 0.9rem;
+  border-radius: 8px; cursor: pointer; touch-action: manipulation;
+}
+.btn-secondary:hover { border-color: var(--gold); color: var(--gold-light); }
+.btn-secondary.danger-btn { border-color: rgba(239,83,80,0.5); color: var(--danger); }
+.btn-secondary.danger-btn:hover { background: rgba(239,83,80,0.1); }
+
+.btn-back-link {
+  padding: 9px 24px;
+  border: 1.5px solid var(--border); background: none;
+  color: var(--text-muted); font-size: 0.9rem;
+  border-radius: 8px; cursor: pointer;
+  text-decoration: none; display: inline-block;
+  touch-action: manipulation;
+}
+
+/* hidden file input */
+#fileInput { display: none; }
+
+/* ── GAME HEADER ── */
+#gameHeader {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 54px; z-index: 10;
+  background: rgba(17,28,21,0.97);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 12px; gap: 8px;
+}
+#gameHeader.hidden { display: none; }
+#headerTitle {
+  font-size: 1rem; font-weight: 700; color: var(--gold);
+  flex: 0 0 auto;
+}
+#headerProgress {
+  font-size: 0.82rem; color: var(--text-muted);
+  flex: 1 1 auto; text-align: center;
+}
+#headerScore {
+  font-size: 0.85rem; color: var(--gold-light);
+  font-weight: 600; white-space: nowrap;
+}
+.btn-menu {
+  padding: 7px 14px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: none;
+  color: var(--text-muted); font-size: 0.85rem;
+  cursor: pointer; touch-action: manipulation;
+  text-decoration: none; display: inline-block;
+}
+
+/* ── GAME SCREEN ── */
+#gameScreen {
+  display: none;
+  padding-top: 54px;
+  padding-bottom: 80px;
+  min-height: 100dvh;
+}
+#gameScreen.active { display: block; }
+
+.game-content {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 12px;
+  max-width: 620px; margin: 0 auto;
+}
+
+/* Question card */
+.question-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.question-card-inner {
+  padding: 14px 16px;
+}
+.diff-badge {
+  display: inline-block;
+  font-size: 0.68rem; font-weight: 700;
+  letter-spacing: 0.08em; padding: 2px 8px;
+  border-radius: 4px; margin-bottom: 10px;
+  text-transform: uppercase;
+}
+.diff-badge.easy   { background: rgba(102,187,106,0.2); color: var(--success); border: 1px solid rgba(102,187,106,0.4); }
+.diff-badge.medium { background: rgba(255,167,38,0.2);  color: var(--warn);    border: 1px solid rgba(255,167,38,0.4); }
+.diff-badge.hard   { background: rgba(239,83,80,0.2);   color: var(--danger);  border: 1px solid rgba(239,83,80,0.4); }
+
+/* Image area */
+#imgContainer {
+  display: none;
+  position: relative;
+  background: #0a140c;
+  max-height: 240px; overflow: hidden;
+  cursor: pointer;
+}
+#imgContainer.visible { display: block; }
+#qImg {
+  width: 100%; max-height: 240px;
+  object-fit: contain; display: block;
+}
+#imgPlaceholder {
+  display: none;
+  padding: 24px; text-align: center;
+  color: var(--text-muted); font-size: 0.85rem;
+  font-style: italic; min-height: 80px;
+  align-items: center; justify-content: center;
+}
+#imgPlaceholder.visible { display: flex; }
+#imgCaption {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.65);
+  font-size: 0.72rem; color: var(--text-muted);
+  padding: 4px 10px;
+}
+
+.q-type-label {
+  font-size: 0.75rem; color: var(--text-muted);
+  margin-bottom: 6px; letter-spacing: 0.04em;
+}
+.q-prompt {
+  font-size: 0.95rem; font-weight: 600;
+  line-height: 1.5; color: var(--text);
+}
+
+/* Choices grid */
+.choices-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.choice-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 0.88rem; line-height: 1.4;
+  padding: 12px 10px;
+  cursor: pointer; touch-action: manipulation;
+  text-align: center;
+  transition: background 0.15s, border-color 0.15s;
+  min-height: 52px;
+  display: flex; align-items: center; justify-content: center;
+}
+.choice-btn:not(:disabled):hover {
+  background: rgba(200,169,81,0.12);
+  border-color: rgba(200,169,81,0.5);
+}
+.choice-btn.correct {
+  background: rgba(102,187,106,0.2);
+  border-color: var(--success);
+  color: var(--success);
+  font-weight: 600;
+}
+.choice-btn.wrong {
+  background: rgba(239,83,80,0.18);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.choice-btn:disabled { cursor: default; }
+
+/* Streak badge */
+#streakBadge {
+  display: none;
+  background: rgba(255,167,38,0.15);
+  border: 1px solid rgba(255,167,38,0.4);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.85rem; color: var(--warn);
+  text-align: center;
+}
+#streakBadge.visible { display: block; }
+
+/* Learn More */
+#learnMore {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.learn-more-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--gold-light);
+  font-size: 0.88rem; font-weight: 600;
+  padding: 12px 16px;
+  cursor: pointer; text-align: left;
+  display: flex; justify-content: space-between; align-items: center;
+  touch-action: manipulation;
+}
+.learn-more-toggle:hover { background: rgba(200,169,81,0.07); }
+
+#learnMoreContent {
+  display: none;
+  padding: 0 16px 16px;
+}
+#learnMoreContent.expanded { display: block; }
+
+.lm-org-header {
+  margin-bottom: 12px;
+}
+.lm-org-name {
+  font-size: 1rem; font-weight: 700; color: var(--text);
+  font-style: italic;
+}
+.lm-common-name {
+  font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px;
+}
+.type-badge {
+  display: inline-block;
+  font-size: 0.7rem; font-weight: 700; padding: 2px 8px;
+  border-radius: 4px; text-transform: uppercase; letter-spacing: 0.07em;
+}
+.type-badge.bacteria  { background: rgba(79,195,247,0.2);  color:#4FC3F7; border:1px solid rgba(79,195,247,0.4); }
+.type-badge.virus     { background: rgba(239,83,80,0.2);   color:var(--danger); border:1px solid rgba(239,83,80,0.4); }
+.type-badge.fungus    { background: rgba(255,167,38,0.2);  color:var(--warn); border:1px solid rgba(255,167,38,0.4); }
+.type-badge.parasite  { background: rgba(171,71,188,0.2);  color:#CE93D8; border:1px solid rgba(171,71,188,0.4); }
+.type-badge.prion     { background: rgba(255,255,255,0.12); color:var(--text-muted); border:1px solid var(--border); }
+.type-badge.other     { background: rgba(255,255,255,0.08); color:var(--text-muted); border:1px solid var(--border); }
+
+/* Thumbnails */
+.thumb-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 12px;
+}
+.thumb-wrap {
+  position: relative; cursor: pointer;
+  border-radius: 6px; overflow: hidden;
+  width: 80px; height: 60px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.thumb-wrap img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.thumb-caption {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.65);
+  font-size: 0.6rem; color: var(--text-muted);
+  padding: 2px 4px; line-height: 1.3;
+}
+
+.lm-section { margin-bottom: 10px; }
+.lm-label {
+  font-size: 0.72rem; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--gold);
+  margin-bottom: 4px; font-weight: 700;
+}
+.lm-value {
+  font-size: 0.85rem; color: var(--text); line-height: 1.6;
+}
+.lm-value ul { padding-left: 1.3em; }
+.lm-value li { margin-bottom: 2px; }
+.disease-item { margin-bottom: 6px; }
+.disease-name { font-weight: 600; color: var(--text); font-size: 0.88rem; }
+.disease-symptoms { font-size: 0.8rem; color: var(--text-muted); }
+.learn-more-text {
+  font-size: 0.85rem; color: var(--text-muted);
+  line-height: 1.7;
+  border-left: 3px solid var(--green-mid);
+  padding-left: 12px; margin-top: 8px;
+}
+
+/* Next button */
+#btnNext {
+  display: none;
+  width: 100%;
+  padding: 14px;
+  background: var(--gold); color: #1a1a00;
+  font-size: 1rem; font-weight: 700;
+  border: none; border-radius: 8px;
+  cursor: pointer; touch-action: manipulation;
+}
+#btnNext.visible { display: block; }
+#btnNext:active { opacity: 0.85; }
+
+/* Score popup */
+#scorePopup {
+  position: fixed;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(17,28,21,0.95);
+  border: 1.5px solid var(--gold);
+  border-radius: 12px;
+  padding: 14px 28px;
+  font-size: 1.2rem; font-weight: 800;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  text-align: center;
+}
+#scorePopup.correct-popup { color: var(--success); border-color: var(--success); }
+#scorePopup.wrong-popup   { color: var(--danger);  border-color: var(--danger); }
+@keyframes scoreFloat {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  20%  { opacity: 1; transform: translate(-50%, -60%) scale(1.05); }
+  60%  { opacity: 1; transform: translate(-50%, -68%); }
+  100% { opacity: 0; transform: translate(-50%, -80%); }
+}
+#scorePopup.animating {
+  animation: scoreFloat 1.2s ease forwards;
+}
+
+/* ── END SCREEN ── */
+#endScreen {
+  display: none;
+  padding: 28px 20px;
+  min-height: 100dvh;
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 18px;
+  max-width: 480px; margin: 0 auto;
+}
+#endScreen.active { display: flex; }
+
+#endScreen h2 {
+  font-size: 1.8rem; font-weight: 800; color: var(--gold);
+  text-align: center;
+}
+.big-score {
+  font-size: 3.5rem; font-weight: 800; color: var(--gold-light);
+  text-align: center; line-height: 1;
+}
+.big-score span { font-size: 1rem; color: var(--text-muted); display: block; margin-top: 4px; }
+
+.end-stats {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  width: 100%;
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px; text-align: center;
+}
+.stat-item .stat-val {
+  font-size: 1.5rem; font-weight: 700; color: var(--text);
+}
+.stat-item .stat-lbl {
+  font-size: 0.72rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+
+/* Category breakdown */
+.cat-breakdown {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+.cat-breakdown h3 {
+  font-size: 0.82rem; font-weight: 700; color: var(--gold);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+.cat-row {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px;
+}
+.cat-label {
+  font-size: 0.8rem; color: var(--text-muted);
+  width: 80px; flex-shrink: 0; text-transform: capitalize;
+}
+.cat-bar-wrap {
+  flex: 1; background: rgba(255,255,255,0.08);
+  border-radius: 4px; height: 10px; overflow: hidden;
+}
+.cat-bar {
+  height: 100%; border-radius: 4px;
+  background: var(--success); transition: width 0.5s ease;
+}
+.cat-pct {
+  font-size: 0.78rem; color: var(--text-muted);
+  width: 36px; text-align: right; flex-shrink: 0;
+}
+
+.end-btn-group {
+  display: flex; flex-direction: column; gap: 10px;
+  width: 100%;
+}
+.btn-play-again {
+  width: 100%;
+  padding: 14px;
+  background: var(--gold); color: #1a1a00;
+  font-size: 1rem; font-weight: 700;
+  border: none; border-radius: 8px;
+  cursor: pointer; touch-action: manipulation;
+}
+.btn-play-again:active { opacity: 0.85; }
+
+/* ── IMAGE MODAL ── */
+#imgModal {
+  display: none;
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.88);
+  align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px;
+  padding: 20px;
+}
+#imgModal.open { display: flex; }
+#modalImg {
+  max-width: 100%; max-height: calc(100dvh - 120px);
+  object-fit: contain; border-radius: 8px;
+  border: 1px solid var(--border);
+}
+#modalCaption {
+  font-size: 0.82rem; color: var(--text-muted);
+  text-align: center; max-width: 420px;
+}
+#modalClose {
+  position: absolute; top: 16px; right: 16px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid var(--border);
+  color: var(--text); font-size: 1.1rem;
+  width: 36px; height: 36px;
+  border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: manipulation;
+}
+#imgModal { cursor: pointer; }
+#modalImg { cursor: default; }
+
+/* Helpers */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════ START SCREEN ══════════════════════════ -->
+<div id="startScreen">
+  <div class="icon">🔬</div>
+  <h1>Micro ID</h1>
+
+  <div class="rules-box">
+    <strong>How to play</strong>
+    <ul>
+      <li>10 questions per round, ramping in difficulty</li>
+      <li><strong>+10 pts</strong> correct &nbsp;|&nbsp; <strong>−5 pts</strong> wrong (min 0)</li>
+      <li>Streak of 3+ earns a <strong>+2 bonus</strong> per correct answer</li>
+      <li>Spaced repetition: organisms you know well appear less often</li>
+      <li>Tap an image to enlarge it. Tap <strong>Learn More</strong> after any question</li>
+    </ul>
+  </div>
+
+  <div id="dbInfo">Loading database…</div>
+
+  <div class="start-btn-group">
+    <button class="btn-start" id="btnStart" disabled>Start Quiz</button>
+    <button class="btn-secondary" id="btnLoadDb">Load Different Database</button>
+    <button class="btn-secondary danger-btn hidden" id="btnResetProgress">Reset Progress</button>
+  </div>
+
+  <a href="index.html" class="btn-back-link">← Menu</a>
+</div>
+
+<input type="file" id="fileInput" accept=".json">
+
+<!-- ══════════════════════════ GAME HEADER ══════════════════════════ -->
+<div id="gameHeader" class="hidden">
+  <span id="headerTitle">Micro ID</span>
+  <span id="headerProgress">Q 1/10</span>
+  <span id="headerScore">0 pts</span>
+  <a href="index.html" class="btn-menu">← Menu</a>
+</div>
+
+<!-- ══════════════════════════ GAME SCREEN ══════════════════════════ -->
+<div id="gameScreen">
+  <div class="game-content">
+
+    <!-- Question card -->
+    <div class="question-card">
+      <div id="imgContainer">
+        <img id="qImg" alt="Organism image">
+        <div id="imgPlaceholder">Image not available</div>
+        <div id="imgCaption"></div>
+      </div>
+      <div class="question-card-inner">
+        <div id="diffBadge" class="diff-badge easy">Easy</div>
+        <div id="qTypeLabel" class="q-type-label">Identification</div>
+        <div id="qPrompt" class="q-prompt">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Choices -->
+    <div class="choices-grid" id="choicesGrid">
+      <button class="choice-btn" id="c0"></button>
+      <button class="choice-btn" id="c1"></button>
+      <button class="choice-btn" id="c2"></button>
+      <button class="choice-btn" id="c3"></button>
+    </div>
+
+    <!-- Streak badge -->
+    <div id="streakBadge">🔥 <span id="streakCount">3</span> streak — +2 bonus/question</div>
+
+    <!-- Learn More -->
+    <div id="learnMore">
+      <button class="learn-more-toggle" id="learnMoreToggle">
+        <span>📚 Learn More</span>
+        <span id="learnMoreArrow">▼</span>
+      </button>
+      <div id="learnMoreContent"></div>
+    </div>
+
+    <!-- Next button -->
+    <button id="btnNext">Next Question →</button>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════ END SCREEN ══════════════════════════ -->
+<div id="endScreen">
+  <h2>Round Complete!</h2>
+  <div class="big-score" id="finalScore">0 <span>points</span></div>
+
+  <div class="end-stats">
+    <div class="stat-item">
+      <div class="stat-val" id="statCorrect">0/10</div>
+      <div class="stat-lbl">Correct</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="statStreak">0</div>
+      <div class="stat-lbl">Peak Streak</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-val" id="statEarned">+0</div>
+      <div class="stat-lbl">Pts Earned</div>
+    </div>
+  </div>
+
+  <div class="cat-breakdown" id="catBreakdown"></div>
+
+  <div class="end-btn-group">
+    <button class="btn-play-again" id="btnPlayAgain">Play Again</button>
+    <a href="index.html" class="btn-back-link" style="text-align:center;width:100%;">← Menu</a>
+  </div>
+</div>
+
+<!-- Score popup -->
+<div id="scorePopup"></div>
+
+<!-- Image modal -->
+<div id="imgModal">
+  <button id="modalClose">✕</button>
+  <img id="modalImg" alt="Full size">
+  <div id="modalCaption"></div>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════
+//  GLOBAL STATE
+// ═══════════════════════════════════════════════════════════════════════
+let db = null;            // loaded database
+let storageKey = '';      // localStorage key for this unit
+let progress = {};        // { orgId: { seen, correct, streak, lastSeen } }
+
+let round = [];           // array of question objects for this round
+let roundIdx = 0;         // current question index (0-based)
+let score = 0;
+let streak = 0;
+let peakStreak = 0;
+let roundCorrect = 0;
+let roundPtsEarned = 0;
+let answered = false;
+let learnMoreOpen = false;
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DOM REFS
+// ═══════════════════════════════════════════════════════════════════════
+const startScreen     = document.getElementById('startScreen');
+const gameHeader      = document.getElementById('gameHeader');
+const gameScreen      = document.getElementById('gameScreen');
+const endScreen       = document.getElementById('endScreen');
+const dbInfoEl        = document.getElementById('dbInfo');
+const btnStart        = document.getElementById('btnStart');
+const btnLoadDb       = document.getElementById('btnLoadDb');
+const btnResetProgress= document.getElementById('btnResetProgress');
+const fileInput       = document.getElementById('fileInput');
+
+const headerTitle     = document.getElementById('headerTitle');
+const headerProgress  = document.getElementById('headerProgress');
+const headerScore     = document.getElementById('headerScore');
+
+const imgContainer    = document.getElementById('imgContainer');
+const qImg            = document.getElementById('qImg');
+const imgPlaceholder  = document.getElementById('imgPlaceholder');
+const imgCaption      = document.getElementById('imgCaption');
+const diffBadge       = document.getElementById('diffBadge');
+const qTypeLabel      = document.getElementById('qTypeLabel');
+const qPrompt         = document.getElementById('qPrompt');
+const choicesGrid     = document.getElementById('choicesGrid');
+const choiceBtns      = [0,1,2,3].map(i => document.getElementById('c'+i));
+const streakBadge     = document.getElementById('streakBadge');
+const streakCount     = document.getElementById('streakCount');
+const learnMore       = document.getElementById('learnMore');
+const learnMoreToggle = document.getElementById('learnMoreToggle');
+const learnMoreArrow  = document.getElementById('learnMoreArrow');
+const learnMoreContent= document.getElementById('learnMoreContent');
+const btnNext         = document.getElementById('btnNext');
+const scorePopup      = document.getElementById('scorePopup');
+
+const finalScore      = document.getElementById('finalScore');
+const statCorrect     = document.getElementById('statCorrect');
+const statStreak      = document.getElementById('statStreak');
+const statEarned      = document.getElementById('statEarned');
+const catBreakdown    = document.getElementById('catBreakdown');
+const btnPlayAgain    = document.getElementById('btnPlayAgain');
+
+const imgModal        = document.getElementById('imgModal');
+const modalImg        = document.getElementById('modalImg');
+const modalCaption    = document.getElementById('modalCaption');
+const modalClose      = document.getElementById('modalClose');
+
+// ═══════════════════════════════════════════════════════════════════════
+//  QUESTION TYPE DEFINITIONS
+// ═══════════════════════════════════════════════════════════════════════
+const QUESTION_TYPES = [
+  {
+    id: 'pathogen_type',
+    difficulty: 1,
+    label: 'Identify the Pathogen Type',
+    canApply: () => true,
+    build(org, allOrgs, imgDir) {
+      const typeMap = { bacteria:'Bacterium', virus:'Virus', fungus:'Fungus', parasite:'Parasite', prion:'Prion' };
+      const correct = typeMap[org.type] || (org.type ? (org.type.charAt(0).toUpperCase()+org.type.slice(1)) : 'Unknown');
+      // fixed set of 5, pick 3 distractors that aren't correct
+      const allChoices = ['Bacterium','Virus','Fungus','Parasite','Prion'];
+      const distractors = shuffle(allChoices.filter(c => c !== correct)).slice(0, 3);
+      return {
+        prompt: `What category of pathogen is <em>${org.name}</em>?`,
+        correct,
+        choices: shuffle([correct, ...distractors])
+      };
+    }
+  },
+  {
+    id: 'gram_class',
+    difficulty: 1,
+    label: 'Gram Stain Classification',
+    canApply: (org) => org.type === 'bacteria',
+    build(org, allOrgs, imgDir) {
+      const subtypeMap = {
+        gram_positive: 'Gram-positive (purple)',
+        gram_negative: 'Gram-negative (pink/red)',
+        acid_fast: 'Acid-fast (not gram-stainable)',
+        variable: 'Variable'
+      };
+      const correct = subtypeMap[org.subtype] || 'Variable';
+      const allChoices = ['Gram-positive (purple)', 'Gram-negative (pink/red)', 'Acid-fast (not gram-stainable)', 'Variable'];
+      const distractors = shuffle(allChoices.filter(c => c !== correct)).slice(0, 3);
+      return {
+        prompt: `How does <em>${org.name}</em> appear on a Gram stain?`,
+        correct,
+        choices: shuffle([correct, ...distractors])
+      };
+    }
+  },
+  {
+    id: 'image_to_name',
+    difficulty: 1,
+    label: 'Image Identification',
+    canApply: (org) => org.images && org.images.length > 0,
+    build(org, allOrgs, imgDir) {
+      const img = org.images[Math.floor(Math.random() * org.images.length)];
+      const correct = org.name;
+      const distractors = getOrgNameDistractors(org, allOrgs, 3);
+      return {
+        prompt: `What organism is shown in this image?`,
+        correct,
+        choices: shuffle([correct, ...distractors]),
+        image: { src: imgDir + img.file, caption: img.caption || '', credit: img.credit || '' }
+      };
+    }
+  },
+  {
+    id: 'name_to_disease',
+    difficulty: 2,
+    label: 'Disease Association',
+    canApply: (org) => org.diseases && org.diseases.length > 0,
+    build(org, allOrgs, imgDir) {
+      const correct = org.diseases[0].name;
+      const allDiseases = [];
+      allOrgs.forEach(o => {
+        if (o.id !== org.id && o.diseases) {
+          // prefer same type
+          o.diseases.forEach(d => allDiseases.push({ name: d.name, sameType: o.type === org.type }));
+        }
+      });
+      // sort same-type first
+      allDiseases.sort((a,b) => (b.sameType?1:0)-(a.sameType?1:0));
+      const seen = new Set([correct.toLowerCase()]);
+      const distractors = [];
+      for (const d of allDiseases) {
+        if (!seen.has(d.name.toLowerCase())) {
+          seen.add(d.name.toLowerCase());
+          distractors.push(d.name);
+          if (distractors.length >= 3) break;
+        }
+      }
+      padDistractors(distractors, ['Unknown disease','Respiratory illness','Gastrointestinal infection','Skin infection','Systemic infection'], correct, 3);
+      return {
+        prompt: `What disease does <em>${org.name}</em> primarily cause?`,
+        correct,
+        choices: shuffle([correct, ...distractors.slice(0,3)])
+      };
+    }
+  },
+  {
+    id: 'disease_to_org',
+    difficulty: 2,
+    label: 'Causative Organism',
+    canApply: (org) => org.diseases && org.diseases.length > 0,
+    build(org, allOrgs, imgDir) {
+      const disease = org.diseases[0].name;
+      const correct = org.name;
+      const distractors = getOrgNameDistractors(org, allOrgs, 3);
+      return {
+        prompt: `What organism causes <em>${disease}</em>?`,
+        correct,
+        choices: shuffle([correct, ...distractors])
+      };
+    }
+  },
+  {
+    id: 'symptoms_to_org',
+    difficulty: 3,
+    label: 'Symptom Recognition',
+    canApply: (org) => {
+      if (!org.diseases || !org.diseases.length) return false;
+      const d = org.diseases.find(d => d.symptoms && d.symptoms.length >= 2);
+      return !!d;
+    },
+    build(org, allOrgs, imgDir) {
+      const d = org.diseases.find(d => d.symptoms && d.symptoms.length >= 2);
+      const symptoms = shuffle([...d.symptoms]).slice(0, 3);
+      const correct = org.name;
+      const distractors = getOrgNameDistractors(org, allOrgs, 3);
+      return {
+        prompt: `A patient presents with: <em>${symptoms.join(', ')}</em>. Which organism is most likely responsible?`,
+        correct,
+        choices: shuffle([correct, ...distractors])
+      };
+    }
+  },
+  {
+    id: 'transmission',
+    difficulty: 3,
+    label: 'Transmission Route',
+    canApply: (org) => org.transmission && org.transmission.length > 0,
+    build(org, allOrgs, imgDir) {
+      const correct = org.transmission[0];
+      const allTrans = new Set();
+      allOrgs.forEach(o => {
+        if (o.id !== org.id && o.transmission) o.transmission.forEach(t => allTrans.add(t));
+      });
+      const pool = shuffle([...allTrans].filter(t => t.toLowerCase() !== correct.toLowerCase()));
+      const distractors = pool.slice(0, 3);
+      padDistractors(distractors, ['Airborne droplets','Fecal-oral route','Direct skin contact','Sexual contact','Blood transfusion'], correct, 3);
+      return {
+        prompt: `How is <em>${org.name}</em> primarily transmitted?`,
+        correct,
+        choices: shuffle([correct, ...distractors.slice(0,3)])
+      };
+    }
+  },
+  {
+    id: 'vector_id',
+    difficulty: 3,
+    label: 'Vector Identification',
+    canApply: (org) => org.vector != null && org.vector !== '',
+    build(org, allOrgs, imgDir) {
+      const correct = org.vector;
+      const allVectors = new Set();
+      allOrgs.forEach(o => { if (o.id !== org.id && o.vector) allVectors.add(o.vector); });
+      const pool = shuffle([...allVectors].filter(v => v.toLowerCase() !== correct.toLowerCase()));
+      const distractors = pool.slice(0, 3);
+      padDistractors(distractors, ['Mosquito','Tick','Flea','Sandfly','Tsetse fly'], correct, 3);
+      return {
+        prompt: `What is the primary vector for <em>${org.name}</em>?`,
+        correct,
+        choices: shuffle([correct, ...distractors.slice(0,3)])
+      };
+    }
+  },
+  {
+    id: 'lab_finding',
+    difficulty: 3,
+    label: 'Lab Finding',
+    canApply: (org) => org.labFindings && org.labFindings.length > 0,
+    build(org, allOrgs, imgDir) {
+      const correct = org.labFindings[Math.floor(Math.random() * org.labFindings.length)];
+      const allFindings = new Set();
+      allOrgs.forEach(o => {
+        if (o.id !== org.id && o.labFindings) o.labFindings.forEach(f => allFindings.add(f));
+      });
+      const pool = shuffle([...allFindings].filter(f => f.toLowerCase() !== correct.toLowerCase()));
+      const distractors = pool.slice(0, 3);
+      padDistractors(distractors, ['Catalase positive','Oxidase positive','Coagulase negative','Beta-hemolytic','Non-hemolytic'], correct, 3);
+      return {
+        prompt: `Which lab finding is characteristic of <em>${org.name}</em>?`,
+        correct,
+        choices: shuffle([correct, ...distractors.slice(0,3)])
+      };
+    }
+  }
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DISTRACTOR HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function getOrgNameDistractors(org, allOrgs, count) {
+  // prefer same subtype → same type → any
+  const same  = allOrgs.filter(o => o.id !== org.id && o.subtype === org.subtype);
+  const sameT = allOrgs.filter(o => o.id !== org.id && o.type === org.type && o.subtype !== org.subtype);
+  const other = allOrgs.filter(o => o.id !== org.id && o.type !== org.type);
+  const pool = shuffle([...same, ...sameT, ...other]);
+  const seen = new Set([org.name.toLowerCase()]);
+  const result = [];
+  for (const o of pool) {
+    if (!seen.has(o.name.toLowerCase())) {
+      seen.add(o.name.toLowerCase());
+      result.push(o.name);
+      if (result.length >= count) break;
+    }
+  }
+  padDistractors(result, ['Unknown bacterium','Unknown virus','Unknown fungus','Unknown parasite'], org.name, count);
+  return result.slice(0, count);
+}
+
+function padDistractors(arr, fallbacks, exclude, count) {
+  const excludeLower = (exclude || '').toLowerCase();
+  for (const f of fallbacks) {
+    if (arr.length >= count) break;
+    if (f.toLowerCase() !== excludeLower && !arr.map(a=>a.toLowerCase()).includes(f.toLowerCase())) {
+      arr.push(f);
+    }
+  }
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SPACED REPETITION
+// ═══════════════════════════════════════════════════════════════════════
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw) progress = JSON.parse(raw);
+    else progress = {};
+  } catch(e) { progress = {}; }
+}
+
+function saveProgress() {
+  try { localStorage.setItem(storageKey, JSON.stringify(progress)); } catch(e) {}
+}
+
+function getWeight(id) {
+  const p = progress[id];
+  if (!p || p.seen === 0) return 4;
+  if (p.streak >= 5) return 0.1;
+  if (p.streak >= 3) return 0.4;
+  return 1;
+}
+
+function recordAnswer(id, correct) {
+  if (!progress[id]) progress[id] = { seen: 0, correct: 0, streak: 0, lastSeen: 0 };
+  const p = progress[id];
+  p.seen++;
+  p.lastSeen = Date.now();
+  if (correct) {
+    p.correct++;
+    p.streak++;
+  } else {
+    p.streak = 0;
+  }
+  saveProgress();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  WEIGHTED RANDOM SELECTION
+// ═══════════════════════════════════════════════════════════════════════
+function weightedPick(items, weightFn) {
+  const weights = items.map(weightFn);
+  const total = weights.reduce((a, b) => a + b, 0);
+  if (total === 0) return items[Math.floor(Math.random() * items.length)];
+  let r = Math.random() * total;
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return items[i];
+  }
+  return items[items.length - 1];
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ROUND GENERATION
+// ═══════════════════════════════════════════════════════════════════════
+function buildRound() {
+  const N = db.meta.questionsPerRound || 10;
+  const easyN = Math.floor(N * 0.3);
+  const medN  = Math.floor(N * 0.4);
+  const hardN = N - easyN - medN;
+
+  const slots = [
+    ...Array(easyN).fill(1),
+    ...Array(medN).fill(2),
+    ...Array(hardN).fill(3)
+  ];
+
+  const usedOrgIds = new Set();
+  const questions = [];
+
+  for (const diff of slots) {
+    // orgs of this difficulty
+    let diffOrgs = db.organisms.filter(o => o.difficulty === diff);
+    // fallback: use any org if not enough
+    if (diffOrgs.length === 0) diffOrgs = [...db.organisms];
+
+    // prefer unused orgs
+    let pool = diffOrgs.filter(o => !usedOrgIds.has(o.id));
+    if (pool.length === 0) pool = diffOrgs;
+
+    const org = weightedPick(pool, o => getWeight(o.id));
+
+    // pick applicable question type of this difficulty
+    const applicableTypes = QUESTION_TYPES.filter(qt => qt.difficulty === diff && qt.canApply(org));
+    if (applicableTypes.length === 0) {
+      // fallback to any applicable type
+      const fallback = QUESTION_TYPES.filter(qt => qt.canApply(org));
+      if (fallback.length === 0) continue;
+      const qt = fallback[Math.floor(Math.random() * fallback.length)];
+      try {
+        const q = qt.build(org, db.organisms, db.meta.imageDir || 'microid_images/');
+        questions.push({ ...q, org, qtypeId: qt.id, qtypeLabel: qt.label, difficulty: diff });
+        usedOrgIds.add(org.id);
+      } catch(e) { console.warn('Question build failed:', e); }
+      continue;
+    }
+
+    const qt = applicableTypes[Math.floor(Math.random() * applicableTypes.length)];
+    try {
+      const q = qt.build(org, db.organisms, db.meta.imageDir || 'microid_images/');
+      questions.push({ ...q, org, qtypeId: qt.id, qtypeLabel: qt.label, difficulty: diff });
+      usedOrgIds.add(org.id);
+    } catch(e) { console.warn('Question build failed:', e); }
+  }
+
+  return questions;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DATABASE LOADING
+// ═══════════════════════════════════════════════════════════════════════
+function initDb(data) {
+  db = data;
+  storageKey = 'microid_' + (db.meta.unit || 'default').replace(/\W+/g, '_').toLowerCase();
+  loadProgress();
+
+  dbInfoEl.textContent = `Unit: ${db.meta.unit || 'Unknown'} — ${db.organisms.length} organism${db.organisms.length !== 1 ? 's' : ''} loaded`;
+  dbInfoEl.className = 'ok';
+  btnStart.disabled = false;
+
+  // show reset button if there's progress
+  const hasProgress = Object.keys(progress).length > 0;
+  btnResetProgress.classList.toggle('hidden', !hasProgress);
+}
+
+async function fetchDefaultDb() {
+  try {
+    const resp = await fetch('microid_db.json');
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    initDb(data);
+  } catch(e) {
+    dbInfoEl.textContent = 'Could not load microid_db.json. Use "Load Different Database" to pick a file.';
+    dbInfoEl.className = 'error';
+  }
+}
+
+function loadFromFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.organisms || !Array.isArray(data.organisms)) throw new Error('Invalid format');
+      initDb(data);
+    } catch(err) {
+      dbInfoEl.textContent = 'Error parsing file: ' + err.message;
+      dbInfoEl.className = 'error';
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SCREEN MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════
+function showStart() {
+  startScreen.classList.remove('hidden');
+  gameHeader.classList.add('hidden');
+  gameScreen.classList.remove('active');
+  endScreen.classList.remove('active');
+}
+
+function showGame() {
+  startScreen.classList.add('hidden');
+  gameHeader.classList.remove('hidden');
+  gameScreen.classList.add('active');
+  endScreen.classList.remove('active');
+}
+
+function showEnd() {
+  startScreen.classList.add('hidden');
+  gameHeader.classList.add('hidden');
+  gameScreen.classList.remove('active');
+  endScreen.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  QUESTION RENDERING
+// ═══════════════════════════════════════════════════════════════════════
+function renderQuestion(q) {
+  answered = false;
+
+  // Header
+  const N = round.length;
+  headerProgress.textContent = `Q ${roundIdx + 1}/${N}`;
+  headerScore.textContent = `${score} pts${streak >= 3 ? ' 🔥' + streak : ''}`;
+
+  // Diff badge
+  const diffNames = { 1: 'Easy', 2: 'Medium', 3: 'Hard' };
+  const diffClasses = { 1: 'easy', 2: 'medium', 3: 'hard' };
+  diffBadge.textContent = diffNames[q.difficulty] || 'Easy';
+  diffBadge.className = 'diff-badge ' + (diffClasses[q.difficulty] || 'easy');
+
+  // Question
+  qTypeLabel.textContent = q.qtypeLabel || '';
+  qPrompt.innerHTML = q.prompt;
+
+  // Image
+  if (q.image) {
+    imgContainer.classList.add('visible');
+    imgPlaceholder.classList.remove('visible');
+    qImg.style.display = 'block';
+    qImg.src = q.image.src;
+    imgCaption.textContent = q.image.caption + (q.image.credit ? ' — ' + q.image.credit : '');
+    qImg.onerror = () => {
+      qImg.style.display = 'none';
+      imgPlaceholder.textContent = 'Image not available' + (q.org.morphology ? ` — ${q.org.morphology}` : '');
+      imgPlaceholder.classList.add('visible');
+    };
+  } else {
+    imgContainer.classList.remove('visible');
+    imgPlaceholder.classList.remove('visible');
+    qImg.src = '';
+  }
+
+  // Choices
+  const choices = q.choices || [];
+  choiceBtns.forEach((btn, i) => {
+    btn.textContent = choices[i] || '';
+    btn.className = 'choice-btn';
+    btn.disabled = false;
+    btn.style.display = choices[i] !== undefined ? '' : 'none';
+  });
+
+  // Streak badge
+  if (streak >= 3) {
+    streakCount.textContent = streak;
+    streakBadge.classList.add('visible');
+  } else {
+    streakBadge.classList.remove('visible');
+  }
+
+  // Learn More — close it
+  learnMoreOpen = false;
+  learnMoreContent.classList.remove('expanded');
+  learnMoreArrow.textContent = '▼';
+  buildLearnMore(q.org);
+
+  // Next button
+  btnNext.classList.remove('visible');
+  btnNext.textContent = (roundIdx === round.length - 1) ? 'See Results →' : 'Next Question →';
+
+  // Scroll to top
+  document.querySelector('.game-content').scrollTop = 0;
+  window.scrollTo(0, 0);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ANSWER HANDLING
+// ═══════════════════════════════════════════════════════════════════════
+function handleAnswer(btn, chosen, q) {
+  if (answered) return;
+  answered = true;
+
+  // Disable all
+  choiceBtns.forEach(b => { b.disabled = true; });
+
+  const isCorrect = chosen === q.correct;
+
+  // Highlight
+  choiceBtns.forEach(b => {
+    if (b.textContent === q.correct) b.classList.add('correct');
+    else if (b === btn && !isCorrect) b.classList.add('wrong');
+  });
+
+  // Score
+  const streakBonus = (streak >= 3 && isCorrect) ? 2 : 0;
+  if (isCorrect) {
+    const pts = 10 + streakBonus;
+    score += pts;
+    roundPtsEarned += pts;
+    streak++;
+    peakStreak = Math.max(peakStreak, streak);
+    roundCorrect++;
+    showScorePopup('+' + pts, true);
+  } else {
+    const deduction = Math.min(score, 5);
+    score = Math.max(0, score - 5);
+    roundPtsEarned -= deduction;
+    streak = 0;
+    showScorePopup('-5', false);
+    // auto-expand learn more on wrong
+    setTimeout(() => openLearnMore(), 600);
+  }
+
+  // Record spaced repetition
+  recordAnswer(q.org.id, isCorrect);
+
+  // Update header score
+  headerScore.textContent = `${score} pts${streak >= 3 ? ' 🔥' + streak : ''}`;
+
+  // Update streak badge
+  if (streak >= 3) {
+    streakCount.textContent = streak;
+    streakBadge.classList.add('visible');
+  } else {
+    streakBadge.classList.remove('visible');
+  }
+
+  // Show next
+  btnNext.classList.add('visible');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SCORE POPUP
+// ═══════════════════════════════════════════════════════════════════════
+function showScorePopup(text, correct) {
+  scorePopup.textContent = text;
+  scorePopup.className = correct ? 'correct-popup' : 'wrong-popup';
+  // force reflow
+  void scorePopup.offsetWidth;
+  scorePopup.classList.add('animating');
+  scorePopup.addEventListener('animationend', () => {
+    scorePopup.className = '';
+    scorePopup.textContent = '';
+  }, { once: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  LEARN MORE
+// ═══════════════════════════════════════════════════════════════════════
+function openLearnMore() {
+  learnMoreOpen = true;
+  learnMoreContent.classList.add('expanded');
+  learnMoreArrow.textContent = '▲';
+  learnMore.querySelector('.learn-more-toggle span:first-child').textContent = '📚 Learn More';
+}
+
+function buildLearnMore(org) {
+  const imgDir = db.meta.imageDir || 'microid_images/';
+  const typeLabel = org.type ? (org.type.charAt(0).toUpperCase() + org.type.slice(1)) : 'Unknown';
+  const typeClass = ['bacteria','virus','fungus','parasite','prion'].includes(org.type) ? org.type : 'other';
+
+  let html = `<div class="lm-org-header">
+    <div class="lm-org-name">${escHtml(org.name)}</div>
+    ${org.commonName ? `<div class="lm-common-name">${escHtml(org.commonName)}</div>` : ''}
+    <span class="type-badge ${typeClass}">${escHtml(typeLabel)}</span>
+    ${org.subtype ? ` <span class="type-badge other">${escHtml(org.subtype.replace(/_/g,' '))}</span>` : ''}
+  </div>`;
+
+  // Images
+  if (org.images && org.images.length > 0) {
+    html += `<div class="thumb-row">`;
+    org.images.forEach((img, i) => {
+      html += `<div class="thumb-wrap" data-modal-src="${escAttr(imgDir + img.file)}" data-modal-cap="${escAttr(img.caption || '')}">
+        <img src="${escAttr(imgDir + img.file)}" alt="${escAttr(img.caption || org.name)}" onerror="this.parentNode.style.display='none'">
+        ${img.caption ? `<div class="thumb-caption">${escHtml(img.caption)}</div>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Diseases
+  if (org.diseases && org.diseases.length > 0) {
+    html += `<div class="lm-section"><div class="lm-label">Diseases</div><div class="lm-value">`;
+    org.diseases.forEach(d => {
+      html += `<div class="disease-item"><span class="disease-name">${escHtml(d.name)}</span>`;
+      if (d.symptoms && d.symptoms.length > 0) {
+        html += `<br><span class="disease-symptoms">Symptoms: ${d.symptoms.map(escHtml).join(', ')}</span>`;
+      }
+      if (d.severity) {
+        html += `<br><span class="disease-symptoms">Severity: ${escHtml(d.severity)}</span>`;
+      }
+      html += `</div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // Transmission
+  if (org.transmission && org.transmission.length > 0) {
+    html += `<div class="lm-section"><div class="lm-label">Transmission</div><div class="lm-value">${org.transmission.map(escHtml).join(', ')}</div></div>`;
+  }
+
+  // Vector
+  if (org.vector) {
+    html += `<div class="lm-section"><div class="lm-label">Vector</div><div class="lm-value">${escHtml(org.vector)}</div></div>`;
+  }
+
+  // Reservoir
+  if (org.reservoir) {
+    html += `<div class="lm-section"><div class="lm-label">Reservoir</div><div class="lm-value">${escHtml(org.reservoir)}</div></div>`;
+  }
+
+  // Lab findings
+  if (org.labFindings && org.labFindings.length > 0) {
+    html += `<div class="lm-section"><div class="lm-label">Lab Findings</div><div class="lm-value"><ul>${org.labFindings.map(f => `<li>${escHtml(f)}</li>`).join('')}</ul></div></div>`;
+  }
+
+  // Treatment / Prevention
+  if (org.treatment) {
+    html += `<div class="lm-section"><div class="lm-label">Treatment</div><div class="lm-value">${escHtml(org.treatment)}</div></div>`;
+  }
+  if (org.prevention) {
+    html += `<div class="lm-section"><div class="lm-label">Prevention</div><div class="lm-value">${escHtml(org.prevention)}</div></div>`;
+  }
+
+  // Long-form learn more
+  if (org.learnMore) {
+    html += `<div class="learn-more-text">${escHtml(org.learnMore)}</div>`;
+  }
+
+  learnMoreContent.innerHTML = html;
+
+  // Attach thumbnail click handlers
+  learnMoreContent.querySelectorAll('.thumb-wrap').forEach(tw => {
+    tw.addEventListener('click', () => {
+      modalImg.src = tw.dataset.modalSrc;
+      modalCaption.textContent = tw.dataset.modalCap || '';
+      imgModal.classList.add('open');
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  END SCREEN
+// ═══════════════════════════════════════════════════════════════════════
+function renderEndScreen() {
+  const N = round.length;
+  finalScore.innerHTML = `${score} <span>points this session</span>`;
+  statCorrect.textContent = `${roundCorrect}/${N}`;
+  statStreak.textContent = peakStreak;
+  statEarned.textContent = (roundPtsEarned >= 0 ? '+' : '') + roundPtsEarned;
+
+  // Category breakdown by org type
+  const typeTotals = {};
+  const typeCorrects = {};
+  round.forEach(q => {
+    const t = q.org.type || 'unknown';
+    typeTotals[t] = (typeTotals[t] || 0) + 1;
+  });
+  // We track correct per type via round answers — stored in each question after answered
+  // Actually we need to track per-question results. Let's derive from progress delta.
+  // Simpler: attach result to each question object (we'll do this in answer handling)
+  round.forEach(q => {
+    const t = q.org.type || 'unknown';
+    typeCorrects[t] = (typeCorrects[t] || 0) + (q._correct ? 1 : 0);
+  });
+
+  let catHtml = `<h3>By Pathogen Type</h3>`;
+  const types = Object.keys(typeTotals);
+  if (types.length === 0) {
+    catHtml += `<div style="color:var(--text-muted);font-size:0.82rem">No data</div>`;
+  } else {
+    types.forEach(t => {
+      const total = typeTotals[t];
+      const correct = typeCorrects[t] || 0;
+      const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+      catHtml += `<div class="cat-row">
+        <div class="cat-label">${escHtml(t)}</div>
+        <div class="cat-bar-wrap"><div class="cat-bar" style="width:${pct}%"></div></div>
+        <div class="cat-pct">${pct}%</div>
+      </div>`;
+    });
+  }
+  catBreakdown.innerHTML = catHtml;
+
+  showEnd();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  GAME FLOW
+// ═══════════════════════════════════════════════════════════════════════
+function startGame() {
+  round = buildRound();
+  if (round.length === 0) {
+    alert('Not enough questions could be generated. Please check the database.');
+    return;
+  }
+  roundIdx = 0;
+  score = 0;
+  streak = 0;
+  peakStreak = 0;
+  roundCorrect = 0;
+  roundPtsEarned = 0;
+  showGame();
+  renderQuestion(round[roundIdx]);
+}
+
+function nextQuestion() {
+  roundIdx++;
+  if (roundIdx >= round.length) {
+    renderEndScreen();
+  } else {
+    renderQuestion(round[roundIdx]);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  UTILITY
+// ═══════════════════════════════════════════════════════════════════════
+function escHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escAttr(str) { return escHtml(str); }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  EVENT LISTENERS
+// ═══════════════════════════════════════════════════════════════════════
+
+// Start button
+btnStart.addEventListener('click', () => {
+  if (!db) return;
+  startGame();
+});
+
+// Load DB button → trigger file input
+btnLoadDb.addEventListener('click', () => fileInput.click());
+
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files && e.target.files[0]) {
+    loadFromFile(e.target.files[0]);
+    fileInput.value = '';
+  }
+});
+
+// Reset progress
+btnResetProgress.addEventListener('click', () => {
+  if (!confirm('Reset all spaced repetition progress for this unit?')) return;
+  progress = {};
+  saveProgress();
+  btnResetProgress.classList.add('hidden');
+});
+
+// Choice buttons
+choiceBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (answered) return;
+    const q = round[roundIdx];
+    const chosen = btn.textContent;
+    // Track result on question for end-screen breakdown
+    q._correct = chosen === q.correct;
+    handleAnswer(btn, chosen, q);
+  });
+});
+
+// Next
+btnNext.addEventListener('click', () => {
+  if (!answered) return;
+  nextQuestion();
+});
+
+// Learn More toggle
+learnMoreToggle.addEventListener('click', () => {
+  learnMoreOpen = !learnMoreOpen;
+  if (learnMoreOpen) {
+    learnMoreContent.classList.add('expanded');
+    learnMoreArrow.textContent = '▲';
+  } else {
+    learnMoreContent.classList.remove('expanded');
+    learnMoreArrow.textContent = '▼';
+  }
+});
+
+// Image click to open modal (question image)
+imgContainer.addEventListener('click', () => {
+  if (!qImg.src || qImg.style.display === 'none') return;
+  const q = round[roundIdx];
+  if (!q || !q.image) return;
+  modalImg.src = q.image.src;
+  modalCaption.textContent = q.image.caption + (q.image.credit ? ' — ' + q.image.credit : '');
+  imgModal.classList.add('open');
+});
+
+// Modal close
+modalClose.addEventListener('click', (e) => {
+  e.stopPropagation();
+  imgModal.classList.remove('open');
+});
+imgModal.addEventListener('click', () => {
+  imgModal.classList.remove('open');
+});
+modalImg.addEventListener('click', (e) => e.stopPropagation());
+
+// Play again
+btnPlayAgain.addEventListener('click', () => {
+  showStart();
+  // Refresh reset button visibility
+  const hasProgress = Object.keys(progress).length > 0;
+  btnResetProgress.classList.toggle('hidden', !hasProgress);
+});
+
+// Keyboard shortcuts (desktop)
+document.addEventListener('keydown', (e) => {
+  if (gameScreen.classList.contains('active')) {
+    const keyMap = { '1': 0, '2': 1, '3': 2, '4': 3 };
+    if (keyMap[e.key] !== undefined && !answered) {
+      choiceBtns[keyMap[e.key]].click();
+    }
+    if ((e.key === 'Enter' || e.key === ' ') && answered) {
+      e.preventDefault();
+      btnNext.click();
+    }
+  }
+  if (e.key === 'Escape') {
+    imgModal.classList.remove('open');
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════
+fetchDefaultDb();
+</script>
+</body>
+</html>
