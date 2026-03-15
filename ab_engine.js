@@ -177,7 +177,7 @@ const ABEngine = (() => {
   function spawnPathogen() {
     const cfg  = waveConfig(wave);
     const r    = 22 + Math.random() * 14;
-    const y    = 62 + r + Math.random() * (H - 62 - r * 2 - 40);
+    const y    = 102 + r + Math.random() * (H - 102 - r * 2 - 40);
 
     // Choose epitope types for this pathogen
     const availKeys = ABSprites.EPITOPE_KEYS.slice(0, cfg.epitopeCount);
@@ -546,7 +546,7 @@ const ABEngine = (() => {
       p.y  += p.vy;
 
       // Bounce off top/bottom (below HUD and above health bar)
-      if (p.y - p.r < 56)  { p.y = 56  + p.r; p.vy = Math.abs(p.vy); }
+      if (p.y - p.r < 100) { p.y = 100 + p.r; p.vy = Math.abs(p.vy); }
       if (p.y + p.r > H - 44) { p.y = H - 44 - p.r; p.vy = -Math.abs(p.vy); }
 
       // Spin and decay hit flash

@@ -103,7 +103,7 @@ const ABGame = (() => {
             <div style="color:var(--igg-color);font-weight:700;font-size:0.8rem;">IgG ✦</div>
           </div>
         </div>`,
-      highlight: 'abPanel',
+      highlight: 'ctrlBar',
       btn: 'Got it →',
     },
     {
@@ -157,9 +157,13 @@ const ABGame = (() => {
   /*  HUD UPDATES                                                        */
   /* ─────────────────────────────────────────────────────────────────── */
 
-  function setScore(n)  { el('hudScore').textContent = n; }
-  function setWave(n)   { el('hudWave').textContent  = n; }
-  function setIgG(n)    { el('hudIgG').textContent   = n; }
+  function setScore(n) { el('hudScore').textContent = n; }
+  function setWave(n)  { el('hudWave').textContent  = n; }
+
+  function setIgG(n) {
+    const cvs = el('iggTracker');
+    if (cvs) ABSprites.drawIgGTracker(cvs.getContext('2d'), n);
+  }
 
   function setHealth(n) {
     const fill = el('healthFill');
@@ -175,7 +179,7 @@ const ABGame = (() => {
   /* ─────────────────────────────────────────────────────────────────── */
 
   function showHUD(visible) {
-    ['hud', 'abPanel', 'healthBar'].forEach(id => {
+    ['hud', 'ctrlBar', 'healthBar'].forEach(id => {
       el(id).classList.toggle('hidden', !visible);
     });
   }

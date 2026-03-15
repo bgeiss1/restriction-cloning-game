@@ -587,6 +587,36 @@ const ABSprites = (() => {
     drawEpitope(ctx, W * 0.5, H * 0.5, epitopeType, Math.min(W, H) * 0.38, 1, false);
   }
 
+  /**
+   * Draw one small IgG Y-shape per charge in a left-to-right row.
+   * Used for the IgG powerup tracker in the control bar.
+   * @param {CanvasRenderingContext2D} ctx
+   * @param {number} count  current IgG charges
+   */
+  function drawIgGTracker(ctx, count) {
+    const W = ctx.canvas.width;
+    const H = ctx.canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    if (count <= 0) return;
+    const size    = H * 0.38;       // arm length of each Y-shape
+    const spacing = size * 2.4;     // horizontal gap between centers
+    const maxFit  = Math.floor((W - size) / spacing) + 1;
+    const draw    = Math.min(count, maxFit);
+    for (let i = 0; i < draw; i++) {
+      drawYShape(ctx, size * 0.6 + i * spacing, H * 0.5, size, '#C8A951', 0, 0.9, null);
+    }
+    // If capped, show overflow count
+    if (count > maxFit) {
+      ctx.save();
+      ctx.fillStyle = '#C8A951';
+      ctx.font = `bold ${Math.round(H * 0.38)}px sans-serif`;
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha = 0.85;
+      ctx.fillText(`+${count - maxFit}`, size * 0.6 + draw * spacing, H * 0.5);
+      ctx.restore();
+    }
+  }
+
   /* ─────────────────────────────────────────────────────────────────── */
   /*  MISS INDICATOR                                                     */
   /* ─────────────────────────────────────────────────────────────────── */
@@ -716,6 +746,7 @@ const ABSprites = (() => {
     drawNeutralizeBurst,
     drawFireRing,
     drawEpitopeOnly,
+    drawIgGTracker,
   };
 
 })();

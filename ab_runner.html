@@ -57,7 +57,6 @@
     .hud-value { font-size: 1.2rem; font-weight: 800; color: var(--text); font-family: monospace; line-height: 1; }
     #hudScore  { color: var(--gold); }
     #hudWave   { color: var(--text); }
-    #hudIgG    { color: var(--igg-color); }
     #btnPause  {
       padding: 6px 12px; border-radius: 8px;
       border: 1.5px solid var(--border); background: none;
@@ -65,38 +64,32 @@
       touch-action: manipulation; -webkit-tap-highlight-color: transparent;
     }
 
-    /* ── Left control panel (stacked selector buttons) ───────────── */
-    #abPanel {
-      position: fixed; left: 0; top: 52px;
-      width: 72px; z-index: 10;
-      display: flex; flex-direction: column;
-      align-items: center; gap: 4px;
-      padding-top: 8px;
+    /* ── Control bar (below HUD) ─────────────────────────────────── */
+    #ctrlBar {
+      position: fixed; top: 52px; left: 0; right: 0;
+      height: 46px; z-index: 10;
+      background: rgba(15,45,20,0.92);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center;
+      gap: 8px; padding: 0 10px;
     }
-    #abSelector, #epitopeBtn {
-      width: 72px;
-      display: flex; flex-direction: column;
-      align-items: center; gap: 5px;
-      padding: 8px 0;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
-    #abSelector canvas, #epitopeBtn canvas {
-      border-radius: 10px;
-      background: rgba(30,77,43,0.7);
+    .ctrl-btn {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 1px; cursor: pointer; flex-shrink: 0;
+      touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      padding: 3px 5px; border-radius: 8px;
       border: 1.5px solid var(--border);
+      background: rgba(30,77,43,0.65);
       transition: border-color 0.12s, transform 0.1s;
     }
-    #abSelector:active canvas, #epitopeBtn:active canvas {
-      border-color: var(--gold);
-      transform: scale(0.93);
+    .ctrl-btn:active { border-color: var(--gold); transform: scale(0.92); }
+    .ctrl-btn canvas { border-radius: 5px; display: block; }
+    .ctrl-btn-label {
+      font-size: 8px; font-weight: 700; letter-spacing: 0.04em;
+      color: var(--gold); line-height: 1;
     }
-    #abTypeLabel, #epitopeLabel {
-      font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
-      color: var(--gold); text-align: center; line-height: 1.3;
-      padding: 0 4px;
-    }
+    #iggTracker { flex: 1; display: block; }
     .sel-tap-hint {
       font-size: 8px; color: var(--text-muted); letter-spacing: 0.05em;
       text-transform: uppercase; opacity: 0.55;
@@ -327,27 +320,23 @@
     <span class="hud-label">Score</span>
     <span class="hud-value" id="hudScore">0</span>
   </div>
-  <div class="hud-block">
-    <span class="hud-label">IgG ✦</span>
-    <span class="hud-value" id="hudIgG">0</span>
-  </div>
   <button id="btnPause" onclick="ABGame.pause()">⏸</button>
 </div>
 
-<!-- Left control panel: antibody type (top) + epitope shape (below) -->
-<div id="abPanel" class="hidden">
-  <!-- Top: shows IgM/IgG antibody — tap to toggle isotype -->
-  <div id="abSelector" onclick="ABGame.toggleIsotype()">
-    <canvas id="abSelectorCanvas" width="56" height="56"></canvas>
-    <span id="abTypeLabel">IgM</span>
-    <span class="sel-tap-hint">tap·IgM/IgG</span>
+<!-- Control bar: antibody type | epitope | IgG tracker -->
+<div id="ctrlBar" class="hidden">
+  <!-- Antibody type (IgM/IgG) — tap to toggle -->
+  <div id="abSelector" class="ctrl-btn" onclick="ABGame.toggleIsotype()">
+    <canvas id="abSelectorCanvas" width="34" height="34"></canvas>
+    <span id="abTypeLabel" class="ctrl-btn-label">IgM</span>
   </div>
-  <!-- Below: shows epitope shape only — tap to cycle -->
-  <div id="epitopeBtn" onclick="ABGame.cycleSpecificity(1)">
-    <canvas id="epitopeCanvas" width="56" height="56"></canvas>
-    <span id="epitopeLabel">▲</span>
-    <span class="sel-tap-hint">tap·switch</span>
+  <!-- Epitope shape — tap to cycle -->
+  <div id="epitopeBtn" class="ctrl-btn" onclick="ABGame.cycleSpecificity(1)">
+    <canvas id="epitopeCanvas" width="34" height="34"></canvas>
+    <span id="epitopeLabel" class="ctrl-btn-label">▲</span>
   </div>
+  <!-- IgG powerup tracker: one Y-shape per charge -->
+  <canvas id="iggTracker" height="34" width="200"></canvas>
 </div>
 
 <!-- Health bar (bottom-left) -->
@@ -400,11 +389,11 @@
   <p>Neutralize incoming pathogens by matching your antibody to the right epitope — before they reach the host!</p>
 
   <div class="info-box">
-    <strong>Tap the screen</strong> to fire toward that spot<br>
-    <strong>Top-left button</strong> — tap to toggle <span class="igm">IgM</span> ↔ <span class="igg">IgG</span><br>
-    <strong>Shape button below it</strong> — tap to switch epitope type<br>
-    <span class="igm">IgM</span> — first responder, pentamer, needs <strong>3 hits</strong><br>
-    <span class="igg">IgG ✦</span> — high affinity power-up, <strong>1-hit</strong> neutralize<br>
+    <strong>Tap the screen</strong> to aim and fire<br>
+    <strong>Antibody button</strong> (top-left) — tap to toggle <span class="igm">IgM</span> ↔ <span class="igg">IgG</span><br>
+    <strong>Shape button</strong> (next to it) — tap to cycle epitope type<br>
+    <span class="igm">IgM</span> — pentamer, needs <strong>3 hits</strong> to neutralize<br>
+    <span class="igg">IgG ✦</span> — power-up, <strong>1-hit</strong> neutralize — charges shown top-right<br>
     <strong>Decoy epitopes</strong> appear in later waves — don't be fooled!
   </div>
 
