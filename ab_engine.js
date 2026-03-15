@@ -50,6 +50,9 @@ const ABEngine = (() => {
   let fireCooldown = 0;     // frames remaining before player can fire again
   const FIRE_COOLDOWN_FRAMES = 22;
 
+  /* ── Cam the Ram arm animation ────────────────────────────────────── */
+  let _camArmSwing = 0;     // 0 = rest, 1 = peak throw; decays each frame
+
   /* ── External callback hooks ──────────────────────────────────────── */
   let onScoreChange  = () => {};
   let onHealthChange = () => {};
@@ -111,6 +114,7 @@ const ABEngine = (() => {
     _isIgG         = false;
     _epitopeIdx    = 0;
     fireCooldown   = 0;
+    _camArmSwing   = 0;
     waveKills      = 0;
     waveLock       = false;
     waveLockTimer  = 0;
@@ -370,12 +374,15 @@ const ABEngine = (() => {
     }
 
     fireCooldown = FIRE_COOLDOWN_FRAMES;
+    _camArmSwing = 1.0;     // trigger throw animation
     return true;
   }
 
   function getFireX() {
-    // Fire zone: right edge of the antibody selector panel (72px) + some padding
-    return 88;
+    // Cam's throwing hand x — shoulder is at cx + bw*0.22, arm extends ~0.28*h forward at throw
+    // cx=38, bw=h*0.52, h=(H-144)/8
+    const camH = (H - 144) / 8;
+    return Math.round(38 + camH * (0.52 * 0.22 + 0.28 * 0.35));
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -487,6 +494,7 @@ const ABEngine = (() => {
     _tick++;
 
     if (fireCooldown > 0) fireCooldown--;
+    if (_camArmSwing > 0) _camArmSwing = Math.max(0, _camArmSwing - 0.075);
 
     // ── Wave lock (between-wave pause) ───────────────────────────────
     if (waveLock) {
@@ -623,6 +631,11 @@ const ABEngine = (() => {
 
   function render() {
     ABSprites.drawBackground(ctx, W, H, _tick);
+
+    // Cam the Ram (left side, facing right toward pathogens)
+    const camH    = (H - 144) / 8;
+    const camFootY = 100 + (H - 144) * 0.58;
+    ABSprites.drawCam(ctx, 38, camFootY, camH, _camArmSwing);
 
     // Pathogens — neutralized ones fade out via globalAlpha
     for (const p of pathogens) {
