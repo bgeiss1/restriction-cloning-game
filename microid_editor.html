@@ -278,6 +278,53 @@ input[type=number] { width: 80px; }
 .btn-publish:hover { background: rgba(102,187,106,0.35); }
 .btn-publish:disabled { opacity: 0.5; cursor: default; }
 
+/* ── MASTER BROWSER ── */
+.master-org-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: var(--radius); cursor: pointer;
+  border-bottom: 1px solid rgba(200,169,81,0.07);
+}
+.master-org-row:hover { background: rgba(255,255,255,0.04); }
+.master-org-row.in-child { background: rgba(200,169,81,0.06); }
+.master-org-name { flex: 1; font-size: 0.85rem; }
+.diff-chip {
+  font-size: 0.7rem; padding: 2px 7px; border-radius: 10px; border: 1px solid; flex-shrink: 0;
+}
+.diff-chip.diff-1 { color: var(--success); border-color: rgba(102,187,106,0.4); background: rgba(102,187,106,0.1); }
+.diff-chip.diff-2 { color: var(--warn);    border-color: rgba(255,167,38,0.4);  background: rgba(255,167,38,0.1); }
+.diff-chip.diff-3 { color: var(--danger);  border-color: rgba(239,83,80,0.4);   background: rgba(239,83,80,0.1); }
+.master-toggle-btn {
+  padding: 3px 10px; border-radius: var(--radius); font-size: 0.78rem; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(200,169,81,0.1); color: var(--gold);
+  white-space: nowrap; flex-shrink: 0;
+}
+.master-toggle-btn:hover { background: rgba(200,169,81,0.25); }
+.master-toggle-btn.remove { background: rgba(239,83,80,0.1); border-color: rgba(239,83,80,0.3); color: var(--danger); }
+.master-toggle-btn.remove:hover { background: rgba(239,83,80,0.25); }
+.btn-compile {
+  padding: 4px 12px; border-radius: var(--radius); font-size: 0.78rem; cursor: pointer;
+  border: 1px solid rgba(102,187,106,0.4); background: rgba(102,187,106,0.12); color: var(--success);
+}
+.btn-compile:hover { background: rgba(102,187,106,0.25); }
+.btn-compile:disabled { opacity: 0.5; cursor: default; }
+.stale-warning {
+  padding: 8px 12px; background: rgba(255,167,38,0.1); border: 1px solid rgba(255,167,38,0.3);
+  border-radius: var(--radius); color: var(--warn); font-size: 0.82rem;
+}
+.master-mode-badge {
+  font-size: 0.72rem; padding: 2px 8px; border-radius: 10px;
+  background: rgba(200,169,81,0.15); border: 1px solid var(--border);
+  color: var(--gold); margin-left: 8px; vertical-align: middle;
+}
+.child-mode-badge {
+  font-size: 0.72rem; padding: 2px 8px; border-radius: 10px;
+  background: rgba(79,195,247,0.12); border: 1px solid rgba(79,195,247,0.3);
+  color: #4FC3F7; margin-left: 8px; vertical-align: middle;
+}
+#master-filter-row select, #master-filter-row input {
+  padding: 5px 8px; font-size: 0.82rem;
+}
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -385,6 +432,38 @@ input[type=number] { width: 80px; }
           Use <strong>Open DB…</strong> to load an existing <code>microid_db.json</code> file.<br>
           Or edit the auto-loaded default database.
         </p>
+      </div>
+
+      <!-- MASTER BROWSER — visible only for child DBs -->
+      <div id="master-browser" style="display:none;">
+        <div class="section">
+          <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+            <span>Master Organisms <span class="section-chevron">▼</span></span>
+            <button class="btn-compile" id="btn-compile" onclick="event.stopPropagation();compileFromMaster()">⟳ Compile from Master</button>
+          </div>
+          <div class="section-body">
+            <div id="master-filter-row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <select id="mf-type" onchange="masterFilter.type=this.value;renderMasterBrowser()">
+                <option value="">All types</option>
+                <option value="bacteria">Bacteria</option>
+                <option value="virus">Virus</option>
+                <option value="fungus">Fungus</option>
+                <option value="parasite">Parasite</option>
+                <option value="prion">Prion</option>
+              </select>
+              <select id="mf-diff" onchange="masterFilter.difficulty=this.value;renderMasterBrowser()">
+                <option value="">All difficulties</option>
+                <option value="1">Easy</option>
+                <option value="2">Medium</option>
+                <option value="3">Hard</option>
+              </select>
+              <input type="text" id="mf-search" placeholder="Search master…" oninput="masterFilter.search=this.value;renderMasterBrowser()" style="flex:1;min-width:100px;">
+              <span id="master-count" style="color:var(--muted);font-size:0.8rem;white-space:nowrap;"></span>
+            </div>
+            <div id="stale-warning" class="stale-warning" style="display:none;"></div>
+            <div id="master-org-rows"></div>
+          </div>
+        </div>
       </div>
 
       <!-- META section — always visible when DB is loaded -->
@@ -507,6 +586,7 @@ async function connectWithPat(pat, silent) {
     currentIdx = null;
     renderAll();
     refreshDbList(pat);
+    if (isChildDb()) ensureMaster(pat).then(() => { checkStaleness(); renderMasterBrowser(); }).catch(() => {});
   } catch (err) {
     if (silent) {
       // PAT may be expired — fall back to fetch
@@ -578,6 +658,7 @@ async function publishToGitHub() {
     dirty = false;
     updateDirty();
     updateFilenameDisplay();
+    if (isMasterDb()) masterCache = null; // invalidate so children reload fresh
     btn.textContent = '✓ Published!';
     setTimeout(() => { btn.textContent = 'Publish to GitHub'; }, 2500);
   } catch (err) {
@@ -659,6 +740,7 @@ async function switchDb(filename) {
     // refresh list to update the active highlight
     const pat = sessionStorage.getItem('microid_editor_pat');
     if (pat && !dbFiles.includes(filename)) refreshDbList(pat); else renderDbPanel();
+    if (isChildDb() && pat) ensureMaster(pat).then(() => { checkStaleness(); renderMasterBrowser(); }).catch(() => {});
   } catch (err) {
     alert('Could not load ' + filename + ': ' + err.message);
   }
@@ -672,7 +754,9 @@ async function newDatabase() {
   const filename = slug + '.json';
   currentFilename = filename;
   currentSha = '';
-  db = { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] };
+  db = filename === 'master.json'
+    ? { meta: { unit: 'Master Database', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] }
+    : { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, masterRef: 'master.json', selectedIds: [], organisms: [] };
   currentIdx = null;
   dirty = false;
   updateDirty();
@@ -714,7 +798,14 @@ function renderDbPanel() {
 
 function updateFilenameDisplay() {
   const el = document.getElementById('filename-display');
-  if (el) el.textContent = currentFilename;
+  if (el) {
+    const badge = isMasterDb()
+      ? '<span class="master-mode-badge">MASTER</span>'
+      : isChildDb()
+        ? '<span class="child-mode-badge">CHILD</span>'
+        : '';
+    el.innerHTML = esc(currentFilename) + badge;
+  }
   renderDbPanel();
 }
 
@@ -921,6 +1012,7 @@ function v(id) {
 function renderAll() {
   renderMeta();
   renderDbPanel();
+  renderMasterBrowser();
   renderSidebar();
   if (currentIdx !== null && db.organisms[currentIdx]) {
     renderOrgEditor();
@@ -1292,6 +1384,177 @@ function removeTag(field, i) {
 
 function tagKeydown(e, field) {
   if (e.key === 'Enter') { e.preventDefault(); addTag(field); }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MASTER / CHILD DATABASE
+// ═══════════════════════════════════════════════════════════════════════
+let masterCache = null;
+let masterFilter = { type: '', difficulty: '', search: '' };
+
+function isChildDb()  { return db && !!db.masterRef; }
+function isMasterDb() { return currentFilename === 'master.json'; }
+
+async function ensureMaster(pat) {
+  if (masterCache) return masterCache;
+  const data = await githubGet(pat, 'master.json');
+  const master = JSON.parse(atob(data.content.replace(/\n/g, '')));
+  masterCache = master.organisms || [];
+  return masterCache;
+}
+
+function renderMasterBrowser() {
+  const panel = document.getElementById('master-browser');
+  if (!panel) return;
+
+  if (!isChildDb()) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+
+  const pat = sessionStorage.getItem('microid_editor_pat');
+  if (!pat) {
+    document.getElementById('master-org-rows').innerHTML =
+      '<div style="color:var(--muted);font-size:0.85rem;">Connect to GitHub to browse the master database.</div>';
+    return;
+  }
+
+  if (!masterCache) {
+    document.getElementById('master-org-rows').innerHTML =
+      '<div style="color:var(--muted);font-size:0.85rem;">Loading master…</div>';
+    ensureMaster(pat).then(() => { checkStaleness(); renderMasterBrowser(); }).catch(() => {
+      document.getElementById('master-org-rows').innerHTML =
+        '<div style="color:var(--danger);font-size:0.85rem;">Could not load master.json.</div>';
+    });
+    return;
+  }
+
+  // Apply filters
+  let orgs = masterCache;
+  if (masterFilter.type) orgs = orgs.filter(o => o.type === masterFilter.type);
+  if (masterFilter.difficulty) orgs = orgs.filter(o => String(o.difficulty) === masterFilter.difficulty);
+  if (masterFilter.search) {
+    const s = masterFilter.search.toLowerCase();
+    orgs = orgs.filter(o => o.name.toLowerCase().includes(s) || (o.commonName||'').toLowerCase().includes(s));
+  }
+
+  const selectedIds = new Set(db.selectedIds || []);
+  const countEl = document.getElementById('master-count');
+  if (countEl) countEl.textContent = `${selectedIds.size} / ${masterCache.length} selected`;
+
+  document.getElementById('master-org-rows').innerHTML = orgs.map(org => {
+    const inChild = selectedIds.has(org.id);
+    const typeCls = ['bacteria','virus','fungus','parasite','prion'].includes(org.type) ? org.type : 'other';
+    const diffLabel = ['','Easy','Med','Hard'][org.difficulty] || '';
+    return `<div class="master-org-row${inChild ? ' in-child' : ''}" onclick="selectMasterOrg('${esc(org.id)}')">
+      <span class="org-type-dot dot-${typeCls}"></span>
+      <span class="master-org-name">${esc(org.name)}${org.commonName ? ` <small style="color:var(--muted)">(${esc(org.commonName)})</small>` : ''}</span>
+      <span class="diff-chip diff-${org.difficulty}">${diffLabel}</span>
+      <button class="master-toggle-btn${inChild ? ' remove' : ''}"
+              onclick="event.stopPropagation();toggleOrgInChild('${esc(org.id)}')">${inChild ? '✓ In unit' : '+ Add'}</button>
+    </div>`;
+  }).join('') || '<div style="color:var(--muted);padding:8px 0;font-size:0.85rem;">No organisms match filter.</div>';
+}
+
+function selectMasterOrg(orgId) {
+  const idx = (db.organisms || []).findIndex(o => o.id === orgId);
+  if (idx >= 0) selectOrg(idx);
+}
+
+function toggleOrgInChild(orgId) {
+  if (!isChildDb() || !masterCache) return;
+  if (!db.selectedIds) db.selectedIds = [];
+
+  const idx = db.selectedIds.indexOf(orgId);
+  if (idx >= 0) {
+    // remove
+    db.selectedIds.splice(idx, 1);
+    const orgIdx = db.organisms.findIndex(o => o.id === orgId);
+    if (orgIdx >= 0) {
+      db.organisms.splice(orgIdx, 1);
+      if (currentIdx === orgIdx) {
+        currentIdx = null;
+        document.getElementById('emptyState').style.display = '';
+        document.getElementById('org-editor').style.display = 'none';
+      } else if (currentIdx > orgIdx) {
+        currentIdx--;
+      }
+    }
+  } else {
+    // add — deep copy from master
+    const masterOrg = masterCache.find(o => o.id === orgId);
+    if (!masterOrg) return;
+    db.selectedIds.push(orgId);
+    db.organisms.push(JSON.parse(JSON.stringify(masterOrg)));
+  }
+
+  markDirty();
+  renderSidebar();
+  renderMasterBrowser();
+}
+
+async function compileFromMaster() {
+  if (!isChildDb()) return;
+  const pat = sessionStorage.getItem('microid_editor_pat');
+  if (!pat) { alert('Not connected to GitHub.'); return; }
+
+  const btn = document.getElementById('btn-compile');
+  btn.disabled = true; btn.textContent = 'Compiling…';
+  masterCache = null; // force fresh fetch
+
+  try {
+    const orgs = await ensureMaster(pat);
+    const selectedIds = db.selectedIds || [];
+    const missing = [];
+    const newOrganisms = [];
+
+    for (const id of selectedIds) {
+      const masterOrg = orgs.find(o => o.id === id);
+      if (masterOrg) {
+        newOrganisms.push(JSON.parse(JSON.stringify(masterOrg)));
+      } else {
+        missing.push(id);
+        const existing = db.organisms.find(o => o.id === id);
+        if (existing) newOrganisms.push(existing);
+      }
+    }
+
+    db.organisms = newOrganisms;
+    currentIdx = null;
+    markDirty();
+    checkStaleness();
+    renderAll();
+
+    if (missing.length) {
+      alert(`Compiled. Note: ${missing.length} organism(s) not found in master (may have been removed): ${missing.join(', ')}`);
+    } else {
+      btn.textContent = '✓ Done!';
+      setTimeout(() => { btn.textContent = '⟳ Compile from Master'; }, 2000);
+    }
+  } catch (err) {
+    alert('Compile failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === 'Compiling…') btn.textContent = '⟳ Compile from Master';
+  }
+}
+
+function checkStaleness() {
+  const el = document.getElementById('stale-warning');
+  if (!el || !isChildDb() || !masterCache) { if (el) el.style.display = 'none'; return; }
+
+  const stale = [];
+  for (const org of (db.organisms || [])) {
+    const masterOrg = masterCache.find(o => o.id === org.id);
+    if (masterOrg && JSON.stringify(masterOrg) !== JSON.stringify(org)) {
+      stale.push(org.name || org.id);
+    }
+  }
+
+  if (stale.length) {
+    el.style.display = '';
+    el.textContent = `⚠ ${stale.length} organism(s) differ from master: ${stale.slice(0,5).join(', ')}${stale.length > 5 ? '…' : ''} — click Compile from Master to update.`;
+  } else {
+    el.style.display = 'none';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════

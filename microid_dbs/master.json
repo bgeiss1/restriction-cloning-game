@@ -1,0 +1,1507 @@
+{
+  "meta": {
+    "unit": "Test",
+    "version": "1.0",
+    "questionsPerRound": 10,
+    "imageDir": "microid_images/"
+  },
+  "organisms": [
+    {
+      "id": "s_aureus",
+      "name": "Staphylococcus aureus",
+      "commonName": "Staph",
+      "type": "bacteria",
+      "subtype": "gram_positive",
+      "difficulty": 1,
+      "morphology": "Gram-positive cocci in clusters",
+      "images": [
+        {
+          "file": "staphylococcus_aureus_gram.jpg",
+          "caption": "Gram-positive cocci in clusters"
+        },
+        {
+          "file": "staphylococcus_aureus_culture.jpg",
+          "caption": "Golden colonies on blood agar"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Skin and soft tissue infections",
+          "symptoms": [
+            "boils",
+            "abscesses",
+            "impetigo",
+            "cellulitis"
+          ]
+        },
+        {
+          "name": "MRSA infection",
+          "symptoms": [
+            "wound infection",
+            "pneumonia",
+            "bacteremia",
+            "fever"
+          ]
+        },
+        {
+          "name": "Toxic shock syndrome",
+          "symptoms": [
+            "high fever",
+            "hypotension",
+            "diffuse rash",
+            "multi-organ failure"
+          ]
+        }
+      ],
+      "transmission": [
+        "direct contact",
+        "fomites",
+        "nasal carriage"
+      ],
+      "reservoir": "Human skin and nares",
+      "labFindings": [
+        "Gram-positive cocci in clusters",
+        "Catalase-positive",
+        "Coagulase-positive",
+        "Golden/yellow colonies on blood agar",
+        "Beta-hemolytic on blood agar"
+      ],
+      "treatment": "Antistaphylococcal penicillins; vancomycin for MRSA",
+      "prevention": "Hand hygiene; wound care; contact precautions for MRSA",
+      "learnMore": "S. aureus is one of the most common causes of skin infections worldwide. About 30% of the population are asymptomatic nasal carriers. MRSA (methicillin-resistant S. aureus) is a major hospital and community pathogen.",
+      "vector": ""
+    },
+    {
+      "id": "s_pyogenes",
+      "name": "Streptococcus pyogenes",
+      "commonName": "Group A Strep",
+      "type": "bacteria",
+      "subtype": "gram_positive",
+      "difficulty": 1,
+      "morphology": "Gram-positive cocci in chains",
+      "images": [
+        {
+          "file": "streptococcus_pyogenes_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-positive cocci in chains"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Strep throat (pharyngitis)",
+          "symptoms": [
+            "sore throat",
+            "fever",
+            "exudative tonsils",
+            "cervical lymphadenopathy"
+          ]
+        },
+        {
+          "name": "Scarlet fever",
+          "symptoms": [
+            "strawberry tongue",
+            "sandpaper rash",
+            "sore throat",
+            "fever"
+          ]
+        },
+        {
+          "name": "Rheumatic fever",
+          "symptoms": [
+            "migratory joint pain",
+            "carditis",
+            "chorea",
+            "fever"
+          ]
+        },
+        {
+          "name": "Necrotizing fasciitis",
+          "symptoms": [
+            "severe pain",
+            "rapid tissue destruction",
+            "fever",
+            "shock"
+          ]
+        }
+      ],
+      "transmission": [
+        "respiratory droplets",
+        "direct contact"
+      ],
+      "reservoir": "Human throat and skin",
+      "labFindings": [
+        "Gram-positive cocci in chains",
+        "Beta-hemolytic (complete hemolysis) on blood agar",
+        "Bacitracin-sensitive",
+        "Catalase-negative",
+        "Rapid strep antigen test positive"
+      ],
+      "treatment": "Penicillin or amoxicillin",
+      "prevention": "Treatment of carriers; hand hygiene",
+      "learnMore": "Group A Strep causes millions of throat infections each year. Untreated infections can lead to post-streptococcal complications including rheumatic fever and glomerulonephritis."
+    },
+    {
+      "id": "s_pneumoniae",
+      "name": "Streptococcus pneumoniae",
+      "commonName": "Pneumococcus",
+      "type": "bacteria",
+      "subtype": "gram_positive",
+      "difficulty": 2,
+      "morphology": "Gram-positive diplococci (lancet-shaped pairs)",
+      "images": [
+        {
+          "file": "streptococcus_pneumoniae_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-positive lancet-shaped diplococci"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Pneumonia",
+          "symptoms": [
+            "productive cough",
+            "fever",
+            "pleuritic chest pain",
+            "rusty sputum",
+            "dyspnea"
+          ]
+        },
+        {
+          "name": "Bacterial meningitis",
+          "symptoms": [
+            "stiff neck",
+            "high fever",
+            "headache",
+            "photophobia",
+            "altered consciousness"
+          ]
+        },
+        {
+          "name": "Otitis media",
+          "symptoms": [
+            "ear pain",
+            "fever",
+            "hearing loss"
+          ]
+        }
+      ],
+      "transmission": [
+        "respiratory droplets",
+        "person-to-person contact"
+      ],
+      "reservoir": "Human nasopharynx",
+      "labFindings": [
+        "Gram-positive lancet-shaped diplococci",
+        "Alpha-hemolytic on blood agar",
+        "Bile soluble",
+        "Optochin-sensitive",
+        "Quellung reaction (capsule swelling)"
+      ],
+      "treatment": "Penicillin (if susceptible); ceftriaxone or vancomycin for resistant strains",
+      "prevention": "Pneumococcal vaccines (PCV15, PCV20, PPSV23)",
+      "learnMore": "S. pneumoniae is the leading cause of community-acquired pneumonia and an important cause of meningitis. It has a polysaccharide capsule that is its major virulence factor and the basis for vaccine development."
+    },
+    {
+      "id": "c_tetani",
+      "name": "Clostridium tetani",
+      "commonName": "Tetanus bacillus",
+      "type": "bacteria",
+      "subtype": "gram_positive",
+      "difficulty": 2,
+      "morphology": "Gram-positive rod with terminal spore (drumstick appearance)",
+      "images": [
+        {
+          "file": "clostridium_tetani_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ drumstick-shaped sporulating rod"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Tetanus",
+          "symptoms": [
+            "trismus (lockjaw)",
+            "risus sardonicus",
+            "muscle rigidity",
+            "opisthotonos",
+            "autonomic instability"
+          ]
+        }
+      ],
+      "transmission": [
+        "wound contamination from soil/feces"
+      ],
+      "reservoir": "Soil; intestines of animals and humans",
+      "labFindings": [
+        "Gram-positive rod with terminal spore",
+        "'Drumstick' appearance on Gram stain",
+        "Obligate anaerobe",
+        "Produces tetanospasmin toxin"
+      ],
+      "treatment": "Wound debridement; tetanus immune globulin; metronidazole; muscle relaxants",
+      "prevention": "DTaP/Tdap vaccination; wound care; booster every 10 years",
+      "learnMore": "Tetanospasmin blocks inhibitory neurotransmitter release (GABA and glycine), causing uncontrolled muscle contractions. Despite effective vaccines, tetanus kills tens of thousands globally each year."
+    },
+    {
+      "id": "c_difficile",
+      "name": "Clostridioides difficile",
+      "commonName": "C. diff",
+      "type": "bacteria",
+      "subtype": "gram_positive",
+      "difficulty": 2,
+      "morphology": "Gram-positive rod, spore-forming",
+      "images": [
+        {
+          "file": "clostridioides_difficile_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-positive rods"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "C. difficile infection (CDI)",
+          "symptoms": [
+            "watery diarrhea",
+            "abdominal cramping",
+            "fever",
+            "nausea"
+          ]
+        },
+        {
+          "name": "Pseudomembranous colitis",
+          "symptoms": [
+            "severe diarrhea",
+            "abdominal pain",
+            "fever",
+            "pseudomembranes on colonoscopy"
+          ]
+        }
+      ],
+      "transmission": [
+        "fecal-oral route",
+        "healthcare environment surfaces"
+      ],
+      "reservoir": "Gut flora; environmental spores",
+      "labFindings": [
+        "Gram-positive rod",
+        "Obligate anaerobe",
+        "Toxin A (enterotoxin) and Toxin B (cytotoxin) detected by PCR or ELISA",
+        "GDH antigen positive"
+      ],
+      "treatment": "Oral vancomycin or fidaxomicin; fecal microbiota transplant for recurrent cases",
+      "prevention": "Hand washing with soap and water (alcohol gels don't kill spores); contact precautions; judicious antibiotic use",
+      "learnMore": "CDI most commonly follows antibiotic therapy that disrupts normal gut flora. Spores are highly resistant to alcohol-based hand sanitizers, making soap and water essential for prevention in healthcare settings."
+    },
+    {
+      "id": "b_anthracis",
+      "name": "Bacillus anthracis",
+      "commonName": "Anthrax bacillus",
+      "type": "bacteria",
+      "subtype": "gram_positive",
+      "difficulty": 3,
+      "morphology": "Large gram-positive rod, spore-forming, in chains (bamboo rod appearance)",
+      "images": [
+        {
+          "file": "bacillus_anthracis_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ large gram-positive rods in chains"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Cutaneous anthrax",
+          "symptoms": [
+            "painless black eschar",
+            "surrounding edema",
+            "low-grade fever"
+          ]
+        },
+        {
+          "name": "Inhalation anthrax",
+          "symptoms": [
+            "widened mediastinum on chest X-ray",
+            "fever",
+            "hemorrhagic meningitis",
+            "septic shock"
+          ]
+        },
+        {
+          "name": "Gastrointestinal anthrax",
+          "symptoms": [
+            "nausea",
+            "vomiting",
+            "bloody diarrhea",
+            "abdominal pain"
+          ]
+        }
+      ],
+      "transmission": [
+        "spore contact with skin",
+        "inhalation of spores",
+        "ingestion of contaminated meat"
+      ],
+      "reservoir": "Soil; livestock",
+      "labFindings": [
+        "Large gram-positive rods in chains ('bamboo cane')",
+        "Non-hemolytic on blood agar ('medusa head' colonies)",
+        "Spore-forming",
+        "Gamma phage susceptible",
+        "String of pearls reaction positive"
+      ],
+      "treatment": "Ciprofloxacin or doxycycline; anthrax antitoxin for severe cases",
+      "prevention": "Anthrax vaccine (BioThrax); post-exposure prophylaxis with antibiotics; proper handling of animal products",
+      "learnMore": "B. anthracis produces three virulence factors: protective antigen, lethal factor, and edema factor. It is classified as a Tier 1 select agent due to its potential use as a bioweapon."
+    },
+    {
+      "id": "m_tuberculosis",
+      "name": "Mycobacterium tuberculosis",
+      "commonName": "TB bacillus",
+      "type": "bacteria",
+      "subtype": "acid_fast",
+      "difficulty": 2,
+      "morphology": "Acid-fast rod (does not stain with standard Gram stain)",
+      "images": [
+        {
+          "file": "mycobacterium_tuberculosis_afb.jpg",
+          "caption": "Acid-fast (Ziehl-Neelsen) stain Ã¢ÂÂ pink rods on blue background"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Pulmonary tuberculosis",
+          "symptoms": [
+            "chronic cough",
+            "night sweats",
+            "weight loss",
+            "hemoptysis",
+            "low-grade fever"
+          ]
+        },
+        {
+          "name": "Miliary tuberculosis",
+          "symptoms": [
+            "fever",
+            "weight loss",
+            "diffuse nodular chest infiltrates",
+            "hepatosplenomegaly"
+          ]
+        }
+      ],
+      "transmission": [
+        "airborne droplet nuclei"
+      ],
+      "reservoir": "Humans (and some primates)",
+      "labFindings": [
+        "Acid-fast bacilli (AFB) on Ziehl-Neelsen or Kinyoun stain",
+        "Slow-growing on LÃÂ¶wenstein-Jensen medium (3Ã¢ÂÂ8 weeks)",
+        "Positive QuantiFERON-TB Gold or TST",
+        "Upper-lobe cavitary lesions on chest X-ray",
+        "Cord factor production"
+      ],
+      "treatment": "RIPE regimen (rifampin, isoniazid, pyrazinamide, ethambutol) ÃÂ 6 months",
+      "prevention": "BCG vaccine; contact tracing; respiratory isolation; LTBI treatment",
+      "learnMore": "TB is one of the top 10 causes of death worldwide. Mycobacteria have a waxy cell wall rich in mycolic acids, making them impermeable to standard Gram stain Ã¢ÂÂ hence the specialized acid-fast stain."
+    },
+    {
+      "id": "e_coli",
+      "name": "Escherichia coli",
+      "commonName": "E. coli",
+      "type": "bacteria",
+      "subtype": "gram_negative",
+      "difficulty": 1,
+      "morphology": "Gram-negative rod (bacillus)",
+      "images": [
+        {
+          "file": "escherichia_coli_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-negative rods"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Urinary tract infection",
+          "symptoms": [
+            "dysuria",
+            "frequency",
+            "urgency",
+            "suprapubic pain",
+            "hematuria"
+          ]
+        },
+        {
+          "name": "Traveler's diarrhea (ETEC)",
+          "symptoms": [
+            "watery diarrhea",
+            "nausea",
+            "cramps",
+            "low-grade fever"
+          ]
+        },
+        {
+          "name": "Hemolytic uremic syndrome (EHEC O157:H7)",
+          "symptoms": [
+            "bloody diarrhea",
+            "hemolytic anemia",
+            "thrombocytopenia",
+            "acute renal failure"
+          ]
+        }
+      ],
+      "transmission": [
+        "fecal-oral route",
+        "contaminated food/water",
+        "ascending urethral colonization"
+      ],
+      "reservoir": "Human and animal gut",
+      "labFindings": [
+        "Gram-negative rod",
+        "Lactose-fermenter (pink colonies on MacConkey agar)",
+        "Indole positive",
+        "IMVIC: ++-- (indole+, methyl red+, Voges-Proskauer-, citrate-)",
+        "O157:H7 does not ferment sorbitol"
+      ],
+      "treatment": "Varies by syndrome; fluoroquinolones or TMP-SMX for UTI; supportive care for HUS (avoid antibiotics)",
+      "prevention": "Hand hygiene; safe food handling; cooking meat thoroughly; safe water",
+      "learnMore": "E. coli O157:H7 produces Shiga toxin (Stx), which inhibits protein synthesis in endothelial cells. Antibiotics are contraindicated in HUS because they increase Stx release."
+    },
+    {
+      "id": "salmonella",
+      "name": "Salmonella enterica",
+      "commonName": "Salmonella",
+      "type": "bacteria",
+      "subtype": "gram_negative",
+      "difficulty": 1,
+      "morphology": "Gram-negative rod, motile",
+      "images": [
+        {
+          "file": "salmonella_enterica_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-negative rods"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Salmonellosis (food poisoning)",
+          "symptoms": [
+            "nausea",
+            "vomiting",
+            "diarrhea",
+            "abdominal cramps",
+            "fever"
+          ]
+        },
+        {
+          "name": "Typhoid fever (S. Typhi)",
+          "symptoms": [
+            "rose spots",
+            "stepladder fever",
+            "relative bradycardia",
+            "constipation then diarrhea",
+            "hepatosplenomegaly"
+          ]
+        }
+      ],
+      "transmission": [
+        "contaminated food (poultry, eggs, reptiles)",
+        "fecal-oral"
+      ],
+      "reservoir": "Poultry, cattle, reptiles, humans (Typhi)",
+      "labFindings": [
+        "Gram-negative rod",
+        "Non-lactose fermenter (colorless on MacConkey agar)",
+        "H2S production on triple sugar iron (TSI) agar",
+        "Motile",
+        "Grows on XLD agar with black centers"
+      ],
+      "treatment": "Fluoroquinolones or azithromycin for typhoid; supportive care for gastroenteritis",
+      "prevention": "Safe food handling; typhoid vaccine for endemic areas",
+      "learnMore": "There are over 2,500 Salmonella serovars. Non-typhoidal Salmonella is a leading cause of foodborne illness; S. Typhi is transmitted only by humans and causes systemic typhoid fever."
+    },
+    {
+      "id": "n_meningitidis",
+      "name": "Neisseria meningitidis",
+      "commonName": "Meningococcus",
+      "type": "bacteria",
+      "subtype": "gram_negative",
+      "difficulty": 2,
+      "morphology": "Gram-negative diplococci (kidney-bean shaped pairs)",
+      "images": [
+        {
+          "file": "neisseria_meningitidis_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-negative diplococci"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Bacterial meningitis",
+          "symptoms": [
+            "sudden high fever",
+            "severe headache",
+            "stiff neck",
+            "photophobia",
+            "altered consciousness"
+          ]
+        },
+        {
+          "name": "Meningococcemia",
+          "symptoms": [
+            "petechial or purpuric rash",
+            "fever",
+            "hypotension",
+            "Waterhouse-Friderichsen syndrome"
+          ]
+        }
+      ],
+      "transmission": [
+        "respiratory droplets",
+        "close contact"
+      ],
+      "reservoir": "Human nasopharynx",
+      "labFindings": [
+        "Gram-negative diplococci",
+        "Oxidase-positive",
+        "Ferments glucose and maltose (not lactose)",
+        "Grows on Thayer-Martin agar",
+        "Polysaccharide capsule"
+      ],
+      "treatment": "IV penicillin G or ceftriaxone; rifampin or ciprofloxacin prophylaxis for close contacts",
+      "prevention": "MenACWY and MenB vaccines; chemoprophylaxis for contacts",
+      "learnMore": "Meningococcal disease can progress to death within 24 hours. The petechial rash from meningococcemia is due to DIC (disseminated intravascular coagulation)."
+    },
+    {
+      "id": "h_pylori",
+      "name": "Helicobacter pylori",
+      "commonName": "H. pylori",
+      "type": "bacteria",
+      "subtype": "gram_negative",
+      "difficulty": 2,
+      "morphology": "Gram-negative curved/spiral rod",
+      "images": [
+        {
+          "file": "helicobacter_pylori_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-negative curved rods (seagull shape)"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Peptic ulcer disease",
+          "symptoms": [
+            "epigastric pain",
+            "burning sensation",
+            "nausea",
+            "bloating",
+            "relief with antacids"
+          ]
+        },
+        {
+          "name": "Gastric adenocarcinoma",
+          "symptoms": [
+            "weight loss",
+            "early satiety",
+            "epigastric pain",
+            "occult GI bleeding"
+          ]
+        },
+        {
+          "name": "MALT lymphoma",
+          "symptoms": [
+            "epigastric pain",
+            "GI bleeding",
+            "weight loss"
+          ]
+        }
+      ],
+      "transmission": [
+        "fecal-oral",
+        "oral-oral",
+        "contaminated water"
+      ],
+      "reservoir": "Human stomach",
+      "labFindings": [
+        "Gram-negative curved spiral rod",
+        "Urease-positive (rapid urease test)",
+        "Urea breath test positive",
+        "H. pylori stool antigen test positive",
+        "Oxidase-positive; catalase-positive"
+      ],
+      "treatment": "Triple therapy: PPI + clarithromycin + amoxicillin; or bismuth quadruple therapy",
+      "prevention": "Safe water; hand hygiene",
+      "learnMore": "H. pylori colonizes over 50% of the world's population. It produces urease, which neutralizes stomach acid, allowing it to survive. It is a WHO Group 1 carcinogen."
+    },
+    {
+      "id": "v_cholerae",
+      "name": "Vibrio cholerae",
+      "commonName": "Cholera bacillus",
+      "type": "bacteria",
+      "subtype": "gram_negative",
+      "difficulty": 2,
+      "morphology": "Gram-negative curved rod (comma-shaped), motile with single polar flagellum",
+      "images": [
+        {
+          "file": "vibrio_cholerae_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-negative comma-shaped rods"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Cholera",
+          "symptoms": [
+            "profuse watery 'rice-water' diarrhea",
+            "vomiting",
+            "rapid dehydration",
+            "muscle cramps",
+            "hypovolemic shock"
+          ]
+        }
+      ],
+      "transmission": [
+        "contaminated water",
+        "contaminated food (seafood)"
+      ],
+      "reservoir": "Aquatic environments; human intestine during epidemics",
+      "labFindings": [
+        "Gram-negative curved rod",
+        "Oxidase-positive",
+        "Grows on TCBS agar (yellow colonies for O1/O139)",
+        "Agglutinates with O1 or O139 antiserum",
+        "Cholera toxin (CT) production"
+      ],
+      "treatment": "Oral rehydration therapy (ORS); doxycycline or azithromycin for severe cases",
+      "prevention": "Safe water and sanitation; oral cholera vaccines; hand hygiene",
+      "learnMore": "Cholera toxin activates adenylyl cyclase, massively increasing cAMP, which drives ClÃ¢ÂÂ» secretion and water loss. A patient can lose over 20 liters of fluid per day."
+    },
+    {
+      "id": "b_pertussis",
+      "name": "Bordetella pertussis",
+      "commonName": "Whooping cough bacillus",
+      "type": "bacteria",
+      "subtype": "gram_negative",
+      "difficulty": 2,
+      "morphology": "Gram-negative small coccobacillus",
+      "images": [
+        {
+          "file": "bordetella_pertussis_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ tiny gram-negative coccobacilli"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Pertussis (whooping cough)",
+          "symptoms": [
+            "paroxysmal cough",
+            "inspiratory whoop",
+            "post-tussive vomiting",
+            "lymphocytosis",
+            "cyanosis in infants"
+          ]
+        }
+      ],
+      "transmission": [
+        "respiratory droplets",
+        "aerosolized secretions"
+      ],
+      "reservoir": "Humans",
+      "labFindings": [
+        "Gram-negative small coccobacillus",
+        "PCR from nasopharyngeal swab (most sensitive)",
+        "Culture on Bordet-Gengou agar (mercury drop colonies)",
+        "Lymphocytosis (absolute lymphocyte count often >15,000)"
+      ],
+      "treatment": "Azithromycin (macrolides); supportive care; hospitalize infants",
+      "prevention": "DTaP (children) and Tdap (adults, especially during pregnancy) vaccines",
+      "learnMore": "Pertussis toxin (PT) is an ADP-ribosyltransferase that disables Gi proteins, leading to uncontrolled adenylyl cyclase activity. Despite widespread vaccination, pertussis is resurgent due to waning immunity."
+    },
+    {
+      "id": "influenza",
+      "name": "Influenza virus",
+      "commonName": "Flu virus",
+      "type": "virus",
+      "subtype": "RNA_virus",
+      "difficulty": 1,
+      "morphology": "Enveloped RNA virus with hemagglutinin (HA) and neuraminidase (NA) spikes",
+      "images": [
+        {
+          "file": "influenza_virus_tem.jpg",
+          "caption": "Transmission electron micrograph Ã¢ÂÂ enveloped pleomorphic virions"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Influenza (the flu)",
+          "symptoms": [
+            "sudden fever",
+            "myalgia",
+            "headache",
+            "dry cough",
+            "sore throat",
+            "rhinorrhea",
+            "fatigue"
+          ]
+        },
+        {
+          "name": "Viral pneumonia",
+          "symptoms": [
+            "dyspnea",
+            "hypoxia",
+            "bilateral infiltrates on chest X-ray",
+            "high fever"
+          ]
+        }
+      ],
+      "transmission": [
+        "respiratory droplets",
+        "airborne",
+        "contact with contaminated surfaces"
+      ],
+      "reservoir": "Humans; birds; pigs (reservoir for pandemic strains)",
+      "labFindings": [
+        "Rapid influenza diagnostic test (RIDT) Ã¢ÂÂ antigen detection",
+        "RT-PCR (most sensitive and specific)",
+        "Hemagglutination inhibition assay",
+        "Grows in embryonated eggs"
+      ],
+      "treatment": "Oseltamivir (Tamiflu); baloxavir; zanamivir Ã¢ÂÂ best within 48 hours of symptom onset",
+      "prevention": "Annual influenza vaccine; hand hygiene; respiratory etiquette",
+      "learnMore": "Influenza A undergoes antigenic shift (reassortment of gene segments) and antigenic drift (point mutations). Shift causes pandemic strains; drift explains why annual vaccination is needed."
+    },
+    {
+      "id": "hiv",
+      "name": "Human immunodeficiency virus",
+      "commonName": "HIV",
+      "type": "virus",
+      "subtype": "RNA_virus",
+      "difficulty": 2,
+      "morphology": "Enveloped retrovirus; cone-shaped core; gp120/gp41 envelope glycoproteins",
+      "images": [
+        {
+          "file": "hiv_tem.jpg",
+          "caption": "Transmission electron micrograph Ã¢ÂÂ budding HIV virions"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "AIDS (Acquired Immunodeficiency Syndrome)",
+          "symptoms": [
+            "weight loss",
+            "recurrent opportunistic infections",
+            "CD4 count <200/ÃÂµL",
+            "Kaposi sarcoma",
+            "PCP pneumonia"
+          ]
+        },
+        {
+          "name": "Acute HIV infection",
+          "symptoms": [
+            "fever",
+            "lymphadenopathy",
+            "pharyngitis",
+            "rash",
+            "myalgia",
+            "headache"
+          ]
+        }
+      ],
+      "transmission": [
+        "sexual contact",
+        "blood (needles, transfusions)",
+        "mother-to-child (vertical)"
+      ],
+      "reservoir": "Humans",
+      "labFindings": [
+        "HIV ELISA (4th-generation Ag/Ab combo test)",
+        "Western blot or HIV-1/2 differentiation assay for confirmation",
+        "HIV viral load (RNA PCR)",
+        "CD4 count (disease staging)",
+        "CD4:CD8 ratio < 1 (normal >1.5)"
+      ],
+      "treatment": "Antiretroviral therapy (ART) Ã¢ÂÂ combinations of NRTIs, NNRTIs, PIs, integrase inhibitors",
+      "prevention": "PrEP (pre-exposure prophylaxis); condoms; needle exchange; ART to prevent transmission",
+      "learnMore": "HIV uses reverse transcriptase to convert its RNA genome into DNA, which integrates into the host chromosome as a provirus. The virus primarily destroys CD4+ T helper cells, causing progressive immunodeficiency."
+    },
+    {
+      "id": "sars_cov2",
+      "name": "SARS-CoV-2",
+      "commonName": "COVID-19 virus",
+      "type": "virus",
+      "subtype": "RNA_virus",
+      "difficulty": 1,
+      "morphology": "Enveloped positive-sense ssRNA; crown-shaped spike (S) protein projections",
+      "images": [
+        {
+          "file": "sars_cov2_tem.jpg",
+          "caption": "Transmission electron micrograph Ã¢ÂÂ coronavirus with spike projections"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "COVID-19",
+          "symptoms": [
+            "fever",
+            "dry cough",
+            "fatigue",
+            "loss of smell/taste",
+            "dyspnea",
+            "myalgia",
+            "headache"
+          ]
+        },
+        {
+          "name": "Severe COVID-19 / ARDS",
+          "symptoms": [
+            "hypoxia",
+            "bilateral pneumonia",
+            "cytokine storm",
+            "multi-organ failure"
+          ]
+        },
+        {
+          "name": "Long COVID",
+          "symptoms": [
+            "fatigue",
+            "brain fog",
+            "dyspnea",
+            "post-exertional malaise",
+            "persistent symptoms >12 weeks"
+          ]
+        }
+      ],
+      "transmission": [
+        "airborne",
+        "respiratory droplets",
+        "contact with contaminated surfaces"
+      ],
+      "reservoir": "Humans; likely bat origin",
+      "labFindings": [
+        "Nasopharyngeal RT-PCR (gold standard)",
+        "Rapid antigen test (RAT)",
+        "IgM/IgG serology",
+        "CT: bilateral ground-glass opacities",
+        "D-dimer elevation in severe disease"
+      ],
+      "treatment": "Nirmatrelvir/ritonavir (Paxlovid); remdesivir; dexamethasone for severe disease",
+      "prevention": "mRNA vaccines (Moderna, Pfizer-BioNTech); masks; ventilation",
+      "learnMore": "SARS-CoV-2 spike protein binds ACE2 receptors on host cells. The mRNA vaccines direct cells to produce spike protein, eliciting a protective immune response without using live virus."
+    },
+    {
+      "id": "rabies",
+      "name": "Rabies lyssavirus",
+      "commonName": "Rabies virus",
+      "type": "virus",
+      "subtype": "RNA_virus",
+      "difficulty": 2,
+      "morphology": "Enveloped bullet-shaped (rhabdovirus) negative-sense ssRNA virus",
+      "images": [
+        {
+          "file": "rabies_virus_tem.jpg",
+          "caption": "Transmission electron micrograph Ã¢ÂÂ bullet-shaped rhabdovirus"
+        },
+        {
+          "file": "rabies_negri_body.jpg",
+          "caption": "Negri bodies in Purkinje cells (eosinophilic cytoplasmic inclusions)"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Rabies",
+          "symptoms": [
+            "hydrophobia",
+            "aerophobia",
+            "agitation",
+            "hypersalivation",
+            "ascending paralysis",
+            "encephalitis",
+            "coma"
+          ]
+        }
+      ],
+      "transmission": [
+        "bite or scratch from infected animal (dog, bat, raccoon, fox)"
+      ],
+      "vector": "Dogs (most common worldwide), bats (in US)",
+      "reservoir": "Dogs; bats; foxes; raccoons; skunks",
+      "labFindings": [
+        "Negri bodies (eosinophilic inclusions) in neurons",
+        "Direct fluorescent antibody (DFA) test on brain tissue (gold standard)",
+        "RT-PCR on saliva, skin biopsy, or CSF",
+        "CSF pleocytosis"
+      ],
+      "treatment": "Post-exposure prophylaxis (PEP): wound washing + rabies immunoglobulin + vaccine series. Once symptomatic Ã¢ÂÂ nearly 100% fatal.",
+      "prevention": "Pre-exposure vaccination (veterinarians, travelers); animal vaccination programs; avoid wild animals",
+      "learnMore": "Rabies virus travels retrograde along peripheral nerves to the CNS at ~8Ã¢ÂÂ20 mm/day. Negri bodies Ã¢ÂÂ pathognomonic inclusions in hippocampal and cerebellar neurons Ã¢ÂÂ were the historic diagnostic marker."
+    },
+    {
+      "id": "hep_b",
+      "name": "Hepatitis B virus",
+      "commonName": "HBV",
+      "type": "virus",
+      "subtype": "DNA_virus",
+      "difficulty": 2,
+      "morphology": "Enveloped partially double-stranded DNA virus (hepadnavirus); Dane particle (42 nm)",
+      "images": [
+        {
+          "file": "hepatitis_b_virus_tem.jpg",
+          "caption": "Transmission electron micrograph Ã¢ÂÂ Dane particles and HBsAg spheres"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Acute hepatitis B",
+          "symptoms": [
+            "jaundice",
+            "right upper quadrant pain",
+            "nausea",
+            "fatigue",
+            "dark urine",
+            "clay-colored stools"
+          ]
+        },
+        {
+          "name": "Chronic hepatitis B",
+          "symptoms": [
+            "fatigue",
+            "cirrhosis",
+            "hepatocellular carcinoma",
+            "often asymptomatic for years"
+          ]
+        }
+      ],
+      "transmission": [
+        "sexual contact",
+        "blood (IV drug use, needlestick)",
+        "vertical (mother to newborn)"
+      ],
+      "reservoir": "Humans",
+      "labFindings": [
+        "HBsAg (surface antigen) Ã¢ÂÂ marker of current infection",
+        "HBeAg Ã¢ÂÂ marker of high infectivity",
+        "Anti-HBc IgM Ã¢ÂÂ acute infection",
+        "Anti-HBs Ã¢ÂÂ immunity (vaccine or recovery)",
+        "HBV DNA PCR Ã¢ÂÂ viral load",
+        "Elevated ALT/AST"
+      ],
+      "treatment": "Pegylated interferon; tenofovir; entecavir for chronic HBV",
+      "prevention": "Hepatitis B vaccine (3-dose series); HBIG after exposure; universal precautions",
+      "learnMore": "Chronic HBV infects ~250 million people worldwide. The virus uses reverse transcriptase (like retroviruses) to replicate via an RNA intermediate, making it susceptible to antiviral drugs that target polymerases."
+    },
+    {
+      "id": "ebola",
+      "name": "Ebola virus",
+      "commonName": "Ebola",
+      "type": "virus",
+      "subtype": "RNA_virus",
+      "difficulty": 3,
+      "morphology": "Enveloped negative-sense ssRNA filovirus; characteristic filamentous or shepherd's crook shape",
+      "images": [
+        {
+          "file": "ebola_virus_tem.jpg",
+          "caption": "Transmission electron micrograph Ã¢ÂÂ filamentous filovirus particles"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Ebola virus disease (EVD)",
+          "symptoms": [
+            "sudden fever",
+            "severe headache",
+            "myalgia",
+            "hemorrhagic manifestations",
+            "vomiting",
+            "diarrhea",
+            "multi-organ failure"
+          ]
+        }
+      ],
+      "transmission": [
+        "direct contact with blood or body fluids of infected person or animal"
+      ],
+      "reservoir": "Fruit bats (suspected); non-human primates",
+      "labFindings": [
+        "RT-PCR on blood (gold standard)",
+        "ELISA for Ebola antigen",
+        "BSL-4 laboratory required for culture",
+        "Thrombocytopenia; elevated liver enzymes",
+        "Coagulopathy (DIC)"
+      ],
+      "treatment": "Supportive care; IV fluid resuscitation; mAb therapies (Inmazeb, Ebanga) for EVD-Zaire",
+      "prevention": "rVSV-ZEBOV vaccine (Ervebo) for Zaire ebolavirus; strict contact and droplet precautions; PPE",
+      "learnMore": "Ebola causes viral hemorrhagic fever with case fatality rates of 25Ã¢ÂÂ90%. It triggers a massive cytokine storm and interferes with coagulation. The 2013Ã¢ÂÂ2016 West Africa outbreak killed over 11,000 people."
+    },
+    {
+      "id": "c_albicans",
+      "name": "Candida albicans",
+      "commonName": "Candida",
+      "type": "fungus",
+      "subtype": "yeast",
+      "difficulty": 1,
+      "morphology": "Budding yeast with pseudohyphae; forms germ tubes at 37ÃÂ°C",
+      "images": [
+        {
+          "file": "candida_albicans_gram.jpg",
+          "caption": "Gram stain Ã¢ÂÂ gram-positive budding yeast with pseudohyphae"
+        },
+        {
+          "file": "candida_albicans_germ_tube.jpg",
+          "caption": "Germ tube formation at 37ÃÂ°C (positive in C. albicans)"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Oropharyngeal candidiasis (thrush)",
+          "symptoms": [
+            "white plaques on oral mucosa",
+            "painful swallowing",
+            "erythema"
+          ]
+        },
+        {
+          "name": "Vulvovaginal candidiasis",
+          "symptoms": [
+            "white cottage-cheese discharge",
+            "pruritus",
+            "dyspareunia",
+            "vulvar erythema"
+          ]
+        },
+        {
+          "name": "Candidemia",
+          "symptoms": [
+            "fever",
+            "sepsis",
+            "endophthalmitis",
+            "common in immunocompromised patients"
+          ]
+        }
+      ],
+      "transmission": [
+        "part of normal flora; overgrowth with disruption of normal bacteria or immunity"
+      ],
+      "reservoir": "Normal human flora (mouth, GI tract, genitourinary tract)",
+      "labFindings": [
+        "Gram-positive budding yeast with pseudohyphae on Gram stain",
+        "Germ tube positive at 37ÃÂ°C (distinguishes C. albicans from other Candida)",
+        "White colonies on Sabouraud dextrose agar",
+        "Blue-green colonies on CHROMagar Candida",
+        "KOH preparation shows budding yeast"
+      ],
+      "treatment": "Fluconazole (mucocutaneous); echinocandins (caspofungin) for invasive/resistant",
+      "prevention": "Antifungal prophylaxis in high-risk immunocompromised patients; probiotic restoration of flora",
+      "learnMore": "C. albicans is the most common opportunistic fungal pathogen. The germ tube test is rapid and highly specific for C. albicans. Risk factors for invasive candidiasis include prolonged ICU stay, broad-spectrum antibiotics, and central venous catheters."
+    },
+    {
+      "id": "a_fumigatus",
+      "name": "Aspergillus fumigatus",
+      "commonName": "Aspergillus",
+      "type": "fungus",
+      "subtype": "mold",
+      "difficulty": 2,
+      "morphology": "Septate hyaline hyphae with acute-angle (45ÃÂ°) branching; conidiophores with flask-shaped vesicle",
+      "images": [
+        {
+          "file": "aspergillus_fumigatus_lactophenol.jpg",
+          "caption": "Lactophenol cotton blue stain Ã¢ÂÂ conidiophore with conidia"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Invasive pulmonary aspergillosis",
+          "symptoms": [
+            "fever",
+            "cough",
+            "pleuritic chest pain",
+            "hemoptysis",
+            "dyspnea"
+          ]
+        },
+        {
+          "name": "Allergic bronchopulmonary aspergillosis (ABPA)",
+          "symptoms": [
+            "wheezing",
+            "bronchiectasis",
+            "mucus plugs",
+            "eosinophilia",
+            "elevated IgE"
+          ]
+        },
+        {
+          "name": "Aspergilloma",
+          "symptoms": [
+            "hemoptysis",
+            "chronic cough",
+            "fungus ball in lung cavity on imaging"
+          ]
+        }
+      ],
+      "transmission": [
+        "inhalation of airborne conidia (ubiquitous in environment)"
+      ],
+      "reservoir": "Soil; decomposing organic matter; hospital construction sites",
+      "labFindings": [
+        "Septate hyphae with 45ÃÂ° branching on tissue/KOH",
+        "Galactomannan antigen test (serum or BAL)",
+        "Beta-D-glucan positive",
+        "CT: 'halo sign' or 'air crescent sign'",
+        "Culture on Sabouraud agar Ã¢ÂÂ blue-green colonies"
+      ],
+      "treatment": "Voriconazole (drug of choice); isavuconazole; liposomal amphotericin B",
+      "prevention": "HEPA filtration in transplant units; antifungal prophylaxis in neutropenic patients",
+      "learnMore": "Invasive aspergillosis occurs almost exclusively in immunocompromised hosts (neutropenic, transplant, corticosteroid use). The halo sign on CT represents hemorrhagic infarction around fungal hyphae invading blood vessels."
+    },
+    {
+      "id": "crypto_neoformans",
+      "name": "Cryptococcus neoformans",
+      "commonName": "Cryptococcus",
+      "type": "fungus",
+      "subtype": "yeast",
+      "difficulty": 3,
+      "morphology": "Encapsulated budding yeast; polysaccharide capsule 10Ã¢ÂÂ20ÃÂ diameter of cell",
+      "images": [
+        {
+          "file": "cryptococcus_neoformans_india_ink.jpg",
+          "caption": "India ink stain Ã¢ÂÂ large halo from polysaccharide capsule"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Cryptococcal meningitis",
+          "symptoms": [
+            "headache",
+            "fever",
+            "stiff neck",
+            "altered mental status",
+            "visual changes",
+            "raised intracranial pressure"
+          ]
+        },
+        {
+          "name": "Pulmonary cryptococcosis",
+          "symptoms": [
+            "cough",
+            "dyspnea",
+            "chest pain",
+            "often asymptomatic in immunocompetent"
+          ]
+        }
+      ],
+      "transmission": [
+        "inhalation of desiccated yeast from pigeon/bird droppings"
+      ],
+      "reservoir": "Soil; pigeon droppings (C. neoformans); rotting wood (C. gattii)",
+      "labFindings": [
+        "India ink stain Ã¢ÂÂ large capsular halo in CSF",
+        "Cryptococcal antigen (CrAg) latex agglutination Ã¢ÂÂ serum and CSF",
+        "Urease-positive",
+        "Brown colonies on caffeic acid (birdseed) agar",
+        "Elevated CSF opening pressure"
+      ],
+      "treatment": "Induction: liposomal amphotericin B + flucytosine; Consolidation/maintenance: fluconazole",
+      "prevention": "ART for HIV-infected patients; fluconazole prophylaxis when CD4 <100",
+      "learnMore": "Cryptococcus has a unique polysaccharide capsule that inhibits phagocytosis and complement. It is the most common cause of fungal meningitis worldwide and a leading cause of AIDS-related mortality in Sub-Saharan Africa."
+    },
+    {
+      "id": "histoplasma",
+      "name": "Histoplasma capsulatum",
+      "commonName": "Histoplasma",
+      "type": "fungus",
+      "subtype": "dimorphic",
+      "difficulty": 3,
+      "morphology": "Dimorphic fungus: mold in soil (macroconidia/tuberculate conidia); small yeast in tissue (2Ã¢ÂÂ4 ÃÂµm, within macrophages)",
+      "images": [
+        {
+          "file": "histoplasma_capsulatum_giemsa.jpg",
+          "caption": "Giemsa stain Ã¢ÂÂ tiny yeast forms within macrophages"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Pulmonary histoplasmosis",
+          "symptoms": [
+            "fever",
+            "cough",
+            "myalgia",
+            "chest pain",
+            "often self-limited"
+          ]
+        },
+        {
+          "name": "Disseminated histoplasmosis",
+          "symptoms": [
+            "hepatosplenomegaly",
+            "pancytopenia",
+            "oral ulcers",
+            "adrenal insufficiency",
+            "fever"
+          ]
+        }
+      ],
+      "transmission": [
+        "inhalation of microconidia from disturbed contaminated soil (bird/bat droppings)"
+      ],
+      "reservoir": "Soil enriched with bird and bat droppings; endemic in Ohio/Mississippi River valleys",
+      "labFindings": [
+        "Urine Histoplasma antigen EIA (most sensitive in disseminated)",
+        "Serum/urine antigen",
+        "Giemsa: tiny intracellular yeast in macrophages",
+        "Culture on Sabouraud agar at 25ÃÂ°C: white cottony mold with tuberculate macroconidia",
+        "Complement fixation serology"
+      ],
+      "treatment": "Itraconazole (mildÃ¢ÂÂmoderate); liposomal amphotericin B (severe/disseminated)",
+      "prevention": "Avoid disturbing contaminated soil; N95 respirators during excavation in endemic areas",
+      "learnMore": "Histoplasma is endemic in the Ohio and Mississippi River valleys. The dimorphic switch (mold Ã¢ÂÂ yeast) occurs at 37ÃÂ°C and is essential for pathogenesis. Birds carry but are not infected; bats can be infected and spread it."
+    },
+    {
+      "id": "p_falciparum",
+      "name": "Plasmodium falciparum",
+      "commonName": "Malaria parasite",
+      "type": "parasite",
+      "subtype": "protozoa",
+      "difficulty": 2,
+      "morphology": "Intraerythrocytic protozoan; ring forms and gametocytes visible on blood smear",
+      "images": [
+        {
+          "file": "plasmodium_falciparum_giemsa.jpg",
+          "caption": "Giemsa stain of thick/thin blood smear Ã¢ÂÂ multiple ring forms, banana-shaped gametocytes"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Malaria (falciparum)",
+          "symptoms": [
+            "cyclic fever (48h)",
+            "rigors",
+            "sweating",
+            "severe headache",
+            "myalgia",
+            "splenomegaly"
+          ]
+        },
+        {
+          "name": "Severe malaria",
+          "symptoms": [
+            "cerebral malaria",
+            "severe anemia",
+            "respiratory distress",
+            "renal failure",
+            "blackwater fever",
+            "hypoglycemia"
+          ]
+        }
+      ],
+      "transmission": [
+        "bite of female Anopheles mosquito"
+      ],
+      "vector": "Female Anopheles mosquito",
+      "reservoir": "Humans (no animal reservoir for P. falciparum)",
+      "labFindings": [
+        "Thick/thin blood smear (Giemsa) Ã¢ÂÂ multiple ring forms per RBC, banana-shaped gametocytes",
+        "Rapid malaria antigen test (RDT)",
+        "PCR for species identification",
+        "High parasitemia (often >5%)",
+        "Anemia; thrombocytopenia; elevated LDH"
+      ],
+      "treatment": "Artemisinin-combination therapy (ACT); IV artesunate for severe malaria",
+      "prevention": "Insecticide-treated bed nets; antimalarial chemoprophylaxis; indoor residual spraying; RTS,S/R21 vaccines",
+      "learnMore": "P. falciparum causes ~90% of malaria deaths. Unlike other Plasmodium species, it can infect RBCs of all ages, causing extremely high parasitemia. Sequestration of infected RBCs in brain microvasculature causes cerebral malaria."
+    },
+    {
+      "id": "t_gondii",
+      "name": "Toxoplasma gondii",
+      "commonName": "Toxoplasma",
+      "type": "parasite",
+      "subtype": "protozoa",
+      "difficulty": 2,
+      "morphology": "Obligate intracellular protozoan; crescent-shaped tachyzoites; tissue cysts (bradyzoites)",
+      "images": [
+        {
+          "file": "toxoplasma_gondii_giemsa.jpg",
+          "caption": "Giemsa stain Ã¢ÂÂ crescent-shaped tachyzoites"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Congenital toxoplasmosis",
+          "symptoms": [
+            "chorioretinitis",
+            "intracranial calcifications",
+            "hydrocephalus",
+            "seizures",
+            "intellectual disability"
+          ]
+        },
+        {
+          "name": "Cerebral toxoplasmosis (immunocompromised)",
+          "symptoms": [
+            "headache",
+            "focal neurologic deficits",
+            "ring-enhancing lesions on MRI",
+            "altered consciousness"
+          ]
+        },
+        {
+          "name": "Ocular toxoplasmosis",
+          "symptoms": [
+            "blurred vision",
+            "pain",
+            "chorioretinitis"
+          ]
+        }
+      ],
+      "transmission": [
+        "ingestion of tissue cysts in undercooked meat",
+        "ingestion of oocysts from cat feces",
+        "transplacental (mother to fetus)"
+      ],
+      "vector": "Cats (definitive host producing oocysts)",
+      "reservoir": "Cats (definitive host); warm-blooded animals (intermediate hosts)",
+      "labFindings": [
+        "Toxoplasma IgM and IgG serology",
+        "PCR on CSF or amniotic fluid",
+        "MRI: multiple ring-enhancing lesions in basal ganglia",
+        "Fetal ultrasound: intracranial calcifications",
+        "Response to empiric treatment (pyrimethamine + sulfadiazine) supports diagnosis"
+      ],
+      "treatment": "Pyrimethamine + sulfadiazine + leucovorin; trimethoprim-sulfamethoxazole alternative",
+      "prevention": "Cook meat thoroughly; avoid cat litter during pregnancy; wash hands after gardening",
+      "learnMore": "T. gondii infects ~30% of the world's population. Most infections are asymptomatic in immunocompetent individuals, but the parasite forms latent cysts in brain and muscle that can reactivate when immunity is suppressed."
+    },
+    {
+      "id": "giardia",
+      "name": "Giardia lamblia",
+      "commonName": "Giardia",
+      "type": "parasite",
+      "subtype": "protozoa",
+      "difficulty": 1,
+      "morphology": "Pear-shaped trophozoite with 2 nuclei (owl-face appearance); oval cyst with 4 nuclei",
+      "images": [
+        {
+          "file": "giardia_lamblia_trophozoite.jpg",
+          "caption": "Trichrome stain Ã¢ÂÂ pear-shaped trophozoite with 2 nuclei (owl-face)"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Giardiasis",
+          "symptoms": [
+            "foul-smelling greasy diarrhea",
+            "bloating",
+            "flatulence",
+            "abdominal cramps",
+            "nausea",
+            "weight loss",
+            "malabsorption"
+          ]
+        }
+      ],
+      "transmission": [
+        "fecal-oral",
+        "contaminated water (mountain streams)",
+        "person-to-person"
+      ],
+      "reservoir": "Humans; beavers and other mammals (zoonotic source)",
+      "labFindings": [
+        "Stool ova & parasites (O&P) Ã¢ÂÂ trophozoites or cysts",
+        "Giardia stool antigen EIA or DFA",
+        "PCR",
+        "No blood or mucus in stool (non-invasive)"
+      ],
+      "treatment": "Metronidazole or tinidazole; nitazoxanide",
+      "prevention": "Boil or filter water from natural sources; hand hygiene; food safety",
+      "learnMore": "Giardia cysts are highly resistant to chlorine. They are the most common intestinal parasitic infection in the US. The parasite attaches to the intestinal epithelium via a ventral adhesive disk, causing malabsorption without tissue invasion."
+    },
+    {
+      "id": "t_brucei",
+      "name": "Trypanosoma brucei",
+      "commonName": "African sleeping sickness parasite",
+      "type": "parasite",
+      "subtype": "protozoa",
+      "difficulty": 3,
+      "morphology": "Extracellular protozoan; slender, elongated trypomastigote with undulating membrane and kinetoplast",
+      "images": [
+        {
+          "file": "trypanosoma_brucei_giemsa.jpg",
+          "caption": "Giemsa stain of blood smear Ã¢ÂÂ trypomastigote between RBCs"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "African trypanosomiasis (sleeping sickness)",
+          "symptoms": [
+            "Chancre at bite site",
+            "fever",
+            "lymphadenopathy (Winterbottom sign)",
+            "somnolence",
+            "confusion",
+            "coma",
+            "neuropsychiatric symptoms"
+          ]
+        }
+      ],
+      "transmission": [
+        "bite of tsetse fly (Glossina species)"
+      ],
+      "vector": "Tsetse fly (Glossina species)",
+      "reservoir": "Humans (T. b. gambiense); wild animals and cattle (T. b. rhodesiense)",
+      "labFindings": [
+        "Blood/CSF smear Ã¢ÂÂ trypomastigotes",
+        "Card agglutination trypanosomiasis test (CATT) for T. b. gambiense",
+        "PCR",
+        "CSF: elevated protein, WBC pleocytosis, IgM",
+        "Stage 2: trypanosomes detected in CSF"
+      ],
+      "treatment": "Stage 1 (hemolymphatic): pentamidine (gambiense) or suramin (rhodesiense). Stage 2 (CNS): fexinidazole or NECT (nifurtimox + eflornithine)",
+      "prevention": "Tsetse fly control; protective clothing; insect repellents; no vaccine",
+      "learnMore": "T. brucei evades the immune system through antigenic variation of its VSG (variant surface glycoprotein) coat Ã¢ÂÂ it has over 1,000 VSG genes. Stage 2 disease involves CNS invasion and is fatal if untreated."
+    },
+    {
+      "id": "cjd_prion",
+      "name": "Prion (PrP^Sc)",
+      "commonName": "CJD prion",
+      "type": "prion",
+      "subtype": "misfolded_protein",
+      "difficulty": 3,
+      "morphology": "Misfolded isoform of normal prion protein (PrP^C); no nucleic acid; resistant to proteases and standard disinfection",
+      "images": [],
+      "diseases": [
+        {
+          "name": "Creutzfeldt-Jakob disease (CJD)",
+          "symptoms": [
+            "rapidly progressive dementia",
+            "myoclonus",
+            "ataxia",
+            "visual disturbances",
+            "psychiatric symptoms",
+            "akinetic mutism"
+          ]
+        },
+        {
+          "name": "Variant CJD (vCJD) Ã¢ÂÂ linked to BSE (mad cow disease)",
+          "symptoms": [
+            "early psychiatric symptoms (depression, anxiety)",
+            "painful sensory symptoms",
+            "dementia",
+            "ataxia",
+            "younger patients"
+          ]
+        },
+        {
+          "name": "Fatal familial insomnia (FFI)",
+          "symptoms": [
+            "progressive insomnia",
+            "autonomic dysfunction",
+            "dementia",
+            "ataxia"
+          ]
+        }
+      ],
+      "transmission": [
+        "Sporadic (most CJD Ã¢ÂÂ spontaneous misfolding)",
+        "Iatrogenic (contaminated surgical instruments, dura mater grafts, cadaveric pituitary hormones)",
+        "Dietary (vCJD Ã¢ÂÂ ingestion of BSE-contaminated beef)",
+        "Genetic (familial CJD, GSS, FFI Ã¢ÂÂ PRNP mutations)"
+      ],
+      "reservoir": "Cattle (BSE); deer/elk (CWD); sheep (scrapie)",
+      "labFindings": [
+        "EEG: periodic sharp-wave complexes (classic CJD)",
+        "MRI: diffusion-weighted imaging Ã¢ÂÂ cortical ribboning, basal ganglia signal",
+        "CSF: 14-3-3 protein (elevated), RT-QuIC (highly sensitive for CJD)",
+        "Brain biopsy: spongiform vacuolation, astrogliosis, prion protein immunostaining",
+        "No standard blood test currently available"
+      ],
+      "treatment": "No effective treatment Ã¢ÂÂ supportive care only. Universally fatal.",
+      "prevention": "Sterilization with 1N NaOH + autoclaving (prions resist standard disinfection); surveillance of BSE in cattle; blood donor deferral policies",
+      "learnMore": "Prions (proteinaceous infectious particles) contain no nucleic acid. PrP^Sc converts normal PrP^C to the misfolded form by direct contact, propagating disease. The incubation period for prion diseases can be decades. Stanley Prusiner won the 1997 Nobel Prize for discovering prions."
+    }
+  ]
+}
