@@ -576,6 +576,17 @@ const ABSprites = (() => {
     }
   }
 
+  /**
+   * Draw just the epitope shape centered and large on its canvas.
+   * Used for the dedicated epitope-picker button.
+   */
+  function drawEpitopeOnly(ctx, epitopeType) {
+    const W = ctx.canvas.width;
+    const H = ctx.canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    drawEpitope(ctx, W * 0.5, H * 0.5, epitopeType, Math.min(W, H) * 0.38, 1, false);
+  }
+
   /* ─────────────────────────────────────────────────────────────────── */
   /*  MISS INDICATOR                                                     */
   /* ─────────────────────────────────────────────────────────────────── */
@@ -704,6 +715,7 @@ const ABSprites = (() => {
     drawMissX,
     drawNeutralizeBurst,
     drawFireRing,
+    drawEpitopeOnly,
   };
 
 })();

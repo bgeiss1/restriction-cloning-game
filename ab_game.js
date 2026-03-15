@@ -66,9 +66,10 @@ const ABGame = (() => {
     },
     {
       title: '↕ Switch isotype  ·  ↔ Switch specificity',
-      body:  '<strong>Tap the big selector</strong> (bottom-right) to cycle the <strong>epitope type</strong> your antibody targets — only the matching shape neutralizes! '
-           + '<strong>Swipe up/down</strong> on it (or press <strong>↑↓</strong>) to toggle <span class="igm">IgM</span> (pentamer, 3 hits) vs <span class="igg">IgG ✦</span> (1-shot). '
-           + 'The small panel on the left also works. Try switching now.',
+      body:  'Two buttons on the left control your antibody. '
+           + '<strong>Top button</strong> — tap to toggle <span class="igm">IgM</span> (pentamer, 3 hits) vs <span class="igg">IgG ✦</span> (1-shot). '
+           + '<strong>Shape button below</strong> — tap to cycle the <strong>epitope type</strong> your antibody targets. Only the matching shape will neutralize! '
+           + 'You can also press <strong>↑↓</strong> (isotype) and <strong>←→</strong> (epitope) on keyboard.',
       diagram: `
         <div style="display:flex;align-items:center;gap:18px;justify-content:center;">
           <div class="tut-swipe-arrows"><span>▲</span><span>▼</span></div>
@@ -102,7 +103,7 @@ const ABGame = (() => {
             <div style="color:var(--igg-color);font-weight:700;font-size:0.8rem;">IgG ✦</div>
           </div>
         </div>`,
-      highlight: 'abSelector',
+      highlight: 'abPanel',
       btn: 'Got it →',
     },
     {
@@ -151,9 +152,6 @@ const ABGame = (() => {
   const TAP_MAX_MOVE    = 14;
   const TAP_MAX_MS      = 350;
 
-  /* ── Touch tracking (big selector button) ────────────────────────── */
-  let _btnTouchStartY = null;
-  let _btnTouchStartT = null;
 
   /* ─────────────────────────────────────────────────────────────────── */
   /*  HUD UPDATES                                                        */
@@ -177,7 +175,7 @@ const ABGame = (() => {
   /* ─────────────────────────────────────────────────────────────────── */
 
   function showHUD(visible) {
-    ['hud', 'abSelector', 'healthBar', 'bigAbBtn'].forEach(id => {
+    ['hud', 'abPanel', 'healthBar'].forEach(id => {
       el(id).classList.toggle('hidden', !visible);
     });
   }
@@ -235,36 +233,41 @@ const ABGame = (() => {
   /* ─────────────────────────────────────────────────────────────────── */
 
   function updateAbLabel() {
-    const isIgG      = ABEngine.isIgGActive();
-    const type       = ABEngine.currentEpitopeType();
-    const shape      = ABSprites.EPITOPE[type]?.label ?? type;
+    const isIgG        = ABEngine.isIgGActive();
+    const type         = ABEngine.currentEpitopeType();
+    const shape        = ABSprites.EPITOPE[type]?.label ?? type;
     const { iggCount } = ABEngine.getState();
-    const color      = isIgG ? 'var(--igg-color)' : 'var(--igm-color)';
+    const color        = isIgG ? 'var(--igg-color)' : 'var(--igm-color)';
 
-    // Small left-panel label
+    // Antibody type label (IgM / IgG)
     const lbl = el('abTypeLabel');
     if (lbl) {
       if (isIgG) {
-        lbl.textContent = `IgG ✦ · ${shape}`;
+        lbl.textContent = `IgG ✦`;
       } else {
         const hint = iggCount > 0 ? ` (✦×${iggCount})` : '';
-        lbl.textContent = `IgM · ${shape}${hint}`;
+        lbl.textContent = `IgM${hint}`;
       }
       lbl.style.color = color;
     }
 
-    // Big bottom-right label
-    const bigLbl = el('bigAbLabel');
-    if (bigLbl) {
-      bigLbl.textContent = isIgG ? `IgG ✦ · ${shape}` : `IgM · ${shape}`;
-      bigLbl.style.color = color;
+    // Epitope shape label
+    const epLbl = el('epitopeLabel');
+    if (epLbl) {
+      epLbl.textContent = shape;
+      epLbl.style.color = color;
     }
 
-    // Redraw big selector canvas
-    const bigCvs = el('bigAbCanvas');
-    if (bigCvs) {
-      const bCtx = bigCvs.getContext('2d');
-      ABSprites.drawSelector(bCtx, isIgG, type);
+    // Redraw antibody selector canvas (IgM pentamer or IgG Y)
+    const selCvs = el('abSelectorCanvas');
+    if (selCvs) {
+      ABSprites.drawSelector(selCvs.getContext('2d'), isIgG, type);
+    }
+
+    // Redraw epitope-only canvas (just the shape)
+    const epCvs = el('epitopeCanvas');
+    if (epCvs) {
+      ABSprites.drawEpitopeOnly(epCvs.getContext('2d'), type);
     }
   }
 
@@ -371,8 +374,13 @@ const ABGame = (() => {
   };
 
   /* ─────────────────────────────────────────────────────────────────── */
-  /*  SPECIFICITY CYCLING                                                 */
+  /*  ISOTYPE TOGGLE + SPECIFICITY CYCLING                               */
   /* ─────────────────────────────────────────────────────────────────── */
+
+  function toggleIsotype() {
+    ABEngine.toggleIsotype();
+    updateAbLabel();
+  }
 
   function cycleSpecificity(dir) {
     ABEngine.cycleSpecificity(dir);
@@ -467,37 +475,6 @@ const ABGame = (() => {
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
-  /*  BIG SELECTOR BUTTON — TOUCH                                        */
-  /* ─────────────────────────────────────────────────────────────────── */
-
-  function onBigBtnTouchStart(e) {
-    if (_state !== 'playing' && _state !== 'tutorial') return;
-    _btnTouchStartY = e.touches[0].clientY;
-    _btnTouchStartT = Date.now();
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  function onBigBtnTouchEnd(e) {
-    if (_state !== 'playing' && _state !== 'tutorial') return;
-    if (_btnTouchStartY === null) return;
-    const dy  = e.changedTouches[0].clientY - _btnTouchStartY;
-    const dt  = Date.now() - _btnTouchStartT;
-    _btnTouchStartY = null;
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (Math.abs(dy) > SWIPE_THRESHOLD) {
-      // Swipe up/down — toggle IgM ↔ IgG
-      ABEngine.toggleIsotype();
-    } else if (dt < TAP_MAX_MS) {
-      // Tap — cycle epitope specificity
-      cycleSpecificity(1);
-    }
-    updateAbLabel();
-  }
-
-  /* ─────────────────────────────────────────────────────────────────── */
   /*  FIRE                                                                */
   /* ─────────────────────────────────────────────────────────────────── */
 
@@ -578,11 +555,6 @@ const ABGame = (() => {
     const cvs = document.getElementById('gameCanvas');
     cvs.addEventListener('touchstart', onTouchStart, { passive: false });
     cvs.addEventListener('touchend',   onTouchEnd,   { passive: false });
-
-    const bigBtn = document.getElementById('bigAbBtn');
-    bigBtn.addEventListener('touchstart', onBigBtnTouchStart, { passive: false });
-    bigBtn.addEventListener('touchend',   onBigBtnTouchEnd,   { passive: false });
-
     window.addEventListener('keydown', onKeyDown);
   }
 
@@ -596,6 +568,6 @@ const ABGame = (() => {
   /*  PUBLIC API                                                          */
   /* ─────────────────────────────────────────────────────────────────── */
 
-  return { start, pause, resume, restart, tutNext, tutSkip, cycleSpecificity };
+  return { start, pause, resume, restart, tutNext, tutSkip, toggleIsotype, cycleSpecificity };
 
 })();

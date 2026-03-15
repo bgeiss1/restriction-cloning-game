@@ -65,29 +65,37 @@
       touch-action: manipulation; -webkit-tap-highlight-color: transparent;
     }
 
-    /* ── Antibody selector (left edge, shown during game) ─────────── */
-    #abSelector {
-      position: fixed; left: 0; top: 52px; bottom: 0;
+    /* ── Left control panel (stacked selector buttons) ───────────── */
+    #abPanel {
+      position: fixed; left: 0; top: 52px;
       width: 72px; z-index: 10;
       display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 6px;
+      align-items: center; gap: 4px;
+      padding-top: 8px;
+    }
+    #abSelector, #epitopeBtn {
+      width: 72px;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 5px;
+      padding: 8px 0;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
-    #abSelector canvas {
+    #abSelector canvas, #epitopeBtn canvas {
       border-radius: 10px;
       background: rgba(30,77,43,0.7);
       border: 1.5px solid var(--border);
-      transition: border-color 0.15s;
+      transition: border-color 0.12s, transform 0.1s;
     }
-    #abSelector:active canvas {
+    #abSelector:active canvas, #epitopeBtn:active canvas {
       border-color: var(--gold);
+      transform: scale(0.93);
     }
-    #abTypeLabel {
+    #abTypeLabel, #epitopeLabel {
       font-size: 9px; font-weight: 700; letter-spacing: 0.04em;
       color: var(--gold); text-align: center; line-height: 1.3;
-      padding: 0 4px; word-break: break-all;
+      padding: 0 4px;
     }
     .sel-tap-hint {
       font-size: 8px; color: var(--text-muted); letter-spacing: 0.05em;
@@ -110,35 +118,6 @@
       height: 100%; width: 100%; border-radius: 5px;
       background: var(--success);
       transition: width 0.3s, background 0.3s;
-    }
-
-    /* ── Big antibody selector button (bottom-right) ────────────── */
-    #bigAbBtn {
-      position: fixed; bottom: 10px; right: 10px;
-      z-index: 10;
-      display: flex; flex-direction: column;
-      align-items: center; gap: 5px;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      touch-action: manipulation;
-    }
-    #bigAbCanvas {
-      border-radius: 14px;
-      background: rgba(30,77,43,0.82);
-      border: 2px solid var(--border);
-      transition: border-color 0.15s, transform 0.1s;
-    }
-    #bigAbBtn:active #bigAbCanvas {
-      border-color: var(--gold);
-      transform: scale(0.94);
-    }
-    #bigAbLabel {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
-      color: var(--gold); text-align: center; line-height: 1.3;
-    }
-    #bigAbHint {
-      font-size: 9px; color: var(--text-muted); letter-spacing: 0.05em;
-      text-transform: uppercase; opacity: 0.55;
     }
 
     /* ── Shared overlay base ─────────────────────────────────────── */
@@ -355,24 +334,26 @@
   <button id="btnPause" onclick="ABGame.pause()">⏸</button>
 </div>
 
-<!-- Antibody selector (left side during gameplay) -->
-<div id="abSelector" class="hidden" onclick="ABGame.cycleSpecificity(1)">
-  <canvas id="abSelectorCanvas" width="56" height="56"></canvas>
-  <span id="abTypeLabel">IgM</span>
-  <span class="sel-tap-hint">tap to switch</span>
+<!-- Left control panel: antibody type (top) + epitope shape (below) -->
+<div id="abPanel" class="hidden">
+  <!-- Top: shows IgM/IgG antibody — tap to toggle isotype -->
+  <div id="abSelector" onclick="ABGame.toggleIsotype()">
+    <canvas id="abSelectorCanvas" width="56" height="56"></canvas>
+    <span id="abTypeLabel">IgM</span>
+    <span class="sel-tap-hint">tap·IgM/IgG</span>
+  </div>
+  <!-- Below: shows epitope shape only — tap to cycle -->
+  <div id="epitopeBtn" onclick="ABGame.cycleSpecificity(1)">
+    <canvas id="epitopeCanvas" width="56" height="56"></canvas>
+    <span id="epitopeLabel">▲</span>
+    <span class="sel-tap-hint">tap·switch</span>
+  </div>
 </div>
 
 <!-- Health bar (bottom-left) -->
 <div id="healthBar" class="hidden">
   <span id="healthLabel">Host Health</span>
   <div id="healthTrack"><div id="healthFill"></div></div>
-</div>
-
-<!-- Big antibody selector (bottom-right) -->
-<div id="bigAbBtn" class="hidden">
-  <canvas id="bigAbCanvas" width="90" height="90"></canvas>
-  <span id="bigAbLabel">IgM · ▲</span>
-  <span id="bigAbHint">tap · swipe ↕</span>
 </div>
 
 <!-- Wave banner -->
@@ -420,9 +401,9 @@
 
   <div class="info-box">
     <strong>Tap the screen</strong> to fire toward that spot<br>
-    <strong>Tap the selector</strong> (bottom-right) to switch epitope type<br>
-    <strong>Swipe up/down</strong> on the selector to toggle <span class="igm">IgM</span> ↔ <span class="igg">IgG</span><br>
-    <span class="igm">IgM</span> — first responder, pentamer, needs <strong>3 hits</strong> to neutralize<br>
+    <strong>Top-left button</strong> — tap to toggle <span class="igm">IgM</span> ↔ <span class="igg">IgG</span><br>
+    <strong>Shape button below it</strong> — tap to switch epitope type<br>
+    <span class="igm">IgM</span> — first responder, pentamer, needs <strong>3 hits</strong><br>
     <span class="igg">IgG ✦</span> — high affinity power-up, <strong>1-hit</strong> neutralize<br>
     <strong>Decoy epitopes</strong> appear in later waves — don't be fooled!
   </div>
