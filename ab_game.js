@@ -106,11 +106,12 @@ const ABGame = (() => {
       btn: 'Got it →',
     },
     {
-      title: '👆 Tap to fire!',
-      body:  '<strong>Tap</strong> anywhere on the screen to shoot. '
+      title: '👆 Tap a pathogen to fire!',
+      body:  '<strong>Tap directly on a pathogen</strong> to launch an antibody at it. '
            + 'A matching hit deals 1 damage — '
-           + '<span class="igm">IgM</span> antibodies need <strong>3 hits</strong> to neutralize a pathogen. '
-           + 'Neutralized pathogens sometimes drop <span class="igg">✦ IgG</span> power-ups: '
+           + '<span class="igm">IgM</span> antibodies need <strong>3 hits</strong> to neutralize. '
+           + 'Neutralized pathogens go <strong>dark</strong> and stay on screen briefly with antibodies attached. '
+           + 'They sometimes drop <span class="igg">✦ IgG</span> power-ups: '
            + 'high-affinity, <strong>1-shot</strong> neutralize!',
       diagram: `
         <div style="display:flex;gap:20px;align-items:center;justify-content:center;">
@@ -401,8 +402,8 @@ const ABGame = (() => {
       ABEngine.toggleIsotype();
       updateAbLabel();
     } else if (adx < TAP_MAX_MOVE && ady < TAP_MAX_MOVE && dt < TAP_MAX_MS) {
-      // Tap — only fire when playing (not during tutorial card)
-      if (_state === 'playing') handleFire();
+      // Tap — fire at the tapped pathogen (only when playing, not during tutorial card)
+      if (_state === 'playing') handleFire(t.clientX, t.clientY);
     }
 
     _touchStartY = null;
@@ -454,8 +455,8 @@ const ABGame = (() => {
   /*  FIRE                                                                */
   /* ─────────────────────────────────────────────────────────────────── */
 
-  function handleFire() {
-    if (!ABEngine.fire()) return;
+  function handleFire(tapX, tapY) {
+    if (!ABEngine.fire(tapX, tapY)) return;
     const lbl = el('abTypeLabel');
     if (lbl) {
       lbl.style.transition = 'opacity 0.05s';

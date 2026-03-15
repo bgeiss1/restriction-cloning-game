@@ -267,7 +267,8 @@ const ABSprites = (() => {
     ctx.scale(sc, sc);
 
     // ── HP bar — drawn BEFORE rotation so it stays horizontal ─────────
-    if (p.hp < p.maxHp) {
+    // Skip for neutralized pathogens (hp=0, no need to show bar)
+    if (p.hp < p.maxHp && !p.neutralized) {
       ctx.save();
       const bw = r * 1.9, bh = 5;
       const bx = -bw / 2, by = -(r * sc + 18);
@@ -334,7 +335,7 @@ const ABSprites = (() => {
     ctx.restore();
 
     // ── White hit-flash overlay ───────────────────────────────────────
-    if (p.hitFlash > 0) {
+    if (p.hitFlash > 0 && !p.neutralized) {
       ctx.save();
       ctx.globalAlpha = p.hitFlash * 0.5;
       ctx.fillStyle = '#ffffff';
@@ -342,6 +343,34 @@ const ABSprites = (() => {
       ctx.arc(0, 0, r, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+    }
+
+    // ── Neutralized: dark overlay + antibodies latched onto spikes ────
+    if (p.neutralized) {
+      // Dark desaturation overlay
+      ctx.save();
+      ctx.globalAlpha = 0.72;
+      ctx.fillStyle = '#0a0a0a';
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Antibodies bound at spike-tip epitopes
+      if (p.attachedAbs && p.attachedAbs.length > 0) {
+        const ab       = p.attachedAbs[0];
+        const abColor  = ab.type === 'igg' ? '#C8A951' : '#4D96FF';
+        const spikeLen = r * 0.5;
+        const abSize   = r * 0.27;
+        // Draw a Y-shape at every other spike pointing outward
+        for (let i = 0; i < p.spikes.length; i += 2) {
+          const a  = p.spikes[i];
+          const sx = Math.cos(a) * (r + spikeLen);
+          const sy = Math.sin(a) * (r + spikeLen);
+          // angle = a → Fc stem points inward, Fab tips point outward (grasping spike)
+          drawYShape(ctx, sx, sy, abSize, abColor, a, 0.9, ab.epitopeType);
+        }
+      }
     }
 
     ctx.restore();

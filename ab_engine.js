@@ -69,7 +69,7 @@ const ABEngine = (() => {
     const decoyChance  = w >= 4 ? Math.min(0.55, (w - 3) * 0.15) : 0;
     const speed        = 0.65 + (w - 1) * 0.15;
     const hp           = 3 + Math.floor((w - 1) * 0.8);       // IgM hits to kill
-    const spawnDelay   = Math.max(55, 180 - (w - 1) * 18);    // frames between spawns
+    const spawnDelay   = Math.max(55, 300 - (w - 1) * 30);    // wave1=300f(5s), ramps to 55f
     const killTarget   = 5 + (w - 1) * 2;
     const iggChance    = 0.12 + (w - 1) * 0.025;              // chance of IgG power-up drop
 
@@ -313,31 +313,45 @@ const ABEngine = (() => {
   /* ─────────────────────────────────────────────────────────────────── */
 
   /**
-   * Fire the current antibody toward the nearest valid pathogen.
-   * Called by ab_game.js on tap.
+   * Fire the current antibody at a pathogen.
+   * When tapX/tapY are provided (touch input): hit-test the tapped position
+   * against pathogen bodies; only fires if a pathogen was directly tapped.
+   * When no coordinates (keyboard): fires at the nearest pathogen.
    * Returns true if a shot was fired.
    */
-  function fire() {
+  function fire(tapX, tapY) {
     if (!_running || fireCooldown > 0) return false;
 
-    const currentEpitope = ABSprites.EPITOPE_KEYS[_epitopeIdx];
     const isIgG = _isIgG;
-
-    // Find nearest pathogen in front of the fire zone
     const fireX = getFireX();
     const fireY = H / 2;
 
     let target = null;
-    let best = Infinity;
-    for (const p of pathogens) {
-      if (p.x < fireX - p.r) continue;  // already past player
-      const dx = p.x - fireX;
-      const dy = p.y - fireY;
-      const d  = Math.sqrt(dx * dx + dy * dy);
-      if (d < best) { best = d; target = p; }
-    }
 
-    if (!target) return false;
+    if (tapX !== undefined && tapY !== undefined) {
+      // Tap-on-pathogen: find which pathogen body (including spike area) was tapped
+      for (const p of pathogens) {
+        if (p.neutralized) continue;
+        const dx   = tapX - p.x;
+        const dy   = tapY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        // Hit radius includes spike tips (r * 1.6)
+        if (dist <= p.r * 1.6) { target = p; break; }
+      }
+      if (!target) return false;  // tapped empty space — no shot
+    } else {
+      // Keyboard / fallback: nearest non-neutralized pathogen
+      let best = Infinity;
+      for (const p of pathogens) {
+        if (p.neutralized) continue;
+        if (p.x < fireX - p.r) continue;
+        const dx = p.x - fireX;
+        const dy = p.y - fireY;
+        const d  = Math.sqrt(dx * dx + dy * dy);
+        if (d < best) { best = d; target = p; }
+      }
+      if (!target) return false;
+    }
 
     const dx = target.x - fireX;
     const dy = target.y - fireY;
@@ -350,7 +364,7 @@ const ABEngine = (() => {
       vx:          (dx / dist) * speed,
       vy:          (dy / dist) * speed,
       type:        isIgG ? 'igg' : 'igm',
-      epitopeType: currentEpitopeType(),   // current specificity
+      epitopeType: currentEpitopeType(),
       targetId:    target.id,
       alpha:       1,
       trail:       [],
@@ -416,6 +430,7 @@ const ABEngine = (() => {
 
       for (let ei = pathogens.length - 1; ei >= 0; ei--) {
         const p = pathogens[ei];
+        if (p.neutralized) continue;  // already neutralized — pass through
         const dx = proj.x - p.x;
         const dy = proj.y - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -438,6 +453,14 @@ const ABEngine = (() => {
         p.hitFlash = 1;
 
         if (p.hp <= 0) {
+          // Neutralize: stop the pathogen, show it darkened with antibodies attached
+          p.neutralized      = true;
+          p.vx               = 0;
+          p.vy               = 0;
+          p.neutralizeTimer  = 150;   // ~2.5 s before it fades out
+          p.neutralizeAlpha  = 1;
+          p.attachedAbs      = [{ type: proj.type, epitopeType: proj.epitopeType }];
+
           spawnNeutralizeParticles(p.x, p.y, hitColor);
           const baseScore = 10 * wave;
           score += proj.type === 'igg' ? baseScore * 2 : baseScore;
@@ -448,8 +471,10 @@ const ABEngine = (() => {
             onIgGPickup(p.x, p.y);
             onIgGChange(iggCount);
           }
-          pathogens.splice(ei, 1);
         } else {
+          // Partial hit — accumulate antibody on pathogen
+          if (!p.attachedAbs) p.attachedAbs = [];
+          p.attachedAbs.push({ type: proj.type, epitopeType: proj.epitopeType });
           spawnHitParticles(p.x, p.y, hitColor);
         }
         onScoreChange(score);
@@ -499,6 +524,15 @@ const ABEngine = (() => {
     // ── Move pathogens ────────────────────────────────────────────────
     for (let i = pathogens.length - 1; i >= 0; i--) {
       const p = pathogens[i];
+
+      // Neutralized: count down, fade, slow spin, then remove
+      if (p.neutralized) {
+        p.neutralizeTimer--;
+        p.neutralizeAlpha = Math.min(1, p.neutralizeTimer / 40);
+        p.rotation += (p.rotSpeed ?? 0.003) * 0.15;  // very slow settling spin
+        if (p.neutralizeTimer <= 0) pathogens.splice(i, 1);
+        continue;
+      }
 
       // Tutorial pathogen: freeze at target x, no sinusoidal drift
       if (p.isTutorial) {
@@ -598,8 +632,15 @@ const ABEngine = (() => {
   function render() {
     ABSprites.drawBackground(ctx, W, H, _tick);
 
-    // Pathogens
-    for (const p of pathogens) ABSprites.drawPathogen(ctx, p);
+    // Pathogens — neutralized ones fade out via globalAlpha
+    for (const p of pathogens) {
+      if (p.neutralized) {
+        ctx.save();
+        ctx.globalAlpha = p.neutralizeAlpha ?? 1;
+      }
+      ABSprites.drawPathogen(ctx, p);
+      if (p.neutralized) ctx.restore();
+    }
 
     // Neutralize bursts
     for (const b of bursts) ABSprites.drawNeutralizeBurst(ctx, b.x, b.y, b.progress, b.color);
@@ -612,11 +653,6 @@ const ABEngine = (() => {
 
     // Projectiles
     for (const proj of projectiles) ABSprites.drawProjectile(ctx, proj);
-
-    // Fire-zone indicator (right edge of selector)
-    const pulse = (Math.sin(_tick * 0.08) + 1) / 2;
-    const canFire = fireCooldown === 0 && pathogens.length > 0;
-    ABSprites.drawFireRing(ctx, getFireX(), H / 2, 28, canFire, pulse);
 
     // Selector canvas
     const selCanvas = document.getElementById('abSelectorCanvas');
