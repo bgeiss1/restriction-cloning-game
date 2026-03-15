@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "unit": "",
+    "questionsPerRound": 10,
+    "imageDir": "microid_images/",
+    "version": "1.0"
+  },
+  "masterRef": "master.json",
+  "selectedIds": [
+    "s_aureus"
+  ],
+  "organisms": [
+    {
+      "id": "s_aureus",
+      "name": "Staphylococcus aureus",
+      "commonName": "Staph",
+      "type": "bacteria",
+      "subtype": "gram_positive",
+      "difficulty": 1,
+      "morphology": "Gram-positive cocci in clusters",
+      "images": [
+        {
+          "file": "staphylococcus_aureus_gram.jpg",
+          "caption": "Gram-positive cocci in clusters"
+        },
+        {
+          "file": "staphylococcus_aureus_culture.jpg",
+          "caption": "Golden colonies on blood agar"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Skin and soft tissue infections",
+          "symptoms": [
+            "boils",
+            "abscesses",
+            "impetigo",
+            "cellulitis"
+          ]
+        },
+        {
+          "name": "MRSA infection",
+          "symptoms": [
+            "wound infection",
+            "pneumonia",
+            "bacteremia",
+            "fever"
+          ]
+        },
+        {
+          "name": "Toxic shock syndrome",
+          "symptoms": [
+            "high fever",
+            "hypotension",
+            "diffuse rash",
+            "multi-organ failure"
+          ]
+        }
+      ],
+      "transmission": [
+        "direct contact",
+        "fomites",
+        "nasal carriage"
+      ],
+      "reservoir": "Human skin and nares",
+      "labFindings": [
+        "Gram-positive cocci in clusters",
+        "Catalase-positive",
+        "Coagulase-positive",
+        "Golden/yellow colonies on blood agar",
+        "Beta-hemolytic on blood agar"
+      ],
+      "treatment": "Antistaphylococcal penicillins; vancomycin for MRSA",
+      "prevention": "Hand hygiene; wound care; contact precautions for MRSA",
+      "learnMore": "S. aureus is one of the most common causes of skin infections worldwide. About 30% of the population are asymptomatic nasal carriers. MRSA (methicillin-resistant S. aureus) is a major hospital and community pathogen.",
+      "vector": ""
+    }
+  ]
+}
