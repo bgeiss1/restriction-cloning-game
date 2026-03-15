@@ -279,6 +279,72 @@ body {
 #winScreen h2 { font-size: 2rem; font-weight: 800; color: var(--gold); }
 .win-sub { font-size: 1.1rem; color: var(--gold-light); font-weight: 600; }
 .win-msg { font-size: 0.9rem; color: var(--text-muted); max-width: 280px; }
+
+/* ── MODE TOGGLE (start screen) ── */
+.mode-tabs {
+  display: flex; width: 100%; max-width: 320px;
+  border: 1.5px solid var(--border); border-radius: 8px; overflow: hidden;
+}
+.mode-tab {
+  flex: 1; padding: 10px 6px;
+  background: none; color: var(--text-muted);
+  font-size: 0.85rem; font-weight: 600;
+  border: none; cursor: pointer; touch-action: manipulation;
+  transition: background 0.15s, color 0.15s;
+}
+.mode-tab.active { background: rgba(200,169,81,0.18); color: var(--gold); }
+.mode-tab:first-child { border-right: 1px solid var(--border); }
+
+/* ── VOLUME MODE PANEL ── */
+#dilPanel.hidden { display: none; }
+#volumePanel { display: none; }
+#volumePanel.visible { display: flex; flex-direction: column; gap: 8px; }
+#tubeBreakdown { display: none; }
+#tubeBreakdown.visible { display: block; }
+
+.vol-grid { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-vol {
+  padding: 9px 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid var(--border);
+  border-radius: 7px; color: var(--text);
+  font-size: 0.82rem; font-weight: 600;
+  cursor: pointer; touch-action: manipulation;
+}
+.btn-vol.selected { background: rgba(200,169,81,0.2); border-color: var(--gold); color: var(--gold); }
+.btn-vol:disabled { opacity: 0.3; cursor: default; }
+
+.vol-calc {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px;
+}
+.vol-calc .calc-formula { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 3px; }
+.vol-calc .calc-result { font-size: 1rem; font-weight: 700; color: var(--gold); }
+
+.btn-add-tube {
+  padding: 11px; width: 100%;
+  background: rgba(102,187,106,0.12);
+  border: 1.5px solid rgba(102,187,106,0.3);
+  border-radius: 8px; color: var(--success);
+  font-size: 0.9rem; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+}
+.btn-add-tube:disabled { opacity: 0.3; cursor: default; }
+
+.breakdown-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 14px; font-size: 0.8rem; line-height: 1.8;
+}
+.breakdown-card .bk-row { display: flex; justify-content: space-between; }
+.breakdown-card .bk-tube { color: var(--text-muted); }
+.breakdown-card .bk-factor { color: var(--gold-light); font-weight: 600; }
+.breakdown-card .bk-total {
+  border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px;
+  display: flex; justify-content: space-between;
+  color: var(--text); font-weight: 700;
+}
 </style>
 </head>
 <body>
@@ -316,6 +382,10 @@ body {
     <strong>Goal:</strong> Dilute your bacterial sample to get a <strong>countable plate</strong> (30–300 colonies).<br>
     <strong>Method:</strong> Add dilution tubes in series, then plate 1 mL on agar.<br>
     <strong>Remember:</strong> Too concentrated → <strong>TMTC</strong>. Too dilute → <strong>TFTC</strong>.
+  </div>
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tabQuick">⚡ Quick Select</button>
+    <button class="mode-tab" id="tabVolume">🧪 Volume Mode</button>
   </div>
   <button class="btn-start" id="btnStart">Start</button>
   <a href="index.html" class="btn-back-link">← Menu</a>
@@ -357,8 +427,13 @@ body {
       <div class="prev-status" id="prevStatus"></div>
     </div>
 
-    <!-- Dilution buttons -->
-    <div>
+    <!-- Tube breakdown (volume mode) -->
+    <div id="tubeBreakdown">
+      <div class="breakdown-card" id="breakdownCard"></div>
+    </div>
+
+    <!-- Quick Select mode -->
+    <div id="dilPanel">
       <div class="section-label">Add dilution tube:</div>
       <div class="dil-row" id="dilRow">
         <button class="btn-dil" data-d="2">1:2</button>
@@ -366,6 +441,35 @@ body {
         <button class="btn-dil" data-d="10">1:10</button>
         <button class="btn-dil" data-d="100">1:100</button>
       </div>
+    </div>
+
+    <!-- Volume Mode panel -->
+    <div id="volumePanel">
+      <div>
+        <div class="section-label">Sample volume to transfer (µL):</div>
+        <div class="vol-grid" id="sVolGrid">
+          <button class="btn-vol" data-sv="10">10 µL</button>
+          <button class="btn-vol" data-sv="50">50 µL</button>
+          <button class="btn-vol" data-sv="100">100 µL</button>
+          <button class="btn-vol" data-sv="200">200 µL</button>
+          <button class="btn-vol" data-sv="500">500 µL</button>
+        </div>
+      </div>
+      <div>
+        <div class="section-label">Diluent volume to add (µL):</div>
+        <div class="vol-grid" id="dVolGrid">
+          <button class="btn-vol" data-dv="90">90 µL</button>
+          <button class="btn-vol" data-dv="400">400 µL</button>
+          <button class="btn-vol" data-dv="450">450 µL</button>
+          <button class="btn-vol" data-dv="900">900 µL</button>
+          <button class="btn-vol" data-dv="990">990 µL</button>
+        </div>
+      </div>
+      <div class="vol-calc" id="volCalc">
+        <div class="calc-formula" id="calcFormula">Select sample and diluent volumes above</div>
+        <div class="calc-result" id="calcResult">—</div>
+      </div>
+      <button class="btn-add-tube" id="btnAddTube" disabled>+ Add Tube</button>
     </div>
 
     <!-- Action buttons -->
@@ -474,9 +578,12 @@ const LEVELS = [
 // ── STATE ──────────────────────────────────────────────────────────────────
 let state = {
   levelIdx: 0,
-  tubes: [],      // array of dilution numbers, e.g. [10, 100]
+  tubes: [],         // array of dilution factors, e.g. [10, 100]
+  tubeVolumes: [],   // parallel array: {sVol, dVol} in volume mode, null in quick mode
   hasPlated: false,
   totalScore: 0,
+  mode: 'quick',     // 'quick' | 'volume'
+  pendingVol: { sVol: null, dVol: null },
 };
 
 // ── DOM REFS ───────────────────────────────────────────────────────────────
@@ -507,6 +614,17 @@ const btnPlate     = document.getElementById('btnPlate');
 const btnRetry     = document.getElementById('btnRetry');
 const btnNext      = document.getElementById('btnNext');
 const winScore     = document.getElementById('winScore');
+const tabQuick     = document.getElementById('tabQuick');
+const tabVolume    = document.getElementById('tabVolume');
+const dilPanel     = document.getElementById('dilPanel');
+const volumePanel  = document.getElementById('volumePanel');
+const tubeBreakdown = document.getElementById('tubeBreakdown');
+const breakdownCard = document.getElementById('breakdownCard');
+const sVolGrid     = document.getElementById('sVolGrid');
+const dVolGrid     = document.getElementById('dVolGrid');
+const calcFormula  = document.getElementById('calcFormula');
+const calcResult   = document.getElementById('calcResult');
+const btnAddTube   = document.getElementById('btnAddTube');
 
 // ── MATH ───────────────────────────────────────────────────────────────────
 function calcFinalConc(tubes, initialConc) {
@@ -566,6 +684,63 @@ function scoreLevel(colonies, tubes, level) {
   pts += (MAX_TUBES - tubes.length) * tubeBonus;
 
   return { pts, msg: `+${pts} pts` };
+}
+
+// ── VOLUME MODE HELPERS ────────────────────────────────────────────────────
+function calcStepDilution(sVol, dVol) {
+  return (sVol + dVol) / sVol;
+}
+
+function fmtFactor(f) {
+  // Format dilution factor as "1:X" with up to 4 sig figs
+  const x = f;
+  if (Number.isInteger(x)) return `1:${x}`;
+  return `1:${x.toPrecision(4).replace(/\.?0+$/, '')}`;
+}
+
+function updateVolCalc() {
+  const { sVol, dVol } = state.pendingVol;
+  const canAdd = !state.hasPlated && state.tubes.length < MAX_TUBES;
+
+  if (sVol && dVol) {
+    const factor = calcStepDilution(sVol, dVol);
+    calcFormula.textContent = `(${sVol} + ${dVol}) ÷ ${sVol} =`;
+    calcResult.textContent  = fmtFactor(factor) + ' dilution';
+    btnAddTube.disabled = !canAdd;
+  } else if (sVol) {
+    calcFormula.textContent = `(${sVol} + ?) ÷ ${sVol} = ?  — select a diluent volume`;
+    calcResult.textContent  = '—';
+    btnAddTube.disabled = true;
+  } else if (dVol) {
+    calcFormula.textContent = `(? + ${dVol}) ÷ ? = ?  — select a sample volume`;
+    calcResult.textContent  = '—';
+    btnAddTube.disabled = true;
+  } else {
+    calcFormula.textContent = 'Select sample and diluent volumes above';
+    calcResult.textContent  = '—';
+    btnAddTube.disabled = true;
+  }
+}
+
+function updateBreakdown() {
+  if (state.mode !== 'volume' || state.tubes.length === 0) {
+    tubeBreakdown.classList.remove('visible');
+    return;
+  }
+  tubeBreakdown.classList.add('visible');
+
+  let html = '';
+  let cumFactor = 1;
+  for (let i = 0; i < state.tubes.length; i++) {
+    const f = state.tubes[i];
+    cumFactor *= f;
+    const vols = state.tubeVolumes[i];
+    const volStr = vols ? `${vols.sVol} µL + ${vols.dVol} µL` : '—';
+    html += `<div class="bk-row"><span class="bk-tube">Tube ${i + 1}: ${volStr}</span><span class="bk-factor">${fmtFactor(f)}</span></div>`;
+  }
+  const totalStr = fmtFactor(cumFactor);
+  html += `<div class="bk-total"><span>Total dilution</span><span>${totalStr}</span></div>`;
+  breakdownCard.innerHTML = html;
 }
 
 // ── CANVAS: TUBE RACK ─────────────────────────────────────────────────────
@@ -863,10 +1038,19 @@ function updateUI() {
   const canPlate = !state.hasPlated && state.tubes.length > 0;
   const canRemove = !state.hasPlated && state.tubes.length > 0;
 
-  // Dilution buttons
-  document.querySelectorAll('.btn-dil').forEach(b => {
-    b.disabled = !canAdd;
-  });
+  if (state.mode === 'quick') {
+    dilPanel.classList.remove('hidden');
+    volumePanel.classList.remove('visible');
+    document.querySelectorAll('.btn-dil').forEach(b => { b.disabled = !canAdd; });
+    tubeBreakdown.classList.remove('visible');
+  } else {
+    dilPanel.classList.add('hidden');
+    volumePanel.classList.add('visible');
+    document.querySelectorAll('.btn-vol').forEach(b => { b.disabled = !canAdd; });
+    updateVolCalc();
+    updateBreakdown();
+  }
+
   btnRemove.disabled = !canRemove;
   btnPlate.disabled  = !canPlate;
 
@@ -883,7 +1067,9 @@ function updateUI() {
 function loadLevel(idx) {
   state.levelIdx = idx;
   state.tubes    = [];
+  state.tubeVolumes = [];
   state.hasPlated = false;
+  state.pendingVol = { sVol: null, dVol: null };
 
   const level = LEVELS[idx];
   levelTitle.textContent = level.name;
@@ -996,6 +1182,7 @@ document.querySelectorAll('.btn-dil').forEach(btn => {
     const d = parseInt(btn.dataset.d, 10);
     if (state.hasPlated || state.tubes.length >= MAX_TUBES) return;
     state.tubes.push(d);
+    state.tubeVolumes.push(null);
     updateUI();
   });
 });
@@ -1003,12 +1190,62 @@ document.querySelectorAll('.btn-dil').forEach(btn => {
 btnRemove.addEventListener('click', () => {
   if (state.tubes.length === 0 || state.hasPlated) return;
   state.tubes.pop();
+  state.tubeVolumes.pop();
+  if (state.mode === 'volume') {
+    // Clear pending selection so student starts fresh for next tube
+    state.pendingVol = { sVol: null, dVol: null };
+    document.querySelectorAll('.btn-vol').forEach(b => b.classList.remove('selected'));
+  }
   updateUI();
 });
 
 btnPlate.addEventListener('click', doPlate);
 btnRetry.addEventListener('click', doRetry);
 btnNext.addEventListener('click', doNext);
+
+// ── MODE TAB WIRING ────────────────────────────────────────────────────────
+tabQuick.addEventListener('click', () => {
+  state.mode = 'quick';
+  tabQuick.classList.add('active');
+  tabVolume.classList.remove('active');
+});
+tabVolume.addEventListener('click', () => {
+  state.mode = 'volume';
+  tabVolume.classList.add('active');
+  tabQuick.classList.remove('active');
+});
+
+// ── VOLUME BUTTON WIRING ──────────────────────────────────────────────────
+sVolGrid.addEventListener('click', e => {
+  const btn = e.target.closest('.btn-vol[data-sv]');
+  if (!btn || btn.disabled) return;
+  sVolGrid.querySelectorAll('.btn-vol').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  state.pendingVol.sVol = parseInt(btn.dataset.sv, 10);
+  updateVolCalc();
+});
+
+dVolGrid.addEventListener('click', e => {
+  const btn = e.target.closest('.btn-vol[data-dv]');
+  if (!btn || btn.disabled) return;
+  dVolGrid.querySelectorAll('.btn-vol').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  state.pendingVol.dVol = parseInt(btn.dataset.dv, 10);
+  updateVolCalc();
+});
+
+btnAddTube.addEventListener('click', () => {
+  const { sVol, dVol } = state.pendingVol;
+  if (!sVol || !dVol || state.hasPlated || state.tubes.length >= MAX_TUBES) return;
+  const factor = calcStepDilution(sVol, dVol);
+  state.tubes.push(factor);
+  state.tubeVolumes.push({ sVol, dVol });
+  // Reset selection for next tube
+  state.pendingVol = { sVol: null, dVol: null };
+  sVolGrid.querySelectorAll('.btn-vol').forEach(b => b.classList.remove('selected'));
+  dVolGrid.querySelectorAll('.btn-vol').forEach(b => b.classList.remove('selected'));
+  updateUI();
+});
 
 // Redraw rack on resize
 window.addEventListener('resize', () => {
