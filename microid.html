@@ -1367,14 +1367,11 @@ function renderEndScreen() {
   const typeTotals = {};
   const typeCorrects = {};
   round.forEach(q => {
-    const t = q.org.type || 'unknown';
+    const t = q.org ? (q.org.type || 'unknown') : 'custom';
     typeTotals[t] = (typeTotals[t] || 0) + 1;
   });
-  // We track correct per type via round answers — stored in each question after answered
-  // Actually we need to track per-question results. Let's derive from progress delta.
-  // Simpler: attach result to each question object (we'll do this in answer handling)
   round.forEach(q => {
-    const t = q.org.type || 'unknown';
+    const t = q.org ? (q.org.type || 'unknown') : 'custom';
     typeCorrects[t] = (typeCorrects[t] || 0) + (q._correct ? 1 : 0);
   });
 
