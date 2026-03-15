@@ -1,0 +1,2136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sticky Ends — Dev</title>
+
+  <style>
+    /* ------------------------------------------------------------------ */
+    /* Reset & variables                                                    */
+    /* ------------------------------------------------------------------ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-dark:    #1A2332;
+      --bg-mid:     #243447;
+      --bg-light:   #2D4060;
+      --accent:     #4FC3F7;
+      --accent2:    #81C784;
+      --text-main:  #E8EDF2;
+      --text-muted: #8FA8C0;
+      --danger:     #EF5350;
+      --warn:       #FFB300;
+      --success:    #66BB6A;
+      --border:     #354A63;
+      --font-mono:  'Courier New', Courier, monospace;
+      --font-sans:  'Segoe UI', system-ui, sans-serif;
+      --radius:     8px;
+      --shadow:     0 4px 24px rgba(0,0,0,0.5);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow: hidden;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Shared components                                                    */
+    /* ------------------------------------------------------------------ */
+    button {
+      background: var(--bg-light);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 14px;
+      font-size: 0.82rem;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    button:hover  { background: #3A5070; border-color: var(--accent); }
+    button:disabled { opacity: 0.4; cursor: default; }
+    button:disabled:hover { background: var(--bg-light); border-color: var(--border); }
+    button.primary {
+      background: var(--accent); color: #0D1B2A;
+      font-weight: 700; border-color: var(--accent);
+    }
+    button.primary:hover { background: #81D4FA; }
+    button.success-btn {
+      background: var(--success); color: #0D1B2A;
+      font-weight: 700; border-color: var(--success);
+    }
+    button.danger { border-color: var(--danger); color: var(--danger); }
+    button.danger:hover { background: rgba(239,83,80,0.15); }
+
+    select {
+      background: var(--bg-light); color: var(--text-main);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 5px 8px; font-size: 0.82rem; cursor: pointer;
+    }
+    select:focus { outline: 1px solid var(--accent); }
+
+    /* ------------------------------------------------------------------ */
+    /* Mode selection screen                                               */
+    /* ------------------------------------------------------------------ */
+    #modeSelectScreen {
+      position: fixed; inset: 0;
+      background: linear-gradient(160deg, #1E4D2B 0%, #163820 60%, #0f2516 100%);
+      z-index: 200; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 28px;
+    }
+    #modeSelectScreen h1 {
+      font-size: 2.2rem; color: #C8A951;
+      letter-spacing: 0.06em; text-align: center;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    }
+    #modeSelectScreen p {
+      color: #a8c5a0; font-size: 1rem;
+      text-align: center; max-width: 520px; line-height: 1.7;
+    }
+    .mode-buttons { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+    .mode-btn {
+      background: rgba(255,255,255,0.06); border: 2px solid rgba(200,169,81,0.35);
+      border-radius: 12px; padding: 24px 32px; cursor: pointer;
+      text-align: center; width: 175px;
+      transition: border-color 0.2s, background 0.2s, transform 0.15s;
+      color: #e8f5e9; font-family: var(--font-sans);
+    }
+    .mode-btn:hover { border-color: #C8A951; background: rgba(200,169,81,0.12); transform: translateY(-3px); }
+    .mode-btn.primary-mode { width: 210px; }
+    .mode-btn.primary-mode:hover { border-color: #e0c060; transform: translateY(-4px); }
+    .mode-icon { font-size: 2.4rem; margin-bottom: 10px; }
+    .mode-label { font-size: 1rem; font-weight: 700; color: #C8A951; margin-bottom: 6px; }
+    .mode-desc { font-size: 11px; color: #a8c5a0; line-height: 1.5; }
+
+    /* ------------------------------------------------------------------ */
+    /* Shared header                                                        */
+    /* ------------------------------------------------------------------ */
+    .app-header {
+      background: var(--bg-mid); border-bottom: 1px solid var(--border);
+      padding: 0 20px; display: flex; align-items: center;
+      justify-content: space-between; height: 52px; flex-shrink: 0;
+    }
+    .app-header h1 { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+    .app-header h1 span { color: var(--text-muted); font-weight: 400; font-size: 0.85em; }
+    .score-bar { display: flex; gap: 18px; align-items: center; }
+    .score-item { text-align: center; }
+    .score-item .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); }
+    .score-item .value { font-size: 1.3rem; font-weight: 700; color: var(--accent); font-family: var(--font-mono); }
+
+    /* ------------------------------------------------------------------ */
+    /* Toast notifications                                                  */
+    /* ------------------------------------------------------------------ */
+    #toastContainer {
+      position: fixed; bottom: 20px; right: 24px;
+      display: flex; flex-direction: column; gap: 8px; z-index: 1000;
+    }
+    .toast {
+      background: var(--bg-mid); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 16px; font-size: 12px;
+      color: var(--text-main); box-shadow: var(--shadow);
+      animation: slideIn 0.25s ease, fadeOut 0.4s 2.6s ease forwards;
+      max-width: 320px;
+    }
+    .toast.success { border-color: var(--success); }
+    .toast.warn    { border-color: var(--warn); }
+    .toast.error   { border-color: var(--danger); }
+    @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    @keyframes fadeOut { to { opacity: 0; transform: translateY(10px); } }
+
+    /* ------------------------------------------------------------------ */
+    /* Canvas overlay flash messages                                        */
+    /* ------------------------------------------------------------------ */
+    .canvas-flash {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(13,27,42,0.88); border-radius: 10px;
+      padding: 11px 20px; font-size: 13px; font-weight: 600;
+      pointer-events: none; z-index: 20; text-align: center; max-width: 82%;
+      animation: cfIn 0.18s ease, cfOut 0.45s var(--cf-delay, 1.8s) ease forwards;
+    }
+    .canvas-flash.success { color: var(--success); border: 1px solid var(--success); }
+    .canvas-flash.error   { color: var(--danger);  border: 1px solid var(--danger); }
+    .canvas-flash.warn    { color: var(--warn);    border: 1px solid var(--warn); }
+    .canvas-flash.info    { color: var(--accent);  border: 1px solid var(--accent); }
+    @keyframes cfIn  { from { opacity: 0; transform: translate(-50%, -58%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+    @keyframes cfOut { to   { opacity: 0; transform: translate(-50%, -42%); } }
+
+    /* ------------------------------------------------------------------ */
+    /* Score summary overlay                                                */
+    /* ------------------------------------------------------------------ */
+    #scoreSummary {
+      display: none; position: fixed; inset: 0;
+      background: rgba(10,18,30,0.88); z-index: 300;
+      align-items: center; justify-content: center;
+    }
+
+    /* ================================================================== */
+    /* CLONING WORKSPACE                                                   */
+    /* ================================================================== */
+    #cloningWorkspace {
+      display: none; flex-direction: column; height: 100vh; overflow: hidden;
+    }
+
+    /* Level info bar */
+    #cloningLevelBar {
+      background: var(--bg-mid); border-bottom: 1px solid var(--border);
+      padding: 8px 20px; font-size: 12px; flex-shrink: 0;
+      display: flex; align-items: flex-start; gap: 20px;
+    }
+    #cloningLevelBar .level-title {
+      font-size: 0.95rem; font-weight: 700; color: var(--accent); white-space: nowrap;
+    }
+    #cloningLevelBar .level-desc { color: var(--text-muted); }
+    #cloningLevelBar .level-teach { color: var(--accent2); font-style: italic; }
+    #cloningNavBtns { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
+
+    /* ------------------------------------------------------------------ */
+    /* Three-column layout                                                  */
+    /* ------------------------------------------------------------------ */
+    .cloning-main {
+      display: flex; flex: 1; overflow: hidden; min-height: 0;
+    }
+
+    /* ---- Outer plasmid columns ---- */
+    .plasmid-col {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; padding: 10px 12px 8px;
+      border-right: 1px solid var(--border);
+      overflow-y: auto; overflow-x: hidden; min-width: 0;
+    }
+    .plasmid-col-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
+      color: var(--text-muted); margin-bottom: 4px; align-self: flex-start;
+    }
+    .plasmid-name {
+      font-size: 0.9rem; font-weight: 600; color: var(--accent);
+      margin-bottom: 6px; align-self: flex-start;
+    }
+    .canvas-wrap {
+      flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      width: 100%; max-height: 540px; position: relative;
+    }
+    .canvas-wrap canvas {
+      max-width: 100%; max-height: 100%;
+      background: var(--bg-dark); border-radius: 8px;
+    }
+    #donorCol .canvas-wrap { max-height: 486px; }
+    #donorCol .canvas-wrap canvas { max-height: 486px; }
+
+    /* Donor tab bar (shown only when multiple donors present) */
+    #donorTabBar { display: none; gap: 3px; padding: 0 6px 4px; flex-wrap: wrap; }
+    .donor-tab { padding: 3px 11px; border: 1px solid var(--border); border-radius: 4px 4px 0 0;
+                 background: var(--bg-dark); color: var(--text-muted); cursor: pointer;
+                 font-size: 11px; transition: color 0.15s, background 0.15s; }
+    .donor-tab:hover { color: var(--text-col); background: var(--bg-mid); }
+    .donor-tab.active { background: var(--bg-light); color: var(--accent); border-bottom-color: var(--bg-light); }
+    .donor-tab.cut-done { color: var(--success); border-color: var(--success); }
+    .donor-tab.cut-done.active { background: var(--bg-light); }
+
+    /* MIP header image */
+    .header-image-wrap {
+      flex: 1; display: flex; justify-content: center; align-items: center;
+      overflow: hidden; height: 52px; pointer-events: none;
+    }
+    .header-mip {
+      height: 48px; width: auto; max-width: 320px; object-fit: contain;
+      -webkit-mask-image: radial-gradient(ellipse 85% 100% at center, black 55%, rgba(0,0,0,0.05) 70%, transparent 80%);
+      mask-image: radial-gradient(ellipse 85% 100% at center, black 55%, rgba(0,0,0,0.05) 70%, transparent 80%);
+    }
+
+    /* Enzyme picker */
+    .enzyme-picker-row {
+      display: flex; gap: 6px; align-items: center;
+      margin-top: 8px; flex-wrap: wrap; width: 100%;
+    }
+    .enzyme-picker-row .picker-label {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-muted);
+    }
+    .enzyme-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--bg-light); border: 1px solid var(--border);
+      border-radius: 4px; padding: 2px 8px; font-size: 11px;
+      font-family: var(--font-mono); color: var(--accent);
+    }
+    .enzyme-tag .remove-tag {
+      cursor: pointer; color: var(--text-muted); font-size: 13px;
+      line-height: 1; margin-left: 2px;
+    }
+    .enzyme-tag .remove-tag:hover { color: var(--danger); }
+
+    /* Cut button row */
+    .col-actions {
+      display: flex; gap: 8px; margin-top: 8px; width: 100%;
+      justify-content: flex-start; align-items: center; flex-wrap: wrap;
+    }
+    .col-actions .cut-status { font-size: 11px; color: var(--text-muted); }
+    .col-actions .cut-status.done { color: var(--success); }
+
+    /* In-column fragment section (revealed after cut) */
+    .col-frag-section {
+      width: 100%; margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    .col-frag-label {
+      font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+      color: var(--text-muted); margin-bottom: 6px;
+    }
+    .col-frag-cards {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+
+    /* Fragment card */
+    .fragment-card {
+      background: var(--bg-dark); border: 1.5px solid var(--border);
+      border-radius: 8px; padding: 7px 10px; cursor: grab;
+      width: 100%; user-select: none;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .fragment-card:hover { border-color: var(--accent); box-shadow: 0 2px 12px rgba(79,195,247,0.25); }
+    .fragment-card.dragging { opacity: 0.5; cursor: grabbing; }
+    .fragment-card.trashed  { opacity: 0.3; pointer-events: none; text-decoration: line-through; }
+    .fragment-card.placed      { border-color: var(--success); opacity: 0.5; pointer-events: none; }
+    .fragment-card.wrong-combo { border-color: var(--warn); opacity: 0.7; }
+    .fragment-card-name {
+      font-size: 11px; font-weight: 700; color: var(--text-main);
+      margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .fragment-ends {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 9px; font-family: var(--font-mono); margin-bottom: 3px;
+    }
+    .end-tag {
+      padding: 1px 5px; border-radius: 3px; background: var(--bg-light);
+      color: var(--warn); border: 1px solid var(--border);
+    }
+    .fragment-size {
+      font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
+    }
+    .fragment-features { display: flex; gap: 3px; margin-top: 4px; flex-wrap: wrap; }
+    .feature-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+    /* ---- Center ligation column ---- */
+    .ligation-col {
+      flex: 0 0 320px; display: flex; flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: #0f1a28; overflow: hidden;
+    }
+    .lig-col-title {
+      background: var(--bg-mid); border-bottom: 1px solid var(--border);
+      padding: 7px 10px; font-size: 11px; font-weight: 700;
+      color: var(--accent); text-align: center; flex-shrink: 0;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .lig-col-hint {
+      font-size: 10px; color: var(--text-muted); padding: 5px 10px;
+      text-align: center; font-style: italic; flex-shrink: 0;
+      border-bottom: 1px solid var(--border); background: #131e2d;
+    }
+
+    /* Drop zone — fills available space */
+    #ligDropZone {
+      flex: 1; padding: 10px 8px; overflow-y: auto;
+      transition: background 0.2s, box-shadow 0.2s;
+      cursor: default; min-height: 60px;
+    }
+    #ligDropZone.dragover {
+      background: rgba(79,195,247,0.08);
+      box-shadow: inset 0 0 0 2px rgba(79,195,247,0.35);
+    }
+    #ligAssembly {
+      display: flex; flex-direction: column; gap: 4px; min-height: 100%;
+    }
+    .lig-drop-hint {
+      font-size: 11px; color: var(--text-muted); font-style: italic;
+      padding: 12px 8px; text-align: center;
+    }
+
+    /* Ligation slot (one per fragment in assembly) */
+    .lig-slot {
+      width: 100%; background: var(--bg-mid); border: 1.5px solid var(--border);
+      border-radius: 7px; padding: 5px 7px;
+      transition: border-color 0.2s; box-sizing: border-box;
+    }
+    .lig-slot.compat-ok   { border-color: var(--success); }
+    .lig-slot.compat-fail { border-color: var(--danger); }
+    .lig-slot-row1 {
+      display: flex; align-items: center; gap: 4px;
+    }
+    .lig-slot-name {
+      flex: 1; font-size: 11px; font-weight: 700; color: var(--text-main);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lig-slot-source { font-size: 9px; color: var(--text-muted); text-transform: uppercase; }
+    .lig-orient-btn {
+      background: var(--bg-light); border: 1px solid var(--border); border-radius: 4px;
+      padding: 1px 6px; font-size: 12px; cursor: pointer; color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .lig-orient-btn.fwd { color: var(--accent2); border-color: var(--accent2); }
+    .lig-orient-btn.rev { color: var(--warn);    border-color: var(--warn); }
+    .lig-remove {
+      font-size: 15px; cursor: pointer; color: var(--text-muted);
+      padding: 0 2px; line-height: 1; flex-shrink: 0;
+    }
+    .lig-remove:hover { color: var(--danger); }
+    .lig-slot-row2 {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 3px;
+    }
+
+    /* Junction between slots */
+    .lig-junction {
+      text-align: center; font-size: 13px; color: var(--text-muted);
+      flex-shrink: 0; padding: 0;
+    }
+    .lig-junction.ok   { color: var(--success); }
+    .lig-junction.fail { color: var(--danger); }
+    .lig-junction-label {
+      font-size: 8px; font-family: var(--font-mono); color: inherit;
+      display: block; text-align: center;
+    }
+    .lig-wrap { text-align: center; font-size: 12px; color: var(--text-muted); padding: 2px 0; }
+    .lig-wrap.ok   { color: var(--success); }
+    .lig-wrap.fail { color: var(--danger); }
+
+    /* Ligation action buttons */
+    .lig-col-actions {
+      display: flex; gap: 6px; padding: 7px 8px; flex-shrink: 0;
+      background: var(--bg-mid); border-top: 1px solid var(--border);
+    }
+
+    /* Ligation result */
+    #ligResult {
+      flex-shrink: 0; padding: 8px; border-top: 1px solid var(--border);
+      background: var(--bg-mid); display: flex; flex-direction: column;
+      align-items: center; gap: 6px; font-size: 11px;
+    }
+    #ligResultCanvas { border-radius: 8px; background: var(--bg-dark); max-width: calc(100% - 16px); }
+    #ligResultCanvas.celebrate {
+      animation: cardSpin 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+    @keyframes cardSpin {
+      0%   { transform: scale(0.2) rotate(-360deg); opacity: 0; }
+      70%  { transform: scale(1.08) rotate(8deg);   opacity: 1; }
+      85%  { transform: scale(0.96) rotate(-3deg); }
+      100% { transform: scale(1)    rotate(0deg);   opacity: 1; }
+    }
+    #ligResultText   { text-align: center; line-height: 1.5; }
+    #ligResultScore  { font-family: var(--font-mono); font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+
+    /* Floating score pop */
+    .score-pop {
+      position: fixed; pointer-events: none; font-family: var(--font-mono);
+      font-size: 1.6rem; font-weight: 900; color: var(--success);
+      text-shadow: 0 0 12px rgba(102,187,106,0.8);
+      animation: scorePop 1.2s ease-out forwards; z-index: 9999;
+    }
+    @keyframes scorePop {
+      0%   { transform: translateY(0)   scale(0.6); opacity: 1; }
+      40%  { transform: translateY(-40px) scale(1.2); opacity: 1; }
+      100% { transform: translateY(-90px) scale(0.9); opacity: 0; }
+    }
+
+    /* Confetti dot */
+    .confetti-dot {
+      position: fixed; width: 8px; height: 8px; border-radius: 2px;
+      pointer-events: none; z-index: 9998;
+      animation: confettiFall var(--cf-dur, 1.2s) ease-in forwards;
+    }
+    @keyframes confettiFall {
+      0%   { transform: translate(0,0) rotate(0deg)   scale(1);   opacity: 1; }
+      100% { transform: translate(var(--cf-dx), var(--cf-dy)) rotate(var(--cf-rot)) scale(0.4); opacity: 0; }
+    }
+
+    /* Trash can (bottom of ligation col) */
+    #trashCan {
+      flex-shrink: 0; margin: 6px auto;
+      width: 64px; height: 58px;
+      border: 2px dashed var(--border); border-radius: 10px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; font-size: 22px; cursor: default;
+      transition: border-color 0.2s, background 0.2s; color: var(--text-muted);
+    }
+    #trashCan.dragover { border-color: var(--danger); background: rgba(239,83,80,0.12); }
+    #trashCan .trash-label { font-size: 8px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+
+    /* ------------------------------------------------------------------ */
+    /* Cloning log                                                          */
+    /* ------------------------------------------------------------------ */
+    #logBar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg-mid); border-top: 1px solid var(--border);
+      padding: 2px 10px; flex-shrink: 0;
+    }
+    #logBar span { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    #btnToggleLog {
+      background: none; border: none; color: var(--text-muted); font-size: 11px;
+      cursor: pointer; padding: 2px 6px; line-height: 1;
+    }
+    #btnToggleLog:hover { color: var(--accent); }
+    #cloningLog {
+      background: #131e2d;
+      padding: 6px 16px; height: 60px; overflow-y: auto; flex-shrink: 0;
+      font-size: 11px; font-family: var(--font-mono);
+      transition: height 0.2s ease, padding 0.2s ease;
+    }
+    #cloningLog.log-collapsed { height: 0; padding: 0; overflow: hidden; }
+    .clog-entry { color: var(--text-muted); }
+    .clog-entry.info    { color: var(--accent); }
+    .clog-entry.warn    { color: var(--warn); }
+    .clog-entry.error   { color: var(--danger); }
+    .clog-entry.success { color: var(--success); }
+
+    /* ------------------------------------------------------------------ */
+    /* Old game area (tutorial / challenge / sandbox)                      */
+    /* ------------------------------------------------------------------ */
+    #gameArea { display: none; flex-direction: column; height: 100vh; overflow: hidden; }
+    .app-wrapper { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    header { background: var(--bg-mid); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 56px; flex-shrink: 0; }
+    header h1 { font-size: 1.25rem; font-weight: 700; color: var(--accent); letter-spacing: 0.04em; }
+    header h1 span { color: var(--text-muted); font-weight: 400; font-size: 0.9em; }
+    .content { display: flex; flex: 1; overflow: hidden; }
+    .sidebar { width: 260px; min-width: 220px; background: var(--bg-mid); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    .sidebar-section { padding: 12px 16px 8px; border-bottom: 1px solid var(--border); }
+    .sidebar-section h2 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 8px; }
+    .enzyme-list { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .enzyme-item { display: flex; align-items: center; padding: 6px 16px; cursor: pointer; border-left: 3px solid transparent; gap: 10px; transition: background 0.15s; }
+    .enzyme-item:hover { background: var(--bg-light); border-left-color: var(--accent); }
+    .enzyme-item.selected { background: var(--bg-light); border-left-color: var(--accent); }
+    .enzyme-name { font-weight: 600; font-size: 0.85rem; min-width: 70px; }
+    .overhang-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-family: var(--font-mono); padding: 2px 6px; border-radius: 3px; }
+    .overhang-badge.five-prime  { background: #1565C0; color: #90CAF9; }
+    .overhang-badge.three-prime { background: #6A1B9A; color: #CE93D8; }
+    .overhang-badge.blunt       { background: #37474F; color: #90A4AE; }
+    .overhang-seq { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+    .main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .toolbar { background: var(--bg-mid); border-bottom: 1px solid var(--border); padding: 8px 20px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .toolbar-group { display: flex; align-items: center; gap: 8px; }
+    .toolbar-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); }
+    .canvas-area { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 16px; overflow: hidden; position: relative; }
+    #plasmidCanvas { border-radius: 8px; cursor: crosshair; max-width: 100%; max-height: 100%; background: #1a2332; }
+    .size-slider-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--text-muted); font-size: 0.8rem; user-select: none; }
+    .size-slider-row input[type=range] { width: 140px; accent-color: var(--accent); cursor: pointer; }
+    .info-panel { height: 160px; background: var(--bg-mid); border-top: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    .info-tabs { display: flex; border-bottom: 1px solid var(--border); }
+    .info-tab { padding: 6px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; }
+    .info-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .info-content { flex: 1; overflow-y: auto; padding: 8px 16px; }
+    #logPanel, #analysisPanel, #helpPanel { display: none; font-size: 12px; font-family: var(--font-mono); line-height: 1.7; }
+    #logPanel.active, #analysisPanel.active, #helpPanel.active { display: block; }
+    .log-entry { color: var(--text-muted); }
+    .log-entry.info    { color: var(--accent); }
+    .log-entry.warn    { color: var(--warn); }
+    .log-entry.error   { color: var(--danger); }
+    .log-entry.success { color: var(--success); }
+    .enzyme-detail { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 11px; min-height: 100px; background: #1D2E40; }
+    .enzyme-detail h3 { font-size: 13px; color: var(--accent); margin-bottom: 6px; }
+    .enzyme-detail .recog { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.12em; }
+    .enzyme-detail .cut-mark { color: var(--danger); font-weight: bold; }
+    .detail-row { margin: 3px 0; color: var(--text-muted); }
+    .detail-row strong { color: var(--text-main); }
+    #levelInfo { display: none; background: var(--bg-mid); border-bottom: 1px solid var(--border); padding: 10px 24px; font-size: 12px; }
+    .level-title { font-size: 0.95rem; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+    .level-desc { color: var(--text-muted); margin-bottom: 3px; }
+    .level-teaching { color: var(--accent2); font-style: italic; margin-bottom: 3px; }
+    .level-objective { color: var(--warn); }
+    #timerBar { display: none; align-items: center; gap: 10px; background: var(--bg-mid); border-bottom: 1px solid var(--border); padding: 4px 24px; }
+    .timer-track { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .timer-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 1s linear, background 0.5s; }
+    .timer-label { min-width: 36px; text-align: right; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+    #ligationWorkspace, #colonyPlate, #variantPredictor { display: none; padding: 12px 20px; background: var(--bg-mid); border-top: 1px solid var(--border); font-size: 12px; }
+    .overhang-visual { display: inline-flex; align-items: flex-start; gap: 4px; font-family: var(--font-mono); font-size: 12px; background: #1A2332; border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; margin: 4px 0; }
+    .strand-top { color: #90CAF9; }
+    .strand-bottom { color: #F48FB1; }
+    .strand-overhang { color: #FFD54F; font-weight: bold; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ===== MODE SELECTION ===== -->
+<div id="modeSelectScreen">
+  <h1>Sticky Ends</h1>
+  <div class="mode-buttons">
+    <!-- Clone It! desktop — hidden in favour of mobile version
+    <button class="mode-btn primary-mode" id="btnClone">
+      <div class="mode-icon">&#x1F9EC;</div>
+      <div class="mode-label">Clone It!</div>
+      <div class="mode-desc">Drag-and-drop restriction cloning — cut donor plasmids, pick your fragment, ligate it in.</div>
+    </button>
+    -->
+    <a class="mode-btn" href="clone_it_mobile.html" style="text-decoration:none;">
+      <div class="mode-icon">
+        <svg viewBox="0 0 80 80" width="58" height="58" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
+          <!-- Backbone -->
+          <circle cx="40" cy="40" r="30" fill="none" stroke="#a8c5a0" stroke-width="2"/>
+          <!-- GFP gene arc: 25°→155° -->
+          <path d="M 52.7,12.8 A 30,30 0 0,1 52.7,67.2" fill="none" stroke="#6BCB77" stroke-width="7" stroke-linecap="round"/>
+          <!-- AmpR arc: 185°→325° -->
+          <path d="M 37.4,69.9 A 30,30 0 0,1 22.8,15.4" fill="none" stroke="#FF9F43" stroke-width="7" stroke-linecap="round"/>
+          <!-- ori arc: 340°→15° -->
+          <path d="M 29.7,11.8 A 30,30 0 0,1 47.8,11.0" fill="none" stroke="#4D96FF" stroke-width="7" stroke-linecap="round"/>
+          <!-- EcoRI tick at 25° -->
+          <line x1="51.0" y1="16.4" x2="54.4" y2="9.2" stroke="#FF6B6B" stroke-width="2" stroke-linecap="round"/>
+          <!-- BamHI tick at 155° -->
+          <line x1="51.0" y1="63.6" x2="54.4" y2="70.8" stroke="#FFD93D" stroke-width="2" stroke-linecap="round"/>
+          <!-- Center label -->
+          <text x="40" y="37" text-anchor="middle" fill="#C8A951" font-size="7.5" font-weight="700" font-family="sans-serif">pUC19</text>
+          <text x="40" y="48" text-anchor="middle" fill="#a8c5a0" font-size="5.5" font-family="monospace">2686 bp</text>
+        </svg>
+      </div>
+      <div class="mode-label">Clone It!</div>
+      <div class="mode-desc">Tap-based restriction cloning — optimized for phones and tablets.</div>
+    </a>
+    <a class="mode-btn" href="rc_game.html" style="text-decoration:none;">
+      <div class="mode-icon">&#x1F9EC;</div>
+      <div class="mode-label">Antisense</div>
+      <div class="mode-desc">Type the 5'→3' reverse complement before the clock runs out. 4 phases of increasing difficulty.</div>
+    </a>
+    <!-- Fragment Forge hidden for now
+    <a class="mode-btn" href="fragment_forge.html" style="text-decoration:none;">
+      <div class="mode-icon">&#x1F9F0;</div>
+      <div class="mode-label">Fragment Forge</div>
+      <div class="mode-desc">Design fragment boundaries and overlaps to assemble a construct via Gibson Assembly.</div>
+    </a>
+    -->
+    <a class="mode-btn" href="ab_runner.html" style="text-decoration:none;">
+      <div class="mode-icon">
+        <!-- Antibody Y-shape + pathogen -->
+        <svg viewBox="0 0 80 80" width="58" height="58" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
+          <!-- Fc stem -->
+          <line x1="40" y1="42" x2="40" y2="68" stroke="#C8A951" stroke-width="7" stroke-linecap="round"/>
+          <!-- Left Fab -->
+          <line x1="40" y1="42" x2="15" y2="17" stroke="#a8c5a0" stroke-width="6" stroke-linecap="round"/>
+          <!-- Right Fab -->
+          <line x1="40" y1="42" x2="65" y2="17" stroke="#a8c5a0" stroke-width="6" stroke-linecap="round"/>
+          <!-- Hinge -->
+          <circle cx="40" cy="42" r="5" fill="#245c34" stroke="#a8c5a0" stroke-width="1.5"/>
+          <!-- Binding tips (red — antigen binding) -->
+          <circle cx="15" cy="17" r="7" fill="#FF6B6B" stroke="#e8f5e9" stroke-width="1.5"/>
+          <circle cx="65" cy="17" r="7" fill="#FF6B6B" stroke="#e8f5e9" stroke-width="1.5"/>
+          <!-- Fc tip -->
+          <circle cx="40" cy="68" r="5" fill="#C8A951"/>
+          <!-- Small pathogen -->
+          <circle cx="66" cy="56" r="7" fill="#3B1054" stroke="#9B59B6" stroke-width="1.5"/>
+          <line x1="66" y1="49" x2="66" y2="46" stroke="#9B59B6" stroke-width="1.5"/>
+          <line x1="73" y1="56" x2="76" y2="56" stroke="#9B59B6" stroke-width="1.5"/>
+          <line x1="59" y1="56" x2="56" y2="56" stroke="#9B59B6" stroke-width="1.5"/>
+          <!-- Triangle epitope on pathogen -->
+          <polygon points="66,52 70,58 62,58" fill="#FF6B6B"/>
+        </svg>
+      </div>
+      <div class="mode-label">Antibody Attack</div>
+      <div class="mode-desc">Neutralize incoming pathogens by matching your antibody to the right epitope before they reach the host.</div>
+    </a>
+    <a class="mode-btn" href="ribosome_rush.html" style="text-decoration:none;">
+      <div class="mode-icon">
+        <svg viewBox="0 0 80 70" width="58" height="58" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
+          <defs>
+            <radialGradient id="ribLSU" cx="38%" cy="28%" r="62%">
+              <stop offset="0%" stop-color="#7BBDE8"/>
+              <stop offset="100%" stop-color="#2464A0"/>
+            </radialGradient>
+            <radialGradient id="ribSSU" cx="50%" cy="30%" r="58%">
+              <stop offset="0%" stop-color="#9DD0F5"/>
+              <stop offset="100%" stop-color="#3A80BA"/>
+            </radialGradient>
+          </defs>
+          <!-- Nascent peptide chain emerging from exit tunnel -->
+          <circle cx="35" cy="4"  r="2.8" fill="#6BCB77" opacity="0.95"/>
+          <circle cx="38" cy="9"  r="2.8" fill="#6BCB77" opacity="0.95"/>
+          <circle cx="34" cy="14" r="2.8" fill="#6BCB77" opacity="0.95"/>
+          <!-- Large subunit (50S) -->
+          <ellipse cx="40" cy="30" rx="22" ry="19" fill="url(#ribLSU)" stroke="rgba(255,255,255,0.18)" stroke-width="0.8"/>
+          <!-- mRNA channel shadow -->
+          <rect x="18" y="44" width="44" height="5" rx="2" fill="#0a1a0d" opacity="0.55"/>
+          <!-- mRNA: wavy left tail -->
+          <path d="M0,47 C3,45 6,49 9,47 C12,45 15,49 18,47" stroke="#C8A951" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- mRNA: dashed through ribosome -->
+          <line x1="18" y1="47" x2="62" y2="47" stroke="#C8A951" stroke-width="2.5" stroke-dasharray="5,3"/>
+          <!-- mRNA: wavy right tail -->
+          <path d="M62,47 C65,45 68,49 71,47 C74,45 77,49 80,47" stroke="#C8A951" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- Small subunit (30S) -->
+          <ellipse cx="40" cy="58" rx="23" ry="9.5" fill="url(#ribSSU)" stroke="rgba(255,255,255,0.15)" stroke-width="0.8"/>
+        </svg>
+      </div>
+      <div class="mode-label">Ribosome Rush</div>
+      <div class="mode-desc">Drag tRNAs onto scrolling mRNA codons to translate a protein &mdash; before they scroll past!</div>
+    </a>
+  </div>
+</div>
+
+<!-- ===== SCORE SUMMARY OVERLAY ===== -->
+<div id="scoreSummary"></div>
+
+<!-- ================================================================== -->
+<!-- CLONING WORKSPACE (primary mode)                                    -->
+<!-- ================================================================== -->
+<div id="cloningWorkspace">
+
+  <!-- Header -->
+  <div class="app-header">
+    <h1>Clone It!</h1>
+    <div class="header-image-wrap">
+      <img src="MIP.png" alt="" class="header-mip">
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="score-bar">
+        <div class="score-item">
+          <div class="label">Level</div>
+          <div class="value" id="cloningLevelNum">1</div>
+        </div>
+        <div class="score-item">
+          <div class="label">Score</div>
+          <div class="value" id="cloningScore">0</div>
+        </div>
+      </div>
+      <button id="btnCloningMenu" class="danger" style="font-size:11px;padding:4px 10px;">&#8592; Menu</button>
+    </div>
+  </div>
+
+  <!-- Level info bar -->
+  <div id="cloningLevelBar">
+    <div>
+      <div class="level-title" id="cloningTitle">Loading…</div>
+      <div class="level-desc"  id="cloningDesc"></div>
+      <div class="level-teach" id="cloningTeach"></div>
+    </div>
+    <div id="cloningNavBtns">
+      <button id="btnCloningPrev" style="display:none">&#8592; Prev Level</button>
+      <button id="btnCloningReset">↺ Reset Level</button>
+      <button id="btnCloningNext" class="success-btn" disabled>Next Level &#8594;</button>
+    </div>
+  </div>
+
+  <!-- Three-column workspace: vector | ligation zone | donor -->
+  <div class="cloning-main">
+
+    <!-- VECTOR column -->
+    <div class="plasmid-col" id="vectorCol">
+      <div class="plasmid-col-label">Vector</div>
+      <div class="plasmid-name" id="vectorName">pUC19</div>
+      <div class="canvas-wrap">
+        <canvas id="vectorCanvas" width="700" height="700"></canvas>
+      </div>
+      <div class="enzyme-picker-row">
+        <span class="picker-label">Enzymes:</span>
+        <select id="vectorEnzymeSelect"><option value="">— add enzyme —</option></select>
+        <div id="vectorEnzymeTags" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+      </div>
+      <div class="col-actions">
+        <button class="primary" id="btnCutVector">✂ Cut Vector</button>
+        <span class="cut-status" id="vectorCutStatus"></span>
+      </div>
+      <!-- Fragment cards appear here after cutting -->
+      <div class="col-frag-section" id="vectorFragSection" style="display:none">
+        <div class="col-frag-label">Fragments — drag to ligation zone &#x2192;</div>
+        <div class="col-frag-cards" id="vectorFragContainer"></div>
+      </div>
+    </div>
+
+    <!-- LIGATION ZONE column (center) -->
+    <div class="ligation-col">
+      <div class="lig-col-title">&#x2295; Ligation Zone</div>
+      <div class="lig-col-hint" id="ligHint">Cut both plasmids, then drag fragments here</div>
+
+      <!-- Large drop target -->
+      <div id="ligDropZone"
+           ondragover="handleLigDragOver(event)"
+           ondragleave="handleLigDragLeave(event)"
+           ondrop="handleLigDrop(event)">
+        <div id="ligAssembly">
+          <span class="lig-drop-hint">drag fragments here</span>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="lig-col-actions">
+        <button id="btnClearLig" style="flex:1">Clear</button>
+        <button class="primary" id="btnLigate" disabled style="flex:1">&#x2295; Ligate!</button>
+      </div>
+
+      <!-- Result panel -->
+      <div id="ligResult" style="display:none">
+        <canvas id="ligResultCanvas" width="300" height="300"></canvas>
+        <div id="ligResultText"></div>
+        <div id="ligResultScore"></div>
+      </div>
+
+      <!-- Trash -->
+      <div id="trashCan"
+           ondragover="handleTrashDragOver(event)"
+           ondragleave="handleTrashDragLeave(event)"
+           ondrop="handleTrashDrop(event)">
+        &#x1F5D1;
+        <div class="trash-label">Trash</div>
+      </div>
+    </div>
+
+    <!-- DONOR column -->
+    <div class="plasmid-col" id="donorCol" style="border-right:none">
+      <div class="plasmid-col-label">Donor Plasmid(s)</div>
+      <div id="donorTabBar"></div>
+      <div class="plasmid-name" id="donorName"></div>
+      <div class="canvas-wrap">
+        <canvas id="donorCanvas" width="630" height="630"></canvas>
+      </div>
+      <div class="enzyme-picker-row">
+        <span class="picker-label">Enzymes:</span>
+        <select id="donorEnzymeSelect"><option value="">— add enzyme —</option></select>
+        <div id="donorEnzymeTags" style="display:flex;gap:4px;flex-wrap:wrap;"></div>
+      </div>
+      <div class="col-actions">
+        <button class="primary" id="btnCutDonor">✂ Cut Donor</button>
+        <span class="cut-status" id="donorCutStatus"></span>
+      </div>
+      <!-- Fragment cards appear here after cutting -->
+      <div class="col-frag-section" id="donorFragSection" style="display:none">
+        <div class="col-frag-label">&#x2190; Fragments — drag to ligation zone</div>
+        <div class="col-frag-cards" id="donorFragContainer"></div>
+      </div>
+    </div>
+
+  </div><!-- end cloning-main -->
+
+  <!-- Log bar + collapsible log -->
+  <div id="logBar">
+    <span>Activity Log</span>
+    <button id="btnToggleLog" onclick="toggleLog()" title="Show/hide log">▶</button>
+  </div>
+  <div id="cloningLog" class="log-collapsed"></div>
+
+</div><!-- end #cloningWorkspace -->
+
+<!-- ================================================================== -->
+<!-- OLD GAME AREA (tutorial / challenge / sandbox)                      -->
+<!-- ================================================================== -->
+<div id="gameArea">
+<div class="app-wrapper">
+  <div id="levelInfo"></div>
+  <div id="timerBar">
+    <span style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Time</span>
+    <div class="timer-track"><div class="timer-fill" style="width:100%"></div></div>
+    <span class="timer-label">120s</span>
+  </div>
+  <header>
+    <h1>Clone It!</h1>
+    <div class="score-bar">
+      <div class="score-item"><div class="label">Score</div><div class="value" id="scoreValue">0</div></div>
+      <div class="score-item"><div class="label">Correct</div><div class="value" id="correctValue">0</div></div>
+      <div class="score-item"><div class="label">Streak</div><div class="value" id="streakValue">0</div></div>
+    </div>
+  </header>
+  <div class="content">
+    <aside class="sidebar">
+      <div class="sidebar-section"><h2>Restriction Enzymes</h2></div>
+      <div class="enzyme-list" id="enzymeList"></div>
+      <div class="enzyme-detail" id="enzymeDetail">
+        <div style="color:var(--text-muted);font-size:12px;">Click an enzyme to see details.</div>
+      </div>
+    </aside>
+    <div class="main-panel">
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <span class="toolbar-label">Enzyme</span>
+          <select id="enzymeSelect"><option value="">— select enzyme —</option></select>
+        </div>
+        <div class="toolbar-group">
+          <button class="primary" id="btnCut" disabled>✂ Cut Plasmid</button>
+          <button id="btnReset">↺ Reset</button>
+          <button id="btnShowAllSites">Show All Sites</button>
+        </div>
+        <div class="toolbar-group" style="margin-left:auto;">
+          <button id="btnBackToMenu" style="font-size:11px;padding:4px 10px;">&#8592; Menu</button>
+          <span class="toolbar-label" id="plasmidInfo">pUC19 — 2686 bp</span>
+        </div>
+      </div>
+      <div class="canvas-area">
+        <canvas id="plasmidCanvas" width="560" height="560"></canvas>
+        <div class="size-slider-row">
+          <span>&#128269;</span>
+          <input type="range" id="sizeSlider" min="300" max="900" value="560" step="10">
+          <span id="sizeLabel">560 px</span>
+        </div>
+      </div>
+      <div class="info-panel">
+        <div class="info-tabs">
+          <div class="info-tab active" data-panel="logPanel">Log</div>
+          <div class="info-tab" data-panel="analysisPanel">Analysis</div>
+          <div class="info-tab" data-panel="helpPanel">Help</div>
+        </div>
+        <div class="info-content">
+          <div id="logPanel" class="active"></div>
+          <div id="analysisPanel"></div>
+          <div id="helpPanel">
+            <p><strong>Restriction Cloning Tutorial / Challenge mode</strong></p>
+            <p>1. Select an enzyme and click ✂ Cut Plasmid.</p>
+            <p>2. Use Show All Sites to see every recognition site.</p>
+            <p>3. The Analysis tab shows overhangs and ligation predictions.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="ligationWorkspace"></div>
+  <div id="colonyPlate"></div>
+  <div id="variantPredictor"></div>
+</div>
+</div><!-- end #gameArea -->
+
+<div id="toastContainer"></div>
+
+<!-- =====================================================================
+     Scripts
+     ===================================================================== -->
+<script src="enzymes.js"></script>
+<script src="plasmid.js"></script>
+<script src="scoring.js"></script>
+<script src="game.js"></script>
+<script src="cloning.js"></script>
+<script src="ui.js"></script>
+
+<!-- =====================================================================
+     CLONING WORKSPACE INIT & UI LOGIC
+     ===================================================================== -->
+<script>
+'use strict';
+
+// ---------------------------------------------------------------------------
+// Build pUC19 sequence (same as game.js — shared object via Game.pUC19)
+// The inline script below runs after all modules; Game.pUC19 is available.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Build a synthetic donor plasmid sequence from a level definition.
+// Inserts each enzyme's recognition sequence at the specified position.
+// ---------------------------------------------------------------------------
+function buildDonorSequence(donorDef) {
+  const length   = donorDef.length || 3000;
+  const cutSites = donorDef.cut_sites || [];
+  const fill     = 'ACGTACGTACGT';
+
+  let arr = [];
+  while (arr.length < length) arr.push(...fill.split(''));
+  arr = arr.slice(0, length);
+
+  for (const cs of cutSites) {
+    const enz = EnzymeDB[cs.enzyme];
+    if (!enz) continue;
+    const rec = enz.recognitionSeq;
+    for (let i = 0; i < rec.length; i++) {
+      if (cs.position + i < length) arr[cs.position + i] = rec[i];
+    }
+  }
+  return arr.join('').toUpperCase();
+}
+
+// ---------------------------------------------------------------------------
+// Inline cloning levels (fetch is used if available; fallback here)
+// ---------------------------------------------------------------------------
+const CLONING_LEVELS_INLINE = [
+  {
+    id: 'clone_01',
+    title: 'Clone GFP into pUC19',
+    description: 'The donor carries GFP flanked by EcoRI (left) and BamHI (right). Cut both plasmids with the same two enzymes, then drag the GFP fragment into the vector.',
+    teaching_point: 'Using two different enzymes creates incompatible ends — the insert can only ligate in one orientation (directional cloning).',
+    vector: { use_pUC19: true, name: 'pUC19' },
+    donor: {
+      name: 'pDonor-GFP', length: 3200,
+      features: [
+        { name: 'GFP',       start: 820,  end: 1520, type: 'gene',       strand:  1 },
+        { name: 'kanR',      start: 1800, end: 2660, type: 'resistance', strand: -1 },
+        { name: 'pSC101 ori',start: 100,  end: 550,  type: 'ori',        strand:  1 }
+      ],
+      cut_sites: [
+        { enzyme: 'EcoRI',  position: 766 },
+        { enzyme: 'BamHI',  position: 1540 }
+      ]
+    },
+    objectives: {
+      vector_enzymes: ['EcoRI','BamHI'],
+      donor_enzymes:  ['EcoRI','BamHI'],
+      correct_fragment: 'GFP',
+      correct_orientation: 'forward'
+    }
+  },
+  {
+    id: 'clone_02',
+    title: 'Directional Cloning: KpnI / HindIII',
+    description: 'Clone a luciferase reporter into pUC19 using KpnI (left) and HindIII (right). These enzymes create incompatible overhangs — insertion is guaranteed directional.',
+    teaching_point: 'KpnI leaves a 3\' overhang (GTAC); HindIII leaves a 5\' overhang (AGCT). Different overhang types cannot ligate — perfect directionality.',
+    vector: { use_pUC19: true, name: 'pUC19' },
+    donor: {
+      name: 'pLuc-donor', length: 4100,
+      features: [
+        { name: 'Luciferase', start: 920,  end: 2600, type: 'gene',       strand:  1 },
+        { name: 'ampR',       start: 2900, end: 3760, type: 'resistance', strand: -1 },
+        { name: 'ColE1 ori',  start: 200,  end: 650,  type: 'ori',        strand:  1 }
+      ],
+      cut_sites: [
+        { enzyme: 'KpnI',    position: 880 },
+        { enzyme: 'HindIII', position: 2640 }
+      ]
+    },
+    objectives: {
+      vector_enzymes: ['KpnI','HindIII'],
+      donor_enzymes:  ['KpnI','HindIII'],
+      correct_fragment: 'Luciferase',
+      correct_orientation: 'forward'
+    }
+  },
+  {
+    id: 'clone_03',
+    title: 'Single-Enzyme Cloning (Non-directional)',
+    description: 'Clone a tetracycline-resistance cassette using only EcoRI. Both ends are identical — the insert can go in either orientation.',
+    teaching_point: 'Single-enzyme cloning allows both orientations. Screen by colony PCR or diagnostic digest to confirm correct orientation.',
+    vector: { use_pUC19: true, name: 'pUC19' },
+    donor: {
+      name: 'pTet-donor', length: 2900,
+      features: [
+        { name: 'tetR',     start: 610,  end: 1700, type: 'resistance', strand:  1 },
+        { name: 'ampR',     start: 2000, end: 2860, type: 'resistance', strand: -1 },
+        { name: 'pMB1 ori', start: 100,  end: 550,  type: 'ori',        strand:  1 }
+      ],
+      cut_sites: [
+        { enzyme: 'EcoRI', position: 566 },
+        { enzyme: 'EcoRI', position: 1720 }
+      ]
+    },
+    objectives: {
+      vector_enzymes: ['EcoRI'],
+      donor_enzymes:  ['EcoRI'],
+      correct_fragment: 'tetR',
+      correct_orientation: null
+    }
+  },
+  {
+    id: 'clone_04',
+    title: 'Three-Fragment Digest',
+    description: 'The donor has three EcoRI sites, producing three fragments. Identify the mCherry-containing fragment, drag it to the vector, and trash the rest.',
+    teaching_point: 'Multi-fragment digests require gel electrophoresis to identify bands by size. Choose the fragment containing your gene of interest.',
+    vector: { use_pUC19: true, name: 'pUC19' },
+    donor: {
+      name: 'pMulti-donor', length: 5400,
+      features: [
+        { name: 'mCherry',   start: 1220, end: 2000, type: 'gene',       strand:  1 },
+        { name: 'kanR',      start: 3050, end: 3860, type: 'resistance', strand: -1 },
+        { name: 'tetR',      start: 4200, end: 5100, type: 'resistance', strand:  1 },
+        { name: 'pSC101 ori',start: 200,  end: 700,  type: 'ori',        strand:  1 }
+      ],
+      cut_sites: [
+        { enzyme: 'EcoRI', position: 1160 },
+        { enzyme: 'EcoRI', position: 2060 },
+        { enzyme: 'EcoRI', position: 3960 }
+      ]
+    },
+    objectives: {
+      vector_enzymes: ['EcoRI'],
+      donor_enzymes:  ['EcoRI'],
+      correct_fragment: 'mCherry',
+      correct_orientation: null
+    }
+  }
+];
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+let _cloningLevels        = CLONING_LEVELS_INLINE;
+let _cloningLevelIdx      = 0;
+let _cloningTotalScore    = 0;
+let _vectorRenderer       = null;
+let _donorRenderers       = [];     // PlasmidRenderer per donor
+let _activeDonorIdx       = 0;
+let _donorEnzymeTagsByIdx = [];     // string[][] — enzyme tags per donor
+let _donorCutDone         = [];     // bool[] — whether each donor has been cut
+let _dragFragId           = null;   // {id, source} of card being dragged
+let _ligationItems        = [];     // [{fragment, orientation, source}] in assembly order
+let _wsInited             = false;  // guard: only wire up listeners once
+
+const ALL_ENZYME_NAMES = Object.keys(EnzymeDB);
+const MCS_ENZYMES = ['EcoRI','KpnI','SmaI','BamHI','HindIII'];
+
+// ---------------------------------------------------------------------------
+// Screen switching
+// ---------------------------------------------------------------------------
+function showScreen(id) {
+  ['modeSelectScreen','cloningWorkspace','gameArea'].forEach(s => {
+    const el = document.getElementById(s);
+    if (el) el.style.display = (s === id) ? (s === 'cloningWorkspace' ? 'flex' : (s === 'gameArea' ? 'flex' : 'flex')) : 'none';
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Cloning workspace init
+// ---------------------------------------------------------------------------
+function initCloningWorkspace() {
+  if (_wsInited) { loadCloningLevel(_cloningLevelIdx); return; }
+  _wsInited = true;
+
+  // Initialise vector renderer
+  const vCanvas = document.getElementById('vectorCanvas');
+  _vectorRenderer = new PlasmidRenderer(vCanvas, Game.pUC19);
+
+  // Populate vector enzyme dropdown
+  populateEnzymeSelect('vectorEnzymeSelect');
+  document.getElementById('vectorEnzymeSelect').addEventListener('change', function() {
+    if (this.value) { addEnzymeTag('vector', this.value); this.value = ''; }
+  });
+
+  // Donor enzyme dropdown — donor select is shared; it operates on _activeDonorIdx
+  populateEnzymeSelect('donorEnzymeSelect');
+  document.getElementById('donorEnzymeSelect').addEventListener('change', function() {
+    if (this.value) { addEnzymeTag('donor', this.value); this.value = ''; }
+  });
+
+  document.getElementById('btnCutVector').addEventListener('click', doCutVector);
+  document.getElementById('btnCutDonor').addEventListener('click',  () => doCutDonor(_activeDonorIdx));
+  document.getElementById('btnCloningPrev').addEventListener('click', prevCloningLevel);
+  document.getElementById('btnCloningReset').addEventListener('click', resetCloningLevel);
+  document.getElementById('btnCloningNext').addEventListener('click', nextCloningLevel);
+  document.getElementById('btnCloningMenu').addEventListener('click', () => showScreen('modeSelectScreen'));
+  document.getElementById('btnLigate').addEventListener('click', ligateAssembly);
+  document.getElementById('btnClearLig').addEventListener('click', () => {
+    _ligationItems = [];
+    renderLigationAssembly();
+    document.getElementById('btnLigate').disabled = true;
+    document.getElementById('ligResult').style.display = 'none';
+  });
+
+  // CloningWorkspace events
+  document.addEventListener('cloning:levelLoaded',   onCloningLevelLoaded);
+  document.addEventListener('cloning:vectorCut',     onVectorCut);
+  document.addEventListener('cloning:donorCut',      onDonorCut);
+  document.addEventListener('cloning:ligationResult',onLigationResult);
+  document.addEventListener('cloning:feedback', e => {
+    clog(e.detail.message, e.detail.type);
+    if (e.detail.side) showCanvasFlash(e.detail.side, e.detail.message, e.detail.type, 2600);
+  });
+
+  const GITHUB_RAW = `https://raw.githubusercontent.com/bgeiss1/restriction-cloning-game/main/levels/cloning.json?t=${Date.now()}`;
+  fetch(GITHUB_RAW)
+    .then(r => r.ok ? r.json() : Promise.reject('github'))
+    .catch(() => fetch('levels/cloning.json').then(r => r.ok ? r.json() : Promise.reject('local')))
+    .then(data => { if (Array.isArray(data) && data.length) _cloningLevels = data; })
+    .catch(() => {/* keep CLONING_LEVELS_INLINE as fallback */})
+    .finally(() => loadCloningLevel(0));
+}
+
+// ---------------------------------------------------------------------------
+// Load level
+// ---------------------------------------------------------------------------
+function loadCloningLevel(idx) {
+  _cloningLevelIdx = idx;
+  const level = _cloningLevels[idx];
+
+  // Normalise: support both { donor } (old) and { donors } (new)
+  const donorDefs = level.donors
+    ? level.donors
+    : (level.donor ? [level.donor] : []);
+
+  // Build synthetic sequences for all donors and custom vector
+  const patchedDonors = donorDefs.map(d => ({ ...d, sequence: buildDonorSequence(d) }));
+  const vecDef = level.vector || {};
+  const patchedVector = vecDef.use_pUC19 ? vecDef : { ...vecDef, sequence: buildDonorSequence(vecDef) };
+  const patchedLevel  = { ...level, vector: patchedVector, donors: patchedDonors };
+  // Remove legacy single-donor key so CloningWorkspace always uses donors[]
+  delete patchedLevel.donor;
+
+  CloningWorkspace.loadLevel(patchedLevel);
+
+  document.getElementById('cloningLevelNum').textContent = (idx + 1) + '/' + _cloningLevels.length;
+  document.getElementById('btnCloningPrev').style.display = idx > 0 ? '' : 'none';
+  document.getElementById('btnCloningNext').disabled = true;
+
+  // ---- Multi-donor state ----
+  _activeDonorIdx       = 0;
+  _donorEnzymeTagsByIdx = donorDefs.map(() => []);
+  _donorCutDone         = donorDefs.map(() => false);
+
+  // Build tab bar
+  const tabBar = document.getElementById('donorTabBar');
+  if (donorDefs.length > 1) {
+    tabBar.style.display = 'flex';
+    tabBar.innerHTML = donorDefs.map((d, i) =>
+      `<button class="donor-tab${i === 0 ? ' active' : ''}" data-didx="${i}"
+               onclick="switchDonorTab(${i})">${d.name || 'Donor ' + (i + 1)}</button>`
+    ).join('');
+  } else {
+    tabBar.style.display = 'none';
+    tabBar.innerHTML = '';
+  }
+
+  // Reset enzyme tags and cut status
+  clearEnzymeTags('vector');
+  clearEnzymeTags('donor');
+  document.getElementById('vectorCutStatus').textContent = '';
+  document.getElementById('donorCutStatus').textContent  = '';
+
+  // Reset fragment sections
+  const vfs = document.getElementById('vectorFragSection');
+  const dfs = document.getElementById('donorFragSection');
+  vfs.style.display = 'none'; vfs.innerHTML = '';
+  dfs.style.display = 'none'; dfs.innerHTML = '';
+
+  // Reset ligation panel
+  _ligationItems = [];
+  renderLigationAssembly();
+  document.getElementById('btnLigate').disabled = true;
+  document.getElementById('ligHint').textContent = 'Cut both plasmids, then drag fragments here';
+  document.getElementById('ligResult').style.display = 'none';
+}
+
+// ---------------------------------------------------------------------------
+// Multi-donor tab switching
+// ---------------------------------------------------------------------------
+function switchDonorTab(idx) {
+  // Save current donor's enzyme tags before switching
+  _donorEnzymeTagsByIdx[_activeDonorIdx] = Array.from(
+    document.querySelectorAll('#donorEnzymeTags .enzyme-tag')
+  ).map(el => el.dataset.enzyme);
+
+  _activeDonorIdx = idx;
+
+  // Update tab button styles
+  document.querySelectorAll('#donorTabBar .donor-tab').forEach((btn, i) => {
+    btn.classList.toggle('active', i === idx);
+  });
+
+  // Restore enzyme tags for the newly active donor
+  clearEnzymeTags('donor');
+  (_donorEnzymeTagsByIdx[idx] || []).forEach(e => addEnzymeTag('donor', e));
+
+  // Update donor name
+  const donors = CloningWorkspace.donorPlasmids;
+  if (donors[idx]) {
+    document.getElementById('donorName').textContent = donors[idx].name;
+  }
+
+  // Update cut status
+  if (_donorCutDone[idx]) {
+    document.getElementById('donorCutStatus').textContent = '✓ cut';
+    document.getElementById('donorCutStatus').className   = 'cut-status done';
+  } else {
+    document.getElementById('donorCutStatus').textContent = '';
+    document.getElementById('donorCutStatus').className   = 'cut-status';
+  }
+
+  // Re-render the donor canvas for the active donor (skip if already cut — cut state is preserved)
+  if (_donorRenderers[idx] && !_donorCutDone[idx]) {
+    const donorEnzymes = [...new Set(
+      (CloningWorkspace.donorPlasmids[idx]
+        ? CloningWorkspace.donorPlasmids[idx].features.map(() => null) // just re-render
+        : [])
+    )];
+    // Get the cut sites enzymes for this donor's plasmid map
+    const level = CloningWorkspace.ws.level;
+    const donorDef = (level.donors || [])[idx] || {};
+    const siteEnzymes = [...new Set((donorDef.cut_sites || []).map(s => s.enzyme))];
+    _donorRenderers[idx].render(siteEnzymes);
+  }
+
+  // Show/hide fragment section for this donor
+  const dfs = document.getElementById('donorFragSection');
+  if (_donorCutDone[idx]) {
+    // Rebuild the fragment section for this donor's fragments
+    const frags = CloningWorkspace.ws.donorFragmentsByIdx[idx] || [];
+    dfs.style.display = 'block';
+    dfs.innerHTML = '<div class="col-frag-label">&#x2190; Fragments — drag to ligation zone</div>'
+      + '<div class="col-frag-cards" id="donorFragContainer"></div>';
+    buildFragmentCards('donor', frags, idx);
+  } else {
+    dfs.style.display = 'none';
+    dfs.innerHTML = '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CloningWorkspace event handlers
+// ---------------------------------------------------------------------------
+function onCloningLevelLoaded(e) {
+  const { level } = e.detail;
+  document.getElementById('cloningTitle').textContent = level.title;
+  document.getElementById('cloningDesc').textContent  = level.description;
+  document.getElementById('cloningTeach').textContent = level.teaching_point || '';
+  document.getElementById('vectorName').textContent   = CloningWorkspace.vectorPlasmid.name;
+
+  // Rebuild donor renderers array — one per donor, all sharing the single canvas element
+  const dCanvas = document.getElementById('donorCanvas');
+  const donors  = CloningWorkspace.donorPlasmids;
+  _donorRenderers = donors.map(plasmid => {
+    const r = new PlasmidRenderer(dCanvas, plasmid);
+    r._cutAnimState    = null;
+    r._computeLayout();
+    return r;
+  });
+
+  // Re-bind vector renderer
+  _vectorRenderer.plasmid = CloningWorkspace.vectorPlasmid;
+  _vectorRenderer._cutAnimState = null;
+  _vectorRenderer._computeLayout();
+  const vecSiteEnzymes = [...new Set((level.vector.cut_sites || []).map(s => s.enzyme))];
+  _vectorRenderer.render(vecSiteEnzymes);
+
+  // Render first (active) donor
+  document.getElementById('donorName').textContent = donors[0] ? donors[0].name : '';
+  if (_donorRenderers[0]) {
+    const donorDef    = (level.donors || [])[0] || {};
+    const siteEnzymes = [...new Set((donorDef.cut_sites || []).map(s => s.enzyme))];
+    _donorRenderers[0].render(siteEnzymes);
+  }
+
+  clog('Level loaded: ' + level.title, 'info');
+}
+
+// ---------------------------------------------------------------------------
+// CloningWorkspace event handlers
+// ---------------------------------------------------------------------------
+
+function onVectorCut(e) {
+  const { sites, fragments } = e.detail;
+  const names = [...new Set(sites.map(s => s.enzymeName))];
+  document.getElementById('vectorCutStatus').textContent = '✓ ' + fragments.length + ' fragment(s)';
+  document.getElementById('vectorCutStatus').className   = 'cut-status done';
+
+  // Show section before animateDigest so getBoundingClientRect returns real coords
+  const trayEl = document.getElementById('vectorFragSection');
+  trayEl.style.display = 'block';
+  trayEl.innerHTML = '<div class="col-frag-label">Fragments — drag to ligation zone &#x2192;</div><div class="col-frag-cards" id="vectorFragContainer" style="min-height:40px"></div>';
+
+  _vectorRenderer.renderCutAnimation(names[0], sites[0].topStrandCut, () => {
+    _vectorRenderer.animateDigest(fragments, trayEl, () => {
+      buildFragmentCards('vector', fragments);
+      updateLigHint();
+      clog(fragments.length + ' vector fragment(s) — drag to ligation zone.', 'success');
+    });
+  });
+
+  showCanvasFlash('vector', '✂ Cut with ' + names.join(' + '), 'success', 1800);
+  clog('Vector cut with ' + names.join('+') + '.', 'success');
+}
+
+function onDonorCut(e) {
+  const { fragments, donorIdx } = e.detail;
+  const di = donorIdx || 0;
+
+  // Mark this donor as cut
+  _donorCutDone[di] = true;
+
+  // Update the tab button to show cut state
+  const tabBtn = document.querySelector(`#donorTabBar .donor-tab[data-didx="${di}"]`);
+  if (tabBtn) tabBtn.classList.add('cut-done');
+
+  // Only update the UI if this is the currently visible donor
+  if (di === _activeDonorIdx) {
+    document.getElementById('donorCutStatus').textContent = '✓ ' + fragments.length + ' fragment(s)';
+    document.getElementById('donorCutStatus').className   = 'cut-status done';
+
+    const trayEl = document.getElementById('donorFragSection');
+    trayEl.style.display = 'block';
+    trayEl.innerHTML = '<div class="col-frag-label">&#x2190; Fragments — drag to ligation zone</div>'
+      + '<div class="col-frag-cards" id="donorFragContainer" style="min-height:40px"></div>';
+
+    _donorRenderers[di].animateDigest(fragments, trayEl, () => {
+      buildFragmentCards('donor', fragments, di);
+      updateLigHint();
+    });
+
+    showCanvasFlash('donor', '✂ ' + fragments.length + ' fragment(s)', 'success', 1800);
+  }
+
+  const donorLabel = CloningWorkspace.donorPlasmids.length > 1
+    ? `Donor ${di + 1}` : 'Donor';
+  clog(`${donorLabel} digested into ${fragments.length} fragment(s).`, 'success');
+  updateLigHint();
+}
+
+// ---------------------------------------------------------------------------
+// Celebration effects
+// ---------------------------------------------------------------------------
+function celebrateCorrect(points) {
+  // 1. Card spin on result canvas
+  const rCanvas = document.getElementById('ligResultCanvas');
+  rCanvas.classList.remove('celebrate');
+  void rCanvas.offsetWidth; // force reflow to restart animation
+  rCanvas.classList.add('celebrate');
+
+  // 2. Floating score pop
+  const zone = document.getElementById('ligDropZone');
+  const rect  = zone.getBoundingClientRect();
+  const pop   = document.createElement('div');
+  pop.className   = 'score-pop';
+  pop.textContent = '+' + points + ' pts';
+  pop.style.left  = (rect.left + rect.width  / 2 - 40) + 'px';
+  pop.style.top   = (rect.top  + rect.height / 2)      + 'px';
+  document.body.appendChild(pop);
+  pop.addEventListener('animationend', () => pop.remove());
+
+  // 3. Confetti burst
+  const COLORS = ['#4FC3F7','#66BB6A','#FFB300','#EF5350','#CE93D8','#00FF44','#FF7043','#FFD54F'];
+  const cx = rect.left + rect.width  / 2;
+  const cy = rect.top  + rect.height / 2;
+  for (let i = 0; i < 28; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'confetti-dot';
+    const angle = (Math.random() * 360);
+    const dist  = 80 + Math.random() * 140;
+    const rad   = angle * Math.PI / 180;
+    dot.style.background     = COLORS[i % COLORS.length];
+    dot.style.left           = (cx + Math.random() * 20 - 10) + 'px';
+    dot.style.top            = (cy + Math.random() * 20 - 10) + 'px';
+    dot.style.setProperty('--cf-dx',  (Math.cos(rad) * dist) + 'px');
+    dot.style.setProperty('--cf-dy',  (Math.sin(rad) * dist + 60) + 'px');
+    dot.style.setProperty('--cf-rot', (Math.random() * 540 - 270) + 'deg');
+    dot.style.setProperty('--cf-dur', (0.9 + Math.random() * 0.6) + 's');
+    document.body.appendChild(dot);
+    dot.addEventListener('animationend', () => dot.remove());
+  }
+
+  // 4. Success chord via Web Audio
+  try {
+    const ac  = new (window.AudioContext || window.webkitAudioContext)();
+    [[523.25, 0], [659.25, 0.08], [783.99, 0.16], [1046.5, 0.28]].forEach(([freq, delay]) => {
+      const osc  = ac.createOscillator();
+      const gain = ac.createGain();
+      osc.connect(gain); gain.connect(ac.destination);
+      osc.type      = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, ac.currentTime + delay);
+      gain.gain.linearRampToValueAtTime(0.18, ac.currentTime + delay + 0.04);
+      gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + delay + 0.7);
+      osc.start(ac.currentTime + delay);
+      osc.stop(ac.currentTime  + delay + 0.8);
+    });
+  } catch (_) {}
+}
+
+function onLigationResult(e) {
+  const { result, items, points } = e.detail;
+
+  // Mark cards involved
+  items.forEach(item => {
+    const card = document.querySelector(`[data-frag-id="${item.fragment.id}"][data-source="${item.source}"]`);
+    if (!card) return;
+    if (!result.success) {
+      card.classList.add('compat-fail');
+    } else if (!result.correctCombination) {
+      card.classList.add('wrong-combo');
+    } else {
+      card.classList.add('placed');
+    }
+  });
+
+  _cloningTotalScore += points;
+  document.getElementById('cloningScore').textContent = _cloningTotalScore;
+
+  // Update junction markers in the assembly panel
+  renderLigationAssembly(result.junctions);
+
+  // Show result panel
+  const resultEl  = document.getElementById('ligResult');
+  const resultTxt = document.getElementById('ligResultText');
+  const resultScr = document.getElementById('ligResultScore');
+
+  resultScr.textContent = '+' + points + ' pts';
+
+  if (result.success && result.correctCombination) {
+    // Remap features from source-plasmid coordinates to recombinant coordinates
+    function remapFeatures(features, cutStartBp, origSeqLen, offset, fragSize, rev) {
+      const startBp = cutStartBp ?? 0;
+      const seqLen  = origSeqLen  ?? fragSize;
+      return features.map(f => {
+        const fs = (f.start - startBp + seqLen) % seqLen;
+        const fe = (f.end   - startBp + seqLen) % seqLen;
+        if (rev) {
+          return { ...f,
+            start:  offset + (fragSize - 1 - fe),
+            end:    offset + (fragSize - 1 - fs),
+            strand: -(f.strand || 1)
+          };
+        }
+        return { ...f, start: offset + fs, end: offset + fe };
+      });
+    }
+
+    // Assemble recombinant from all items in order; collect features and restriction sites
+    let recombSeq = '';
+    const allFeatures = [];
+    const sitesOnRecomb = [];
+
+    for (const item of items) {
+      const frag = item.fragment;
+      const rev  = item.orientation === 'reverse';
+      const seq  = rev ? reverseComplement(frag.sequence) : frag.sequence;
+      const fragLen = seq.length;
+      const offset  = recombSeq.length;
+
+      const leftEnz = rev ? frag.rightEnd?.enzyme : frag.leftEnd?.enzyme;
+      if (leftEnz) sitesOnRecomb.push({ enzymeName: leftEnz, topStrandCut: offset });
+
+      allFeatures.push(...remapFeatures(frag.features, frag.cutStartBp, frag.origSeqLen, offset, fragLen, rev));
+      recombSeq += seq;
+    }
+
+    // Name: concatenate all donor fragment feature names
+    const donorFeatureNames = items
+      .filter(it => it.source === 'donor')
+      .flatMap(it => it.fragment.features.map(f => f.name))
+      .filter(Boolean);
+    const recombName = donorFeatureNames.join(' + ') || 'Recombinant';
+
+    const recomb = new Plasmid({ name: recombName, sequence: recombSeq, features: allFeatures });
+    const rCanvas = document.getElementById('ligResultCanvas');
+    const rRenderer = new PlasmidRenderer(rCanvas, recomb);
+    rRenderer.centerLabelScale = 0.5;
+    rRenderer._restrictionSites = sitesOnRecomb;
+    rRenderer.render([]);
+    celebrateCorrect(points);
+
+    const dirNote = result.orientationCorrect ? '' : ' (insert reversed — partial score)';
+    resultTxt.innerHTML = '<strong style="color:var(--success)">Ligation successful!</strong>'
+      + ' Circular recombinant formed.' + dirNote;
+
+    document.getElementById('btnCloningNext').disabled =
+      (_cloningLevelIdx >= _cloningLevels.length - 1);
+
+  } else if (result.success && !result.correctCombination) {
+    // Ends are compatible but wrong fragment combination — no points, allow retry
+    drawLinearResult(items, result.junctions);
+    resultTxt.innerHTML = '<strong style="color:var(--warn)">Wrong fragments!</strong> '
+      + (result.wrongComboReason || 'Ends are compatible but this is not a useful recombinant.')
+      + ' Clear the assembly and try again — no points awarded.';
+
+  } else {
+    // Incompatible ends — ligation failed entirely
+    drawLinearResult(items, result.junctions);
+
+    const failedJunctions = result.junctions.filter(j => !j.compatible);
+    resultTxt.innerHTML = '<strong style="color:var(--danger)">Ligation failed</strong> — '
+      + failedJunctions.map(j => j.note || 'incompatible ends').join('; ');
+  }
+
+  resultEl.style.display = 'flex';
+}
+
+// Draw a simple linear DNA diagram on the result canvas for a failed ligation
+function drawLinearResult(items, junctions) {
+  const canvas = document.getElementById('ligResultCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const n = items.length;
+  if (n === 0) return;
+
+  const segW   = Math.floor((W - 20) / n);
+  const barH   = 22;
+  const barY   = H / 2 - barH / 2;
+
+  items.forEach((item, i) => {
+    const x = 10 + i * segW;
+    const color = item.fragment.features.length > 0
+      ? featureColor(item.fragment.features[0]) : FEATURE_COLORS.default;
+
+    // Segment body
+    ctx.fillStyle   = color + '55';
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x + 2, barY, segW - 4, barH, 4);
+    ctx.fill(); ctx.stroke();
+
+    // Junction mark
+    if (i < n - 1) {
+      const junc = junctions[i];
+      const jx   = x + segW;
+      ctx.strokeStyle = junc.compatible ? '#66BB6A' : '#EF5350';
+      ctx.lineWidth   = 2;
+      ctx.beginPath(); ctx.moveTo(jx, barY - 4); ctx.lineTo(jx, barY + barH + 4);
+      ctx.stroke();
+    }
+
+    // Name label
+    const label = item.fragment.features.map(f => f.name).join(',') || (item.source === 'vector' ? 'vec' : 'ins');
+    ctx.font      = 'bold 9px monospace';
+    ctx.fillStyle = '#E8EDF2';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label.slice(0, 8), x + segW / 2, barY + barH / 2);
+  });
+
+  // Label: LINEAR (open ends)
+  ctx.font      = '10px sans-serif';
+  ctx.fillStyle = '#EF5350';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('LINEAR (open ends)', W / 2, barY + barH + 6);
+}
+
+// ---------------------------------------------------------------------------
+// Cut actions
+// ---------------------------------------------------------------------------
+function doCutVector() {
+  CloningWorkspace.setVectorEnzymes(getEnzymeTags('vector'));
+  CloningWorkspace.cutVector();
+}
+
+function doCutDonor(idx) {
+  const donorIdx = (idx !== undefined) ? idx : _activeDonorIdx;
+  const enzymes  = Array.from(document.querySelectorAll('#donorEnzymeTags .enzyme-tag'))
+                        .map(el => el.dataset.enzyme);
+  // Persist enzyme state for this donor before cutting
+  _donorEnzymeTagsByIdx[donorIdx] = [...enzymes];
+  CloningWorkspace.setDonorEnzymes(enzymes, donorIdx);
+  CloningWorkspace.cutDonor(donorIdx);
+}
+
+// ---------------------------------------------------------------------------
+// Fragment tray cards (shared for vector and donor)
+// ---------------------------------------------------------------------------
+function buildFragmentCards(source, fragments, donorIdx) {
+  const containerId = source === 'vector' ? 'vectorFragContainer' : 'donorFragContainer';
+  const multiDonor  = source === 'donor' && CloningWorkspace.donorPlasmids.length > 1;
+  const donorPrefix = multiDonor ? `D${(donorIdx || 0) + 1}: ` : '';
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+
+  fragments.forEach(frag => {
+    const card = document.createElement('div');
+    card.className  = 'fragment-card';
+    card.draggable  = true;
+    card.dataset.fragId = frag.id;
+    card.dataset.source = source;
+
+    const color = frag.features.length > 0
+      ? featureColor(frag.features[0]) : FEATURE_COLORS.default;
+    card.style.borderLeftColor = color;
+    card.style.borderLeftWidth = '3px';
+
+    const name = donorPrefix + (frag.features.map(f => f.name).join(', ') || (source === 'vector' ? 'Backbone' : 'Fragment'));
+    card.innerHTML =
+      `<div class="fragment-card-name">${name}</div>` +
+      `<div class="fragment-ends">` +
+        `<span class="end-tag">${frag.leftEnd.enzyme || 'blunt'}</span>` +
+        `<span style="color:var(--text-muted);font-size:9px">——</span>` +
+        `<span class="end-tag">${frag.rightEnd.enzyme || 'blunt'}</span>` +
+      `</div>` +
+      `<div class="fragment-size">${(frag.size/1000).toFixed(1)} kb</div>`;
+
+    if (frag.features.length > 0) {
+      const dotsEl = document.createElement('div');
+      dotsEl.className = 'fragment-features';
+      frag.features.forEach(f => {
+        const dot = document.createElement('div');
+        dot.className = 'feature-dot'; dot.title = f.name;
+        dot.style.background = featureColor(f);
+        dotsEl.appendChild(dot);
+      });
+      card.appendChild(dotsEl);
+    }
+
+    card.addEventListener('dragstart', ev => {
+      _dragFragId = { id: frag.id, source, donorIdx: donorIdx ?? null };
+      card.classList.add('dragging');
+      ev.dataTransfer.setData('text/plain', JSON.stringify({ id: frag.id, source, donorIdx: donorIdx ?? null }));
+      ev.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+
+    container.appendChild(card);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Drag-and-drop: ligation panel
+// ---------------------------------------------------------------------------
+function handleLigDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.getElementById('ligDropZone').classList.add('dragover');
+}
+
+function handleLigDragLeave(e) {
+  if (!document.getElementById('ligDropZone').contains(e.relatedTarget))
+    document.getElementById('ligDropZone').classList.remove('dragover');
+}
+
+function handleLigDrop(e) {
+  e.preventDefault();
+  document.getElementById('ligDropZone').classList.remove('dragover');
+
+  let payload;
+  try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+  const { id, source, donorIdx } = payload;
+
+  // Find fragment in the correct pool
+  let pool;
+  if (source === 'vector') {
+    pool = CloningWorkspace.vectorFragments;
+  } else if (donorIdx != null) {
+    pool = CloningWorkspace.ws.donorFragmentsByIdx[donorIdx] || [];
+  } else {
+    pool = CloningWorkspace.donorFragments;
+  }
+  const frag = pool.find(f => f.id === id);
+  if (!frag) return;
+
+  // Don't add duplicates — use donorIdx to distinguish same-id fragments from different donors
+  if (_ligationItems.some(it => it.source === source && it.fragment.id === id && it.donorIdx === (donorIdx ?? null))) {
+    showToast('Fragment already in assembly.', 'warn'); return;
+  }
+
+  _ligationItems.push({ fragment: frag, orientation: 'forward', source, donorIdx: donorIdx ?? null });
+  renderLigationAssembly();
+  document.getElementById('btnLigate').disabled = _ligationItems.length < 2;
+}
+
+// ---------------------------------------------------------------------------
+// Drag-and-drop: trash can
+// ---------------------------------------------------------------------------
+function handleTrashDragOver(e) {
+  e.preventDefault();
+  document.getElementById('trashCan').classList.add('dragover');
+}
+
+function handleTrashDragLeave() {
+  document.getElementById('trashCan').classList.remove('dragover');
+}
+
+function handleTrashDrop(e) {
+  e.preventDefault();
+  document.getElementById('trashCan').classList.remove('dragover');
+  let payload;
+  try { payload = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+  const { id, source } = payload;
+  CloningWorkspace.trashFragment(id);
+  const card = document.querySelector(`[data-frag-id="${id}"][data-source="${source}"]`);
+  if (card) card.classList.add('trashed');
+  clog('Fragment trashed.', 'info');
+}
+
+// ---------------------------------------------------------------------------
+// Ligation assembly panel (vertical column layout)
+// ---------------------------------------------------------------------------
+function renderLigationAssembly(junctions) {
+  const assembly = document.getElementById('ligAssembly');
+
+  if (_ligationItems.length === 0) {
+    assembly.innerHTML = '<span class="lig-drop-hint">drag fragments here</span>';
+    return;
+  }
+
+  assembly.innerHTML = '';
+
+  _ligationItems.forEach((item, i) => {
+    const frag  = item.fragment;
+    const color = frag.features.length > 0
+      ? featureColor(frag.features[0]) : FEATURE_COLORS.default;
+    const name  = frag.features.map(f => f.name).join(', ') || (item.source === 'vector' ? 'Backbone' : 'Fragment');
+
+    const leftEnd  = item.orientation === 'forward' ? frag.leftEnd  : { enzyme: frag.rightEnd.enzyme };
+    const rightEnd = item.orientation === 'forward' ? frag.rightEnd : { enzyme: frag.leftEnd.enzyme };
+
+    // Junction above this slot (between item[i-1].right → item[i].left)
+    if (i > 0) {
+      const prevJunc = junctions ? junctions[i - 1] : null;
+      const jDiv = document.createElement('div');
+      jDiv.className = 'lig-junction' + (prevJunc ? (prevJunc.compatible ? ' ok' : ' fail') : '');
+      if (prevJunc) {
+        jDiv.innerHTML = (prevJunc.compatible ? '✓' : '✗')
+          + `<span class="lig-junction-label">${prevJunc.compatible ? 'compatible' : (prevJunc.note?.slice(0,18) || 'incompatible')}</span>`;
+      } else {
+        jDiv.textContent = '·';
+      }
+      assembly.appendChild(jDiv);
+    }
+
+    // Slot card
+    const slot = document.createElement('div');
+    slot.className = 'lig-slot';
+    slot.style.borderLeftColor = color;
+    slot.style.borderLeftWidth = '3px';
+
+    // Row 1: name + orientation + remove
+    const row1 = document.createElement('div');
+    row1.className = 'lig-slot-row1';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'lig-slot-name';
+    nameEl.title = name;
+    nameEl.textContent = name;
+
+    const oriBtn = document.createElement('button');
+    oriBtn.className = 'lig-orient-btn ' + (item.orientation === 'forward' ? 'fwd' : 'rev');
+    oriBtn.textContent = item.orientation === 'forward' ? '→' : '←';
+    oriBtn.title = 'Toggle orientation';
+    oriBtn.addEventListener('click', () => {
+      item.orientation = item.orientation === 'forward' ? 'reverse' : 'forward';
+      renderLigationAssembly();
+    });
+
+    const rmBtn = document.createElement('span');
+    rmBtn.className = 'lig-remove';
+    rmBtn.textContent = '×';
+    rmBtn.addEventListener('click', () => {
+      _ligationItems.splice(i, 1);
+      renderLigationAssembly();
+      document.getElementById('btnLigate').disabled = _ligationItems.length < 2;
+      document.getElementById('ligResult').style.display = 'none';
+    });
+
+    row1.appendChild(nameEl);
+    row1.appendChild(oriBtn);
+    row1.appendChild(rmBtn);
+
+    // Row 2: end tags + source/size
+    const row2 = document.createElement('div');
+    row2.className = 'lig-slot-row2';
+    row2.innerHTML =
+      `<span class="end-tag" style="font-size:8px">${leftEnd.enzyme || 'blunt'}</span>` +
+      `<span class="lig-slot-source">${item.source} · ${(frag.size/1000).toFixed(1)} kb</span>` +
+      `<span class="end-tag" style="font-size:8px">${rightEnd.enzyme || 'blunt'}</span>`;
+
+    slot.appendChild(row1);
+    slot.appendChild(row2);
+    assembly.appendChild(slot);
+  });
+
+  // Wrap-around junction (last → first), shown at bottom
+  if (junctions && _ligationItems.length > 1) {
+    const wrapJunc = junctions[junctions.length - 1];
+    const wDiv = document.createElement('div');
+    wDiv.className = 'lig-wrap' + (wrapJunc.compatible ? ' ok' : ' fail');
+    wDiv.innerHTML = (wrapJunc.compatible ? '↺ closes to circular' : '↺ gap — ends incompatible');
+    assembly.appendChild(wDiv);
+  }
+}
+
+function ligateAssembly() {
+  if (_ligationItems.length < 2) return;
+  document.getElementById('ligResult').style.display = 'none';
+  CloningWorkspace.ligateFragments(_ligationItems);
+}
+
+function updateLigHint() {
+  const vCut = CloningWorkspace.state === 'vector_cut' || CloningWorkspace.state === 'both_cut' || CloningWorkspace.state === 'done';
+  const dCut = CloningWorkspace.state === 'donor_cut'  || CloningWorkspace.state === 'both_cut' || CloningWorkspace.state === 'done';
+  if (vCut && dCut) {
+    document.getElementById('ligHint').textContent = 'Drag a vector backbone + donor insert, then click Ligate!';
+  } else if (vCut) {
+    document.getElementById('ligHint').textContent = 'Now cut the donor plasmid';
+  } else if (dCut) {
+    document.getElementById('ligHint').textContent = 'Now cut the vector';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Level navigation
+// ---------------------------------------------------------------------------
+function prevCloningLevel() {
+  if (_cloningLevelIdx > 0) loadCloningLevel(_cloningLevelIdx - 1);
+}
+
+function nextCloningLevel() {
+  if (_cloningLevelIdx < _cloningLevels.length - 1) {
+    loadCloningLevel(_cloningLevelIdx + 1);
+  } else {
+    showToast('All levels complete! Final score: ' + _cloningTotalScore, 'success');
+  }
+}
+
+function resetCloningLevel() {
+  loadCloningLevel(_cloningLevelIdx);
+  clog('Level reset.', 'info');
+}
+
+// ---------------------------------------------------------------------------
+// Enzyme tag helpers
+// ---------------------------------------------------------------------------
+function populateEnzymeSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = '<option value="">— add enzyme —</option>';
+  for (const name of ALL_ENZYME_NAMES) {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name + '  [' + EnzymeDB[name].recognitionSeq + ']';
+    sel.appendChild(opt);
+  }
+}
+
+function addEnzymeTag(side, name) {
+  const tagsEl = document.getElementById(side + 'EnzymeTags');
+  // Limit to 2 enzymes
+  if (tagsEl.children.length >= 2) {
+    showToast('Max 2 enzymes per plasmid.', 'warn'); return;
+  }
+  // Avoid duplicates
+  for (const t of tagsEl.children) {
+    if (t.dataset.enzyme === name) return;
+  }
+  const tag = document.createElement('span');
+  tag.className = 'enzyme-tag';
+  tag.dataset.enzyme = name;
+  tag.innerHTML = name + '<span class="remove-tag" title="Remove">×</span>';
+  tag.querySelector('.remove-tag').addEventListener('click', () => tagsEl.removeChild(tag));
+  tagsEl.appendChild(tag);
+}
+
+function clearEnzymeTags(side) {
+  document.getElementById(side + 'EnzymeTags').innerHTML = '';
+}
+
+function getEnzymeTags(side) {
+  const tagsEl = document.getElementById(side + 'EnzymeTags');
+  return [...tagsEl.children].map(t => t.dataset.enzyme);
+}
+
+// ---------------------------------------------------------------------------
+// Canvas overlay flash messages
+// ---------------------------------------------------------------------------
+function showCanvasFlash(side, message, type = 'info', durationMs = 2200) {
+  const col  = document.getElementById(side === 'vector' ? 'vectorCol' : 'donorCol');
+  if (!col) return;
+  const wrap = col.querySelector('.canvas-wrap');
+  if (!wrap) return;
+  // Remove any existing flash on this canvas
+  const old = wrap.querySelector('.canvas-flash');
+  if (old) old.remove();
+
+  const el = document.createElement('div');
+  el.className = 'canvas-flash ' + type;
+  el.textContent = message;
+  // Set the CSS variable that controls when the fade-out starts
+  const fadeDelay = Math.max(0, durationMs - 450) + 'ms';
+  el.style.setProperty('--cf-delay', fadeDelay);
+  wrap.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, durationMs + 50);
+}
+
+// ---------------------------------------------------------------------------
+// Collapsible log
+// ---------------------------------------------------------------------------
+function toggleLog() {
+  const log = document.getElementById('cloningLog');
+  const btn = document.getElementById('btnToggleLog');
+  const collapsed = log.classList.toggle('log-collapsed');
+  btn.textContent = collapsed ? '▶' : '▼';
+}
+
+// ---------------------------------------------------------------------------
+// Cloning log
+// ---------------------------------------------------------------------------
+function clog(msg, type = 'info') {
+  const log  = document.getElementById('cloningLog');
+  const line = document.createElement('div');
+  line.className   = 'clog-entry ' + type;
+  line.textContent = msg;
+  log.prepend(line);
+  while (log.children.length > 20) log.removeChild(log.lastChild);
+}
+
+// ---------------------------------------------------------------------------
+// Toast helper (shared)
+// ---------------------------------------------------------------------------
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className   = 'toast ' + type;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => { if (toast.parentNode) container.removeChild(toast); }, 3200);
+}
+
+// ---------------------------------------------------------------------------
+// Mode buttons
+// ---------------------------------------------------------------------------
+document.getElementById('btnClone').addEventListener('click', () => {
+  showScreen('cloningWorkspace');
+  initCloningWorkspace();
+});
+
+document.getElementById('btnTutorial').addEventListener('click', () => {
+  showScreen('gameArea');
+  Game.startMode('tutorial');
+});
+
+document.getElementById('btnChallenge').addEventListener('click', () => {
+  showScreen('gameArea');
+  Game.startMode('challenge');
+});
+
+document.getElementById('btnSandbox').addEventListener('click', () => {
+  showScreen('gameArea');
+  Game.startMode('sandbox');
+});
+
+// "Back to menu" in old game area
+document.getElementById('btnBackToMenu')?.addEventListener('click', () => {
+  showScreen('modeSelectScreen');
+});
+
+// ---------------------------------------------------------------------------
+// Old game area inline setup (preserved from original)
+// ---------------------------------------------------------------------------
+(function setupOldGameArea() {
+  const pUC19 = Game.pUC19;
+
+  const canvas = document.getElementById('plasmidCanvas');
+  (function resizeCanvas() {
+    const area = canvas.parentElement;
+    const size = Math.min(area.clientWidth, area.clientHeight) - 32;
+    canvas.width = canvas.height = size;
+  })();
+
+  const renderer = new PlasmidRenderer(canvas, pUC19);
+  renderer.render(MCS_ENZYMES);
+
+  const state = { score: 0, correct: 0, streak: 0, selectedEnzyme: null, allSitesVisible: false };
+
+  const enzymeList   = document.getElementById('enzymeList');
+  const enzymeSelect = document.getElementById('enzymeSelect');
+  const enzymeDetail = document.getElementById('enzymeDetail');
+  const btnCut       = document.getElementById('btnCut');
+  const btnReset     = document.getElementById('btnReset');
+  const btnShowAll   = document.getElementById('btnShowAllSites');
+  const logPanel     = document.getElementById('logPanel');
+  const analysisPanel= document.getElementById('analysisPanel');
+  const scoreEl      = document.getElementById('scoreValue');
+  const correctEl    = document.getElementById('correctValue');
+  const streakEl     = document.getElementById('streakValue');
+  const plasmidInfo  = document.getElementById('plasmidInfo');
+  const sizeSlider   = document.getElementById('sizeSlider');
+  const sizeLabel    = document.getElementById('sizeLabel');
+
+  function log2(msg, type='log') {
+    const e = document.createElement('div');
+    e.className = 'log-entry ' + type;
+    const t = new Date().toLocaleTimeString('en-GB', {hour12:false});
+    e.textContent = '['+t+'] '+msg;
+    logPanel.prepend(e);
+    while (logPanel.children.length > 60) logPanel.removeChild(logPanel.lastChild);
+  }
+
+  function buildEnzymeList() {
+    enzymeList.innerHTML = '';
+    enzymeSelect.innerHTML = '<option value="">— select enzyme —</option>';
+    for (const name of ALL_ENZYME_NAMES) {
+      const enz = EnzymeDB[name];
+      const item = document.createElement('div');
+      item.className = 'enzyme-item'; item.dataset.enzyme = name;
+      item.innerHTML = `<span class="enzyme-name">${name}</span>
+        <span class="overhang-badge ${enz.overhangType==='5prime'?'five-prime':enz.overhangType==='3prime'?'three-prime':'blunt'}">
+          ${enz.overhangType==='5prime'?"5'":enz.overhangType==='3prime'?"3'":'⊟'}
+        </span>
+        <span class="overhang-seq">${enz.overhangSeq||'blunt'}</span>`;
+      item.addEventListener('click', () => selectEnzyme(name));
+      enzymeList.appendChild(item);
+      const opt = document.createElement('option');
+      opt.value = name; opt.textContent = name+'  ['+enz.recognitionSeq+']';
+      enzymeSelect.appendChild(opt);
+    }
+  }
+
+  function selectEnzyme(name) {
+    state.selectedEnzyme = name;
+    document.querySelectorAll('.enzyme-item').forEach(el => el.classList.toggle('selected', el.dataset.enzyme===name));
+    enzymeSelect.value = name;
+    btnCut.disabled = !name;
+    const seq = EnzymeDB[name]; if (!seq) return;
+    const topCut = seq.cutPositionTop;
+    // Bottom strand shown 3'→5' left-to-right = complement of top strand (no reversal)
+    const _cm   = { A: 'T', T: 'A', G: 'C', C: 'G', N: 'N' };
+    const botSeq = seq.recognitionSeq.split('').map(b => _cm[b] || b).join('');
+    const botCut = seq.cutPositionBottom;
+    const compat = (seq.compatibleWith||[seq.name]).filter(n=>n!==name).join(', ')||'self only';
+    enzymeDetail.innerHTML = `<h3>${name}</h3>
+      <div class="recog">5'—${seq.recognitionSeq.slice(0,topCut)}<span class="cut-mark">↓</span>${seq.recognitionSeq.slice(topCut)}—3'<br>
+      3'—${botSeq.slice(0,botCut)}<span class="cut-mark">↑</span>${botSeq.slice(botCut)}—5'</div>
+      <div class="detail-row">Type: <strong>${seq.overhangType.replace('prime',"' overhang")}</strong></div>
+      <div class="detail-row">Overhang: <strong style="font-family:var(--font-mono)">${seq.overhangSeq||'(blunt)'}</strong></div>
+      <div class="detail-row">Compatible: <strong>${compat}</strong></div>`;
+    const sites = pUC19.findRestrictionSites([name]);
+    renderer.render(state.allSitesVisible ? ALL_ENZYME_NAMES : MCS_ENZYMES);
+    log2(`Selected ${name} — ${sites.length} site(s) in pUC19.`, 'info');
+  }
+
+  btnCut.addEventListener('click', () => {
+    const name = state.selectedEnzyme; if (!name) return;
+    const sites = pUC19.findRestrictionSites([name]);
+    if (!sites.length) { log2(name+' has no site!','warn'); return; }
+    btnCut.disabled = btnReset.disabled = true;
+    renderer.renderCutAnimation(name, sites[0].topStrandCut, () => {
+      state.streak++; state.score += 10 + state.streak * 2; state.correct++;
+      scoreEl.textContent = state.score; correctEl.textContent = state.correct; streakEl.textContent = state.streak;
+      btnReset.disabled = false;
+      log2('Cut complete. +10 pts', 'success');
+    });
+    log2('Cutting pUC19 with '+name+'…', 'info');
+  });
+
+  btnReset.addEventListener('click', () => {
+    state.selectedEnzyme = null; state.streak = 0;
+    document.querySelectorAll('.enzyme-item').forEach(el=>el.classList.remove('selected'));
+    enzymeSelect.value=''; btnCut.disabled=true;
+    renderer._cutAnimState=null;
+    renderer.render(state.allSitesVisible?ALL_ENZYME_NAMES:MCS_ENZYMES);
+    log2('Reset.','info');
+  });
+
+  btnShowAll.addEventListener('click', () => {
+    state.allSitesVisible = !state.allSitesVisible;
+    btnShowAll.textContent = state.allSitesVisible ? 'Show MCS Only' : 'Show All Sites';
+    renderer.render(state.allSitesVisible ? ALL_ENZYME_NAMES : MCS_ENZYMES);
+  });
+
+  enzymeSelect.addEventListener('change', () => { if (enzymeSelect.value) selectEnzyme(enzymeSelect.value); });
+
+  renderer.onClick(({type,data}) => {
+    if (type==='feature') { renderer.setHighlight(data.name); setTimeout(()=>renderer.setHighlight(null),2000); }
+    else if (type==='restriction_site') selectEnzyme(data.enzymeName||data.enzyme);
+  });
+
+  document.querySelectorAll('.info-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.info-tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      document.querySelectorAll('#logPanel,#analysisPanel,#helpPanel').forEach(p=>{
+        p.classList.toggle('active', p.id===tab.dataset.panel);
+      });
+    });
+  });
+
+  function applyCanvasSize(size) {
+    canvas.width = canvas.height = size;
+    sizeLabel.textContent = size + ' px';
+    renderer._computeLayout();
+    renderer.render(state.allSitesVisible?ALL_ENZYME_NAMES:MCS_ENZYMES);
+  }
+  sizeSlider.addEventListener('input', ()=>applyCanvasSize(parseInt(sizeSlider.value)));
+
+  buildEnzymeList();
+  plasmidInfo.textContent = 'pUC19 — ' + pUC19.length.toLocaleString() + ' bp';
+  log2('pUC19 loaded. Select a mode from the menu.', 'info');
+})();
+
+// ---------------------------------------------------------------------------
+// Init legacy Game + UI modules
+// ---------------------------------------------------------------------------
+const TUTORIAL_LEVELS = [{"id":"tut_01","title":"Simple Insertion with EcoRI","description":"A GFP fragment arrives with EcoRI sites at both ends. Cut pUC19 at its EcoRI site in the MCS and ligate the insert in.","mode":"tutorial","hints":["EcoRI cuts G^AATTC, leaving a 4-base 5' AATT overhang.","Expect 2 recombinant orientations plus 1 vector self-ligation — 3 products total."],"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS region contains a single EcoRI site at ~position 396."},"insert":{"name":"GFP fragment","size":720,"description":"GFP coding sequence flanked by EcoRI sites on both ends.","ends":{"left":"EcoRI","right":"EcoRI"}},"objectives":{"correct_enzyme":"EcoRI","expected_variants":3,"orientation_matters":false,"select_antibiotic":"ampicillin"},"teaching_point":"When the same enzyme cuts both ends, the fragment can ligate in either orientation."},{"id":"tut_02","title":"Directional Cloning with BamHI + HindIII","description":"Clone a luciferase reporter directionally between BamHI and HindIII sites in the pUC19 MCS.","mode":"tutorial","hints":["BamHI leaves GATC; HindIII leaves AGCT — incompatible, so insert goes in one direction only."],"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS has BamHI at ~421 and HindIII at ~447."},"insert":{"name":"Luciferase reporter","size":1653,"description":"Firefly luciferase with BamHI (left) and HindIII (right) ends.","ends":{"left":"BamHI","right":"HindIII"}},"objectives":{"correct_enzyme":"BamHI","expected_variants":1,"orientation_matters":true,"select_antibiotic":"ampicillin"},"teaching_point":"Different enzymes on each end guarantee directional insertion."}];
+const CHALLENGE_LEVELS = [{"id":"chal_01","title":"Speed Clone: GFP in 120s","description":"Clone a GFP fragment between KpnI and HindIII.","mode":"challenge","time_limit_seconds":120,"vector":{"name":"pUC19","size":2686,"features":[{"name":"lacZ-α","start":149,"end":506,"type":"lacZ","strand":1},{"name":"MCS","start":396,"end":453,"type":"mcs","strand":1},{"name":"pMB1 ori","start":858,"end":1300,"type":"ori","strand":1},{"name":"ampR","start":1629,"end":2489,"type":"resistance","strand":-1}],"sequence_hint":"MCS contains KpnI (~407) and HindIII (~447)."},"insert":{"name":"GFP-2A-mCherry","size":1440,"description":"Bicistronic cassette with KpnI (left) and HindIII (right) ends.","ends":{"left":"KpnI","right":"HindIII"}},"objectives":{"correct_enzyme":"KpnI","expected_variants":1,"orientation_matters":true,"select_antibiotic":"ampicillin"},"teaching_point":"KpnI (3' overhang) + HindIII (5' overhang) = guaranteed directional cloning."}];
+
+Game.init(TUTORIAL_LEVELS, CHALLENGE_LEVELS);
+UI.init();
+</script>
+
+</body>
+</html>
