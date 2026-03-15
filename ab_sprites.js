@@ -647,8 +647,11 @@ const ABSprites = (() => {
 
     const drawH = h;
     const drawW = h * (img.naturalWidth / img.naturalHeight);
-    // cx is the left anchor — body stays planted as throw arm extends right
-    ctx.drawImage(img, cx, footY - drawH, drawW, drawH);
+    // Flip horizontally so Cam faces right (toward pathogens)
+    ctx.save();
+    ctx.scale(-1, 1);
+    ctx.drawImage(img, -(cx + drawW), footY - drawH, drawW, drawH);
+    ctx.restore();
   }
 
   /* ─────────────────────────────────────────────────────────────────── */

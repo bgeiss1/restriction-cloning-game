@@ -379,8 +379,8 @@ const ABEngine = (() => {
   }
 
   function getFireX() {
-    // Left anchor = 4px; frame 4 (throw) aspect = 319/372 ≈ 0.858
-    // Throwing hand is ~88% across the frame width
+    // Left anchor = 4px; frame 4 aspect = 319/372 ≈ 0.858
+    // After horizontal flip, throwing hand is at ~88% from left edge
     const camH = (H - 144) / 8;
     return Math.round(4 + camH * 0.858 * 0.88);
   }
