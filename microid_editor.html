@@ -213,9 +213,44 @@ input[type=number] { width: 80px; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(200,169,81,0.25); border-radius: 4px; }
+
+/* ── CONNECT OVERLAY ── */
+#connect-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+}
+#connect-overlay.hidden { display: none; }
+#connect-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 36px 40px; width: 400px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+#connect-box h1 { font-size: 1.4rem; color: var(--gold); }
+#connect-box p  { color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
+#connect-box input[type=password] {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.95rem;
+}
+#connect-box input[type=password]:focus { outline: none; border-color: var(--gold); }
+#connect-error { color: var(--danger); font-size: 0.85rem; min-height: 1.2em; }
 </style>
 </head>
 <body>
+
+<!-- CONNECT OVERLAY -->
+<div id="connect-overlay" class="hidden">
+  <div id="connect-box">
+    <h1>🔬 Micro ID — Database Editor</h1>
+    <p>Enter your GitHub Personal Access Token to load and publish the database.<br>
+       The token needs <strong>repo</strong> (Contents read &amp; write) scope.</p>
+    <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
+    <div id="connect-error"></div>
+    <button class="btn-primary" id="connect-btn">Connect</button>
+  </div>
+</div>
+
 <div id="app">
 
   <!-- TOP BAR -->
@@ -225,7 +260,8 @@ input[type=number] { width: 80px; }
       <span id="dirty" class="hidden">● Unsaved changes</span>
       <button class="btn-open" onclick="openFile()">Open DB…</button>
       <button class="btn-secondary" onclick="newOrganism()">+ Organism</button>
-      <button class="btn-primary" onclick="saveDB()">⬇ Download JSON</button>
+      <button class="btn-secondary" onclick="saveDB()">⬇ Download</button>
+      <button class="btn-primary" id="publish-btn" onclick="publishToGitHub()" style="display:none;">Publish to GitHub</button>
       <a href="index.html" style="text-decoration:none;">
         <button class="btn-secondary" style="padding:7px 12px;">← Menu</button>
       </a>
@@ -285,28 +321,146 @@ input[type=number] { width: 80px; }
 
 <script>
 // ═══════════════════════════════════════════════════════════════════════
+//  GITHUB CONFIG
+// ═══════════════════════════════════════════════════════════════════════
+const GITHUB_REPO = 'bgeiss1/restriction-cloning-game';
+const GITHUB_FILE = 'microid_db.json';
+const GITHUB_API  = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+
+// ═══════════════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════════════
 let db = null;           // parsed DB object
 let currentIdx = null;   // index into db.organisms
 let dirty = false;
 let filterText = '';
+let currentSha = '';     // GitHub blob SHA — required for PUT
 
 // ═══════════════════════════════════════════════════════════════════════
-//  INIT — try to auto-load microid_db.json
+//  INIT
 // ═══════════════════════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
-  try {
-    const resp = await fetch('microid_db.json?t=' + Date.now());
-    if (!resp.ok) throw new Error('not found');
-    db = await resp.json();
-    renderAll();
-  } catch {
-    // start with empty DB
-    db = { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] };
+  const onGHPages = location.hostname.endsWith('github.io');
+  const savedPat  = sessionStorage.getItem('microid_editor_pat');
+
+  if (onGHPages) {
+    // GitHub Pages: must connect via PAT
+    if (savedPat) {
+      await connectWithPat(savedPat, /*silent=*/true);
+    } else {
+      showConnectOverlay();
+    }
+  } else {
+    // Local dev: auto-load via fetch, show Publish button only if PAT is cached
+    try {
+      const resp = await fetch('microid_db.json?t=' + Date.now());
+      if (!resp.ok) throw new Error('not found');
+      db = await resp.json();
+    } catch {
+      db = { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] };
+    }
+    if (savedPat) document.getElementById('publish-btn').style.display = '';
     renderAll();
   }
+
+  // Wire up connect button
+  document.getElementById('connect-btn').addEventListener('click', async () => {
+    const pat = document.getElementById('pat-input').value.trim();
+    if (!pat) { document.getElementById('connect-error').textContent = 'Please enter a PAT.'; return; }
+    const btn = document.getElementById('connect-btn');
+    btn.disabled = true; btn.textContent = 'Connecting…';
+    document.getElementById('connect-error').textContent = '';
+    await connectWithPat(pat, false);
+    btn.disabled = false; btn.textContent = 'Connect';
+  });
+  document.getElementById('pat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('connect-btn').click();
+  });
 });
+
+function showConnectOverlay() {
+  document.getElementById('connect-overlay').classList.remove('hidden');
+}
+
+async function connectWithPat(pat, silent) {
+  try {
+    const data = await githubGet(pat);
+    sessionStorage.setItem('microid_editor_pat', pat);
+    currentSha = data.sha;
+    const json = atob(data.content.replace(/\n/g, ''));
+    db = JSON.parse(json);
+    if (!db.meta) db.meta = {};
+    if (!db.organisms) db.organisms = [];
+    document.getElementById('connect-overlay').classList.add('hidden');
+    document.getElementById('publish-btn').style.display = '';
+    currentIdx = null;
+    renderAll();
+  } catch (err) {
+    if (silent) {
+      // PAT may be expired — fall back to fetch
+      sessionStorage.removeItem('microid_editor_pat');
+      try {
+        const resp = await fetch('microid_db.json?t=' + Date.now());
+        db = await resp.json();
+        renderAll();
+      } catch {
+        db = { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] };
+        renderAll();
+      }
+      if (location.hostname.endsWith('github.io')) showConnectOverlay();
+    } else {
+      document.getElementById('connect-error').textContent = 'Error: ' + err.message;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  GITHUB API
+// ═══════════════════════════════════════════════════════════════════════
+async function githubGet(pat) {
+  const resp = await fetch(GITHUB_API, {
+    headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!resp.ok) throw new Error(`GitHub ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+  return resp.json();
+}
+
+async function publishToGitHub() {
+  syncCurrentOrgToDb();
+  syncMeta();
+  const pat = sessionStorage.getItem('microid_editor_pat');
+  if (!pat) { alert('Not connected to GitHub. Use the Connect overlay.'); return; }
+  const btn = document.getElementById('publish-btn');
+  btn.disabled = true; btn.textContent = 'Publishing…';
+  try {
+    const contentStr = JSON.stringify(db, null, 2);
+    const content = btoa(unescape(encodeURIComponent(contentStr)));
+    const message = `Update microid_db.json — ${new Date().toISOString().slice(0,16)} (Micro ID Editor)`;
+    const body = { message, content };
+    if (currentSha) body.sha = currentSha;
+    const resp = await fetch(GITHUB_API, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${pat}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const data = await resp.json();
+    currentSha = data.content.sha;
+    dirty = false;
+    updateDirty();
+    btn.textContent = '✓ Published!';
+    setTimeout(() => { btn.textContent = 'Publish to GitHub'; }, 2500);
+  } catch (err) {
+    alert('Publish failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === 'Publishing…') btn.textContent = 'Publish to GitHub';
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  FILE I/O
