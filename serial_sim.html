@@ -590,13 +590,13 @@ function drawRack() {
   const sx = Math.max(10, (cssW - totalW) / 2);
 
   // Map cumulative dilution factor → liquid color
-  // log10(1)=0 → dark green; log10(1e6)=6 → very pale cyan
+  // log10(1)=0 → dark green; log10(1e6)=6 → near-white
   function dilutionColor(cumFactor) {
     const t = Math.min(1, Math.log10(Math.max(1, cumFactor)) / 6);
-    const r = Math.round(40  + t * 140); // 40  → 180
-    const g = Math.round(185 + t * 35);  // 185 → 220
-    const b = Math.round(95  + t * 130); // 95  → 225
-    const a = (0.62 - t * 0.38).toFixed(2); // 0.62 → 0.24
+    const r = Math.round(40  + t * 215); // 40  → 255
+    const g = Math.round(185 + t * 70);  // 185 → 255
+    const b = Math.round(95  + t * 160); // 95  → 255
+    const a = (0.62 - t * 0.45).toFixed(2); // 0.62 → 0.17
     return `rgba(${r},${g},${b},${a})`;
   }
 
