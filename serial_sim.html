@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Serial Simulator — MIP Molecular Madness</title>
+<style>
+:root {
+  --bg: #111c15;
+  --green-dark: #1E4D2B;
+  --green-mid: #245c34;
+  --gold: #C8A951;
+  --gold-light: #e0c060;
+  --text: #e8f5e9;
+  --text-muted: #a8c5a0;
+  --success: #66BB6A;
+  --warn: #FFA726;
+  --danger: #EF5350;
+  --border: rgba(200,169,81,0.26);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  touch-action: manipulation;
+}
+
+/* ── START SCREEN ── */
+#startScreen {
+  position: fixed; inset: 0; z-index: 20;
+  background: linear-gradient(160deg, #1E4D2B 0%, #163820 60%, #0f2516 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 28px 20px; gap: 18px; overflow-y: auto;
+}
+#startScreen.hidden { display: none; }
+#startScreen h1 {
+  font-size: 2.1rem; font-weight: 800;
+  color: var(--gold); letter-spacing: 0.06em;
+  text-align: center;
+}
+.rules-box {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 20px;
+  font-size: 0.88rem; line-height: 1.9;
+  max-width: 400px; width: 100%;
+}
+.rules-box strong { color: var(--gold); }
+.btn-start {
+  width: 100%; max-width: 320px;
+  padding: 15px;
+  background: var(--gold); color: #1a1a00;
+  font-size: 1.05rem; font-weight: 700;
+  border: none; border-radius: 8px;
+  cursor: pointer; touch-action: manipulation;
+}
+.btn-start:active { opacity: 0.85; }
+.btn-back-link {
+  padding: 9px 24px;
+  border: 1.5px solid var(--border); background: none;
+  color: var(--text-muted); font-size: 0.9rem;
+  border-radius: 8px; cursor: pointer;
+  text-decoration: none; display: inline-block;
+  touch-action: manipulation;
+}
+
+/* ── GAME HEADER ── */
+#gameHeader {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: 54px; z-index: 10;
+  background: rgba(17,28,21,0.97);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 12px; gap: 8px;
+}
+#gameHeader.hidden { display: none; }
+#levelTitle {
+  font-size: 1rem; font-weight: 700; color: var(--gold);
+  flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#scoreDisplay {
+  font-size: 0.85rem; color: var(--gold-light);
+  font-weight: 600; white-space: nowrap;
+}
+.btn-menu {
+  padding: 7px 14px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: none;
+  color: var(--text-muted); font-size: 0.85rem;
+  cursor: pointer; touch-action: manipulation;
+  text-decoration: none; display: inline-block;
+}
+
+/* ── GAME SCREEN ── */
+#gameScreen {
+  display: none;
+  padding-top: 54px;
+  min-height: 100dvh;
+}
+#gameScreen.active { display: block; }
+.game-content {
+  padding: 14px 14px 80px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+/* Level info card */
+.level-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 0.85rem; line-height: 1.6;
+}
+.level-name {
+  font-size: 0.95rem; font-weight: 700;
+  color: var(--gold); margin-bottom: 4px;
+}
+.level-desc strong { color: var(--gold-light); }
+.level-conc {
+  font-size: 0.8rem; color: var(--text-muted);
+  margin-top: 5px; padding-top: 5px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.level-conc span { color: var(--gold-light); font-weight: 600; }
+.hint-row {
+  font-size: 0.8rem; color: var(--text-muted);
+  margin-top: 4px; padding-left: 2px;
+  border-left: 3px solid rgba(200,169,81,0.3);
+  padding-left: 8px;
+  display: none;
+}
+.hint-row.visible { display: block; }
+.hint-row strong { color: var(--gold); }
+
+/* Tube rack canvas */
+#rackCanvas {
+  width: 100%;
+  display: block;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.03);
+}
+
+/* Tutorial live preview */
+#tutPreview {
+  background: rgba(200,169,81,0.1);
+  border: 1px solid rgba(200,169,81,0.28);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: none;
+}
+#tutPreview.visible { display: block; }
+.prev-row {
+  display: flex; justify-content: space-between;
+  align-items: center; font-size: 0.83rem;
+}
+.prev-label { color: var(--text-muted); }
+.prev-value { color: var(--gold-light); font-weight: 600; }
+.prev-colonies-big {
+  font-size: 1.2rem; font-weight: 800; color: var(--gold);
+  text-align: center; margin: 4px 0 2px;
+}
+.prev-status {
+  font-size: 0.8rem; text-align: center;
+  margin-top: 2px;
+}
+
+/* Dilution buttons */
+.section-label {
+  font-size: 0.78rem; color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.dil-row {
+  display: flex; gap: 8px;
+}
+.btn-dil {
+  flex: 1; padding: 12px 4px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; touch-action: manipulation;
+}
+.btn-dil:active:not(:disabled) { background: rgba(200,169,81,0.15); }
+.btn-dil:disabled { opacity: 0.3; cursor: default; }
+
+/* Action buttons */
+.action-row {
+  display: flex; gap: 8px;
+}
+.btn-remove {
+  padding: 12px 14px;
+  background: rgba(239,83,80,0.1);
+  border: 1.5px solid rgba(239,83,80,0.28);
+  border-radius: 8px;
+  color: var(--danger);
+  font-size: 0.88rem; font-weight: 600;
+  cursor: pointer; touch-action: manipulation;
+  white-space: nowrap;
+}
+.btn-remove:disabled { opacity: 0.3; cursor: default; }
+.btn-plate {
+  flex: 1; padding: 14px;
+  background: var(--gold); color: #1a1a00;
+  border: none; border-radius: 8px;
+  font-size: 1rem; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+}
+.btn-plate:disabled { opacity: 0.35; cursor: default; }
+.btn-plate:active:not(:disabled) { opacity: 0.85; }
+
+/* Plate area */
+#plateArea {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 12px;
+}
+#plateCanvas {
+  display: none;
+  border-radius: 50%;
+}
+#plateCanvas.visible { display: block; }
+
+/* Result card */
+#resultCard {
+  display: none;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px; text-align: center;
+  width: 100%;
+}
+#resultCard.visible { display: block; }
+.res-colonies-label {
+  font-size: 0.78rem; color: var(--text-muted);
+  margin-bottom: 2px;
+}
+.res-colonies-val {
+  font-size: 1.6rem; font-weight: 800; color: var(--gold);
+  margin-bottom: 4px;
+}
+.res-verdict {
+  font-size: 1rem; font-weight: 700;
+  margin-bottom: 6px;
+}
+.verdict-good { color: var(--success); }
+.verdict-tmtc { color: var(--warn); }
+.verdict-tftc { color: var(--danger); }
+.res-score { font-size: 0.88rem; color: var(--gold-light); margin-bottom: 12px; }
+.nav-buttons { display: flex; gap: 10px; }
+.btn-retry {
+  flex: 1; padding: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid var(--border);
+  border-radius: 8px; color: var(--text-muted);
+  font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; touch-action: manipulation;
+}
+.btn-next {
+  flex: 2; padding: 12px;
+  background: var(--success); color: #0a1f0a;
+  border: none; border-radius: 8px;
+  font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; touch-action: manipulation;
+}
+
+/* Win screen */
+#winScreen {
+  position: fixed; inset: 0; z-index: 30;
+  background: linear-gradient(160deg, #1E4D2B 0%, #163820 60%, #0f2516 100%);
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 28px 24px; gap: 16px; text-align: center;
+}
+#winScreen.active { display: flex; }
+#winScreen h2 { font-size: 2rem; font-weight: 800; color: var(--gold); }
+.win-sub { font-size: 1.1rem; color: var(--gold-light); font-weight: 600; }
+.win-msg { font-size: 0.9rem; color: var(--text-muted); max-width: 280px; }
+</style>
+</head>
+<body>
+
+<!-- ── START SCREEN ── -->
+<div id="startScreen">
+  <svg viewBox="0 0 90 72" width="80" height="80" xmlns="http://www.w3.org/2000/svg">
+    <!-- Test tube rack with three tubes -->
+    <!-- Rack bar -->
+    <rect x="4" y="60" width="82" height="8" rx="3" fill="#2a4a2a" stroke="#3a6a3a" stroke-width="1"/>
+    <!-- Tube 1 (large, sample) -->
+    <rect x="12" y="12" width="14" height="44" rx="7" fill="rgba(60,180,100,0.3)" stroke="#4a9a6a" stroke-width="1.5"/>
+    <rect x="12" y="36" width="14" height="20" rx="0" fill="rgba(60,200,100,0.45)"/>
+    <rect x="12" y="52" width="14" height="4" rx="7" fill="rgba(60,200,100,0.45)"/>
+    <!-- Tube 2 (medium, first dilution) -->
+    <rect x="38" y="18" width="14" height="38" rx="7" fill="rgba(100,200,160,0.25)" stroke="#4aaa8a" stroke-width="1.5"/>
+    <rect x="38" y="42" width="14" height="14" rx="0" fill="rgba(100,200,160,0.4)"/>
+    <rect x="38" y="52" width="14" height="4" rx="7" fill="rgba(100,200,160,0.4)"/>
+    <!-- Tube 3 (small, second dilution) -->
+    <rect x="64" y="24" width="14" height="32" rx="7" fill="rgba(160,220,200,0.18)" stroke="#5abba0" stroke-width="1.5"/>
+    <rect x="64" y="46" width="14" height="10" rx="0" fill="rgba(160,220,200,0.32)"/>
+    <rect x="64" y="52" width="14" height="4" rx="7" fill="rgba(160,220,200,0.32)"/>
+    <!-- Arrows between tubes -->
+    <path d="M28 38 L36 38" stroke="#4a7a4a" stroke-width="1.5" stroke-linecap="round"/>
+    <polygon points="36,35 40,38 36,41" fill="#4a7a4a"/>
+    <path d="M54 44 L62 44" stroke="#4a7a4a" stroke-width="1.5" stroke-linecap="round"/>
+    <polygon points="62,41 66,44 62,47" fill="#4a7a4a"/>
+    <!-- Labels -->
+    <text x="19" y="10" text-anchor="middle" fill="#a8c5a0" font-size="6" font-family="sans-serif">10⁰</text>
+    <text x="45" y="16" text-anchor="middle" fill="#a8c5a0" font-size="6" font-family="sans-serif">10⁻²</text>
+    <text x="71" y="22" text-anchor="middle" fill="#a8c5a0" font-size="6" font-family="sans-serif">10⁻⁴</text>
+  </svg>
+  <h1>Serial Simulator</h1>
+  <div class="rules-box">
+    <strong>Goal:</strong> Dilute your bacterial sample to get a <strong>countable plate</strong> (30–300 colonies).<br>
+    <strong>Method:</strong> Add dilution tubes in series, then plate 1 mL on agar.<br>
+    <strong>Remember:</strong> Too concentrated → <strong>TMTC</strong>. Too dilute → <strong>TFTC</strong>.
+  </div>
+  <button class="btn-start" id="btnStart">Start</button>
+  <a href="index.html" class="btn-back-link">← Menu</a>
+</div>
+
+<!-- ── GAME HEADER ── -->
+<header id="gameHeader" class="hidden">
+  <div id="levelTitle">Tutorial</div>
+  <div id="scoreDisplay">0 pts</div>
+  <a href="index.html" class="btn-menu">← Menu</a>
+</header>
+
+<!-- ── GAME SCREEN ── -->
+<div id="gameScreen">
+  <div class="game-content">
+
+    <!-- Level info -->
+    <div class="level-card">
+      <div class="level-name" id="levelName">Tutorial</div>
+      <div class="level-desc" id="levelDesc"></div>
+      <div class="level-conc">Initial concentration: <span id="levelConcSpan">—</span></div>
+      <div class="hint-row" id="hintRow"><strong>Hint:</strong> <span id="hintText"></span></div>
+    </div>
+
+    <!-- Tube rack -->
+    <canvas id="rackCanvas" height="150"></canvas>
+
+    <!-- Tutorial live preview -->
+    <div id="tutPreview">
+      <div class="prev-row">
+        <span class="prev-label">Total dilution:</span>
+        <span class="prev-value" id="prevDilution">—</span>
+      </div>
+      <div class="prev-row">
+        <span class="prev-label">Final concentration:</span>
+        <span class="prev-value" id="prevConc">—</span>
+      </div>
+      <div class="prev-colonies-big" id="prevColonies">— colonies</div>
+      <div class="prev-status" id="prevStatus"></div>
+    </div>
+
+    <!-- Dilution buttons -->
+    <div>
+      <div class="section-label">Add dilution tube:</div>
+      <div class="dil-row" id="dilRow">
+        <button class="btn-dil" data-d="2">1:2</button>
+        <button class="btn-dil" data-d="5">1:5</button>
+        <button class="btn-dil" data-d="10">1:10</button>
+        <button class="btn-dil" data-d="100">1:100</button>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="action-row">
+      <button class="btn-remove" id="btnRemove" disabled>✕ Remove Last</button>
+      <button class="btn-plate" id="btnPlate" disabled>🧫 Plate It!</button>
+    </div>
+
+    <!-- Plate + result -->
+    <div id="plateArea">
+      <canvas id="plateCanvas" width="220" height="220"></canvas>
+      <div id="resultCard">
+        <div class="res-colonies-label">Colonies counted:</div>
+        <div class="res-colonies-val" id="resColonies">—</div>
+        <div class="res-verdict" id="resVerdict"></div>
+        <div class="res-score" id="resScore"></div>
+        <div class="nav-buttons">
+          <button class="btn-retry" id="btnRetry">↺ Retry</button>
+          <button class="btn-next" id="btnNext">Next Level →</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── WIN SCREEN ── -->
+<div id="winScreen">
+  <div style="font-size:3rem">🏆</div>
+  <h2>All Plates Done!</h2>
+  <div class="win-sub">Total score: <span id="winScore">0</span> pts</div>
+  <div class="win-msg">You've mastered serial dilution. Great work!</div>
+  <button class="btn-start" onclick="location.reload()">Play Again</button>
+  <a href="index.html" class="btn-back-link">← Menu</a>
+</div>
+
+<script>
+'use strict';
+
+// ── CONSTANTS ──────────────────────────────────────────────────────────────
+const MAX_TUBES = 5;
+const PLATE_ML  = 1;
+const LO_DEFAULT = 30, HI_DEFAULT = 300;
+
+// ── LEVELS ─────────────────────────────────────────────────────────────────
+const LEVELS = [
+  {
+    id: 0, isTutorial: true,
+    name: 'Tutorial',
+    desc: 'Your sample has <strong>~10,000 CFU/mL</strong>. Add dilution tubes to get a countable plate (30–300 colonies per mL plated).',
+    initialConc: 10000,
+    hint: 'Try adding a single 1:100 tube — that gives you 100 colonies.',
+  },
+  {
+    id: 1,
+    name: 'Lv 1: Overnight Culture',
+    desc: 'An overnight <em>E. coli</em> culture grown for 16 hours. Estimated: <strong>~100,000 CFU/mL</strong>.',
+    initialConc: 100000,
+  },
+  {
+    id: 2,
+    name: 'Lv 2: Colony Resuspension',
+    desc: 'Colonies scraped from a plate into 1 mL PBS. Estimated: <strong>~1,000,000 CFU/mL</strong>.',
+    initialConc: 1000000,
+  },
+  {
+    id: 3,
+    name: 'Lv 3: Environmental Sample',
+    desc: 'A tap water sample. Low expected contamination: <strong>~5,000 CFU/mL</strong>.',
+    initialConc: 5000,
+  },
+  {
+    id: 4,
+    name: 'Lv 4: Stationary Phase',
+    desc: 'Dense culture at OD₆₀₀ ≈ 2.0. Very high density: <strong>~8,000,000 CFU/mL</strong>.',
+    initialConc: 8000000,
+  },
+  {
+    id: 5,
+    name: 'Lv 5: Unknown Sample',
+    desc: 'An unlabeled tube from the fridge. A sticky note reads <strong>~2×10⁵ CFU/mL</strong> — but is it fresh?',
+    initialConc: 200000,
+  },
+  {
+    id: 6,
+    name: 'Lv 6: Efficiency Challenge',
+    desc: 'Dense overnight at <strong>~5,000,000 CFU/mL</strong>. Get a countable plate using as <strong>few tubes as possible</strong> for bonus points!',
+    initialConc: 5000000,
+    efficiencyBonus: true,
+  },
+  {
+    id: 7,
+    name: 'Lv 7: Precision Plating',
+    desc: 'Protocol requires a tight colony range: <strong>50–150 colonies</strong>. Sample is ~300,000 CFU/mL.',
+    initialConc: 300000,
+    tightRange: [50, 150],
+  },
+  {
+    id: 8,
+    name: 'Lv 8: The Final Plate',
+    desc: 'A mixed environmental sample at <strong>~1,500,000 CFU/mL</strong>. Nail the dilution and finish strong!',
+    initialConc: 1500000,
+  },
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let state = {
+  levelIdx: 0,
+  tubes: [],      // array of dilution numbers, e.g. [10, 100]
+  hasPlated: false,
+  totalScore: 0,
+};
+
+// ── DOM REFS ───────────────────────────────────────────────────────────────
+const startScreen  = document.getElementById('startScreen');
+const gameHeader   = document.getElementById('gameHeader');
+const gameScreen   = document.getElementById('gameScreen');
+const winScreen    = document.getElementById('winScreen');
+const levelTitle   = document.getElementById('levelTitle');
+const levelName    = document.getElementById('levelName');
+const levelDesc    = document.getElementById('levelDesc');
+const levelConcSpan = document.getElementById('levelConcSpan');
+const hintRow      = document.getElementById('hintRow');
+const hintText     = document.getElementById('hintText');
+const tutPreview   = document.getElementById('tutPreview');
+const prevDilution = document.getElementById('prevDilution');
+const prevConc     = document.getElementById('prevConc');
+const prevColonies = document.getElementById('prevColonies');
+const prevStatus   = document.getElementById('prevStatus');
+const rackCanvas   = document.getElementById('rackCanvas');
+const plateCanvas  = document.getElementById('plateCanvas');
+const resultCard   = document.getElementById('resultCard');
+const resColonies  = document.getElementById('resColonies');
+const resVerdict   = document.getElementById('resVerdict');
+const resScore     = document.getElementById('resScore');
+const scoreDisplay = document.getElementById('scoreDisplay');
+const btnRemove    = document.getElementById('btnRemove');
+const btnPlate     = document.getElementById('btnPlate');
+const btnRetry     = document.getElementById('btnRetry');
+const btnNext      = document.getElementById('btnNext');
+const winScore     = document.getElementById('winScore');
+
+// ── MATH ───────────────────────────────────────────────────────────────────
+function calcFinalConc(tubes, initialConc) {
+  return tubes.reduce((c, d) => c / d, initialConc);
+}
+
+function calcColonies(tubes, initialConc) {
+  return Math.round(calcFinalConc(tubes, initialConc) * PLATE_ML);
+}
+
+function getRange(level) {
+  return level.tightRange || [LO_DEFAULT, HI_DEFAULT];
+}
+
+function isCountable(n, level) {
+  const [lo, hi] = getRange(level);
+  return n >= lo && n <= hi;
+}
+
+function fmtConc(c) {
+  if (c >= 1e6) return (c / 1e6).toPrecision(3) + ' × 10⁶ CFU/mL';
+  if (c >= 1e3) return (c / 1e3).toPrecision(3) + ' × 10³ CFU/mL';
+  if (c >= 1)   return Number(c.toPrecision(3)) + ' CFU/mL';
+  return c.toPrecision(2) + ' CFU/mL';
+}
+
+function fmtConcShort(c) {
+  if (c >= 1e8) return (c / 1e6).toFixed(0) + 'M';
+  if (c >= 1e6) return (c / 1e6).toPrecision(3) + 'M';
+  if (c >= 1e5) return (c / 1e3).toFixed(0) + 'k';
+  if (c >= 1e3) return (c / 1e3).toPrecision(3) + 'k';
+  if (c >= 1)   return Math.round(c);
+  return c.toPrecision(2);
+}
+
+function totalDilutionStr(tubes) {
+  const total = tubes.reduce((acc, d) => acc * d, 1);
+  if (total === 1) return '1:1 (undiluted)';
+  // Express as 1:N
+  return '1:' + total.toLocaleString();
+}
+
+function scoreLevel(colonies, tubes, level) {
+  if (level.isTutorial) return { pts: 0, msg: 'Tutorial complete — no score this round.' };
+  const [lo, hi] = getRange(level);
+  if (colonies < lo || colonies > hi) return { pts: 0, msg: '+0 pts' };
+
+  let pts = 100;
+  // Proximity bonus: closer to midpoint of countable range → +50 max
+  const mid = (lo + hi) / 2;
+  const halfRange = (hi - lo) / 2;
+  const proximity = 1 - Math.abs(colonies - mid) / halfRange;
+  pts += Math.round(proximity * 50);
+
+  // Efficiency bonus: fewer tubes = more points
+  const tubeBonus = level.efficiencyBonus ? 20 : 10;
+  pts += (MAX_TUBES - tubes.length) * tubeBonus;
+
+  return { pts, msg: `+${pts} pts` };
+}
+
+// ── CANVAS: TUBE RACK ─────────────────────────────────────────────────────
+function drawRack() {
+  const level = LEVELS[state.levelIdx];
+  const ctx   = rackCanvas.getContext('2d');
+  const cssW  = rackCanvas.offsetWidth || 340;
+  const cssH  = 150;
+  const dpr   = window.devicePixelRatio || 1;
+  rackCanvas.width  = Math.round(cssW * dpr);
+  rackCanvas.height = Math.round(cssH * dpr);
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, cssW, cssH);
+
+  const showEmpty = !state.hasPlated && state.tubes.length < MAX_TUBES;
+  const nItems  = 1 + state.tubes.length + (showEmpty ? 1 : 0);
+  const TW = 32;   // tube width
+  const TH = 82;   // tube height
+  const TY = 16;   // tube top Y
+  const AW = 26;   // arrow width
+  const totalW = nItems * TW + (nItems - 1) * AW;
+  const sx = Math.max(10, (cssW - totalW) / 2);
+
+  // Liquid tube colors (green → teal → blue-green as more diluted)
+  const tubeLiqColors = [
+    'rgba(40,180,100,0.55)',
+    'rgba(60,180,140,0.5)',
+    'rgba(80,180,170,0.45)',
+    'rgba(90,160,190,0.4)',
+    'rgba(100,140,200,0.38)',
+  ];
+
+  function drawTube(cx, topY, w, h, fillColor, strokeColor, isDashed) {
+    const hw = w / 2;
+    const r  = hw; // semicircle radius at bottom
+    if (isDashed) ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.moveTo(cx - hw, topY);
+    ctx.lineTo(cx + hw, topY);
+    ctx.lineTo(cx + hw, topY + h - r);
+    ctx.arc(cx, topY + h - r, r, 0, Math.PI);
+    ctx.closePath();
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    if (isDashed) ctx.setLineDash([]);
+  }
+
+  function drawTubeLiquid(cx, topY, w, h, liquidFrac, color) {
+    if (liquidFrac <= 0) return;
+    const hw = w / 2;
+    const r  = hw;
+    const liquidTop = topY + h * (1 - liquidFrac);
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx - hw, topY);
+    ctx.lineTo(cx + hw, topY);
+    ctx.lineTo(cx + hw, topY + h - r);
+    ctx.arc(cx, topY + h - r, r, 0, Math.PI);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = color;
+    ctx.fillRect(cx - hw - 1, liquidTop, w + 2, h);
+    ctx.restore();
+  }
+
+  function drawArrow(x, y) {
+    ctx.strokeStyle = '#4a7a4a';
+    ctx.fillStyle   = '#4a7a4a';
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + AW - 7, y);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + AW, y);
+    ctx.lineTo(x + AW - 8, y - 4);
+    ctx.lineTo(x + AW - 8, y + 4);
+    ctx.fill();
+  }
+
+  function label(cx, y, text, color, size) {
+    ctx.fillStyle = color;
+    ctx.font = `${size || 9}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(text, cx, y);
+  }
+
+  let x = sx;
+  const midTube = TY + TH * 0.42;
+
+  // ── Sample flask (slightly wider tube in gold border)
+  const fW = TW + 6;
+  const fCx = x + fW / 2;
+  drawTube(fCx, TY, fW, TH, 'rgba(30,80,50,0.3)', '#4a9a5a', false);
+  drawTubeLiquid(fCx, TY, fW, TH, 0.55, 'rgba(50,170,100,0.50)');
+  // Flask rim cap
+  ctx.fillStyle = '#3a7a4a';
+  ctx.fillRect(fCx - fW / 2, TY - 5, fW, 5);
+  label(fCx, TY - 7, 'Sample', '#a8c5a0', 8);
+  label(fCx, TY + TH + 13, fmtConcShort(level.initialConc), '#7a9a7a', 8);
+  label(fCx, TY + TH + 22, 'CFU/mL', '#5a7a5a', 7);
+  x += fW;
+
+  // ── Dilution tubes
+  for (let i = 0; i < state.tubes.length; i++) {
+    drawArrow(x, midTube);
+    x += AW;
+    const tcx = x + TW / 2;
+    const lColor = tubeLiqColors[Math.min(i, tubeLiqColors.length - 1)];
+    drawTube(tcx, TY, TW, TH, 'rgba(20,60,50,0.25)', '#3a8a6a', false);
+    drawTubeLiquid(tcx, TY, TW, TH, 0.45, lColor);
+    label(tcx, TY - 7, `1:${state.tubes[i]}`, '#a8c5a0', 8.5);
+    let c = level.initialConc;
+    for (let j = 0; j <= i; j++) c /= state.tubes[j];
+    label(tcx, TY + TH + 13, fmtConcShort(c), '#7a9a7a', 8);
+    label(tcx, TY + TH + 22, 'CFU/mL', '#5a7a5a', 7);
+    x += TW;
+  }
+
+  // ── Empty slot (dashed)
+  if (showEmpty) {
+    drawArrow(x, midTube);
+    x += AW;
+    const ecx = x + TW / 2;
+    drawTube(ecx, TY, TW, TH, 'rgba(255,255,255,0.02)', 'rgba(200,169,81,0.25)', true);
+    ctx.fillStyle = 'rgba(200,169,81,0.35)';
+    ctx.font = 'bold 20px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('+', ecx, TY + TH * 0.55);
+    label(ecx, TY - 7, 'add tube', 'rgba(200,169,81,0.4)', 7.5);
+    x += TW;
+  }
+
+  // ── Rack bar
+  const rackY = TY + TH + 4;
+  ctx.fillStyle = '#2a4a2a';
+  ctx.beginPath();
+  ctx.roundRect(sx - 8, rackY, totalW + 16, 9, 3);
+  ctx.fill();
+}
+
+// ── CANVAS: AGAR PLATE ────────────────────────────────────────────────────
+function drawPlate(colonies, level) {
+  const canvas = plateCanvas;
+  const ctx    = canvas.getContext('2d');
+  const W = 220, H = 220;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(W * dpr);
+  canvas.height = Math.round(H * dpr);
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H / 2, R = 100;
+
+  // Plate shadow
+  ctx.beginPath();
+  ctx.arc(cx + 3, cy + 4, R + 4, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fill();
+
+  // Plate background (agar — beige/amber)
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#d4a86a';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = '#e8c77a';
+  ctx.fill();
+
+  // Plate rim
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + 4, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(180,130,60,0.6)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  const [lo, hi] = getRange(level);
+
+  if (colonies > hi * 3) {
+    // TMTC — lawn of growth
+    ctx.beginPath();
+    ctx.arc(cx, cy, R - 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(120,80,30,0.25)';
+    ctx.fill();
+    // Dense dot noise
+    const rng = seededRNG(42);
+    for (let i = 0; i < 400; i++) {
+      const angle = rng() * Math.PI * 2;
+      const dist  = Math.sqrt(rng()) * (R - 6);
+      const dotR  = 1.5 + rng() * 1.5;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(angle) * dist, cy + Math.sin(angle) * dist, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(80,50,20,${0.5 + rng() * 0.4})`;
+      ctx.fill();
+    }
+  } else if (colonies > hi) {
+    // TMTC — too many to count precisely, draw many dots
+    drawColonyDots(ctx, cx, cy, R, Math.min(colonies, 400), 42);
+  } else if (colonies < lo && colonies > 0) {
+    // TFTC — very few dots
+    drawColonyDots(ctx, cx, cy, R, colonies, 99);
+  } else if (colonies === 0) {
+    // No colonies — clean plate
+    // (no dots needed)
+  } else {
+    // Countable — draw exact dots
+    drawColonyDots(ctx, cx, cy, R, colonies, 7);
+  }
+
+  // Plate glare
+  ctx.beginPath();
+  ctx.ellipse(cx - 26, cy - 32, 22, 14, -0.5, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fill();
+}
+
+// Seeded pseudo-random generator (simple LCG)
+function seededRNG(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 1664525 + 1013904223) & 0xffffffff;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+function drawColonyDots(ctx, cx, cy, R, n, seed) {
+  const rng = seededRNG(seed);
+  const limit = Math.min(n, 350);
+  for (let i = 0; i < limit; i++) {
+    // Use rejection sampling for uniform disk distribution
+    let dx, dy;
+    let attempts = 0;
+    do {
+      dx = (rng() * 2 - 1) * (R - 8);
+      dy = (rng() * 2 - 1) * (R - 8);
+      attempts++;
+    } while (dx * dx + dy * dy > (R - 8) * (R - 8) && attempts < 20);
+
+    const dotR = 2 + rng() * 2;
+    const shade = 60 + Math.floor(rng() * 40);
+    ctx.beginPath();
+    ctx.arc(cx + dx, cy + dy, dotR, 0, Math.PI * 2);
+    ctx.fillStyle = `rgb(${shade},${shade - 10},${shade - 20})`;
+    ctx.fill();
+  }
+}
+
+// ── TUTORIAL PREVIEW ──────────────────────────────────────────────────────
+function updateTutPreview() {
+  const level = LEVELS[state.levelIdx];
+  if (!level.isTutorial) return;
+
+  const n = calcColonies(state.tubes, level.initialConc);
+  const finalC = calcFinalConc(state.tubes, level.initialConc);
+  const [lo, hi] = getRange(level);
+
+  prevDilution.textContent = totalDilutionStr(state.tubes);
+  prevConc.textContent     = fmtConc(finalC);
+  prevColonies.textContent = n + ' colonies';
+
+  if (state.tubes.length === 0) {
+    prevStatus.textContent = 'Add tubes to dilute the sample.';
+    prevStatus.style.color = 'var(--text-muted)';
+  } else if (n > hi * 3) {
+    prevStatus.textContent = '⚠ Way too concentrated — TMTC';
+    prevStatus.style.color = 'var(--warn)';
+  } else if (n > hi) {
+    prevStatus.textContent = '⬆ Still too many — try more dilution';
+    prevStatus.style.color = 'var(--warn)';
+  } else if (n < lo && n > 0) {
+    prevStatus.textContent = '⬇ Too few — less dilution needed';
+    prevStatus.style.color = 'var(--danger)';
+  } else if (n === 0) {
+    prevStatus.textContent = '⬇ Over-diluted — no colonies expected';
+    prevStatus.style.color = 'var(--danger)';
+  } else {
+    prevStatus.textContent = '✓ Countable range! Ready to plate.';
+    prevStatus.style.color = 'var(--success)';
+  }
+}
+
+// ── UI STATE SYNC ─────────────────────────────────────────────────────────
+function updateUI() {
+  const level    = LEVELS[state.levelIdx];
+  const canAdd   = !state.hasPlated && state.tubes.length < MAX_TUBES;
+  const canPlate = !state.hasPlated && state.tubes.length > 0;
+  const canRemove = !state.hasPlated && state.tubes.length > 0;
+
+  // Dilution buttons
+  document.querySelectorAll('.btn-dil').forEach(b => {
+    b.disabled = !canAdd;
+  });
+  btnRemove.disabled = !canRemove;
+  btnPlate.disabled  = !canPlate;
+
+  // Tutorial preview
+  if (level.isTutorial) {
+    tutPreview.classList.toggle('visible', true);
+    updateTutPreview();
+  }
+
+  drawRack();
+}
+
+// ── LOAD LEVEL ─────────────────────────────────────────────────────────────
+function loadLevel(idx) {
+  state.levelIdx = idx;
+  state.tubes    = [];
+  state.hasPlated = false;
+
+  const level = LEVELS[idx];
+  levelTitle.textContent = level.name;
+  levelName.textContent  = level.name;
+  levelDesc.innerHTML    = level.desc;
+  levelConcSpan.textContent = fmtConc(level.initialConc);
+
+  if (level.hint) {
+    hintRow.classList.add('visible');
+    hintText.textContent = level.hint;
+  } else {
+    hintRow.classList.remove('visible');
+  }
+
+  // Tutorial preview
+  if (level.isTutorial) {
+    tutPreview.classList.add('visible');
+  } else {
+    tutPreview.classList.remove('visible');
+  }
+
+  // Hide plate + result
+  plateCanvas.classList.remove('visible');
+  resultCard.classList.remove('visible');
+
+  updateUI();
+}
+
+// ── PLATE IT ───────────────────────────────────────────────────────────────
+function doPlate() {
+  if (state.hasPlated || state.tubes.length === 0) return;
+  state.hasPlated = true;
+
+  const level    = LEVELS[state.levelIdx];
+  const colonies = calcColonies(state.tubes, level.initialConc);
+  const [lo, hi] = getRange(level);
+  const { pts, msg } = scoreLevel(colonies, state.tubes, level);
+
+  state.totalScore += pts;
+  scoreDisplay.textContent = state.totalScore + ' pts';
+
+  // Draw plate
+  plateCanvas.classList.add('visible');
+  drawPlate(colonies, level);
+
+  // Result card
+  const countable = colonies >= lo && colonies <= hi;
+  let colText, verdictClass, verdictText;
+
+  if (colonies > hi) {
+    colText     = colonies > hi * 3 ? 'TMTC' : colonies.toLocaleString();
+    verdictClass = 'verdict-tmtc';
+    verdictText = '⚠ Too Many To Count';
+  } else if (colonies < lo) {
+    colText     = colonies === 0 ? 'TFTC' : colonies.toLocaleString();
+    verdictClass = 'verdict-tftc';
+    verdictText = colonies === 0 ? '✗ Over-diluted — no colonies' : '✗ Too Few To Count';
+  } else {
+    colText     = colonies.toLocaleString();
+    verdictClass = 'verdict-good';
+    verdictText = '✓ Countable plate!';
+  }
+
+  resColonies.textContent = colText;
+  resVerdict.textContent  = verdictText;
+  resVerdict.className    = 'res-verdict ' + verdictClass;
+  resScore.textContent    = level.isTutorial ? 'Tutorial — keep going!' : msg;
+
+  // Next vs last level
+  const isLast = state.levelIdx >= LEVELS.length - 1;
+  btnNext.textContent = isLast ? 'Finish 🎉' : 'Next Level →';
+
+  resultCard.classList.add('visible');
+  updateUI();
+
+  // Scroll result into view
+  setTimeout(() => resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+}
+
+// ── RETRY ─────────────────────────────────────────────────────────────────
+function doRetry() {
+  loadLevel(state.levelIdx);
+}
+
+// ── NEXT LEVEL ────────────────────────────────────────────────────────────
+function doNext() {
+  const nextIdx = state.levelIdx + 1;
+  if (nextIdx >= LEVELS.length) {
+    // Win screen
+    gameScreen.classList.remove('active');
+    gameHeader.classList.add('hidden');
+    winScreen.classList.add('active');
+    winScore.textContent = state.totalScore;
+  } else {
+    loadLevel(nextIdx);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// ── WIRING ─────────────────────────────────────────────────────────────────
+document.getElementById('btnStart').addEventListener('click', () => {
+  startScreen.classList.add('hidden');
+  gameHeader.classList.remove('hidden');
+  gameScreen.classList.add('active');
+  loadLevel(0);
+});
+
+document.querySelectorAll('.btn-dil').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const d = parseInt(btn.dataset.d, 10);
+    if (state.hasPlated || state.tubes.length >= MAX_TUBES) return;
+    state.tubes.push(d);
+    updateUI();
+  });
+});
+
+btnRemove.addEventListener('click', () => {
+  if (state.tubes.length === 0 || state.hasPlated) return;
+  state.tubes.pop();
+  updateUI();
+});
+
+btnPlate.addEventListener('click', doPlate);
+btnRetry.addEventListener('click', doRetry);
+btnNext.addEventListener('click', doNext);
+
+// Redraw rack on resize
+window.addEventListener('resize', () => {
+  if (gameScreen.classList.contains('active')) drawRack();
+});
+</script>
+</body>
+</html>
