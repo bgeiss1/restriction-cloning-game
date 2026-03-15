@@ -72,7 +72,7 @@ const ABEngine = (() => {
     const decoyChance  = w >= 4 ? Math.min(0.55, (w - 3) * 0.15) : 0;
     const speed        = 0.65 + (w - 1) * 0.15;
     const hp           = 3 + Math.floor((w - 1) * 0.8);       // IgM hits to kill
-    const spawnDelay   = Math.max(55, 300 - (w - 1) * 30);    // wave1=300f(5s), ramps to 55f
+    const spawnDelay   = Math.max(80, 450 - (w - 1) * 20);    // wave1=450f(7.5s), ramps to 80f by wave~19
     const killTarget   = 5 + (w - 1) * 2;
     const iggChance    = 0.12 + (w - 1) * 0.025;              // chance of IgG power-up drop
 
