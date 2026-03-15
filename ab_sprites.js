@@ -593,27 +593,26 @@ const ABSprites = (() => {
    * @param {CanvasRenderingContext2D} ctx
    * @param {number} count  current IgG charges
    */
+  /**
+   * Draw one upright IgG Y-shape per charge in a left-to-right row.
+   * Resizes the canvas width to exactly fit the content (prevents CSS-stretch
+   * artefacts when the element is in a flex container).
+   */
   function drawIgGTracker(ctx, count) {
-    const W = ctx.canvas.width;
-    const H = ctx.canvas.height;
-    ctx.clearRect(0, 0, W, H);
+    const H       = ctx.canvas.height;
+    const size    = 9;          // fixed arm-length in px — consistent on all screen sizes
+    const spacing = 20;         // px between shape centers
+    const pad     = 6;          // left/right padding
+
+    // Resize canvas to content width so it never gets bitmap-stretched
+    ctx.canvas.width = count > 0 ? pad + count * spacing : pad;
+
+    ctx.clearRect(0, 0, ctx.canvas.width, H);
     if (count <= 0) return;
-    const size    = H * 0.38;       // arm length of each Y-shape
-    const spacing = size * 2.4;     // horizontal gap between centers
-    const maxFit  = Math.floor((W - size) / spacing) + 1;
-    const draw    = Math.min(count, maxFit);
-    for (let i = 0; i < draw; i++) {
-      drawYShape(ctx, size * 0.6 + i * spacing, H * 0.5, size, '#C8A951', 0, 0.9, null);
-    }
-    // If capped, show overflow count
-    if (count > maxFit) {
-      ctx.save();
-      ctx.fillStyle = '#C8A951';
-      ctx.font = `bold ${Math.round(H * 0.38)}px sans-serif`;
-      ctx.textBaseline = 'middle';
-      ctx.globalAlpha = 0.85;
-      ctx.fillText(`+${count - maxFit}`, size * 0.6 + draw * spacing, H * 0.5);
-      ctx.restore();
+
+    for (let i = 0; i < count; i++) {
+      // -Math.PI/2 rotates the Y 90° counter-clockwise → Fab arms up, Fc stem down
+      drawYShape(ctx, pad * 0.5 + i * spacing, H * 0.5, size, '#C8A951', -Math.PI / 2, 0.9, null);
     }
   }
 
