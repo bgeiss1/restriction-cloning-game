@@ -379,10 +379,10 @@ const ABEngine = (() => {
   }
 
   function getFireX() {
-    // Cam's throwing hand x — shoulder is at cx + bw*0.22, arm extends ~0.28*h forward at throw
-    // cx=38, bw=h*0.52, h=(H-144)/8
+    // Left anchor = 4px; frame 4 (throw) aspect = 319/372 ≈ 0.858
+    // Throwing hand is ~88% across the frame width
     const camH = (H - 144) / 8;
-    return Math.round(38 + camH * (0.52 * 0.22 + 0.28 * 0.35));
+    return Math.round(4 + camH * 0.858 * 0.88);
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -633,9 +633,10 @@ const ABEngine = (() => {
     ABSprites.drawBackground(ctx, W, H, _tick);
 
     // Cam the Ram (left side, facing right toward pathogens)
-    const camH    = (H - 144) / 8;
+    // cx=4 is the left anchor; character extends rightward (throw arm reaches ~90% of drawW)
+    const camH     = (H - 144) / 8;
     const camFootY = 100 + (H - 144) * 0.58;
-    ABSprites.drawCam(ctx, 38, camFootY, camH, _camArmSwing);
+    ABSprites.drawCam(ctx, 4, camFootY, camH, _camArmSwing);
 
     // Pathogens — neutralized ones fade out via globalAlpha
     for (const p of pathogens) {

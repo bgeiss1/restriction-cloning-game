@@ -7,6 +7,14 @@
 
 const ABSprites = (() => {
 
+  /* ── Cam the Ram sprite sheets ────────────────────────────────────── */
+  // 4-frame throw animation: 1=rest, 2=wind-up, 3=mid-throw, 4=follow-through
+  const _camFrames = [1, 2, 3, 4].map(i => {
+    const img = new Image();
+    img.src = `ab_runner_sprites/Cam_throw_${i}.png`;
+    return img;
+  });
+
   /* ── Epitope type palette ─────────────────────────────────────────── */
   // Each epitope type has a unique shape + color pair
   const EPITOPE = {
@@ -621,259 +629,26 @@ const ABSprites = (() => {
   /* ─────────────────────────────────────────────────────────────────── */
 
   /**
-   * Draw Cam the Ram — CSU's mascot in a white lab coat, throwing antibodies.
-   * Character stands on the left side of the screen facing right.
+   * Draw Cam the Ram using the pre-loaded PNG sprite sheets.
+   * Frame selection maps armSwing (0=rest → 1=throw) to the 4-frame sequence.
+   * Each frame is scaled to height h and left-anchored so the body stays planted.
    *
    * @param {CanvasRenderingContext2D} ctx
-   * @param {number} cx      horizontal center of character (e.g. 38)
-   * @param {number} footY   y-coordinate of the feet (ground level)
-   * @param {number} h       total character height (~ 1/8 of play area)
+   * @param {number} cx      left-anchor x position (e.g. 4)
+   * @param {number} footY   y-coordinate of the feet
+   * @param {number} h       draw height in pixels
    * @param {number} armSwing  0 = rest, 1 = peak throw
    */
   function drawCam(ctx, cx, footY, h, armSwing) {
-    ctx.save();
+    // Select frame: armSwing 0→1 maps to frames index 0→3
+    const frameIdx = Math.min(3, Math.round(armSwing * 3));
+    const img = _camFrames[frameIdx];
+    if (!img.complete || !img.naturalWidth) return;
 
-    // ── Proportions ───────────────────────────────────────────────────
-    const bw     = h * 0.52;   // body width
-    const bodyH  = h * 0.34;   // torso height
-    const legH   = h * 0.22;   // leg height
-    const armLen = h * 0.28;   // arm length (shoulder to hoof)
-    const armW   = h * 0.09;   // arm width
-    const headR  = h * 0.145;  // head radius
-    const hoofR  = h * 0.06;   // hoof oval half-height
-
-    // ── Key Y positions ───────────────────────────────────────────────
-    const hipY      = footY - legH;
-    const bodyTopY  = hipY - bodyH;
-    const shoulderY = bodyTopY + bodyH * 0.09;
-    const headCY    = bodyTopY - headR * 0.6;
-
-    // Slight forward lean when throwing (body tilts toward pathogens)
-    const leanX = armSwing * h * 0.035;
-
-    // ── Legs (dark green trousers) ────────────────────────────────────
-    ctx.fillStyle = '#193520';
-    const legW = bw * 0.21;
-    // Left leg
-    ctx.beginPath();
-    ctx.roundRect(cx + leanX - legW * 1.15, hipY, legW, legH, 3);
-    ctx.fill();
-    // Right leg
-    ctx.beginPath();
-    ctx.roundRect(cx + leanX + legW * 0.15, hipY, legW, legH, 3);
-    ctx.fill();
-
-    // ── Hooves (feet) ─────────────────────────────────────────────────
-    ctx.fillStyle = '#140e06';
-    ctx.beginPath();
-    ctx.ellipse(cx + leanX - legW * 0.65, footY - hoofR * 0.3, legW * 0.55, hoofR, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx + leanX + legW * 0.65, footY - hoofR * 0.3, legW * 0.55, hoofR, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // ── Back arm (character's left — hangs behind body) ───────────────
-    _drawCamArm(ctx, cx + leanX - bw * 0.22, shoulderY, armLen, armW, Math.PI * 0.12, '#e2e2e2');
-
-    // ── Lab coat body ─────────────────────────────────────────────────
-    // Main white coat
-    ctx.fillStyle = '#f0f0f0';
-    ctx.beginPath();
-    ctx.roundRect(cx + leanX - bw * 0.5, bodyTopY, bw, bodyH, [0, 0, 5, 5]);
-    ctx.fill();
-
-    // CSU green V-neck visible between lapels
-    ctx.fillStyle = '#1E4D2B';
-    ctx.beginPath();
-    ctx.moveTo(cx + leanX,           bodyTopY + bodyH * 0.52);
-    ctx.lineTo(cx + leanX - bw * 0.15, bodyTopY);
-    ctx.lineTo(cx + leanX + bw * 0.15, bodyTopY);
-    ctx.closePath();
-    ctx.fill();
-
-    // Left lapel
-    ctx.fillStyle = '#e6e6e6';
-    ctx.beginPath();
-    ctx.moveTo(cx + leanX - bw * 0.13, bodyTopY);
-    ctx.lineTo(cx + leanX - bw * 0.31, bodyTopY + bodyH * 0.32);
-    ctx.lineTo(cx + leanX - bw * 0.13, bodyTopY + bodyH * 0.44);
-    ctx.closePath();
-    ctx.fill();
-    // Right lapel
-    ctx.beginPath();
-    ctx.moveTo(cx + leanX + bw * 0.13, bodyTopY);
-    ctx.lineTo(cx + leanX + bw * 0.31, bodyTopY + bodyH * 0.32);
-    ctx.lineTo(cx + leanX + bw * 0.13, bodyTopY + bodyH * 0.44);
-    ctx.closePath();
-    ctx.fill();
-
-    // Coat outline
-    ctx.strokeStyle = '#d0d0d0';
-    ctx.lineWidth = h * 0.011;
-    ctx.beginPath();
-    ctx.roundRect(cx + leanX - bw * 0.5, bodyTopY, bw, bodyH, [0, 0, 5, 5]);
-    ctx.stroke();
-
-    // Chest pocket (character's left side — screen left)
-    const pX = cx + leanX - bw * 0.42;
-    const pY = bodyTopY + bodyH * 0.2;
-    const pW = bw * 0.18;
-    const pH = bodyH * 0.18;
-    ctx.fillStyle = '#fff';
-    ctx.strokeStyle = '#ccc';
-    ctx.lineWidth = h * 0.007;
-    ctx.beginPath();
-    ctx.rect(pX, pY, pW, pH);
-    ctx.fill();
-    ctx.stroke();
-    // Colored pens
-    ['#EF5350', '#4D96FF', '#66BB6A'].forEach((c, i) => {
-      ctx.fillStyle = c;
-      ctx.fillRect(pX + pW * (0.12 + i * 0.28), pY, pW * 0.14, pH * 0.6);
-    });
-
-    // ── Front (throwing) arm — drawn over body ────────────────────────
-    const restAng  = Math.PI * 0.1;    // arm hangs slightly forward at rest
-    const throwAng = -Math.PI * 0.36;  // arm forward+upward at throw (~65° above horizontal)
-    const frontAng = restAng + (throwAng - restAng) * armSwing;
-    _drawCamArm(ctx, cx + leanX + bw * 0.22, shoulderY, armLen, armW, frontAng, '#f0f0f0');
-
-    // ── Head ──────────────────────────────────────────────────────────
-    ctx.save();
-    ctx.translate(leanX, 0);
-
-    // Wool puffs on top of head (white fluffy)
-    ctx.fillStyle = '#f2f2f2';
-    for (let i = -2; i <= 2; i++) {
-      ctx.beginPath();
-      ctx.arc(cx + i * headR * 0.42, headCY - headR * 0.58, headR * 0.32, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Horns — big outward curling CSU-style arcs
-    ctx.strokeStyle = '#7A5510';
-    ctx.lineWidth   = headR * 0.38;
-    ctx.lineCap     = 'round';
-    ctx.lineJoin    = 'round';
-    // Right horn (toward pathogens)
-    ctx.beginPath();
-    ctx.moveTo(cx + headR * 0.48, headCY - headR * 0.62);
-    ctx.bezierCurveTo(
-      cx + headR * 1.55, headCY - headR * 1.75,
-      cx + headR * 1.75, headCY + headR * 0.15,
-      cx + headR * 1.05, headCY + headR * 0.65
-    );
-    ctx.stroke();
-    // Left horn (behind character)
-    ctx.beginPath();
-    ctx.moveTo(cx - headR * 0.48, headCY - headR * 0.62);
-    ctx.bezierCurveTo(
-      cx - headR * 1.55, headCY - headR * 1.75,
-      cx - headR * 1.75, headCY + headR * 0.15,
-      cx - headR * 1.05, headCY + headR * 0.65
-    );
-    ctx.stroke();
-
-    // Ears (between horns and cheeks)
-    ctx.fillStyle = '#c8a06a';
-    ctx.beginPath();
-    ctx.ellipse(cx + headR * 0.85, headCY + headR * 0.08, headR * 0.21, headR * 0.36, Math.PI * 0.15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#d4907a';
-    ctx.beginPath();
-    ctx.ellipse(cx + headR * 0.85, headCY + headR * 0.08, headR * 0.1, headR * 0.2, Math.PI * 0.15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#c8a06a';
-    ctx.beginPath();
-    ctx.ellipse(cx - headR * 0.85, headCY + headR * 0.08, headR * 0.21, headR * 0.36, -Math.PI * 0.15, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#d4907a';
-    ctx.beginPath();
-    ctx.ellipse(cx - headR * 0.85, headCY + headR * 0.08, headR * 0.1, headR * 0.2, -Math.PI * 0.15, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Head / face (tan)
-    ctx.fillStyle = '#c8a06a';
-    ctx.beginPath();
-    ctx.arc(cx, headCY, headR, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Eyes — shifted slightly right (character faces right)
-    const eShift = headR * 0.12;
-    // Left eye
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.ellipse(cx - headR * 0.26 + eShift, headCY - headR * 0.08, headR * 0.17, headR * 0.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#2a1808';
-    ctx.beginPath();
-    ctx.arc(cx - headR * 0.24 + eShift, headCY - headR * 0.08, headR * 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff'; // shine
-    ctx.beginPath();
-    ctx.arc(cx - headR * 0.18 + eShift, headCY - headR * 0.14, headR * 0.038, 0, Math.PI * 2);
-    ctx.fill();
-    // Right eye
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.ellipse(cx + headR * 0.26 + eShift, headCY - headR * 0.08, headR * 0.17, headR * 0.2, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#2a1808';
-    ctx.beginPath();
-    ctx.arc(cx + headR * 0.28 + eShift, headCY - headR * 0.08, headR * 0.1, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.beginPath();
-    ctx.arc(cx + headR * 0.34 + eShift, headCY - headR * 0.14, headR * 0.038, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Muzzle / snout (shifted slightly right — toward direction faced)
-    ctx.fillStyle = '#b89060';
-    ctx.beginPath();
-    ctx.ellipse(cx + headR * 0.18, headCY + headR * 0.33, headR * 0.44, headR * 0.29, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // Nostrils
-    ctx.fillStyle = '#7a4820';
-    ctx.beginPath();
-    ctx.ellipse(cx + headR * 0.04, headCY + headR * 0.33, headR * 0.08, headR * 0.054, -0.28, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx + headR * 0.32, headCY + headR * 0.33, headR * 0.08, headR * 0.054,  0.28, 0, Math.PI * 2);
-    ctx.fill();
-    // Smile
-    ctx.strokeStyle = '#7a4820';
-    ctx.lineWidth   = headR * 0.1;
-    ctx.lineCap     = 'round';
-    ctx.beginPath();
-    ctx.arc(cx + headR * 0.18, headCY + headR * 0.29, headR * 0.19, 0.2, Math.PI - 0.2);
-    ctx.stroke();
-
-    ctx.restore(); // head lean
-    ctx.restore(); // main
-  }
-
-  /**
-   * Internal helper: draw one arm (coat sleeve + hoof) pivoting at (sx, sy).
-   * angle=0 → arm points straight down; negative = forward/up.
-   */
-  function _drawCamArm(ctx, sx, sy, len, width, angle, color) {
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.rotate(angle);
-    // Sleeve
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.roundRect(-width * 0.5, 0, width, len, width * 0.4);
-    ctx.fill();
-    ctx.strokeStyle = '#d0d0d0';
-    ctx.lineWidth = width * 0.18;
-    ctx.stroke();
-    // Hoof
-    ctx.fillStyle = '#140e06';
-    ctx.beginPath();
-    ctx.ellipse(0, len, width * 0.5, width * 0.36, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    const drawH = h;
+    const drawW = h * (img.naturalWidth / img.naturalHeight);
+    // cx is the left anchor — body stays planted as throw arm extends right
+    ctx.drawImage(img, cx, footY - drawH, drawW, drawH);
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
