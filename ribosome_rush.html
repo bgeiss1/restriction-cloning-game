@@ -54,26 +54,39 @@
     /* Screens */
     .rr-screen {
       position: fixed; inset: 0; z-index: 20;
-      background: rgba(10,24,14,0.97);
+      background: linear-gradient(160deg, #1E4D2B 0%, #163820 60%, #0f2516 100%);
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 16px; padding: 40px 24px; text-align: center;
+      gap: 16px; padding: 32px 24px; text-align: center;
     }
-    .rr-screen h1 { font-size: 36px; font-weight: 800; }
-    .rr-screen p  { font-size: 15px; color: var(--text-muted); max-width: 480px; }
+    .rr-screen h1 {
+      font-size: 2.1rem; font-weight: 800;
+      color: var(--accent); letter-spacing: 0.06em;
+    }
+    .rr-screen p  { font-size: 0.95rem; color: var(--text-muted); max-width: 340px; line-height: 1.7; }
 
     .instructions {
-      background: var(--bg-mid); border: 1px solid var(--border);
-      border-radius: 8px; padding: 16px 24px; max-width: 480px; text-align: left;
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px 20px; max-width: 360px; text-align: left;
+      width: 100%;
     }
-    .instructions h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; }
-    .instructions li { font-size: 13px; margin: 6px 0; list-style: disc; margin-left: 18px; line-height: 1.5; }
+    .instructions h3 {
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--text-muted); margin-bottom: 10px;
+    }
+    .instructions li {
+      font-size: 0.88rem; color: var(--text-muted); margin: 5px 0;
+      list-style: disc; margin-left: 18px; line-height: 1.7;
+    }
+    .instructions strong { color: var(--accent); }
 
     .btn-primary {
-      padding: 12px 32px; background: var(--accent); color: #1a1a00;
-      border: none; border-radius: 6px; font-size: 16px; font-weight: 700;
-      cursor: pointer; letter-spacing: 0.5px;
+      width: 100%; max-width: 320px; padding: 15px;
+      border-radius: 8px; border: none;
+      background: var(--accent); color: #1a1a00;
+      font-size: 1.05rem; font-weight: 700; cursor: pointer;
+      touch-action: manipulation; transition: background 0.15s;
     }
-    .btn-primary:hover { opacity: 0.85; }
+    .btn-primary:active { background: #e0c060; }
     /* .btn-secondary defined above with .btn-menu */
 
     .score-display { font-size: 52px; font-weight: 800; color: var(--accent); }
