@@ -270,6 +270,13 @@ input[type=number] { width: 80px; }
   color: var(--gold); font-size: 0.88rem; cursor: pointer;
 }
 .btn-open:hover { background: rgba(200,169,81,0.25); }
+.btn-publish {
+  padding: 7px 14px; border-radius: var(--radius);
+  background: rgba(102,187,106,0.2); border: 1px solid rgba(102,187,106,0.5);
+  color: var(--success); font-size: 0.88rem; font-weight: 700; cursor: pointer;
+}
+.btn-publish:hover { background: rgba(102,187,106,0.35); }
+.btn-publish:disabled { opacity: 0.5; cursor: default; }
 
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 6px; }
@@ -325,6 +332,7 @@ input[type=number] { width: 80px; }
       <span id="dirty" class="hidden">● Unsaved changes</span>
       <button class="btn-secondary" onclick="newOrganism()">+ Organism</button>
       <button class="btn-secondary" onclick="saveDB()">⬇ Download</button>
+      <button class="btn-publish" id="btn-update-game" onclick="updateGameDatabase()" style="display:none;">▶ Update Game DB</button>
       <button class="btn-primary" id="publish-btn" onclick="publishToGitHub()" style="display:none;">Publish to GitHub</button>
       <a href="index.html" style="text-decoration:none;">
         <button class="btn-secondary" style="padding:7px 12px;">← Menu</button>
@@ -456,6 +464,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     if (savedPat) {
       document.getElementById('publish-btn').style.display = '';
+      document.getElementById('btn-update-game').style.display = '';
       refreshDbList(savedPat);
     } else {
       renderDbPanel(); // show "not connected" state
@@ -493,6 +502,7 @@ async function connectWithPat(pat, silent) {
     if (!db.organisms) db.organisms = [];
     document.getElementById('connect-overlay').classList.add('hidden');
     document.getElementById('publish-btn').style.display = '';
+      document.getElementById('btn-update-game').style.display = '';
     updateFilenameDisplay();
     currentIdx = null;
     renderAll();
@@ -575,6 +585,56 @@ async function publishToGitHub() {
   } finally {
     btn.disabled = false;
     if (btn.textContent === 'Publishing…') btn.textContent = 'Publish to GitHub';
+  }
+}
+
+async function updateGameDatabase() {
+  syncCurrentOrgToDb();
+  syncMeta();
+  const pat = sessionStorage.getItem('microid_editor_pat');
+  if (!pat) { alert('Not connected to GitHub.'); return; }
+
+  const gameFile = 'microid_db.json';
+  const fromLabel = currentFilename === gameFile ? 'current edits' : `"${currentFilename}"`;
+  if (!confirm(`Load ${fromLabel} into the game?\nThis overwrites microid_dbs/microid_db.json — what students see when they play.`)) return;
+
+  const btn = document.getElementById('btn-update-game');
+  btn.disabled = true; btn.textContent = 'Updating…';
+  try {
+    // get existing SHA of microid_db.json so the PUT doesn't fail
+    let gameSha = '';
+    try { const existing = await githubGet(pat, gameFile); gameSha = existing.sha; } catch {}
+
+    const contentStr = JSON.stringify(db, null, 2);
+    const content = btoa(unescape(encodeURIComponent(contentStr)));
+    const message = `Set game DB to ${currentFilename} — ${new Date().toISOString().slice(0,16)} (Micro ID Editor)`;
+    const body = { message, content };
+    if (gameSha) body.sha = gameSha;
+
+    const resp = await fetch(githubFileApi(gameFile), {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${pat}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+
+    // if we just overwrote our own file, update SHA so next publish still works
+    if (currentFilename === gameFile) {
+      const data = await resp.json();
+      currentSha = data.content.sha;
+    }
+
+    btn.textContent = '✓ Game Updated!';
+    setTimeout(() => { btn.textContent = '▶ Update Game DB'; }, 2500);
+  } catch (err) {
+    alert('Failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === 'Updating…') btn.textContent = '▶ Update Game DB';
   }
 }
 
