@@ -103,8 +103,6 @@ body {
   touch-action: manipulation;
 }
 
-/* hidden file input */
-#fileInput { display: none; }
 
 /* ── GAME HEADER ── */
 #gameHeader {
@@ -525,7 +523,7 @@ body {
       <li><strong>+10 pts</strong> correct &nbsp;|&nbsp; <strong>−5 pts</strong> wrong (min 0)</li>
       <li>Streak of 3+ earns a <strong>+2 bonus</strong> per correct answer</li>
       <li>Spaced repetition: organisms you know well appear less often</li>
-      <li>Tap an image to enlarge it. Tap <strong>Learn More</strong> after any question</li>
+      <li>Tap an image to enlarge it. <strong>Learn More</strong> unlocks after you answer</li>
     </ul>
   </div>
 
@@ -533,14 +531,11 @@ body {
 
   <div class="start-btn-group">
     <button class="btn-start" id="btnStart" disabled>Start Quiz</button>
-    <button class="btn-secondary" id="btnLoadDb">Load Different Database</button>
     <button class="btn-secondary danger-btn hidden" id="btnResetProgress">Reset Progress</button>
   </div>
 
   <a href="index.html" class="btn-back-link">← Menu</a>
 </div>
-
-<input type="file" id="fileInput" accept=".json">
 
 <!-- ══════════════════════════ GAME HEADER ══════════════════════════ -->
 <div id="gameHeader" class="hidden">
@@ -661,9 +656,7 @@ const gameScreen      = document.getElementById('gameScreen');
 const endScreen       = document.getElementById('endScreen');
 const dbInfoEl        = document.getElementById('dbInfo');
 const btnStart        = document.getElementById('btnStart');
-const btnLoadDb       = document.getElementById('btnLoadDb');
 const btnResetProgress= document.getElementById('btnResetProgress');
-const fileInput       = document.getElementById('fileInput');
 
 const headerTitle     = document.getElementById('headerTitle');
 const headerProgress  = document.getElementById('headerProgress');
@@ -1060,31 +1053,18 @@ function initDb(data) {
 }
 
 async function fetchDefaultDb() {
+  const dbFile = new URLSearchParams(location.search).get('db') || 'microid_db.json';
   try {
-    const resp = await fetch('microid_db.json');
+    const resp = await fetch(dbFile + '?t=' + Date.now());
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     initDb(data);
   } catch(e) {
-    dbInfoEl.textContent = 'Could not load microid_db.json. Use "Load Different Database" to pick a file.';
+    dbInfoEl.textContent = `Could not load ${dbFile}.`;
     dbInfoEl.className = 'error';
   }
 }
 
-function loadFromFile(file) {
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!data.organisms || !Array.isArray(data.organisms)) throw new Error('Invalid format');
-      initDb(data);
-    } catch(err) {
-      dbInfoEl.textContent = 'Error parsing file: ' + err.message;
-      dbInfoEl.className = 'error';
-    }
-  };
-  reader.readAsText(file);
-}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  SCREEN MANAGEMENT
@@ -1166,8 +1146,9 @@ function renderQuestion(q) {
     streakBadge.classList.remove('visible');
   }
 
-  // Learn More — close it
+  // Learn More — hidden until answered
   learnMoreOpen = false;
+  learnMore.style.display = 'none';
   learnMoreContent.classList.remove('expanded');
   learnMoreArrow.textContent = '▼';
   buildLearnMore(q.org);
@@ -1215,8 +1196,6 @@ function handleAnswer(btn, chosen, q) {
     roundPtsEarned -= deduction;
     streak = 0;
     showScorePopup('-5', false);
-    // auto-expand learn more on wrong
-    setTimeout(() => openLearnMore(), 600);
   }
 
   // Record spaced repetition
@@ -1232,6 +1211,9 @@ function handleAnswer(btn, chosen, q) {
   } else {
     streakBadge.classList.remove('visible');
   }
+
+  // Reveal Learn More now that the answer is in
+  learnMore.style.display = '';
 
   // Show next
   btnNext.classList.add('visible');
@@ -1443,16 +1425,6 @@ function escAttr(str) { return escHtml(str); }
 btnStart.addEventListener('click', () => {
   if (!db) return;
   startGame();
-});
-
-// Load DB button → trigger file input
-btnLoadDb.addEventListener('click', () => fileInput.click());
-
-fileInput.addEventListener('change', (e) => {
-  if (e.target.files && e.target.files[0]) {
-    loadFromFile(e.target.files[0]);
-    fileInput.value = '';
-  }
 });
 
 // Reset progress

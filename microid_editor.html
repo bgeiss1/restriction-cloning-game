@@ -255,10 +255,15 @@ input[type=number] { width: 80px; }
 
   <!-- TOP BAR -->
   <div id="topbar">
-    <h1>🔬 Micro ID — Database Editor</h1>
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+      <h1 style="white-space:nowrap;">🔬 Micro ID — Editor</h1>
+      <span id="filename-display" style="font-size:0.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">microid_db.json</span>
+    </div>
     <div id="topbar-right">
       <span id="dirty" class="hidden">● Unsaved changes</span>
-      <button class="btn-open" onclick="openFile()">Open DB…</button>
+      <button class="btn-open" id="btn-switch-db" onclick="showDbSwitcher()" style="display:none;">⇄ Switch DB</button>
+      <button class="btn-open" id="btn-new-db" onclick="newDatabase()" style="display:none;">＋ New DB</button>
+      <button class="btn-open" onclick="openFile()">Open File…</button>
       <button class="btn-secondary" onclick="newOrganism()">+ Organism</button>
       <button class="btn-secondary" onclick="saveDB()">⬇ Download</button>
       <button class="btn-primary" id="publish-btn" onclick="publishToGitHub()" style="display:none;">Publish to GitHub</button>
@@ -316,6 +321,31 @@ input[type=number] { width: 80px; }
   </div>
 </div>
 
+<!-- DB Switcher Modal -->
+<div id="db-switcher-modal" class="hidden" style="
+  position:fixed;inset:0;z-index:300;display:flex;align-items:flex-start;justify-content:flex-end;
+  padding:52px 16px 0 0;pointer-events:none;">
+  <div style="
+    background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
+    min-width:260px;max-width:340px;box-shadow:0 8px 32px rgba(0,0,0,0.5);
+    pointer-events:all;overflow:hidden;">
+    <div style="padding:10px 14px;background:var(--green);display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:0.8rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.05em;">Switch Database</span>
+      <button onclick="closeDbSwitcher()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;padding:0 4px;">✕</button>
+    </div>
+    <div id="db-switcher-list" style="max-height:280px;overflow-y:auto;padding:6px 0;"></div>
+  </div>
+</div>
+
+<style>
+.db-switch-item {
+  padding: 9px 16px; cursor: pointer; font-size: 0.88rem;
+  border-bottom: 1px solid rgba(200,169,81,0.08); color: var(--text);
+}
+.db-switch-item:hover { background: rgba(200,169,81,0.08); }
+.db-switch-item.active { color: var(--gold); font-weight: 600; }
+</style>
+
 <!-- hidden file input -->
 <input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
 
@@ -323,18 +353,21 @@ input[type=number] { width: 80px; }
 // ═══════════════════════════════════════════════════════════════════════
 //  GITHUB CONFIG
 // ═══════════════════════════════════════════════════════════════════════
-const GITHUB_REPO = 'bgeiss1/restriction-cloning-game';
-const GITHUB_FILE = 'microid_db.json';
-const GITHUB_API  = `https://api.github.com/repos/${GITHUB_REPO}/contents/${GITHUB_FILE}`;
+const GITHUB_REPO     = 'bgeiss1/restriction-cloning-game';
+const GITHUB_REPO_API = `https://api.github.com/repos/${GITHUB_REPO}/contents/`;
+function githubFileApi(filename) {
+  return `https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`;
+}
 
 // ═══════════════════════════════════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════════════════════════════════
-let db = null;           // parsed DB object
-let currentIdx = null;   // index into db.organisms
+let db = null;               // parsed DB object
+let currentIdx = null;       // index into db.organisms
 let dirty = false;
 let filterText = '';
-let currentSha = '';     // GitHub blob SHA — required for PUT
+let currentSha = '';         // GitHub blob SHA — required for PUT
+let currentFilename = 'microid_db.json'; // which file is loaded
 
 // ═══════════════════════════════════════════════════════════════════════
 //  INIT
@@ -359,7 +392,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     } catch {
       db = { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] };
     }
-    if (savedPat) document.getElementById('publish-btn').style.display = '';
+    if (savedPat) {
+      document.getElementById('publish-btn').style.display = '';
+      document.getElementById('btn-switch-db').style.display = '';
+      document.getElementById('btn-new-db').style.display = '';
+    }
     renderAll();
   }
 
@@ -384,7 +421,7 @@ function showConnectOverlay() {
 
 async function connectWithPat(pat, silent) {
   try {
-    const data = await githubGet(pat);
+    const data = await githubGet(pat, currentFilename);
     sessionStorage.setItem('microid_editor_pat', pat);
     currentSha = data.sha;
     const json = atob(data.content.replace(/\n/g, ''));
@@ -393,6 +430,9 @@ async function connectWithPat(pat, silent) {
     if (!db.organisms) db.organisms = [];
     document.getElementById('connect-overlay').classList.add('hidden');
     document.getElementById('publish-btn').style.display = '';
+    document.getElementById('btn-switch-db').style.display = '';
+    document.getElementById('btn-new-db').style.display = '';
+    updateFilenameDisplay();
     currentIdx = null;
     renderAll();
   } catch (err) {
@@ -417,12 +457,24 @@ async function connectWithPat(pat, silent) {
 // ═══════════════════════════════════════════════════════════════════════
 //  GITHUB API
 // ═══════════════════════════════════════════════════════════════════════
-async function githubGet(pat) {
-  const resp = await fetch(GITHUB_API, {
+async function githubGet(pat, filename) {
+  filename = filename || currentFilename;
+  const resp = await fetch(githubFileApi(filename), {
     headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' }
   });
   if (!resp.ok) throw new Error(`GitHub ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
   return resp.json();
+}
+
+async function githubListDbs(pat) {
+  const resp = await fetch(GITHUB_REPO_API, {
+    headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!resp.ok) throw new Error(`GitHub ${resp.status}`);
+  const files = await resp.json();
+  return files
+    .filter(f => f.type === 'file' && f.name.startsWith('microid_') && f.name.endsWith('.json'))
+    .map(f => f.name);
 }
 
 async function publishToGitHub() {
@@ -435,10 +487,10 @@ async function publishToGitHub() {
   try {
     const contentStr = JSON.stringify(db, null, 2);
     const content = btoa(unescape(encodeURIComponent(contentStr)));
-    const message = `Update microid_db.json — ${new Date().toISOString().slice(0,16)} (Micro ID Editor)`;
+    const message = `Update ${currentFilename} — ${new Date().toISOString().slice(0,16)} (Micro ID Editor)`;
     const body = { message, content };
     if (currentSha) body.sha = currentSha;
-    const resp = await fetch(GITHUB_API, {
+    const resp = await fetch(githubFileApi(currentFilename), {
       method: 'PUT',
       headers: {
         'Authorization': `token ${pat}`,
@@ -452,6 +504,7 @@ async function publishToGitHub() {
     currentSha = data.content.sha;
     dirty = false;
     updateDirty();
+    updateFilenameDisplay();
     btn.textContent = '✓ Published!';
     setTimeout(() => { btn.textContent = 'Publish to GitHub'; }, 2500);
   } catch (err) {
@@ -460,6 +513,79 @@ async function publishToGitHub() {
     btn.disabled = false;
     if (btn.textContent === 'Publishing…') btn.textContent = 'Publish to GitHub';
   }
+}
+
+async function switchDb(filename) {
+  if (dirty && !confirm('You have unsaved changes. Switch anyway?')) return;
+  const pat = sessionStorage.getItem('microid_editor_pat');
+  if (!pat) { alert('Not connected to GitHub.'); return; }
+  try {
+    const data = await githubGet(pat, filename);
+    currentFilename = filename;
+    currentSha = data.sha;
+    db = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    if (!db.meta) db.meta = {};
+    if (!db.organisms) db.organisms = [];
+    currentIdx = null;
+    dirty = false;
+    updateDirty();
+    updateFilenameDisplay();
+    renderAll();
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('org-editor').style.display = 'none';
+  } catch (err) {
+    alert('Could not load ' + filename + ': ' + err.message);
+  }
+}
+
+async function newDatabase() {
+  if (dirty && !confirm('You have unsaved changes. Create new database anyway?')) return;
+  const name = prompt('New database filename (will be prefixed microid_ and suffixed .json):');
+  if (!name) return;
+  // Sanitize and enforce naming convention
+  const slug = name.toLowerCase().replace(/[^a-z0-9_-]/g, '_').replace(/^microid_/, '');
+  const filename = 'microid_' + slug + '.json';
+  currentFilename = filename;
+  currentSha = '';
+  db = { meta: { unit: '', questionsPerRound: 10, imageDir: 'microid_images/', version: '1.0' }, organisms: [] };
+  currentIdx = null;
+  dirty = false;
+  updateDirty();
+  updateFilenameDisplay();
+  renderAll();
+  document.getElementById('emptyState').style.display = '';
+  document.getElementById('org-editor').style.display = 'none';
+}
+
+async function showDbSwitcher() {
+  const pat = sessionStorage.getItem('microid_editor_pat');
+  if (!pat) { alert('Not connected to GitHub.'); return; }
+  const btn = document.getElementById('btn-switch-db');
+  btn.disabled = true; btn.textContent = 'Loading…';
+  try {
+    const files = await githubListDbs(pat);
+    const modal = document.getElementById('db-switcher-modal');
+    const list  = document.getElementById('db-switcher-list');
+    list.innerHTML = files.map(f =>
+      `<div class="db-switch-item${f === currentFilename ? ' active' : ''}" onclick="switchDb('${f}');closeDbSwitcher()">
+        ${f === currentFilename ? '● ' : ''}${f}
+       </div>`
+    ).join('') || '<div style="color:var(--muted);padding:8px;">No microid_*.json files found.</div>';
+    modal.classList.remove('hidden');
+  } catch (err) {
+    alert('Could not list databases: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '⇄ Switch DB';
+  }
+}
+
+function closeDbSwitcher() {
+  document.getElementById('db-switcher-modal').classList.add('hidden');
+}
+
+function updateFilenameDisplay() {
+  const el = document.getElementById('filename-display');
+  if (el) el.textContent = currentFilename;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -476,6 +602,9 @@ function handleFileLoad(e) {
       db = JSON.parse(ev.target.result);
       if (!db.meta) db.meta = {};
       if (!db.organisms) db.organisms = [];
+      currentFilename = file.name;
+      currentSha = '';
+      updateFilenameDisplay();
       currentIdx = null;
       dirty = false;
       renderAll();
@@ -493,7 +622,7 @@ function saveDB() {
   const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'microid_db.json';
+  a.download = currentFilename;
   a.click();
   dirty = false;
   updateDirty();
