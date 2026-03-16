@@ -76,7 +76,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 /* ── SECTIONS ── */
 .section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .section-title { padding: 10px 16px; background: var(--green); font-size: 0.8rem; font-weight: 700;
-  letter-spacing: 0.05em; color: var(--gold); text-transform: uppercase;
+  letter-spacing: 0.03em; color: var(--gold);
   display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
 .section-title:hover { background: #245c34; }
 .section-chevron { font-size: 0.75rem; color: var(--muted); transition: transform 0.15s; margin-left: 6px; display: inline-block; }
@@ -586,7 +586,7 @@ function renderLevelEditor() {
 
   document.getElementById('level-editor').innerHTML = `
     ${sectionHtml('settings', 'Level Settings', true, levelSettingsHtml(lvl))}
-    ${isBuiltin ? sectionHtml('builtin', 'Pathway — Built-in Editor', false, builtinHtml(lvl)) : ''}
+    ${isBuiltin ? sectionHtml('builtin', 'Pathway Editor', false, builtinHtml(lvl)) : ''}
     ${!isBuiltin ? sectionHtml('imgpath', 'Pathway — Image', false, imagePathHtml(lvl)) : ''}
     ${sectionHtml('slots', 'Molecules and Arrows to Include for Selection', false, slotsHtml(lvl))}
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
