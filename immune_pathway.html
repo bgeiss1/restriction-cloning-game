@@ -163,9 +163,11 @@ body {
 .node-kinase   { background:rgba(102,187,106,0.12); border-color:var(--success); color:var(--success); }
 .node-tf       { background:rgba(206,147,216,0.12); border-color:#CE93D8; color:#CE93D8; }
 .node-complex  { background:rgba(255,167,38,0.12); border-color:var(--warn); color:var(--warn); }
-.node-dna      { background:rgba(79,195,247,0.15); border-color:#81D4FA; color:#81D4FA; }
-.node-output   { background:rgba(102,187,106,0.2); border-color:var(--success); color:var(--success); font-weight:800; }
+.node-dna      { background:rgba(79,195,247,0.15); border-color:#81D4FA; color:#81D4FA; white-space:normal; min-width:80px; padding:4px 8px 5px; }
+.node-output   { background:rgba(102,187,106,0.2); border-color:var(--success); color:var(--success); font-weight:800; white-space:normal; padding:4px 8px 5px; }
 .node-inhibitor{ background:rgba(239,83,80,0.12); border-color:var(--danger); color:var(--danger); }
+.dna-helix     { display:block; width:100%; margin-top:3px; height:8px; overflow:visible; }
+.output-expr   { display:block; font-size:0.58rem; font-weight:500; opacity:0.75; margin-top:2px; letter-spacing:0.04em; }
 
 /* ── SLOTS ── */
 .pathway-slot {
@@ -542,6 +544,17 @@ function renderPathway() {
   }
 }
 
+function dnaHelixSVG() {
+  return '<svg class="dna-helix" viewBox="0 0 60 8" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<path d="M0,2 C10,0 20,4 30,2 C40,0 50,4 60,2" stroke="#81D4FA" stroke-width="1.3" fill="none" opacity="0.85"/>' +
+    '<path d="M0,6 C10,4 20,8 30,6 C40,4 50,8 60,6" stroke="#81D4FA" stroke-width="1.3" fill="none" opacity="0.85"/>' +
+    '<line x1="10" y1="1.3" x2="10" y2="6.7" stroke="#81D4FA" stroke-width="0.7" opacity="0.6"/>' +
+    '<line x1="23" y1="3.2" x2="23" y2="7" stroke="#81D4FA" stroke-width="0.7" opacity="0.6"/>' +
+    '<line x1="37" y1="1.3" x2="37" y2="6.7" stroke="#81D4FA" stroke-width="0.7" opacity="0.6"/>' +
+    '<line x1="50" y1="3.2" x2="50" y2="7" stroke="#81D4FA" stroke-width="0.7" opacity="0.6"/>' +
+    '</svg>';
+}
+
 function renderBuiltin(lvl, area) {
   const nodeMap = {};
   lvl.nodes.forEach(n => { nodeMap[n.id] = n; });
@@ -575,6 +588,38 @@ function renderBuiltin(lvl, area) {
       <line x1="1" y1="0" x2="1" y2="10" stroke="rgba(239,83,80,0.8)" stroke-width="1.5"/>
     </marker>
   </defs>`;
+
+  // Nuclear membrane — rendered before arrows so it appears behind them
+  if (lvl.nucleus) {
+    const n = lvl.nucleus;
+    const _NS = 'http://www.w3.org/2000/svg';
+    const nucOuter = document.createElementNS(_NS, 'ellipse');
+    nucOuter.setAttribute('cx', n.cx); nucOuter.setAttribute('cy', n.cy);
+    nucOuter.setAttribute('rx', n.rx); nucOuter.setAttribute('ry', n.ry);
+    nucOuter.setAttribute('fill', 'rgba(100,60,200,0.07)');
+    nucOuter.setAttribute('stroke', 'rgba(160,100,255,0.55)');
+    nucOuter.setAttribute('stroke-width', '0.75');
+    nucOuter.setAttribute('stroke-dasharray', '2.5 1.5');
+    svg.appendChild(nucOuter);
+    const nucInner = document.createElementNS(_NS, 'ellipse');
+    nucInner.setAttribute('cx', n.cx); nucInner.setAttribute('cy', n.cy);
+    nucInner.setAttribute('rx', Math.max(1, n.rx - 1.5));
+    nucInner.setAttribute('ry', Math.max(1, n.ry - 1.5));
+    nucInner.setAttribute('fill', 'none');
+    nucInner.setAttribute('stroke', 'rgba(160,100,255,0.25)');
+    nucInner.setAttribute('stroke-width', '0.4');
+    nucInner.setAttribute('stroke-dasharray', '1.5 2.5');
+    svg.appendChild(nucInner);
+    const nucText = document.createElementNS(_NS, 'text');
+    nucText.setAttribute('x', n.cx - n.rx + 1.5);
+    nucText.setAttribute('y', n.cy - n.ry + 4.5);
+    nucText.setAttribute('fill', 'rgba(170,110,255,0.65)');
+    nucText.setAttribute('font-size', '3.5');
+    nucText.setAttribute('font-weight', '600');
+    nucText.setAttribute('font-family', '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif');
+    nucText.textContent = 'Nucleus';
+    svg.appendChild(nucText);
+  }
 
   // Compute clearance from node center to box edge in arrow direction, plus a small gap.
   // HALF_W / HALF_H are conservative SVG-unit estimates for typical node boxes
@@ -642,8 +687,16 @@ function renderBuiltin(lvl, area) {
         el.addEventListener('click', () => tapSlot(tss.slot.id));
       }
     } else {
-      el.className = 'pathway-node node-' + (node.type || 'default');
-      el.textContent = node.label;
+      if (node.type === 'dna') {
+        el.className = 'pathway-node node-dna';
+        el.innerHTML = escHtml(node.label) + dnaHelixSVG();
+      } else if (node.type === 'output') {
+        el.className = 'pathway-node node-output';
+        el.innerHTML = escHtml(node.label) + '<span class="output-expr">↗ expressed</span>';
+      } else {
+        el.className = 'pathway-node node-' + (node.type || 'default');
+        el.textContent = node.label;
+      }
     }
     area.appendChild(el);
   });
@@ -787,7 +840,16 @@ function handleCorrect(ss) {
       slotEl.textContent = ss.slot.correct === 'activation' ? '→' : '⊣';
     } else {
       slotEl.classList.remove('pathway-slot');
-      slotEl.textContent = ss.slot.correct;
+      const revealNode = (currentLevel.nodes || []).find(n => n.id === ss.slot.nodeId);
+      if (revealNode && revealNode.type === 'dna') {
+        slotEl.className = 'pathway-node node-dna';
+        slotEl.innerHTML = escHtml(ss.slot.correct) + dnaHelixSVG();
+      } else if (revealNode && revealNode.type === 'output') {
+        slotEl.className = 'pathway-node node-output';
+        slotEl.innerHTML = escHtml(ss.slot.correct) + '<span class="output-expr">↗ expressed</span>';
+      } else {
+        slotEl.textContent = ss.slot.correct;
+      }
     }
     slotEl.style.cursor = 'default';
   }

@@ -145,6 +145,10 @@ input[type=number] { width: 80px; }
 .node-dna      { background:rgba(79,195,247,0.15); border-color:#81D4FA; color:#81D4FA; }
 .node-output   { background:rgba(102,187,106,0.2); border-color:var(--success); color:var(--success); font-weight:800; }
 .node-inhibitor{ background:rgba(239,83,80,0.12); border-color:var(--danger); color:var(--danger); }
+.prev-node.node-dna    { white-space:normal; min-width:80px; padding:4px 8px 5px; }
+.prev-node.node-output { white-space:normal; padding:4px 8px 5px; }
+.dna-helix   { display:block; width:100%; margin-top:3px; height:8px; overflow:visible; }
+.output-expr { display:block; font-size:0.58rem; font-weight:500; opacity:0.75; margin-top:2px; letter-spacing:0.04em; }
 .prev-arrow-badge { position:absolute; transform:translate(-50%,-50%); z-index:3; width:20px; height:20px;
   border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.6rem;
   font-weight:700; border:1.5px dashed var(--gold); background:rgba(0,0,0,0.7); color:var(--gold); pointer-events:none; }
@@ -572,6 +576,17 @@ function syncCurrentLevel() {
   lvl.description   = g('f-description');
   lvl.teachingPoint = g('f-teachingPoint');
   if (lvl.renderer === 'image') lvl.image = g('f-image');
+  if (lvl.renderer !== 'image') {
+    const nCx = parseFloat(g('f-nuc-cx'));
+    const nCy = parseFloat(g('f-nuc-cy'));
+    const nRx = parseFloat(g('f-nuc-rx'));
+    const nRy = parseFloat(g('f-nuc-ry'));
+    if (!isNaN(nCx) && !isNaN(nCy) && !isNaN(nRx) && !isNaN(nRy)) {
+      lvl.nucleus = { cx: nCx, cy: nCy, rx: nRx, ry: nRy };
+    } else {
+      delete lvl.nucleus;
+    }
+  }
 }
 
 function renderLevelEditor() {
@@ -671,7 +686,18 @@ function levelSettingsHtml(lvl) {
     <div class="field full"><label>Description</label>
       <textarea id="f-description">${esc(lvl.description||'')}</textarea></div>
     <div class="field full"><label>Teaching Point (shown on level complete)</label>
-      <textarea id="f-teachingPoint">${esc(lvl.teachingPoint||'')}</textarea></div>`;
+      <textarea id="f-teachingPoint">${esc(lvl.teachingPoint||'')}</textarea></div>
+    ${lvl.renderer !== 'image' ? `<div class="field-row" style="align-items:flex-end;">
+      <div class="field"><label>Nucleus CX %</label>
+        <input type="number" id="f-nuc-cx" value="${lvl.nucleus ? lvl.nucleus.cx : ''}" min="0" max="100" placeholder="—" oninput="syncCurrentLevel();renderBuiltinPreview()"></div>
+      <div class="field"><label>CY %</label>
+        <input type="number" id="f-nuc-cy" value="${lvl.nucleus ? lvl.nucleus.cy : ''}" min="0" max="100" placeholder="—" oninput="syncCurrentLevel();renderBuiltinPreview()"></div>
+      <div class="field"><label>RX %</label>
+        <input type="number" id="f-nuc-rx" value="${lvl.nucleus ? lvl.nucleus.rx : ''}" min="1" max="100" placeholder="—" oninput="syncCurrentLevel();renderBuiltinPreview()"></div>
+      <div class="field"><label>RY %</label>
+        <input type="number" id="f-nuc-ry" value="${lvl.nucleus ? lvl.nucleus.ry : ''}" min="1" max="100" placeholder="—" oninput="syncCurrentLevel();renderBuiltinPreview()"></div>
+      <button class="btn-small" onclick="clearNucleus()">Clear</button>
+    </div>` : ''}`;
 }
 
 // ── BUILT-IN RENDERER HTML ──
@@ -985,6 +1011,27 @@ function deleteArrow(i) {
   markDirty(); renderAll();
 }
 
+function clearNucleus() {
+  ['f-nuc-cx','f-nuc-cy','f-nuc-rx','f-nuc-ry'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  if (currentLevelIdx !== null && db.levels[currentLevelIdx]) {
+    delete db.levels[currentLevelIdx].nucleus;
+    markDirty(); renderBuiltinPreview();
+  }
+}
+
+function dnaHelixSVG() {
+  return '<svg class="dna-helix" viewBox="0 0 60 8" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">' +
+    '<path d="M0,2 C10,0 20,4 30,2 C40,0 50,4 60,2" stroke="#81D4FA" stroke-width="1.3" fill="none" opacity="0.85"/>' +
+    '<path d="M0,6 C10,4 20,8 30,6 C40,4 50,8 60,6" stroke="#81D4FA" stroke-width="1.3" fill="none" opacity="0.85"/>' +
+    '<line x1="10" y1="1.3" x2="10" y2="6.7" stroke="#81D4FA" stroke-width="0.7" opacity="0.6"/>' +
+    '<line x1="23" y1="3.2" x2="23" y2="7" stroke="#81D4FA" stroke-width="0.7" opacity="0.6"/>' +
+    '<line x1="37" y1="1.3" x2="37" y2="6.7" stroke="#81D4FA" stroke-width="0.7" opacity="0.6"/>' +
+    '<line x1="50" y1="3.2" x2="50" y2="7" stroke="#81D4FA" stroke-width="0.7" opacity="0.6"/>' +
+    '</svg>';
+}
+
 // ═══════════════════════════════════════════════════════
 //  BUILT-IN PREVIEW
 // ═══════════════════════════════════════════════════════
@@ -1040,6 +1087,33 @@ function renderBuiltinPreview() {
     line.setAttribute('marker-end', isAct ? 'url(#pe-act)' : 'url(#pe-inh)');
     svg.appendChild(line);
   });
+  // Nuclear membrane
+  if (lvl.nucleus) {
+    const n = lvl.nucleus;
+    const NS = 'http://www.w3.org/2000/svg';
+    const outer = document.createElementNS(NS, 'ellipse');
+    outer.setAttribute('cx', n.cx); outer.setAttribute('cy', n.cy);
+    outer.setAttribute('rx', n.rx); outer.setAttribute('ry', n.ry);
+    outer.setAttribute('fill', 'rgba(100,60,200,0.07)');
+    outer.setAttribute('stroke', 'rgba(160,100,255,0.55)');
+    outer.setAttribute('stroke-width', '0.75');
+    outer.setAttribute('stroke-dasharray', '2.5 1.5');
+    svg.appendChild(outer);
+    const inner = document.createElementNS(NS, 'ellipse');
+    inner.setAttribute('cx', n.cx); inner.setAttribute('cy', n.cy);
+    inner.setAttribute('rx', n.rx - 1.5); inner.setAttribute('ry', n.ry - 1.5);
+    inner.setAttribute('fill', 'none');
+    inner.setAttribute('stroke', 'rgba(160,100,255,0.25)');
+    inner.setAttribute('stroke-width', '0.4');
+    inner.setAttribute('stroke-dasharray', '1.5 2.5');
+    svg.appendChild(inner);
+    const txt = document.createElementNS(NS, 'text');
+    txt.setAttribute('x', n.cx - n.rx + 1.5); txt.setAttribute('y', n.cy - n.ry + 4.5);
+    txt.setAttribute('fill', 'rgba(170,110,255,0.65)'); txt.setAttribute('font-size', '3.5');
+    txt.textContent = 'Nucleus';
+    svg.appendChild(txt);
+  }
+
   area.appendChild(svg);
 
   // Arrow slot badges
@@ -1059,7 +1133,13 @@ function renderBuiltinPreview() {
     const el = document.createElement('div');
     el.className = `prev-node node-${node.type||'kinase'}${node.id===selectedNodeId?' selected':''}${slotNodeIds.has(node.id)?' has-slot':''}`;
     el.style.cssText = `left:${node.x}%;top:${node.y}%;`;
-    el.textContent = node.label || node.id;
+    if (node.type === 'dna') {
+      el.innerHTML = esc(node.label || node.id) + dnaHelixSVG();
+    } else if (node.type === 'output') {
+      el.innerHTML = esc(node.label || node.id) + '<span class="output-expr">↗ expressed</span>';
+    } else {
+      el.textContent = node.label || node.id;
+    }
     el.title = `Drag to reposition\nClick to edit`;
 
     // Drag
