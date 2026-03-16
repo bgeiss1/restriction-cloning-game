@@ -502,6 +502,16 @@ input[type=number] { width: 80px; }
             <label>Image Directory (relative to HTML file)</label>
             <input type="text" id="meta-imgdir" placeholder="microid_images/" oninput="metaChanged()">
           </div>
+          <div class="field-row" style="align-items:center;gap:20px;padding-top:4px;">
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.85rem;color:var(--text);">
+              <input type="checkbox" id="meta-imageQuestions" onchange="metaChanged()" style="width:15px;height:15px;accent-color:var(--gold);cursor:pointer;">
+              Enable image match questions
+            </label>
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:0.85rem;color:var(--text);" id="meta-imageLabels-row">
+              <input type="checkbox" id="meta-imageLabels" onchange="metaChanged()" style="width:15px;height:15px;accent-color:var(--gold);cursor:pointer;">
+              Show image type labels during questions
+            </label>
+          </div>
         </div>
       </div>
 
@@ -888,6 +898,8 @@ function syncMeta() {
   db.meta.unit              = document.getElementById('meta-unit').value.trim();
   db.meta.questionsPerRound = parseInt(document.getElementById('meta-qpr').value) || 10;
   db.meta.imageDir          = document.getElementById('meta-imgdir').value.trim() || 'microid_images/';
+  db.meta.imageQuestions    = document.getElementById('meta-imageQuestions').checked;
+  db.meta.imageLabels       = document.getElementById('meta-imageLabels').checked;
 }
 function metaChanged() { syncMeta(); markDirty(); }
 
@@ -896,6 +908,8 @@ function renderMeta() {
   document.getElementById('meta-unit').value   = db.meta.unit || '';
   document.getElementById('meta-qpr').value    = db.meta.questionsPerRound || 10;
   document.getElementById('meta-imgdir').value = db.meta.imageDir || 'microid_images/';
+  document.getElementById('meta-imageQuestions').checked = !!db.meta.imageQuestions;
+  document.getElementById('meta-imageLabels').checked    = !!db.meta.imageLabels;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1228,6 +1242,17 @@ function renderImagesHTML(org, imgDir) {
         <label style="margin-top:2px;">Credit / Source (optional)</label>
         <input type="text" value="${esc(img.credit || '')}" placeholder="e.g. CDC/PHIL"
                oninput="imgChanged(${i},'credit',this.value)">
+        <label style="margin-top:2px;">Image Type <span style="color:var(--muted);font-weight:400;">(for image match questions)</span></label>
+        <select onchange="imgChanged(${i},'type',this.value)">
+          <option value="" ${!img.type?'selected':''}>— not set —</option>
+          <option value="gram_stain"        ${img.type==='gram_stain'?'selected':''}>Gram Stain</option>
+          <option value="sem_tem"           ${img.type==='sem_tem'?'selected':''}>SEM / TEM</option>
+          <option value="colony_morphology" ${img.type==='colony_morphology'?'selected':''}>Colony Morphology</option>
+          <option value="culture"           ${img.type==='culture'?'selected':''}>Culture Conditions</option>
+          <option value="histology"         ${img.type==='histology'?'selected':''}>Histology</option>
+          <option value="clinical"          ${img.type==='clinical'?'selected':''}>Clinical Presentation</option>
+          <option value="other"             ${img.type==='other'?'selected':''}>Other</option>
+        </select>
       </div>
       <button class="btn-del-img" onclick="removeImage(${i})">✕</button>
     </div>`).join('');

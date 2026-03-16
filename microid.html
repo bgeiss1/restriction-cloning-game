@@ -245,6 +245,43 @@ body {
 }
 .choice-btn:disabled { cursor: default; }
 
+/* ── IMAGE MATCH CHOICES ── */
+.img-choices-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.img-choice-btn {
+  background: rgba(255,255,255,0.05);
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer; touch-action: manipulation;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  transition: border-color 0.15s;
+  aspect-ratio: 1;
+}
+.img-choice-btn img {
+  width: 100%; flex: 1; object-fit: cover; display: block; min-height: 0;
+}
+.img-choice-label {
+  font-size: 0.7rem; color: var(--text-muted);
+  padding: 3px 6px; text-align: center;
+  background: rgba(0,0,0,0.5); flex-shrink: 0;
+}
+.img-choice-btn:not(:disabled):hover { border-color: rgba(200,169,81,0.6); }
+.img-choice-btn.correct {
+  border-color: var(--success);
+  box-shadow: 0 0 0 2px rgba(102,187,106,0.3);
+}
+.img-choice-btn.wrong {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 2px rgba(239,83,80,0.2);
+}
+.img-choice-btn:disabled { cursor: default; }
+
 /* Streak badge */
 #streakBadge {
   display: none;
@@ -573,6 +610,9 @@ body {
       <button class="choice-btn" id="c3"></button>
     </div>
 
+    <!-- Image match choices -->
+    <div class="img-choices-grid" id="imgChoicesGrid" style="display:none;"></div>
+
     <!-- Streak badge -->
     <div id="streakBadge">🔥 <span id="streakCount">3</span> streak — +2 bonus/question</div>
 
@@ -673,6 +713,7 @@ const qTypeLabel      = document.getElementById('qTypeLabel');
 const qPrompt         = document.getElementById('qPrompt');
 const choicesGrid     = document.getElementById('choicesGrid');
 const choiceBtns      = [0,1,2,3].map(i => document.getElementById('c'+i));
+const imgChoicesGrid  = document.getElementById('imgChoicesGrid');
 const streakBadge     = document.getElementById('streakBadge');
 const streakCount     = document.getElementById('streakCount');
 const learnMore       = document.getElementById('learnMore');
@@ -697,6 +738,16 @@ const modalClose      = document.getElementById('modalClose');
 // ═══════════════════════════════════════════════════════════════════════
 //  QUESTION TYPE DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════════
+const IMAGE_TYPE_LABELS = {
+  gram_stain:        'Gram Stain',
+  sem_tem:           'SEM / TEM',
+  colony_morphology: 'Colony Morphology',
+  culture:           'Culture Conditions',
+  histology:         'Histology',
+  clinical:          'Clinical Presentation',
+  other:             'Other'
+};
+
 const QUESTION_TYPES = [
   {
     id: 'pathogen_type',
@@ -884,6 +935,49 @@ const QUESTION_TYPES = [
         correct,
         choices: shuffle([correct, ...distractors.slice(0,3)])
       };
+    }
+  },
+  {
+    id: 'image_match',
+    difficulty: 2,
+    label: 'Image Match',
+    canApply(org) {
+      if (!db || !db.meta || !db.meta.imageQuestions) return false;
+      if (!org.images || !org.images.some(img => img.file && img.type)) return false;
+      const orgTypes = [...new Set(org.images.filter(img => img.file && img.type).map(img => img.type))];
+      return orgTypes.some(type =>
+        db.organisms.filter(o => o.id !== org.id && o.images && o.images.some(img => img.file && img.type === type)).length >= 3
+      );
+    },
+    build(org, allOrgs, imgDir) {
+      const orgTyped = org.images.filter(img => img.file && img.type);
+      const typeCandidates = shuffle([...new Set(orgTyped.map(img => img.type))]);
+      for (const type of typeCandidates) {
+        const others = allOrgs.filter(o => o.id !== org.id && o.images && o.images.some(img => img.file && img.type === type));
+        if (others.length < 3) continue;
+        const correctImages = orgTyped.filter(img => img.type === type);
+        const correctImg = correctImages[Math.floor(Math.random() * correctImages.length)];
+        const distractorOrgs = shuffle([...others]).slice(0, 3);
+        const distractorImgs = distractorOrgs.map(o => {
+          const typed = o.images.filter(img => img.file && img.type === type);
+          return { org: o, img: typed[Math.floor(Math.random() * typed.length)] };
+        });
+        const showLabels = !!db.meta.imageLabels;
+        const typeLabel = IMAGE_TYPE_LABELS[type] || type;
+        const allChoices = shuffle([
+          { orgId: org.id, src: imgDir + correctImg.file, label: showLabels ? typeLabel : '' },
+          ...distractorImgs.map(d => ({ orgId: d.org.id, src: imgDir + d.img.file, label: showLabels ? typeLabel : '' }))
+        ]);
+        return {
+          prompt: showLabels
+            ? `Which <strong>${typeLabel}</strong> image shows <em>${org.name}</em>?`
+            : `Which image shows <em>${org.name}</em>?`,
+          correct: org.id,
+          choices: allChoices,
+          isImageMatch: true
+        };
+      }
+      throw new Error('No suitable image type');
     }
   }
 ];
@@ -1150,13 +1244,30 @@ function renderQuestion(q) {
   }
 
   // Choices
-  const choices = q.choices || [];
-  choiceBtns.forEach((btn, i) => {
-    btn.textContent = choices[i] || '';
-    btn.className = 'choice-btn';
-    btn.disabled = false;
-    btn.style.display = choices[i] !== undefined ? '' : 'none';
-  });
+  if (q.isImageMatch) {
+    choicesGrid.style.display = 'none';
+    imgChoicesGrid.style.display = '';
+    imgChoicesGrid.innerHTML = (q.choices || []).map(c =>
+      `<button class="img-choice-btn" data-orgid="${escHtml(c.orgId)}">
+         <img src="${escHtml(c.src)}" alt="" onerror="this.style.opacity='0.3'">
+         ${c.label ? `<div class="img-choice-label">${escHtml(c.label)}</div>` : ''}
+       </button>`
+    ).join('');
+    imgChoicesGrid.querySelectorAll('.img-choice-btn').forEach(btn => {
+      btn.addEventListener('click', () => handleImageAnswer(btn));
+    });
+  } else {
+    choicesGrid.style.display = '';
+    imgChoicesGrid.style.display = 'none';
+    imgChoicesGrid.innerHTML = '';
+    const choices = q.choices || [];
+    choiceBtns.forEach((btn, i) => {
+      btn.textContent = choices[i] || '';
+      btn.className = 'choice-btn';
+      btn.disabled = false;
+      btn.style.display = choices[i] !== undefined ? '' : 'none';
+    });
+  }
 
   // Streak badge
   if (streak >= 3) {
@@ -1237,6 +1348,22 @@ function handleAnswer(btn, chosen, q) {
 
   // Show next
   btnNext.classList.add('visible');
+}
+
+function handleImageAnswer(btn) {
+  if (answered) return;
+  const q = round[roundIdx];
+  const chosenId = btn.dataset.orgid;
+  const isCorrect = chosenId === q.correct;
+  q._correct = isCorrect;
+  handleAnswer(btn, chosenId, q);
+  // Highlight image buttons (handleAnswer highlights text buttons, not image buttons)
+  const imgBtns = imgChoicesGrid.querySelectorAll('.img-choice-btn');
+  imgBtns.forEach(b => {
+    b.disabled = true;
+    if (b.dataset.orgid === q.correct) b.classList.add('correct');
+    else if (b === btn && !isCorrect) b.classList.add('wrong');
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════════
