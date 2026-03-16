@@ -533,13 +533,19 @@ function renderPathway() {
 }
 
 function renderBuiltin(lvl, area) {
-  // Build node lookup
   const nodeMap = {};
   lvl.nodes.forEach(n => { nodeMap[n.id] = n; });
 
-  // Active slot lookup by nodeId
+  // Separate active slots into molecule slots (by nodeId) and arrow slots (by from→to key)
   const slotByNode = {};
-  activeSlots.forEach(s => { if (s.slot.nodeId) slotByNode[s.slot.nodeId] = s; });
+  const slotArrowKeys = new Set();
+  activeSlots.forEach(s => {
+    if (s.slot.type === 'arrow') {
+      slotArrowKeys.add(s.slot.fromNodeId + '→' + s.slot.toNodeId);
+    } else if (s.slot.nodeId) {
+      slotByNode[s.slot.nodeId] = s;
+    }
+  });
 
   // SVG for arrows
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -548,17 +554,20 @@ function renderBuiltin(lvl, area) {
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;';
   svg.innerHTML = `<defs>
     <marker id="act-head" viewBox="0 0 10 10" refX="9" refY="5"
-      markerUnits="userSpaceOnUse" markerWidth="4" markerHeight="3" orient="auto">
+      markerUnits="userSpaceOnUse" markerWidth="2" markerHeight="1.5" orient="auto">
       <path d="M0,0 L10,5 L0,10 Z" fill="rgba(168,197,160,0.75)"/>
     </marker>
     <marker id="inh-head" viewBox="0 0 4 10" refX="3" refY="5"
-      markerUnits="userSpaceOnUse" markerWidth="3" markerHeight="5" orient="auto">
+      markerUnits="userSpaceOnUse" markerWidth="1.5" markerHeight="2.5" orient="auto">
       <line x1="1" y1="0" x2="1" y2="10" stroke="rgba(239,83,80,0.8)" stroke-width="1.5"/>
     </marker>
   </defs>`;
 
-  const OFFSET = 4.5;
+  const OFFSET = 4;
   lvl.arrows.forEach(arrow => {
+    // Arrow slots show only a ? badge — skip drawing the SVG line
+    if (slotArrowKeys.has(arrow.from + '→' + arrow.to)) return;
+
     const s = nodeMap[arrow.from], t = nodeMap[arrow.to];
     if (!s || !t) return;
     const dx = t.x - s.x, dy = t.y - s.y;
@@ -575,7 +584,7 @@ function renderBuiltin(lvl, area) {
   });
   area.appendChild(svg);
 
-  // Nodes
+  // Nodes / molecule slots
   lvl.nodes.forEach(node => {
     const ss = slotByNode[node.id];
     const el = document.createElement('div');
@@ -592,7 +601,7 @@ function renderBuiltin(lvl, area) {
     area.appendChild(el);
   });
 
-  // Arrow slots
+  // Arrow slot badges (? positioned at midpoint between the two connected nodes)
   activeSlots.filter(s => s.slot.type === 'arrow').forEach(ss => {
     const slot = ss.slot;
     let x = slot.x ?? 50, y = slot.y ?? 50;
