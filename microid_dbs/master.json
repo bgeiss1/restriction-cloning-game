@@ -82,7 +82,7 @@
       "images": [
         {
           "file": "streptococcus_pyogenes_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-positive cocci in chains"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-positive cocci in chains"
         }
       ],
       "diseases": [
@@ -150,7 +150,7 @@
       "images": [
         {
           "file": "streptococcus_pneumoniae_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-positive lancet-shaped diplococci"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-positive lancet-shaped diplococci"
         }
       ],
       "diseases": [
@@ -210,7 +210,7 @@
       "images": [
         {
           "file": "clostridium_tetani_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ drumstick-shaped sporulating rod"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ drumstick-shaped sporulating rod"
         }
       ],
       "diseases": [
@@ -250,7 +250,7 @@
       "images": [
         {
           "file": "clostridioides_difficile_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-positive rods"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-positive rods"
         }
       ],
       "diseases": [
@@ -299,7 +299,7 @@
       "images": [
         {
           "file": "bacillus_anthracis_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ large gram-positive rods in chains"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ large gram-positive rods in chains"
         }
       ],
       "diseases": [
@@ -358,7 +358,7 @@
       "images": [
         {
           "file": "mycobacterium_tuberculosis_afb.jpg",
-          "caption": "Acid-fast (Ziehl-Neelsen) stain ÃÂ¢ÃÂÃÂ pink rods on blue background"
+          "caption": "Acid-fast (Ziehl-Neelsen) stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ pink rods on blue background"
         }
       ],
       "diseases": [
@@ -388,14 +388,14 @@
       "reservoir": "Humans (and some primates)",
       "labFindings": [
         "Acid-fast bacilli (AFB) on Ziehl-Neelsen or Kinyoun stain",
-        "Slow-growing on LÃÂÃÂ¶wenstein-Jensen medium (3ÃÂ¢ÃÂÃÂ8 weeks)",
+        "Slow-growing on LÃÂÃÂÃÂÃÂ¶wenstein-Jensen medium (3ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ8 weeks)",
         "Positive QuantiFERON-TB Gold or TST",
         "Upper-lobe cavitary lesions on chest X-ray",
         "Cord factor production"
       ],
-      "treatment": "RIPE regimen (rifampin, isoniazid, pyrazinamide, ethambutol) ÃÂÃÂ 6 months",
+      "treatment": "RIPE regimen (rifampin, isoniazid, pyrazinamide, ethambutol) ÃÂÃÂÃÂÃÂ 6 months",
       "prevention": "BCG vaccine; contact tracing; respiratory isolation; LTBI treatment",
-      "learnMore": "TB is one of the top 10 causes of death worldwide. Mycobacteria have a waxy cell wall rich in mycolic acids, making them impermeable to standard Gram stain ÃÂ¢ÃÂÃÂ hence the specialized acid-fast stain."
+      "learnMore": "TB is one of the top 10 causes of death worldwide. Mycobacteria have a waxy cell wall rich in mycolic acids, making them impermeable to standard Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ hence the specialized acid-fast stain."
     },
     {
       "id": "e_coli",
@@ -408,7 +408,7 @@
       "images": [
         {
           "file": "escherichia_coli_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-negative rods"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-negative rods"
         }
       ],
       "diseases": [
@@ -469,7 +469,7 @@
       "images": [
         {
           "file": "salmonella_enterica_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-negative rods"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-negative rods"
         }
       ],
       "diseases": [
@@ -521,7 +521,7 @@
       "images": [
         {
           "file": "neisseria_meningitidis_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-negative diplococci"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-negative diplococci"
         }
       ],
       "diseases": [
@@ -572,7 +572,7 @@
       "images": [
         {
           "file": "helicobacter_pylori_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-negative curved rods (seagull shape)"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-negative curved rods (seagull shape)"
         }
       ],
       "diseases": [
@@ -632,7 +632,7 @@
       "images": [
         {
           "file": "vibrio_cholerae_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-negative comma-shaped rods"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-negative comma-shaped rods"
         }
       ],
       "diseases": [
@@ -661,7 +661,7 @@
       ],
       "treatment": "Oral rehydration therapy (ORS); doxycycline or azithromycin for severe cases",
       "prevention": "Safe water and sanitation; oral cholera vaccines; hand hygiene",
-      "learnMore": "Cholera toxin activates adenylyl cyclase, massively increasing cAMP, which drives ClÃÂ¢ÃÂÃÂ» secretion and water loss. A patient can lose over 20 liters of fluid per day."
+      "learnMore": "Cholera toxin activates adenylyl cyclase, massively increasing cAMP, which drives ClÃÂÃÂ¢ÃÂÃÂÃÂÃÂ» secretion and water loss. A patient can lose over 20 liters of fluid per day."
     },
     {
       "id": "b_pertussis",
@@ -674,7 +674,7 @@
       "images": [
         {
           "file": "bordetella_pertussis_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ tiny gram-negative coccobacilli"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ tiny gram-negative coccobacilli"
         }
       ],
       "diseases": [
@@ -715,7 +715,7 @@
       "images": [
         {
           "file": "influenza_virus_tem.jpg",
-          "caption": "Transmission electron micrograph ÃÂ¢ÃÂÃÂ enveloped pleomorphic virions"
+          "caption": "Transmission electron micrograph ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ enveloped pleomorphic virions"
         }
       ],
       "diseases": [
@@ -748,12 +748,12 @@
       ],
       "reservoir": "Humans; birds; pigs (reservoir for pandemic strains)",
       "labFindings": [
-        "Rapid influenza diagnostic test (RIDT) ÃÂ¢ÃÂÃÂ antigen detection",
+        "Rapid influenza diagnostic test (RIDT) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ antigen detection",
         "RT-PCR (most sensitive and specific)",
         "Hemagglutination inhibition assay",
         "Grows in embryonated eggs"
       ],
-      "treatment": "Oseltamivir (Tamiflu); baloxavir; zanamivir ÃÂ¢ÃÂÃÂ best within 48 hours of symptom onset",
+      "treatment": "Oseltamivir (Tamiflu); baloxavir; zanamivir ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ best within 48 hours of symptom onset",
       "prevention": "Annual influenza vaccine; hand hygiene; respiratory etiquette",
       "learnMore": "Influenza A undergoes antigenic shift (reassortment of gene segments) and antigenic drift (point mutations). Shift causes pandemic strains; drift explains why annual vaccination is needed."
     },
@@ -768,7 +768,7 @@
       "images": [
         {
           "file": "hiv_tem.jpg",
-          "caption": "Transmission electron micrograph ÃÂ¢ÃÂÃÂ budding HIV virions"
+          "caption": "Transmission electron micrograph ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ budding HIV virions"
         }
       ],
       "diseases": [
@@ -777,7 +777,7 @@
           "symptoms": [
             "weight loss",
             "recurrent opportunistic infections",
-            "CD4 count <200/ÃÂÃÂµL",
+            "CD4 count <200/ÃÂÃÂÃÂÃÂµL",
             "Kaposi sarcoma",
             "PCP pneumonia"
           ]
@@ -807,7 +807,7 @@
         "CD4 count (disease staging)",
         "CD4:CD8 ratio < 1 (normal >1.5)"
       ],
-      "treatment": "Antiretroviral therapy (ART) ÃÂ¢ÃÂÃÂ combinations of NRTIs, NNRTIs, PIs, integrase inhibitors",
+      "treatment": "Antiretroviral therapy (ART) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ combinations of NRTIs, NNRTIs, PIs, integrase inhibitors",
       "prevention": "PrEP (pre-exposure prophylaxis); condoms; needle exchange; ART to prevent transmission",
       "learnMore": "HIV uses reverse transcriptase to convert its RNA genome into DNA, which integrates into the host chromosome as a provirus. The virus primarily destroys CD4+ T helper cells, causing progressive immunodeficiency."
     },
@@ -822,7 +822,7 @@
       "images": [
         {
           "file": "sars_cov2_tem.jpg",
-          "caption": "Transmission electron micrograph ÃÂ¢ÃÂÃÂ coronavirus with spike projections"
+          "caption": "Transmission electron micrograph ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ coronavirus with spike projections"
         }
       ],
       "diseases": [
@@ -886,7 +886,7 @@
       "images": [
         {
           "file": "rabies_virus_tem.jpg",
-          "caption": "Transmission electron micrograph ÃÂ¢ÃÂÃÂ bullet-shaped rhabdovirus"
+          "caption": "Transmission electron micrograph ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ bullet-shaped rhabdovirus"
         },
         {
           "file": "rabies_negri_body.jpg",
@@ -918,9 +918,9 @@
         "RT-PCR on saliva, skin biopsy, or CSF",
         "CSF pleocytosis"
       ],
-      "treatment": "Post-exposure prophylaxis (PEP): wound washing + rabies immunoglobulin + vaccine series. Once symptomatic ÃÂ¢ÃÂÃÂ nearly 100% fatal.",
+      "treatment": "Post-exposure prophylaxis (PEP): wound washing + rabies immunoglobulin + vaccine series. Once symptomatic ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ nearly 100% fatal.",
       "prevention": "Pre-exposure vaccination (veterinarians, travelers); animal vaccination programs; avoid wild animals",
-      "learnMore": "Rabies virus travels retrograde along peripheral nerves to the CNS at ~8ÃÂ¢ÃÂÃÂ20 mm/day. Negri bodies ÃÂ¢ÃÂÃÂ pathognomonic inclusions in hippocampal and cerebellar neurons ÃÂ¢ÃÂÃÂ were the historic diagnostic marker."
+      "learnMore": "Rabies virus travels retrograde along peripheral nerves to the CNS at ~8ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ20 mm/day. Negri bodies ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ pathognomonic inclusions in hippocampal and cerebellar neurons ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ were the historic diagnostic marker."
     },
     {
       "id": "hep_b",
@@ -933,7 +933,7 @@
       "images": [
         {
           "file": "hepatitis_b_virus_tem.jpg",
-          "caption": "Transmission electron micrograph ÃÂ¢ÃÂÃÂ Dane particles and HBsAg spheres"
+          "caption": "Transmission electron micrograph ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ Dane particles and HBsAg spheres"
         }
       ],
       "diseases": [
@@ -965,11 +965,11 @@
       ],
       "reservoir": "Humans",
       "labFindings": [
-        "HBsAg (surface antigen) ÃÂ¢ÃÂÃÂ marker of current infection",
-        "HBeAg ÃÂ¢ÃÂÃÂ marker of high infectivity",
-        "Anti-HBc IgM ÃÂ¢ÃÂÃÂ acute infection",
-        "Anti-HBs ÃÂ¢ÃÂÃÂ immunity (vaccine or recovery)",
-        "HBV DNA PCR ÃÂ¢ÃÂÃÂ viral load",
+        "HBsAg (surface antigen) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ marker of current infection",
+        "HBeAg ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ marker of high infectivity",
+        "Anti-HBc IgM ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ acute infection",
+        "Anti-HBs ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ immunity (vaccine or recovery)",
+        "HBV DNA PCR ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ viral load",
         "Elevated ALT/AST"
       ],
       "treatment": "Pegylated interferon; tenofovir; entecavir for chronic HBV",
@@ -987,7 +987,7 @@
       "images": [
         {
           "file": "ebola_virus_tem.jpg",
-          "caption": "Transmission electron micrograph ÃÂ¢ÃÂÃÂ filamentous filovirus particles"
+          "caption": "Transmission electron micrograph ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ filamentous filovirus particles"
         }
       ],
       "diseases": [
@@ -1017,7 +1017,7 @@
       ],
       "treatment": "Supportive care; IV fluid resuscitation; mAb therapies (Inmazeb, Ebanga) for EVD-Zaire",
       "prevention": "rVSV-ZEBOV vaccine (Ervebo) for Zaire ebolavirus; strict contact and droplet precautions; PPE",
-      "learnMore": "Ebola causes viral hemorrhagic fever with case fatality rates of 25ÃÂ¢ÃÂÃÂ90%. It triggers a massive cytokine storm and interferes with coagulation. The 2013ÃÂ¢ÃÂÃÂ2016 West Africa outbreak killed over 11,000 people."
+      "learnMore": "Ebola causes viral hemorrhagic fever with case fatality rates of 25ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ90%. It triggers a massive cytokine storm and interferes with coagulation. The 2013ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ2016 West Africa outbreak killed over 11,000 people."
     },
     {
       "id": "c_albicans",
@@ -1026,15 +1026,15 @@
       "type": "fungus",
       "subtype": "yeast",
       "difficulty": 1,
-      "morphology": "Budding yeast with pseudohyphae; forms germ tubes at 37ÃÂÃÂ°C",
+      "morphology": "Budding yeast with pseudohyphae; forms germ tubes at 37ÃÂÃÂÃÂÃÂ°C",
       "images": [
         {
           "file": "candida_albicans_gram.jpg",
-          "caption": "Gram stain ÃÂ¢ÃÂÃÂ gram-positive budding yeast with pseudohyphae"
+          "caption": "Gram stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ gram-positive budding yeast with pseudohyphae"
         },
         {
           "file": "candida_albicans_germ_tube.jpg",
-          "caption": "Germ tube formation at 37ÃÂÃÂ°C (positive in C. albicans)"
+          "caption": "Germ tube formation at 37ÃÂÃÂÃÂÃÂ°C (positive in C. albicans)"
         }
       ],
       "diseases": [
@@ -1071,7 +1071,7 @@
       "reservoir": "Normal human flora (mouth, GI tract, genitourinary tract)",
       "labFindings": [
         "Gram-positive budding yeast with pseudohyphae on Gram stain",
-        "Germ tube positive at 37ÃÂÃÂ°C (distinguishes C. albicans from other Candida)",
+        "Germ tube positive at 37ÃÂÃÂÃÂÃÂ°C (distinguishes C. albicans from other Candida)",
         "White colonies on Sabouraud dextrose agar",
         "Blue-green colonies on CHROMagar Candida",
         "KOH preparation shows budding yeast"
@@ -1087,11 +1087,11 @@
       "type": "fungus",
       "subtype": "mold",
       "difficulty": 2,
-      "morphology": "Septate hyaline hyphae with acute-angle (45ÃÂÃÂ°) branching; conidiophores with flask-shaped vesicle",
+      "morphology": "Septate hyaline hyphae with acute-angle (45ÃÂÃÂÃÂÃÂ°) branching; conidiophores with flask-shaped vesicle",
       "images": [
         {
           "file": "aspergillus_fumigatus_lactophenol.jpg",
-          "caption": "Lactophenol cotton blue stain ÃÂ¢ÃÂÃÂ conidiophore with conidia"
+          "caption": "Lactophenol cotton blue stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ conidiophore with conidia"
         }
       ],
       "diseases": [
@@ -1129,11 +1129,11 @@
       ],
       "reservoir": "Soil; decomposing organic matter; hospital construction sites",
       "labFindings": [
-        "Septate hyphae with 45ÃÂÃÂ° branching on tissue/KOH",
+        "Septate hyphae with 45ÃÂÃÂÃÂÃÂ° branching on tissue/KOH",
         "Galactomannan antigen test (serum or BAL)",
         "Beta-D-glucan positive",
         "CT: 'halo sign' or 'air crescent sign'",
-        "Culture on Sabouraud agar ÃÂ¢ÃÂÃÂ blue-green colonies"
+        "Culture on Sabouraud agar ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ blue-green colonies"
       ],
       "treatment": "Voriconazole (drug of choice); isavuconazole; liposomal amphotericin B",
       "prevention": "HEPA filtration in transplant units; antifungal prophylaxis in neutropenic patients",
@@ -1146,11 +1146,11 @@
       "type": "fungus",
       "subtype": "yeast",
       "difficulty": 3,
-      "morphology": "Encapsulated budding yeast; polysaccharide capsule 10ÃÂ¢ÃÂÃÂ20ÃÂÃÂ diameter of cell",
+      "morphology": "Encapsulated budding yeast; polysaccharide capsule 10ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ20ÃÂÃÂÃÂÃÂ diameter of cell",
       "images": [
         {
           "file": "cryptococcus_neoformans_india_ink.jpg",
-          "caption": "India ink stain ÃÂ¢ÃÂÃÂ large halo from polysaccharide capsule"
+          "caption": "India ink stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ large halo from polysaccharide capsule"
         }
       ],
       "diseases": [
@@ -1180,8 +1180,8 @@
       ],
       "reservoir": "Soil; pigeon droppings (C. neoformans); rotting wood (C. gattii)",
       "labFindings": [
-        "India ink stain ÃÂ¢ÃÂÃÂ large capsular halo in CSF",
-        "Cryptococcal antigen (CrAg) latex agglutination ÃÂ¢ÃÂÃÂ serum and CSF",
+        "India ink stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ large capsular halo in CSF",
+        "Cryptococcal antigen (CrAg) latex agglutination ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ serum and CSF",
         "Urease-positive",
         "Brown colonies on caffeic acid (birdseed) agar",
         "Elevated CSF opening pressure"
@@ -1197,11 +1197,11 @@
       "type": "fungus",
       "subtype": "dimorphic",
       "difficulty": 3,
-      "morphology": "Dimorphic fungus: mold in soil (macroconidia/tuberculate conidia); small yeast in tissue (2ÃÂ¢ÃÂÃÂ4 ÃÂÃÂµm, within macrophages)",
+      "morphology": "Dimorphic fungus: mold in soil (macroconidia/tuberculate conidia); small yeast in tissue (2ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ4 ÃÂÃÂÃÂÃÂµm, within macrophages)",
       "images": [
         {
           "file": "histoplasma_capsulatum_giemsa.jpg",
-          "caption": "Giemsa stain ÃÂ¢ÃÂÃÂ tiny yeast forms within macrophages"
+          "caption": "Giemsa stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ tiny yeast forms within macrophages"
         }
       ],
       "diseases": [
@@ -1234,12 +1234,12 @@
         "Urine Histoplasma antigen EIA (most sensitive in disseminated)",
         "Serum/urine antigen",
         "Giemsa: tiny intracellular yeast in macrophages",
-        "Culture on Sabouraud agar at 25ÃÂÃÂ°C: white cottony mold with tuberculate macroconidia",
+        "Culture on Sabouraud agar at 25ÃÂÃÂÃÂÃÂ°C: white cottony mold with tuberculate macroconidia",
         "Complement fixation serology"
       ],
-      "treatment": "Itraconazole (mildÃÂ¢ÃÂÃÂmoderate); liposomal amphotericin B (severe/disseminated)",
+      "treatment": "Itraconazole (mildÃÂÃÂ¢ÃÂÃÂÃÂÃÂmoderate); liposomal amphotericin B (severe/disseminated)",
       "prevention": "Avoid disturbing contaminated soil; N95 respirators during excavation in endemic areas",
-      "learnMore": "Histoplasma is endemic in the Ohio and Mississippi River valleys. The dimorphic switch (mold ÃÂ¢ÃÂÃÂ yeast) occurs at 37ÃÂÃÂ°C and is essential for pathogenesis. Birds carry but are not infected; bats can be infected and spread it."
+      "learnMore": "Histoplasma is endemic in the Ohio and Mississippi River valleys. The dimorphic switch (mold ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ yeast) occurs at 37ÃÂÃÂÃÂÃÂ°C and is essential for pathogenesis. Birds carry but are not infected; bats can be infected and spread it."
     },
     {
       "id": "p_falciparum",
@@ -1252,7 +1252,7 @@
       "images": [
         {
           "file": "plasmodium_falciparum_giemsa.jpg",
-          "caption": "Giemsa stain of thick/thin blood smear ÃÂ¢ÃÂÃÂ multiple ring forms, banana-shaped gametocytes"
+          "caption": "Giemsa stain of thick/thin blood smear ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ multiple ring forms, banana-shaped gametocytes"
         }
       ],
       "diseases": [
@@ -1285,7 +1285,7 @@
       "vector": "Female Anopheles mosquito",
       "reservoir": "Humans (no animal reservoir for P. falciparum)",
       "labFindings": [
-        "Thick/thin blood smear (Giemsa) ÃÂ¢ÃÂÃÂ multiple ring forms per RBC, banana-shaped gametocytes",
+        "Thick/thin blood smear (Giemsa) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ multiple ring forms per RBC, banana-shaped gametocytes",
         "Rapid malaria antigen test (RDT)",
         "PCR for species identification",
         "High parasitemia (often >5%)",
@@ -1306,7 +1306,7 @@
       "images": [
         {
           "file": "toxoplasma_gondii_giemsa.jpg",
-          "caption": "Giemsa stain ÃÂ¢ÃÂÃÂ crescent-shaped tachyzoites"
+          "caption": "Giemsa stain ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ crescent-shaped tachyzoites"
         }
       ],
       "diseases": [
@@ -1366,8 +1366,8 @@
       "morphology": "Pear-shaped trophozoite with 2 nuclei (owl-face appearance); oval cyst with 4 nuclei",
       "images": [
         {
-          "file": "giardia_lamblia_trophozoite.jpg",
-          "caption": "Trichrome stain ÃÂ¢ÃÂÃÂ pear-shaped trophozoite with 2 nuclei (owl-face)"
+          "file": "Giardia_lamblia_SEM.jpg",
+          "caption": "Trichrome stain pear-shaped trophozoite with 2 nuclei (owl-face)"
         }
       ],
       "diseases": [
@@ -1391,14 +1391,15 @@
       ],
       "reservoir": "Humans; beavers and other mammals (zoonotic source)",
       "labFindings": [
-        "Stool ova & parasites (O&P) ÃÂ¢ÃÂÃÂ trophozoites or cysts",
+        "Stool ova & parasites (O&P) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ trophozoites or cysts",
         "Giardia stool antigen EIA or DFA",
         "PCR",
         "No blood or mucus in stool (non-invasive)"
       ],
       "treatment": "Metronidazole or tinidazole; nitazoxanide",
       "prevention": "Boil or filter water from natural sources; hand hygiene; food safety",
-      "learnMore": "Giardia cysts are highly resistant to chlorine. They are the most common intestinal parasitic infection in the US. The parasite attaches to the intestinal epithelium via a ventral adhesive disk, causing malabsorption without tissue invasion."
+      "learnMore": "Giardia cysts are highly resistant to chlorine. They are the most common intestinal parasitic infection in the US. The parasite attaches to the intestinal epithelium via a ventral adhesive disk, causing malabsorption without tissue invasion.",
+      "vector": ""
     },
     {
       "id": "t_brucei",
@@ -1411,7 +1412,7 @@
       "images": [
         {
           "file": "trypanosoma_brucei_giemsa.jpg",
-          "caption": "Giemsa stain of blood smear ÃÂ¢ÃÂÃÂ trypomastigote between RBCs"
+          "caption": "Giemsa stain of blood smear ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ trypomastigote between RBCs"
         }
       ],
       "diseases": [
@@ -1434,7 +1435,7 @@
       "vector": "Tsetse fly (Glossina species)",
       "reservoir": "Humans (T. b. gambiense); wild animals and cattle (T. b. rhodesiense)",
       "labFindings": [
-        "Blood/CSF smear ÃÂ¢ÃÂÃÂ trypomastigotes",
+        "Blood/CSF smear ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ trypomastigotes",
         "Card agglutination trypanosomiasis test (CATT) for T. b. gambiense",
         "PCR",
         "CSF: elevated protein, WBC pleocytosis, IgM",
@@ -1442,7 +1443,7 @@
       ],
       "treatment": "Stage 1 (hemolymphatic): pentamidine (gambiense) or suramin (rhodesiense). Stage 2 (CNS): fexinidazole or NECT (nifurtimox + eflornithine)",
       "prevention": "Tsetse fly control; protective clothing; insect repellents; no vaccine",
-      "learnMore": "T. brucei evades the immune system through antigenic variation of its VSG (variant surface glycoprotein) coat ÃÂ¢ÃÂÃÂ it has over 1,000 VSG genes. Stage 2 disease involves CNS invasion and is fatal if untreated."
+      "learnMore": "T. brucei evades the immune system through antigenic variation of its VSG (variant surface glycoprotein) coat ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ it has over 1,000 VSG genes. Stage 2 disease involves CNS invasion and is fatal if untreated."
     },
     {
       "id": "cjd_prion",
@@ -1466,7 +1467,7 @@
           ]
         },
         {
-          "name": "Variant CJD (vCJD) ÃÂ¢ÃÂÃÂ linked to BSE (mad cow disease)",
+          "name": "Variant CJD (vCJD) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ linked to BSE (mad cow disease)",
           "symptoms": [
             "early psychiatric symptoms (depression, anxiety)",
             "painful sensory symptoms",
@@ -1486,22 +1487,23 @@
         }
       ],
       "transmission": [
-        "Sporadic (most CJD ÃÂ¢ÃÂÃÂ spontaneous misfolding)",
+        "Sporadic (most CJD ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ spontaneous misfolding)",
         "Iatrogenic (contaminated surgical instruments, dura mater grafts, cadaveric pituitary hormones)",
-        "Dietary (vCJD ÃÂ¢ÃÂÃÂ ingestion of BSE-contaminated beef)",
-        "Genetic (familial CJD, GSS, FFI ÃÂ¢ÃÂÃÂ PRNP mutations)"
+        "Dietary (vCJD ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ ingestion of BSE-contaminated beef)",
+        "Genetic (familial CJD, GSS, FFI ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ PRNP mutations)"
       ],
       "reservoir": "Cattle (BSE); deer/elk (CWD); sheep (scrapie)",
       "labFindings": [
         "EEG: periodic sharp-wave complexes (classic CJD)",
-        "MRI: diffusion-weighted imaging ÃÂ¢ÃÂÃÂ cortical ribboning, basal ganglia signal",
+        "MRI: diffusion-weighted imaging ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ cortical ribboning, basal ganglia signal",
         "CSF: 14-3-3 protein (elevated), RT-QuIC (highly sensitive for CJD)",
         "Brain biopsy: spongiform vacuolation, astrogliosis, prion protein immunostaining",
         "No standard blood test currently available"
       ],
-      "treatment": "No effective treatment ÃÂ¢ÃÂÃÂ supportive care only. Universally fatal.",
+      "treatment": "No effective treatment ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ supportive care only. Universally fatal.",
       "prevention": "Sterilization with 1N NaOH + autoclaving (prions resist standard disinfection); surveillance of BSE in cattle; blood donor deferral policies",
       "learnMore": "Prions (proteinaceous infectious particles) contain no nucleic acid. PrP^Sc converts normal PrP^C to the misfolded form by direct contact, propagating disease. The incubation period for prion diseases can be decades. Stanley Prusiner won the 1997 Nobel Prize for discovering prions."
     }
-  ]
+  ],
+  "questions": []
 }
