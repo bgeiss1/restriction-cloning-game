@@ -395,7 +395,7 @@ input[type=number] { width: 80px; }
       <button class="btn-secondary" onclick="newOrganism()">+ Organism</button>
       <button class="btn-secondary" onclick="saveDB()">⬇ Download</button>
       <button class="btn-publish" id="btn-update-game" onclick="updateGameDatabase()" style="display:none;">▶ Update Game DB</button>
-      <button class="btn-primary" id="publish-btn" onclick="publishToGitHub()" style="display:none;">Publish to GitHub</button>
+      <button class="btn-primary" id="publish-btn" onclick="publishToGitHub()" style="display:none;">Save Database</button>
       <a href="index.html" style="text-decoration:none;">
         <button class="btn-secondary" style="padding:7px 12px;">← Menu</button>
       </a>
@@ -703,12 +703,12 @@ async function publishToGitHub() {
     updateFilenameDisplay();
     if (isMasterDb()) masterCache = null; // invalidate so children reload fresh
     btn.textContent = '✓ Published!';
-    setTimeout(() => { btn.textContent = 'Publish to GitHub'; }, 2500);
+    setTimeout(() => { btn.textContent = 'Save Database'; }, 2500);
   } catch (err) {
     alert('Publish failed: ' + err.message);
   } finally {
     btn.disabled = false;
-    if (btn.textContent === 'Publishing…') btn.textContent = 'Publish to GitHub';
+    if (btn.textContent === 'Publishing…') btn.textContent = 'Save Database';
   }
 }
 
