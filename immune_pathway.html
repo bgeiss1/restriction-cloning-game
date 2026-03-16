@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Signal Path — MIP Molecular Madness</title>
+<style>
+:root {
+  --bg:         #111c15;
+  --green-dark: #1E4D2B;
+  --green-mid:  #245c34;
+  --gold:       #C8A951;
+  --gold-light: #e0c060;
+  --text:       #e8f5e9;
+  --text-muted: #a8c5a0;
+  --success:    #66BB6A;
+  --warn:       #FFA726;
+  --danger:     #EF5350;
+  --border:     rgba(200,169,81,0.26);
+  --bg-card:    rgba(255,255,255,0.04);
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100dvh; overflow-x: hidden; touch-action: manipulation;
+}
+
+/* ── SCREEN VISIBILITY ── */
+.screen { display:none; }
+.screen.active { display:flex; flex-direction:column; }
+
+/* ── START SCREEN ── */
+#startScreen {
+  position:fixed; inset:0; z-index:20;
+  background: linear-gradient(160deg, #1E4D2B 0%, #163820 60%, #0f2516 100%);
+  align-items:center; justify-content:center;
+  padding:28px 20px; gap:18px; overflow-y:auto;
+}
+#startScreen .icon { font-size:3rem; line-height:1; text-align:center; }
+#startScreen h1 {
+  font-size:2.1rem; font-weight:800; color:var(--gold);
+  letter-spacing:0.06em; text-align:center;
+}
+.rules-box {
+  background:rgba(255,255,255,0.06); border:1px solid var(--border);
+  border-radius:12px; padding:16px 20px; font-size:0.88rem; line-height:1.9;
+  max-width:420px; width:100%;
+}
+.rules-box strong { color:var(--gold); }
+.rules-box ul { padding-left:18px; }
+.btn-start {
+  width:100%; max-width:320px; padding:15px;
+  background:var(--gold); color:#1a1a00; font-size:1.05rem; font-weight:700;
+  border:none; border-radius:8px; cursor:pointer; touch-action:manipulation;
+}
+.btn-start:hover { background:var(--gold-light); }
+.btn-back-link {
+  color:var(--text-muted); font-size:0.88rem; text-decoration:none;
+  padding:7px 14px; border:1.5px solid var(--border); border-radius:8px;
+}
+.btn-back-link:hover { border-color:var(--gold); color:var(--gold); }
+
+/* ── LEVEL SELECT ── */
+#levelSelectScreen {
+  min-height:100dvh; padding:0; overflow:hidden;
+}
+#levelSelectHeader {
+  background:var(--green-dark); border-bottom:1px solid var(--border);
+  padding:12px 16px; display:flex; align-items:center; gap:12px; flex-shrink:0;
+}
+#levelSelectHeader h2 { font-size:1.1rem; color:var(--gold); flex:1; }
+#levelSelectBody { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; }
+.level-card {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+  padding:16px; cursor:pointer; transition:border-color 0.15s, background 0.15s;
+  position:relative; overflow:hidden;
+}
+.level-card:hover:not(.locked) { border-color:rgba(200,169,81,0.6); background:rgba(255,255,255,0.06); }
+.level-card.locked { opacity:0.5; cursor:default; }
+.level-card.completed::after {
+  content:'✓'; position:absolute; top:12px; right:12px;
+  color:var(--success); font-size:1.1rem; font-weight:800;
+}
+.lc-title { font-size:1rem; font-weight:700; color:var(--text); margin-bottom:3px; }
+.lc-pathway { font-size:0.8rem; color:var(--text-muted); margin-bottom:10px; }
+.lc-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.diff-badge {
+  font-size:0.68rem; font-weight:700; letter-spacing:0.08em;
+  padding:2px 8px; border-radius:4px; text-transform:uppercase;
+}
+.diff-1 { background:rgba(102,187,106,0.2); color:var(--success); border:1px solid rgba(102,187,106,0.4); }
+.diff-2 { background:rgba(255,167,38,0.2);  color:var(--warn);    border:1px solid rgba(255,167,38,0.4); }
+.diff-3 { background:rgba(239,83,80,0.2);   color:var(--danger);  border:1px solid rgba(239,83,80,0.4); }
+.rounds-dots { display:flex; gap:4px; align-items:center; }
+.rounds-dot { width:8px; height:8px; border-radius:50%; border:1.5px solid var(--text-muted); }
+.rounds-dot.filled { background:var(--gold); border-color:var(--gold); }
+.lc-rounds-label { font-size:0.75rem; color:var(--text-muted); }
+.lock-icon { font-size:1rem; margin-left:auto; color:var(--text-muted); }
+
+/* ── GAME SCREEN ── */
+#gameScreen { min-height:100dvh; }
+#gameHeader {
+  background:var(--green-dark); border-bottom:1px solid var(--border);
+  padding:10px 14px; display:flex; align-items:center; gap:10px; flex-shrink:0;
+}
+#gameHeader .btn-header-back {
+  padding:5px 10px; border-radius:6px; border:1.5px solid var(--border);
+  background:none; color:var(--text-muted); font-size:0.82rem; cursor:pointer;
+  white-space:nowrap; flex-shrink:0;
+}
+#gameHeader .btn-header-back:hover { border-color:var(--gold); color:var(--gold); }
+#headerLevelTitle { flex:1; font-size:0.88rem; font-weight:700; color:var(--text); text-align:center; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#headerRight { display:flex; flex-direction:column; align-items:flex-end; flex-shrink:0; gap:2px; }
+#headerScore { font-size:0.9rem; font-weight:700; color:var(--gold); }
+#headerRounds { font-size:0.72rem; color:var(--text-muted); }
+
+#gameBody { flex:1; overflow-y:auto; padding:14px 12px 180px; display:flex; flex-direction:column; align-items:center; gap:10px; }
+
+/* Round progress bar */
+#roundProgress { display:flex; align-items:center; gap:6px; }
+#roundProgress .rp-dot { width:10px; height:10px; border-radius:50%; border:2px solid var(--text-muted); transition:all 0.2s; }
+#roundProgress .rp-dot.done { background:var(--gold); border-color:var(--gold); }
+#roundProgress .rp-dot.current { border-color:var(--gold); background:rgba(200,169,81,0.25); }
+#roundLabel { font-size:0.78rem; color:var(--text-muted); }
+
+/* Pathway area */
+#pathwayWrap {
+  width:100%; max-width:480px;
+  background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:12px;
+  overflow:hidden; position:relative;
+  aspect-ratio: 1 / 1;
+}
+#pathwayArea { position:absolute; inset:0; }
+
+/* Legend */
+#legendRow {
+  display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+  max-width:480px; width:100%;
+}
+.legend-chip {
+  font-size:0.65rem; padding:2px 8px; border-radius:10px; border:1px solid;
+  font-weight:600; letter-spacing:0.03em;
+}
+.legend-chip.stimulus { background:rgba(200,169,81,0.1); border-color:var(--gold); color:var(--gold); }
+.legend-chip.receptor { background:rgba(79,195,247,0.1); border-color:#4FC3F7; color:#4FC3F7; }
+.legend-chip.kinase   { background:rgba(102,187,106,0.1); border-color:var(--success); color:var(--success); }
+.legend-chip.tf       { background:rgba(206,147,216,0.1); border-color:#CE93D8; color:#CE93D8; }
+.legend-chip.complex  { background:rgba(255,167,38,0.1); border-color:var(--warn); color:var(--warn); }
+.legend-chip.dna      { background:rgba(79,195,247,0.15); border-color:#81D4FA; color:#81D4FA; }
+.legend-chip.output   { background:rgba(102,187,106,0.2); border-color:var(--success); color:var(--success); }
+
+/* ── BUILT-IN RENDERER NODES ── */
+.pathway-node, .pathway-slot {
+  position:absolute; transform:translate(-50%,-50%);
+  min-width:64px; padding:4px 8px; border-radius:6px;
+  font-size:0.7rem; font-weight:700; text-align:center;
+  white-space:nowrap; border:2px solid; z-index:2; line-height:1.3;
+  user-select:none;
+}
+.node-stimulus { background:rgba(200,169,81,0.15); border-color:var(--gold); color:var(--gold); }
+.node-receptor { background:rgba(79,195,247,0.12); border-color:#4FC3F7; color:#4FC3F7; }
+.node-kinase   { background:rgba(102,187,106,0.12); border-color:var(--success); color:var(--success); }
+.node-tf       { background:rgba(206,147,216,0.12); border-color:#CE93D8; color:#CE93D8; }
+.node-complex  { background:rgba(255,167,38,0.12); border-color:var(--warn); color:var(--warn); }
+.node-dna      { background:rgba(79,195,247,0.15); border-color:#81D4FA; color:#81D4FA; }
+.node-output   { background:rgba(102,187,106,0.2); border-color:var(--success); color:var(--success); font-weight:800; }
+.node-inhibitor{ background:rgba(239,83,80,0.12); border-color:var(--danger); color:var(--danger); }
+
+/* ── SLOTS ── */
+.pathway-slot {
+  border:2px dashed var(--gold); background:rgba(200,169,81,0.08);
+  color:var(--gold); cursor:pointer;
+}
+.pathway-slot:hover { background:rgba(200,169,81,0.18); }
+.pathway-slot.active {
+  background:rgba(200,169,81,0.25); box-shadow:0 0 0 3px rgba(200,169,81,0.35);
+}
+.pathway-slot.correct {
+  border:2px solid var(--success); background:rgba(102,187,106,0.18);
+  color:var(--success); cursor:default;
+}
+.pathway-slot.locked {
+  border:2px solid var(--danger); background:rgba(239,83,80,0.15);
+  color:var(--danger); cursor:default;
+}
+/* Arrow slot badge */
+.arrow-slot {
+  position:absolute; transform:translate(-50%,-50%); z-index:3;
+  width:22px; height:22px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:0.72rem; font-weight:700;
+  border:2px dashed var(--gold); background:rgba(0,0,0,0.65);
+  color:var(--gold); cursor:pointer;
+}
+.arrow-slot:hover { background:rgba(200,169,81,0.2); }
+.arrow-slot.active { box-shadow:0 0 0 3px rgba(200,169,81,0.35); }
+.arrow-slot.correct { border:2px solid var(--success); color:var(--success); cursor:default; background:rgba(0,0,0,0.65); }
+.arrow-slot.locked  { border:2px solid var(--danger); color:var(--danger); cursor:default; }
+
+/* ── PICKER PANEL ── */
+#pickerPanel {
+  position:fixed; bottom:0; left:0; right:0; z-index:50;
+  background:#162b1b; border-top:1px solid var(--border);
+  border-radius:16px 16px 0 0; padding:14px 16px 24px;
+  transform:translateY(100%); transition:transform 0.22s ease;
+  max-width:600px; margin:0 auto;
+}
+#pickerPanel.open { transform:translateY(0); }
+#pickerHeader {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:12px;
+}
+#pickerLabel { font-size:0.85rem; color:var(--text-muted); font-weight:600; }
+#pickerSlotName { color:var(--gold); font-weight:700; }
+#pickerClose {
+  width:28px; height:28px; border-radius:50%; border:1px solid var(--border);
+  background:none; color:var(--text-muted); cursor:pointer; font-size:0.9rem;
+  display:flex; align-items:center; justify-content:center;
+}
+#pickerClose:hover { border-color:var(--gold); color:var(--gold); }
+#pickerOptions { display:flex; flex-wrap:wrap; gap:8px; }
+.picker-btn {
+  flex:1; min-width:120px; padding:11px 10px;
+  background:rgba(255,255,255,0.05); border:1.5px solid var(--border);
+  border-radius:9px; color:var(--text); font-size:0.88rem; font-weight:600;
+  cursor:pointer; text-align:center; touch-action:manipulation;
+  transition:background 0.12s, border-color 0.12s;
+}
+.picker-btn:hover { background:rgba(200,169,81,0.12); border-color:rgba(200,169,81,0.5); }
+.picker-btn.flash-wrong {
+  background:rgba(239,83,80,0.25) !important; border-color:var(--danger) !important;
+  color:var(--danger) !important;
+}
+.picker-btn:disabled { opacity:0.4; cursor:default; }
+#wrongCountRow {
+  margin-top:10px; font-size:0.78rem; color:var(--warn); text-align:center; min-height:1em;
+}
+
+/* ── LEVEL COMPLETE OVERLAY ── */
+#levelCompleteOverlay {
+  position:fixed; inset:0; z-index:60; display:none;
+  background:rgba(0,0,0,0.75); align-items:center; justify-content:center; padding:20px;
+}
+#levelCompleteOverlay.open { display:flex; }
+#levelCompleteBox {
+  background:#162b1b; border:1px solid var(--border); border-radius:16px;
+  padding:28px 24px; max-width:440px; width:100%;
+  display:flex; flex-direction:column; gap:14px;
+}
+#levelCompleteBox h2 { font-size:1.5rem; color:var(--gold); text-align:center; }
+.lc-score { font-size:2.2rem; font-weight:800; color:var(--text); text-align:center; }
+.lc-score span { font-size:1rem; color:var(--text-muted); font-weight:400; }
+.teaching-box {
+  background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:10px;
+  padding:12px 14px; font-size:0.82rem; line-height:1.7; color:var(--text-muted);
+}
+.teaching-box strong { color:var(--gold); }
+.lc-btns { display:flex; flex-direction:column; gap:8px; }
+.btn-gold {
+  padding:13px; background:var(--gold); color:#1a1a00; font-size:0.95rem; font-weight:700;
+  border:none; border-radius:8px; cursor:pointer; text-align:center;
+}
+.btn-gold:hover { background:var(--gold-light); }
+.btn-outline {
+  padding:11px; background:none; border:1.5px solid var(--border);
+  color:var(--text-muted); font-size:0.88rem; border-radius:8px; cursor:pointer; text-align:center;
+}
+.btn-outline:hover { border-color:var(--gold); color:var(--gold); }
+
+/* ── TOAST ── */
+#toast {
+  position:fixed; top:64px; left:50%; transform:translateX(-50%);
+  background:#1a3020; border:1px solid var(--border); border-radius:8px;
+  padding:9px 18px; font-size:0.85rem; z-index:80; pointer-events:none;
+  opacity:0; transition:opacity 0.18s; white-space:nowrap;
+}
+#toast.show { opacity:1; }
+#toast.success { border-color:var(--success); color:var(--success); }
+#toast.warn    { border-color:var(--warn); color:var(--warn); }
+#toast.danger  { border-color:var(--danger); color:var(--danger); }
+#toast.info    { border-color:var(--border); color:var(--text-muted); }
+
+/* ── SCORE POPUP ── */
+#scorePopup {
+  position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:1.6rem; font-weight:800; pointer-events:none; z-index:90;
+  opacity:0; transition:none;
+}
+#scorePopup.show-up {
+  animation: popUp 0.65s ease forwards;
+}
+@keyframes popUp {
+  0%   { opacity:1; transform:translate(-50%, -50%); }
+  100% { opacity:0; transform:translate(-50%, -150%); }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ START SCREEN ══ -->
+<div id="startScreen" class="screen active">
+  <div class="icon">🧬</div>
+  <h1>Signal Path</h1>
+  <div class="rules-box">
+    <strong>How to play</strong>
+    <ul>
+      <li>Fill in the <strong>missing molecules</strong> in each signaling pathway</li>
+      <li>Tap a blank slot, then choose the correct molecule from the options</li>
+      <li><strong>+20 pts</strong> correct (1st try) &nbsp;|&nbsp; <strong>−5 pts</strong> wrong (min 0)</li>
+      <li>3 wrong answers on one slot <strong>restarts</strong> the level</li>
+      <li>Complete <strong>N rounds</strong> of the same pathway to unlock the next level</li>
+      <li>Each round shows <em>different</em> missing pieces</li>
+    </ul>
+  </div>
+  <button class="btn-start" id="btnStart">Select Level</button>
+  <a href="index.html" class="btn-back-link">← Menu</a>
+</div>
+
+<!-- ══ LEVEL SELECT SCREEN ══ -->
+<div id="levelSelectScreen" class="screen">
+  <div id="levelSelectHeader">
+    <button class="btn-header-back" onclick="showStart()">← Back</button>
+    <h2>Select Level</h2>
+  </div>
+  <div id="levelSelectBody"></div>
+</div>
+
+<!-- ══ GAME SCREEN ══ -->
+<div id="gameScreen" class="screen">
+  <div id="gameHeader">
+    <button class="btn-header-back" id="btnBackFromGame" onclick="handleBackFromGame()">← Levels</button>
+    <div id="headerLevelTitle">Level</div>
+    <div id="headerRight">
+      <div id="headerScore">0 pts</div>
+      <div id="headerRounds"></div>
+    </div>
+  </div>
+
+  <div id="gameBody">
+    <div id="roundProgress"></div>
+    <div id="pathwayWrap"><div id="pathwayArea"></div></div>
+    <div id="legendRow"></div>
+  </div>
+
+  <!-- Picker panel -->
+  <div id="pickerPanel">
+    <div id="pickerHeader">
+      <span id="pickerLabel">Select molecule: <span id="pickerSlotName"></span></span>
+      <button id="pickerClose" onclick="closePicker()">✕</button>
+    </div>
+    <div id="pickerOptions"></div>
+    <div id="wrongCountRow"></div>
+  </div>
+</div>
+
+<!-- ══ LEVEL COMPLETE OVERLAY ══ -->
+<div id="levelCompleteOverlay">
+  <div id="levelCompleteBox">
+    <h2>🎉 Level Complete!</h2>
+    <div class="lc-score" id="lcScore">0 <span>points</span></div>
+    <div class="teaching-box" id="lcTeaching"></div>
+    <div class="lc-btns">
+      <button class="btn-gold" id="btnNextLevel">Next Level →</button>
+      <button class="btn-outline" onclick="closeLevelComplete();showLevelSelect();">Level Select</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast & score popup -->
+<div id="toast"></div>
+<div id="scorePopup"></div>
+
+<script>
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+let db          = null;
+let levels      = [];
+let progress    = {};
+let currentLevel   = null;
+let roundsCompleted = 0;
+let score          = 0;
+let activeSlots    = [];   // { slot, wrongCount, filled, locked }
+let selectedSlotId = null;
+let roundNum       = 0;    // total rounds started this level session
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  document.getElementById('btnStart').addEventListener('click', showLevelSelect);
+  loadProgress();
+  try {
+    const r = await fetch('immune_dbs/immune_db.json?t=' + Date.now());
+    db = await r.json();
+    levels = db.levels || [];
+  } catch(e) {
+    db = { meta:{}, levels:[] };
+    levels = [];
+  }
+  // Ensure first level is unlocked
+  if (levels.length > 0) ensureUnlocked(levels[0].id);
+});
+
+function ensureUnlocked(id) {
+  if (!progress[id]) progress[id] = { unlocked: true, completed: false };
+  else progress[id].unlocked = true;
+  saveProgress();
+}
+
+// ═══════════════════════════════════════
+//  PROGRESS
+// ═══════════════════════════════════════
+function loadProgress() {
+  try { progress = JSON.parse(localStorage.getItem('signalpath_progress') || '{}'); } catch { progress = {}; }
+}
+function saveProgress() {
+  localStorage.setItem('signalpath_progress', JSON.stringify(progress));
+}
+
+// ═══════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showStart()       { closePicker(); showScreen('startScreen'); }
+function showLevelSelect() { closePicker(); renderLevelSelect(); showScreen('levelSelectScreen'); }
+
+function renderLevelSelect() {
+  const body = document.getElementById('levelSelectBody');
+  if (!levels.length) {
+    body.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">No levels found.</div>';
+    return;
+  }
+  body.innerHTML = levels.map((lvl, i) => {
+    const prog = progress[lvl.id] || {};
+    const locked    = !prog.unlocked;
+    const completed = !!prog.completed;
+    const dots = Array.from({length: lvl.roundsToUnlock}, (_, j) =>
+      `<div class="rounds-dot"></div>`).join('');
+    const diffClass = ['','diff-1','diff-2','diff-3'][lvl.difficulty] || 'diff-2';
+    const diffName  = ['','Easy','Medium','Hard'][lvl.difficulty] || 'Medium';
+    return `<div class="level-card${locked?' locked':''}${completed?' completed':''}" onclick="${locked?'':'startLevel('+JSON.stringify(lvl.id)+')'}">
+      <div class="lc-title">${escHtml(lvl.title)}</div>
+      <div class="lc-pathway">${escHtml(lvl.pathway || '')}</div>
+      <div class="lc-meta">
+        <span class="diff-badge ${diffClass}">${diffName}</span>
+        <div class="rounds-dots">${dots}</div>
+        <span class="lc-rounds-label">${lvl.roundsToUnlock} round${lvl.roundsToUnlock!==1?'s':''} to unlock</span>
+        ${locked ? '<span class="lock-icon">🔒</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+//  LEVEL START / ROUND START
+// ═══════════════════════════════════════
+function startLevel(id) {
+  currentLevel = levels.find(l => l.id === id);
+  if (!currentLevel) return;
+  roundsCompleted = 0;
+  roundNum = 0;
+  score = 0;
+  document.getElementById('headerLevelTitle').textContent = currentLevel.title;
+  buildLegend();
+  startRound();
+  showScreen('gameScreen');
+}
+
+function startRound() {
+  roundNum++;
+  selectedSlotId = null;
+  closePicker();
+
+  const lvl = currentLevel;
+  const N = lvl.slotsPerRound || 2;
+  const pool = shuffle([...lvl.slots]);
+  const chosen = pool.slice(0, Math.min(N, pool.length));
+
+  activeSlots = chosen.map(slot => ({
+    slot, wrongCount: 0, filled: false, locked: false, firstTry: true
+  }));
+
+  renderPathway();
+  updateHeader();
+  updateRoundProgress();
+}
+
+// ═══════════════════════════════════════
+//  HEADER / PROGRESS
+// ═══════════════════════════════════════
+function updateHeader() {
+  document.getElementById('headerScore').textContent = score + ' pts';
+  document.getElementById('headerRounds').textContent =
+    `Round ${roundsCompleted + 1}/${currentLevel.roundsToUnlock}`;
+}
+
+function updateRoundProgress() {
+  const n = currentLevel.roundsToUnlock;
+  const el = document.getElementById('roundProgress');
+  el.innerHTML = Array.from({length: n}, (_, i) => {
+    let cls = 'rp-dot';
+    if (i < roundsCompleted) cls += ' done';
+    else if (i === roundsCompleted) cls += ' current';
+    return `<div class="${cls}"></div>`;
+  }).join('') + `<span id="roundLabel" style="font-size:0.75rem;color:var(--text-muted);margin-left:6px;">
+    ${roundsCompleted}/${n} rounds complete</span>`;
+}
+
+function handleBackFromGame() {
+  if (activeSlots.some(s => !s.filled && !s.locked)) {
+    if (!confirm('Leave level? Your round progress will be lost.')) return;
+  }
+  closePicker();
+  showLevelSelect();
+}
+
+// ═══════════════════════════════════════
+//  PATHWAY RENDERING
+// ═══════════════════════════════════════
+function renderPathway() {
+  const area = document.getElementById('pathwayArea');
+  area.innerHTML = '';
+  if (currentLevel.renderer === 'image') {
+    renderImage(currentLevel, area);
+  } else {
+    renderBuiltin(currentLevel, area);
+  }
+}
+
+function renderBuiltin(lvl, area) {
+  // Build node lookup
+  const nodeMap = {};
+  lvl.nodes.forEach(n => { nodeMap[n.id] = n; });
+
+  // Active slot lookup by nodeId
+  const slotByNode = {};
+  activeSlots.forEach(s => { if (s.slot.nodeId) slotByNode[s.slot.nodeId] = s; });
+
+  // SVG for arrows
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 100 100');
+  svg.setAttribute('preserveAspectRatio', 'none');
+  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;';
+  svg.innerHTML = `<defs>
+    <marker id="act-head" viewBox="0 0 10 10" refX="9" refY="5"
+      markerUnits="userSpaceOnUse" markerWidth="4" markerHeight="3" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="rgba(168,197,160,0.75)"/>
+    </marker>
+    <marker id="inh-head" viewBox="0 0 4 10" refX="3" refY="5"
+      markerUnits="userSpaceOnUse" markerWidth="3" markerHeight="5" orient="auto">
+      <line x1="1" y1="0" x2="1" y2="10" stroke="rgba(239,83,80,0.8)" stroke-width="1.5"/>
+    </marker>
+  </defs>`;
+
+  const OFFSET = 4.5;
+  lvl.arrows.forEach(arrow => {
+    const s = nodeMap[arrow.from], t = nodeMap[arrow.to];
+    if (!s || !t) return;
+    const dx = t.x - s.x, dy = t.y - s.y;
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    const ux = dx/len, uy = dy/len;
+    const isAct = arrow.type === 'activation';
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', s.x + ux*OFFSET); line.setAttribute('y1', s.y + uy*OFFSET);
+    line.setAttribute('x2', t.x - ux*OFFSET); line.setAttribute('y2', t.y - uy*OFFSET);
+    line.setAttribute('stroke', isAct ? 'rgba(168,197,160,0.55)' : 'rgba(239,83,80,0.6)');
+    line.setAttribute('stroke-width', '0.6');
+    line.setAttribute('marker-end', isAct ? 'url(#act-head)' : 'url(#inh-head)');
+    svg.appendChild(line);
+  });
+  area.appendChild(svg);
+
+  // Nodes
+  lvl.nodes.forEach(node => {
+    const ss = slotByNode[node.id];
+    const el = document.createElement('div');
+    el.style.cssText = `position:absolute;left:${node.x}%;top:${node.y}%;transform:translate(-50%,-50%);z-index:2;`;
+    if (ss) {
+      el.id = 'slot-' + ss.slot.id;
+      el.className = 'pathway-slot' + (ss.locked ? ' locked' : '') + (ss.filled ? ' correct' : '');
+      el.textContent = ss.locked ? '✕' : ss.filled ? ss.slot.correct : '?';
+      if (!ss.filled && !ss.locked) el.addEventListener('click', () => tapSlot(ss.slot.id));
+    } else {
+      el.className = 'pathway-node node-' + (node.type || 'default');
+      el.textContent = node.label;
+    }
+    area.appendChild(el);
+  });
+
+  // Arrow slots
+  activeSlots.filter(s => s.slot.type === 'arrow').forEach(ss => {
+    const slot = ss.slot;
+    let x = slot.x ?? 50, y = slot.y ?? 50;
+    if (slot.fromNodeId && slot.toNodeId) {
+      const src = nodeMap[slot.fromNodeId], tgt = nodeMap[slot.toNodeId];
+      if (src && tgt) { x = (src.x + tgt.x) / 2; y = (src.y + tgt.y) / 2; }
+    }
+    const el = document.createElement('div');
+    el.id = 'slot-' + slot.id;
+    el.className = 'arrow-slot' + (ss.locked ? ' locked' : '') + (ss.filled ? ' correct' : '');
+    el.style.cssText = `left:${x}%;top:${y}%;`;
+    el.textContent = ss.locked ? '✕' : ss.filled ? (slot.correct === 'activation' ? '→' : '⊣') : '?';
+    if (!ss.filled && !ss.locked) el.addEventListener('click', () => tapSlot(slot.id));
+    area.appendChild(el);
+  });
+}
+
+function renderImage(lvl, area) {
+  const imgDir = db.meta.imageDir || 'immune_images/';
+  const img = document.createElement('img');
+  img.src = imgDir + lvl.image;
+  img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;';
+  area.appendChild(img);
+
+  activeSlots.forEach(ss => {
+    const slot = ss.slot;
+    const el = document.createElement('div');
+    el.id = 'slot-' + slot.id;
+    if (slot.type === 'arrow') {
+      el.className = 'arrow-slot' + (ss.locked ? ' locked' : '') + (ss.filled ? ' correct' : '');
+      el.style.cssText = `left:${slot.x ?? 50}%;top:${slot.y ?? 50}%;`;
+      el.textContent = ss.locked ? '✕' : ss.filled ? (slot.correct === 'activation' ? '→' : '⊣') : '?';
+    } else {
+      el.className = 'pathway-slot' + (ss.locked ? ' locked' : '') + (ss.filled ? ' correct' : '');
+      el.style.cssText = `position:absolute;left:${slot.x}%;top:${slot.y}%;width:${slot.w||10}%;transform:translate(-50%,-50%);z-index:2;`;
+      el.textContent = ss.locked ? '✕' : ss.filled ? slot.correct : '?';
+    }
+    if (!ss.filled && !ss.locked) el.addEventListener('click', () => tapSlot(slot.id));
+    area.appendChild(el);
+  });
+}
+
+function buildLegend() {
+  const types = [...new Set((currentLevel.nodes || []).map(n => n.type))].filter(Boolean);
+  const labels = { stimulus:'Signal', receptor:'Receptor', kinase:'Kinase',
+    tf:'Transcription Factor', complex:'Complex', dna:'DNA Element', output:'Output', inhibitor:'Inhibitor' };
+  const el = document.getElementById('legendRow');
+  el.innerHTML = types.map(t =>
+    `<span class="legend-chip ${t}">${labels[t] || t}</span>`).join('');
+  if (currentLevel.renderer !== 'builtin') el.innerHTML = '';
+}
+
+// ═══════════════════════════════════════
+//  SLOT INTERACTION
+// ═══════════════════════════════════════
+function tapSlot(slotId) {
+  const ss = activeSlots.find(s => s.slot.id === slotId);
+  if (!ss || ss.filled || ss.locked) return;
+
+  selectedSlotId = slotId;
+
+  // Remove previous active styling
+  document.querySelectorAll('.pathway-slot, .arrow-slot').forEach(el => el.classList.remove('active'));
+  const slotEl = document.getElementById('slot-' + slotId);
+  if (slotEl) slotEl.classList.add('active');
+
+  // Populate picker
+  const slot = ss.slot;
+  const isArrow = slot.type === 'arrow';
+  document.getElementById('pickerLabel').innerHTML =
+    isArrow ? 'Select relationship:' : 'Identify molecule:';
+  document.getElementById('pickerSlotName').textContent = '';
+
+  const opts = slot.options || [];
+  const pickerOptions = document.getElementById('pickerOptions');
+  pickerOptions.innerHTML = opts.map((opt, i) => {
+    const label = isArrow
+      ? (opt === 'activation' ? '→ Activation' : '⊣ Inhibition')
+      : opt;
+    return `<button class="picker-btn" data-val="${escHtml(opt)}">${escHtml(label)}</button>`;
+  }).join('');
+  pickerOptions.querySelectorAll('.picker-btn').forEach(btn => {
+    btn.addEventListener('click', () => tapOption(btn.dataset.val, btn));
+  });
+
+  updateWrongCount(ss);
+  document.getElementById('pickerPanel').classList.add('open');
+}
+
+function closePicker() {
+  document.getElementById('pickerPanel').classList.remove('open');
+  document.querySelectorAll('.pathway-slot, .arrow-slot').forEach(el => el.classList.remove('active'));
+  selectedSlotId = null;
+}
+
+function tapOption(value, btnEl) {
+  if (!selectedSlotId) return;
+  const ss = activeSlots.find(s => s.slot.id === selectedSlotId);
+  if (!ss || ss.filled || ss.locked) return;
+
+  if (value === ss.slot.correct) {
+    handleCorrect(ss);
+  } else {
+    handleWrong(ss, btnEl);
+  }
+}
+
+function handleCorrect(ss) {
+  const lvl = currentLevel;
+  const pts = Math.max(5, (lvl.pointsPerSlot || 20) - ss.wrongCount * (lvl.penaltyPerWrong || 5));
+  score += pts;
+  ss.filled = true;
+
+  const slotEl = document.getElementById('slot-' + ss.slot.id);
+  if (slotEl) {
+    slotEl.classList.remove('active');
+    slotEl.classList.add('correct');
+    slotEl.classList.remove('pathway-slot');
+    slotEl.textContent = ss.slot.type === 'arrow'
+      ? (ss.slot.correct === 'activation' ? '→' : '⊣')
+      : ss.slot.correct;
+    slotEl.style.cursor = 'default';
+  }
+
+  closePicker();
+  showScorePopup('+' + pts);
+  updateHeader();
+
+  if (activeSlots.every(s => s.filled)) {
+    setTimeout(handleRoundComplete, 500);
+  }
+}
+
+function handleWrong(ss, btnEl) {
+  const lvl = currentLevel;
+  score = Math.max(0, score - (lvl.penaltyPerWrong || 5));
+  ss.wrongCount++;
+  ss.firstTry = false;
+
+  // Flash button red
+  if (btnEl) {
+    btnEl.classList.add('flash-wrong');
+    btnEl.disabled = true;
+    setTimeout(() => {
+      btnEl.classList.remove('flash-wrong');
+      btnEl.disabled = false;
+    }, 600);
+  }
+
+  updateHeader();
+  updateWrongCount(ss);
+
+  if (ss.wrongCount >= 3) {
+    ss.locked = true;
+    const slotEl = document.getElementById('slot-' + ss.slot.id);
+    if (slotEl) { slotEl.classList.add('locked'); slotEl.textContent = '✕'; }
+    closePicker();
+    showToast('3 wrong — restarting level!', 'danger', 2200);
+    setTimeout(() => {
+      roundsCompleted = 0;
+      score = 0;
+      startRound();
+    }, 2300);
+  }
+}
+
+function updateWrongCount(ss) {
+  const el = document.getElementById('wrongCountRow');
+  if (!el) return;
+  const remaining = 3 - ss.wrongCount;
+  el.textContent = ss.wrongCount > 0
+    ? `${ss.wrongCount} wrong — ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining before restart`
+    : '';
+}
+
+// ═══════════════════════════════════════
+//  ROUND / LEVEL COMPLETE
+// ═══════════════════════════════════════
+function handleRoundComplete() {
+  roundsCompleted++;
+  const allFirst = activeSlots.every(s => s.firstTry);
+  if (allFirst && activeSlots.length > 0) {
+    const bonus = currentLevel.bonusAllFirstTry || 25;
+    score += bonus;
+    showToast(`Perfect round! +${bonus} bonus`, 'success', 2000);
+  }
+  updateHeader();
+  updateRoundProgress();
+
+  if (roundsCompleted >= currentLevel.roundsToUnlock) {
+    // Unlock next level
+    const idx = levels.findIndex(l => l.id === currentLevel.id);
+    if (idx >= 0 && idx + 1 < levels.length) {
+      ensureUnlocked(levels[idx + 1].id);
+    }
+    if (!progress[currentLevel.id]) progress[currentLevel.id] = { unlocked: true, completed: false };
+    progress[currentLevel.id].completed = true;
+    saveProgress();
+    setTimeout(showLevelComplete, allFirst ? 1200 : 600);
+  } else {
+    const remaining = currentLevel.roundsToUnlock - roundsCompleted;
+    showToast(`Round complete! ${remaining} more to unlock next level`, 'info', 2000);
+    setTimeout(startRound, 1800);
+  }
+}
+
+function showLevelComplete() {
+  document.getElementById('lcScore').innerHTML =
+    `${score} <span>points</span>`;
+  const tp = currentLevel.teachingPoint || currentLevel.description || '';
+  document.getElementById('lcTeaching').innerHTML =
+    `<strong>Key Concept:</strong> ${escHtml(tp)}`;
+
+  // Next level button
+  const idx = levels.findIndex(l => l.id === currentLevel.id);
+  const nextBtn = document.getElementById('btnNextLevel');
+  if (idx + 1 < levels.length && progress[levels[idx+1].id]?.unlocked) {
+    nextBtn.textContent = 'Next Level →';
+    nextBtn.onclick = () => { closeLevelComplete(); startLevel(levels[idx+1].id); };
+    nextBtn.style.display = '';
+  } else {
+    nextBtn.style.display = 'none';
+  }
+
+  document.getElementById('levelCompleteOverlay').classList.add('open');
+}
+
+function closeLevelComplete() {
+  document.getElementById('levelCompleteOverlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════
+//  VISUALS
+// ═══════════════════════════════════════
+function showToast(msg, type = 'info', duration = 1800) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show ' + type;
+  setTimeout(() => el.classList.remove('show'), duration);
+}
+
+function showScorePopup(text) {
+  const el = document.getElementById('scorePopup');
+  el.textContent = text;
+  el.style.color = text.startsWith('+') ? 'var(--success)' : 'var(--danger)';
+  el.classList.remove('show-up');
+  void el.offsetWidth; // reflow
+  el.classList.add('show-up');
+}
+
+// ═══════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function escHtml(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>
