@@ -443,7 +443,7 @@ function renderLevelSelect() {
       `<div class="rounds-dot"></div>`).join('');
     const diffClass = ['','diff-1','diff-2','diff-3'][lvl.difficulty] || 'diff-2';
     const diffName  = ['','Easy','Medium','Hard'][lvl.difficulty] || 'Medium';
-    return `<div class="level-card${locked?' locked':''}${completed?' completed':''}" onclick="${locked?'':'startLevel('+JSON.stringify(lvl.id)+')'}">
+    return `<div class="level-card${locked?' locked':''}${completed?' completed':''}" onclick="${locked?'':'startLevel('+escHtml(JSON.stringify(lvl.id))+')'}">
       <div class="lc-title">${escHtml(lvl.title)}</div>
       <div class="lc-pathway">${escHtml(lvl.pathway || '')}</div>
       <div class="lc-meta">
