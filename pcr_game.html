@@ -710,7 +710,7 @@ function submitAnswer() {
     // swap buttons
     document.getElementById('btnSubmit').style.display = 'none';
     const btnN = document.getElementById('btnNext');
-    btnN.style.display = '';
+    btnN.style.display = 'block';
     btnN.textContent = state.levelIdx < M1_LEVELS.length - 1 ? 'Next Level →' : 'Finish Module →';
 
   } else {
