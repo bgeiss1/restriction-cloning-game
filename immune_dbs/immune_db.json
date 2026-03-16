@@ -772,8 +772,8 @@
         {
           "id": "ikba_t",
           "label": "IκBα",
-          "x": 24,
-          "y": 72,
+          "x": 19,
+          "y": 66,
           "type": "inhibitor"
         },
         {
@@ -786,15 +786,15 @@
         {
           "id": "kbsite_t",
           "label": "κB Sites",
-          "x": 76,
-          "y": 79,
+          "x": 33,
+          "y": 85,
           "type": "dna"
         },
         {
           "id": "cytok_t",
           "label": "TNF-α / IL-6 / IL-12",
-          "x": 76,
-          "y": 90,
+          "x": 65,
+          "y": 85,
           "type": "output"
         }
       ],
