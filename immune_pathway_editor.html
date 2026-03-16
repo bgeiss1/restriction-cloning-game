@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signal Path — Level Editor</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #111c15; --bg-mid:  #1a2e1e; --bg-card: #1f3525; --bg-input: #0e1710;
+  --green:    #1E4D2B; --gold:    #C8A951; --gold-lt: #e0c060;
+  --text:     #e8f5e9; --muted:   #a8c5a0; --success: #66BB6A;
+  --warn:     #FFA726; --danger:  #EF5350; --border:  rgba(200,169,81,0.25); --radius: 7px;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif; font-size: 14px; overflow: hidden; }
+
+/* ── TOPBAR ── */
+#topbar { height: 48px; background: var(--bg-mid); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0; gap: 12px; }
+#topbar h1 { font-size: 1.05rem; color: var(--gold); white-space: nowrap; }
+#topbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#dirty { color: var(--warn); font-size: 0.82rem; font-weight: 600; }
+#dirty.hidden { display: none; }
+
+/* ── LAYOUT ── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+#body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── SIDEBAR ── */
+#sidebar { width: 230px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-right: 1px solid var(--border); background: var(--bg-mid); overflow: hidden; }
+#db-panel { border-bottom: 2px solid var(--border); flex-shrink: 0; }
+#db-panel-header { padding: 8px 12px 4px; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+#db-list-items { max-height: 130px; overflow-y: auto; }
+.db-item { padding: 7px 12px; cursor: pointer; font-size: 0.83rem;
+  border-bottom: 1px solid rgba(200,169,81,0.08); color: var(--muted);
+  display: flex; align-items: center; gap: 6px; }
+.db-item:hover { background: rgba(200,169,81,0.07); color: var(--text); }
+.db-item.active { color: var(--gold); font-weight: 600; }
+.db-item-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--gold); opacity: 0; }
+.db-item.active .db-item-dot { opacity: 1; }
+#db-panel-actions { padding: 6px 8px; display: flex; gap: 6px; border-top: 1px solid rgba(200,169,81,0.1); }
+#db-panel-actions button { flex: 1; padding: 5px 6px; border-radius: var(--radius); font-size: 0.78rem;
+  cursor: pointer; border: 1px solid var(--border); background: rgba(200,169,81,0.1); color: var(--gold); }
+#db-panel-actions button:hover { background: rgba(200,169,81,0.2); }
+#db-panel-no-conn { padding: 8px 12px 10px; font-size: 0.8rem; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
+#db-panel-no-conn button { padding: 6px 10px; border-radius: var(--radius); font-size: 0.82rem; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(200,169,81,0.1); color: var(--gold); }
+
+#level-panel-header { padding: 8px 12px 4px; font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  border-bottom: 1px solid rgba(200,169,81,0.1); display: flex; align-items: center; justify-content: space-between; }
+#level-list { flex: 1; overflow-y: auto; }
+.level-item { padding: 9px 12px; cursor: pointer; border-bottom: 1px solid rgba(200,169,81,0.1);
+  display: flex; align-items: center; gap: 8px; line-height: 1.3; }
+.level-item:hover { background: rgba(200,169,81,0.06); }
+.level-item.active { background: rgba(200,169,81,0.14); }
+.level-item-title { flex: 1; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.level-del { visibility: hidden; padding: 1px 5px; border-radius: 4px; border: none;
+  background: rgba(239,83,80,0.15); color: var(--danger); font-size: 0.8rem; cursor: pointer; }
+.level-item:hover .level-del { visibility: visible; }
+.level-del:hover { background: rgba(239,83,80,0.35); }
+.drag-handle { color: var(--muted); font-size: 0.85rem; cursor: grab; user-select: none; }
+.sidebar-add-btn { margin: 10px 12px; padding: 7px; border-radius: var(--radius);
+  background: rgba(200,169,81,0.15); border: 1px solid var(--border);
+  color: var(--gold); font-size: 0.85rem; cursor: pointer; text-align: center; }
+.sidebar-add-btn:hover { background: rgba(200,169,81,0.25); }
+
+/* ── MAIN ── */
+#main { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+.empty-state { margin: auto; text-align: center; color: var(--muted); font-size: 0.95rem; line-height: 1.8; }
+.empty-state p:first-child { font-size: 1.5rem; }
+
+/* ── SECTIONS ── */
+.section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.section-title { padding: 10px 16px; background: var(--green); font-size: 0.8rem; font-weight: 700;
+  letter-spacing: 0.05em; color: var(--gold); text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.section-title:hover { background: #245c34; }
+.section-chevron { font-size: 0.75rem; color: var(--muted); transition: transform 0.15s; margin-left: 6px; display: inline-block; }
+.section.collapsed .section-chevron { transform: rotate(-90deg); }
+.section.collapsed .section-body { display: none; }
+.section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+/* ── FORMS ── */
+.field-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.grow { flex: 1; min-width: 120px; }
+.field.full { width: 100%; }
+label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+input[type=text], input[type=number], select, textarea {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.88rem; padding: 7px 10px; font-family: inherit; }
+input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); }
+select { cursor: pointer; } select option { background: #1a2e1e; }
+textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+input[type=number] { width: 80px; }
+
+/* ── TAG LISTS ── */
+.tag-list { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.tag { display: flex; align-items: center; gap: 4px; background: rgba(200,169,81,0.12);
+  border: 1px solid var(--border); border-radius: 20px; padding: 3px 10px 3px 12px; font-size: 0.82rem; }
+.tag-del { cursor: pointer; color: var(--muted); font-size: 1rem; line-height: 1; }
+.tag-del:hover { color: var(--danger); }
+.tag-add-row { display: flex; gap: 6px; align-items: center; }
+.tag-add-row input { flex: 1; }
+.btn-small { padding: 5px 12px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: rgba(200,169,81,0.12); color: var(--gold); font-size: 0.82rem; cursor: pointer; white-space: nowrap; }
+.btn-small:hover { background: rgba(200,169,81,0.22); }
+
+/* ── TOPBAR BUTTONS ── */
+.btn-primary { padding: 7px 16px; border-radius: var(--radius); background: var(--gold);
+  color: #1a1a00; font-size: 0.88rem; font-weight: 700; border: none; cursor: pointer; }
+.btn-primary:hover { background: var(--gold-lt); }
+.btn-secondary { padding: 7px 14px; border-radius: var(--radius); background: none;
+  border: 1px solid var(--border); color: var(--muted); font-size: 0.88rem; cursor: pointer; }
+.btn-secondary:hover { border-color: var(--gold); color: var(--gold-lt); }
+.btn-publish { padding: 7px 14px; border-radius: var(--radius); background: rgba(102,187,106,0.2);
+  border: 1px solid rgba(102,187,106,0.5); color: var(--success); font-size: 0.88rem; font-weight: 700; cursor: pointer; }
+.btn-publish:hover { background: rgba(102,187,106,0.35); }
+
+/* ── DANGER ── */
+.btn-danger { padding: 5px 12px; border-radius: var(--radius); background: rgba(239,83,80,0.12);
+  border: 1px solid rgba(239,83,80,0.3); color: var(--danger); font-size: 0.82rem; cursor: pointer; }
+.btn-danger:hover { background: rgba(239,83,80,0.25); }
+
+/* ── PREVIEW AREA ── */
+#preview-wrap { width: 100%; aspect-ratio: 1/1; max-width: 420px; position: relative;
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 0 auto; }
+#preview-area { position: absolute; inset: 0; }
+.prev-node { position: absolute; transform: translate(-50%,-50%); min-width: 64px; padding: 4px 8px;
+  border-radius: 6px; font-size: 0.68rem; font-weight: 700; text-align: center; white-space: nowrap;
+  border: 2px solid; z-index: 2; line-height: 1.3; cursor: grab; user-select: none; }
+.prev-node:active { cursor: grabbing; }
+.prev-node.selected { box-shadow: 0 0 0 3px var(--gold); z-index: 4; }
+.prev-node.has-slot::after { content:'◆'; position:absolute; top:-6px; right:-6px;
+  font-size:0.6rem; color:var(--gold); line-height:1; }
+.node-stimulus { background:rgba(200,169,81,0.15); border-color:var(--gold); color:var(--gold); }
+.node-receptor { background:rgba(79,195,247,0.12); border-color:#4FC3F7; color:#4FC3F7; }
+.node-kinase   { background:rgba(102,187,106,0.12); border-color:var(--success); color:var(--success); }
+.node-tf       { background:rgba(206,147,216,0.12); border-color:#CE93D8; color:#CE93D8; }
+.node-complex  { background:rgba(255,167,38,0.12); border-color:var(--warn); color:var(--warn); }
+.node-dna      { background:rgba(79,195,247,0.15); border-color:#81D4FA; color:#81D4FA; }
+.node-output   { background:rgba(102,187,106,0.2); border-color:var(--success); color:var(--success); font-weight:800; }
+.node-inhibitor{ background:rgba(239,83,80,0.12); border-color:var(--danger); color:var(--danger); }
+.prev-arrow-badge { position:absolute; transform:translate(-50%,-50%); z-index:3; width:20px; height:20px;
+  border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.6rem;
+  font-weight:700; border:1.5px dashed var(--gold); background:rgba(0,0,0,0.7); color:var(--gold); pointer-events:none; }
+
+/* ── ROW CARDS (nodes/arrows/slots) ── */
+.row-card { background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius: var(--radius);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.row-card.selected-card { border-color: var(--gold); }
+.row-card-header { display: flex; align-items: center; gap: 8px; }
+.row-label { flex: 1; font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.arrow-chip { font-size: 0.78rem; color: var(--muted); }
+
+/* ── ADD ARROW FORM ── */
+#add-arrow-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+#add-arrow-form select { font-size: 0.82rem; padding: 5px 8px; }
+#add-arrow-form button { align-self: flex-end; }
+
+/* ── IMAGE PREVIEW ── */
+#img-preview-wrap { position: relative; width: 100%; aspect-ratio: 1/1; max-width: 420px;
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; margin: 0 auto; cursor: default; }
+#img-preview-wrap.placing { cursor: crosshair; }
+#img-preview-img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.img-slot-badge { position: absolute; transform: translate(-50%,-50%); z-index: 3;
+  min-width: 52px; padding: 3px 7px; border-radius: 5px; font-size: 0.65rem; font-weight: 700;
+  border: 2px dashed var(--gold); background: rgba(200,169,81,0.15); color: var(--gold);
+  text-align: center; cursor: pointer; }
+.img-slot-badge.selected-slot { border-color: white; box-shadow: 0 0 0 2px var(--gold); }
+
+/* ── CONNECT OVERLAY ── */
+#connect-overlay { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center;
+  justify-content: center; background: var(--bg); }
+#connect-overlay.hidden { display: none; }
+#connect-box { background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 36px 40px; width: 400px; display: flex; flex-direction: column; gap: 16px; }
+#connect-box h1 { font-size: 1.4rem; color: var(--gold); }
+#connect-box p { color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
+#connect-box input[type=password] { width: 100%; padding: 9px 12px; background: var(--bg-input);
+  border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 0.95rem; }
+#connect-box input[type=password]:focus { outline: none; border-color: var(--gold); }
+#connect-error { color: var(--danger); font-size: 0.85rem; min-height: 1.2em; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(200,169,81,0.25); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- CONNECT OVERLAY -->
+<div id="connect-overlay" class="hidden">
+  <div id="connect-box">
+    <h1>🧬 Signal Path — Level Editor</h1>
+    <p>Enter your GitHub Personal Access Token to load and publish levels.<br>
+       Token needs <strong>repo</strong> (Contents read &amp; write) scope.</p>
+    <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
+    <div id="connect-error"></div>
+    <button class="btn-primary" id="connect-btn">Connect</button>
+  </div>
+</div>
+
+<div id="app">
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+      <h1>🧬 Signal Path — Editor</h1>
+      <span id="filename-display" style="font-size:0.8rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">immune_db.json</span>
+    </div>
+    <div id="topbar-right">
+      <span id="dirty" class="hidden">● Unsaved</span>
+      <button class="btn-secondary" onclick="saveDB()">⬇ Download</button>
+      <button class="btn-primary"   id="publish-btn" onclick="publishToGitHub()" style="display:none;">Save Database</button>
+      <a href="index.html" style="text-decoration:none;"><button class="btn-secondary" style="padding:7px 12px;">← Menu</button></a>
+    </div>
+  </div>
+
+  <div id="body">
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <!-- DB Browser -->
+      <div id="db-panel">
+        <div id="db-panel-header"><span>Databases</span></div>
+        <div id="db-panel-connected" style="display:none;">
+          <div id="db-list-items"></div>
+          <div id="db-panel-actions">
+            <button onclick="newDatabase()">＋ New DB</button>
+            <button onclick="openFile()">Load File…</button>
+          </div>
+        </div>
+        <div id="db-panel-no-conn">
+          <span>Connect with a GitHub PAT to browse databases.</span>
+          <button onclick="openFile()">Load Local File…</button>
+        </div>
+      </div>
+
+      <!-- Level List -->
+      <div id="level-panel-header">
+        <span>Levels (<span id="level-count">0</span>)</span>
+      </div>
+      <div id="level-list"></div>
+      <button class="sidebar-add-btn" onclick="newLevel()">＋ Add Level</button>
+    </div>
+
+    <!-- MAIN PANEL -->
+    <div id="main">
+      <div class="empty-state" id="emptyState">
+        <p>🧬</p>
+        <p>Select a level from the sidebar<br>or click <strong>+ Add Level</strong> to begin.</p>
+      </div>
+      <div id="level-editor" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  GITHUB CONFIG
+// ═══════════════════════════════════════════════════════
+const GITHUB_REPO    = 'bgeiss1/restriction-cloning-game';
+const DB_DIR         = 'immune_dbs/';
+const GITHUB_DIR_API = `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_DIR}`;
+function githubFileApi(f) { return `https://api.github.com/repos/${GITHUB_REPO}/contents/${DB_DIR}${f}`; }
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let db = null;
+let currentLevelIdx = null;
+let dirty = false;
+let currentFilename = 'immune_db.json';
+let currentSha = '';
+let dbFiles = [];
+let selectedNodeId = null;
+let placingSlot = false;    // image renderer: next click places a slot
+let selectedSlotId = null;  // image renderer: selected slot for editing
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  const onGHPages = location.hostname.endsWith('github.io');
+  const savedPat  = sessionStorage.getItem('signalpath_editor_pat');
+  if (onGHPages) {
+    if (savedPat) await connectWithPat(savedPat, true); else showConnectOverlay();
+  } else {
+    try {
+      const r = await fetch(DB_DIR + currentFilename + '?t=' + Date.now());
+      if (!r.ok) throw new Error();
+      db = await r.json();
+    } catch {
+      db = { meta: { title: 'Innate Immunity Pathways', version: '1.0', imageDir: 'immune_images/' }, levels: [] };
+    }
+    if (savedPat) {
+      document.getElementById('publish-btn').style.display = '';
+      refreshDbList(savedPat);
+    } else { renderDbPanel(); }
+    renderAll();
+  }
+  document.getElementById('connect-btn').addEventListener('click', async () => {
+    const pat = document.getElementById('pat-input').value.trim();
+    if (!pat) { document.getElementById('connect-error').textContent = 'Please enter a PAT.'; return; }
+    const btn = document.getElementById('connect-btn');
+    btn.disabled = true; btn.textContent = 'Connecting…';
+    document.getElementById('connect-error').textContent = '';
+    await connectWithPat(pat, false);
+    btn.disabled = false; btn.textContent = 'Connect';
+  });
+  document.getElementById('pat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('connect-btn').click();
+  });
+});
+
+function showConnectOverlay() { document.getElementById('connect-overlay').classList.remove('hidden'); }
+
+async function connectWithPat(pat, silent) {
+  try {
+    const data = await githubGet(pat, currentFilename);
+    sessionStorage.setItem('signalpath_editor_pat', pat);
+    currentSha = data.sha;
+    db = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    if (!db.meta) db.meta = {};
+    if (!db.levels) db.levels = [];
+    document.getElementById('connect-overlay').classList.add('hidden');
+    document.getElementById('publish-btn').style.display = '';
+    updateFilenameDisplay();
+    currentLevelIdx = null;
+    renderAll();
+    refreshDbList(pat);
+  } catch (err) {
+    if (silent) {
+      sessionStorage.removeItem('signalpath_editor_pat');
+      try { const r = await fetch(DB_DIR + currentFilename + '?t=' + Date.now()); db = await r.json(); renderAll(); } catch { renderAll(); }
+      if (location.hostname.endsWith('github.io')) showConnectOverlay();
+    } else {
+      document.getElementById('connect-error').textContent = 'Error: ' + err.message;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  GITHUB API
+// ═══════════════════════════════════════════════════════
+async function githubGet(pat, filename) {
+  filename = filename || currentFilename;
+  const r = await fetch(githubFileApi(filename), {
+    cache: 'no-store',
+    headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status}`);
+  return r.json();
+}
+async function githubPut(pat, filename, contentStr, message) {
+  let sha = '';
+  try { const d = await githubGet(pat, filename); sha = d.sha; } catch {}
+  const body = { message, content: btoa(unescape(encodeURIComponent(contentStr))) };
+  if (sha) body.sha = sha;
+  const r = await fetch(githubFileApi(filename), {
+    method: 'PUT',
+    headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function githubListDbs(pat) {
+  const r = await fetch(GITHUB_DIR_API, { headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' } });
+  if (!r.ok) throw new Error();
+  const files = await r.json();
+  return files.filter(f => f.type === 'file' && f.name.endsWith('.json')).map(f => f.name).sort();
+}
+async function refreshDbList(pat) {
+  try { dbFiles = await githubListDbs(pat); } catch { dbFiles = []; }
+  renderDbPanel();
+}
+function renderDbPanel() {
+  const connected = !!sessionStorage.getItem('signalpath_editor_pat');
+  document.getElementById('db-panel-connected').style.display = connected ? '' : 'none';
+  document.getElementById('db-panel-no-conn').style.display   = connected ? 'none' : '';
+  if (!connected) return;
+  const list = document.getElementById('db-list-items');
+  list.innerHTML = dbFiles.map(f =>
+    `<div class="db-item${f === currentFilename ? ' active' : ''}" onclick="switchDb('${esc(f)}')">
+       <span class="db-item-dot"></span>${esc(f.replace(/\.json$/i,''))}
+     </div>`
+  ).join('') || '<div style="padding:7px 12px;font-size:0.8rem;color:var(--muted);">No databases found.</div>';
+}
+async function switchDb(filename) {
+  if (dirty && !confirm('Unsaved changes. Switch anyway?')) return;
+  const pat = sessionStorage.getItem('signalpath_editor_pat');
+  try {
+    const data = await githubGet(pat, filename);
+    currentFilename = filename; currentSha = data.sha;
+    db = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    if (!db.meta) db.meta = {}; if (!db.levels) db.levels = [];
+    currentLevelIdx = null; dirty = false; updateDirty(); updateFilenameDisplay(); renderAll();
+    renderDbPanel();
+  } catch(e) { alert('Could not load ' + filename + ': ' + e.message); }
+}
+async function newDatabase() {
+  if (dirty && !confirm('Unsaved changes. Create new database anyway?')) return;
+  const name = prompt('New database filename (.json will be added):');
+  if (!name) return;
+  const slug = name.toLowerCase().replace(/[^a-z0-9_-]/g,'_').replace(/\.json$/i,'');
+  currentFilename = slug + '.json'; currentSha = '';
+  db = { meta: { title: '', version: '1.0', imageDir: 'immune_images/' }, levels: [] };
+  currentLevelIdx = null; dirty = false; updateDirty(); updateFilenameDisplay(); renderAll();
+  if (!dbFiles.includes(currentFilename)) { dbFiles = [...dbFiles, currentFilename].sort(); renderDbPanel(); }
+}
+function updateFilenameDisplay() {
+  const el = document.getElementById('filename-display');
+  if (el) el.textContent = currentFilename;
+  renderDbPanel();
+}
+
+// ═══════════════════════════════════════════════════════
+//  FILE I/O
+// ═══════════════════════════════════════════════════════
+function openFile() { document.getElementById('fileInput').click(); }
+function handleFileLoad(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      db = JSON.parse(ev.target.result);
+      if (!db.meta) db.meta = {}; if (!db.levels) db.levels = [];
+      currentFilename = file.name; currentSha = ''; currentLevelIdx = null;
+      dirty = false; updateFilenameDisplay(); renderAll();
+    } catch { alert('Invalid JSON file.'); }
+  };
+  reader.readAsText(file); e.target.value = '';
+}
+function saveDB() {
+  syncCurrentLevel();
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = currentFilename; a.click(); dirty = false; updateDirty();
+}
+async function publishToGitHub() {
+  syncCurrentLevel();
+  const pat = sessionStorage.getItem('signalpath_editor_pat');
+  if (!pat) { alert('Not connected to GitHub.'); return; }
+  const btn = document.getElementById('publish-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const msg = `Update ${currentFilename} — ${new Date().toISOString().slice(0,16)} (Signal Path Editor)`;
+    await githubPut(pat, currentFilename, JSON.stringify(db, null, 2), msg);
+    dirty = false; updateDirty();
+    btn.textContent = '✓ Saved!';
+    setTimeout(() => { btn.textContent = 'Save Database'; }, 2500);
+  } catch(e) { alert('Save failed: ' + e.message); }
+  finally { btn.disabled = false; if (btn.textContent === 'Saving…') btn.textContent = 'Save Database'; }
+}
+
+// ═══════════════════════════════════════════════════════
+//  DIRTY STATE
+// ═══════════════════════════════════════════════════════
+function markDirty() { dirty = true; updateDirty(); }
+function updateDirty() { document.getElementById('dirty').classList.toggle('hidden', !dirty); }
+
+// ═══════════════════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════════════════
+function renderAll() {
+  renderLevelList();
+  if (currentLevelIdx !== null && db.levels[currentLevelIdx]) {
+    document.getElementById('emptyState').style.display = 'none';
+    document.getElementById('level-editor').style.display = '';
+    renderLevelEditor();
+  } else {
+    document.getElementById('emptyState').style.display = '';
+    document.getElementById('level-editor').style.display = 'none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  LEVEL LIST
+// ═══════════════════════════════════════════════════════
+function renderLevelList() {
+  const list = document.getElementById('level-list');
+  const countEl = document.getElementById('level-count');
+  if (countEl) countEl.textContent = db ? db.levels.length : 0;
+  if (!db) { list.innerHTML = ''; return; }
+  list.innerHTML = db.levels.map((lvl, i) =>
+    `<div class="level-item${i === currentLevelIdx ? ' active' : ''}" data-idx="${i}" draggable="true">
+       <span class="drag-handle" title="Drag to reorder">⠿</span>
+       <span class="level-item-title">${esc(lvl.title || '(untitled)')}</span>
+       <button class="level-del" onclick="deleteLevelAt(event,${i})">✕</button>
+     </div>`
+  ).join('');
+  list.querySelectorAll('.level-item').forEach(el => {
+    el.addEventListener('click', () => selectLevel(parseInt(el.dataset.idx)));
+    el.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', el.dataset.idx));
+    el.addEventListener('dragover', e => e.preventDefault());
+    el.addEventListener('drop', e => {
+      e.preventDefault();
+      const from = parseInt(e.dataTransfer.getData('text/plain'));
+      const to   = parseInt(el.dataset.idx);
+      if (from === to) return;
+      syncCurrentLevel();
+      const [moved] = db.levels.splice(from, 1);
+      db.levels.splice(to, 0, moved);
+      if (currentLevelIdx === from) currentLevelIdx = to;
+      else if (currentLevelIdx > from && currentLevelIdx <= to) currentLevelIdx--;
+      else if (currentLevelIdx < from && currentLevelIdx >= to) currentLevelIdx++;
+      markDirty(); renderAll();
+    });
+  });
+}
+
+function selectLevel(i) {
+  syncCurrentLevel();
+  currentLevelIdx = i;
+  selectedNodeId = null; placingSlot = false; selectedSlotId = null;
+  renderAll();
+}
+
+function newLevel() {
+  syncCurrentLevel();
+  const lvl = {
+    id: 'level_' + Date.now(),
+    title: 'New Level', pathway: '', renderer: 'builtin', difficulty: 2,
+    roundsToUnlock: 3, slotsPerRound: 2, pointsPerSlot: 20, penaltyPerWrong: 5, bonusAllFirstTry: 25,
+    description: '', teachingPoint: '',
+    nodes: [], arrows: [], slots: []
+  };
+  db.levels.push(lvl);
+  markDirty();
+  selectLevel(db.levels.length - 1);
+}
+
+function deleteLevelAt(e, i) {
+  e.stopPropagation();
+  const name = db.levels[i].title || 'this level';
+  if (!confirm(`Delete "${name}"?`)) return;
+  db.levels.splice(i, 1);
+  if (currentLevelIdx === i) {
+    currentLevelIdx = null;
+  } else if (currentLevelIdx > i) {
+    currentLevelIdx--;
+  }
+  markDirty(); renderAll();
+}
+
+// ═══════════════════════════════════════════════════════
+//  LEVEL EDITOR
+// ═══════════════════════════════════════════════════════
+function syncCurrentLevel() {
+  if (currentLevelIdx === null || !db.levels[currentLevelIdx]) return;
+  const lvl = db.levels[currentLevelIdx];
+  const g = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  lvl.title         = g('f-title');
+  lvl.pathway       = g('f-pathway');
+  lvl.id            = g('f-id');
+  lvl.renderer      = g('f-renderer');
+  lvl.difficulty    = parseInt(g('f-difficulty')) || 2;
+  lvl.roundsToUnlock= parseInt(g('f-roundsToUnlock')) || 3;
+  lvl.slotsPerRound = parseInt(g('f-slotsPerRound')) || 2;
+  lvl.pointsPerSlot = parseInt(g('f-pointsPerSlot')) || 20;
+  lvl.penaltyPerWrong = parseInt(g('f-penaltyPerWrong')) || 5;
+  lvl.bonusAllFirstTry= parseInt(g('f-bonusAllFirstTry')) || 25;
+  lvl.description   = g('f-description');
+  lvl.teachingPoint = g('f-teachingPoint');
+  if (lvl.renderer === 'image') lvl.image = g('f-image');
+}
+
+function renderLevelEditor() {
+  const lvl = db.levels[currentLevelIdx];
+  const isBuiltin = lvl.renderer !== 'image';
+
+  document.getElementById('level-editor').innerHTML = `
+    ${sectionHtml('settings', 'Level Settings', true, levelSettingsHtml(lvl))}
+    ${isBuiltin ? sectionHtml('builtin', 'Pathway — Built-in Editor', false, builtinHtml(lvl)) : ''}
+    ${!isBuiltin ? sectionHtml('imgpath', 'Pathway — Image', false, imagePathHtml(lvl)) : ''}
+    ${sectionHtml('slots', 'Slots', false, slotsHtml(lvl))}
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn-danger" onclick="deleteCurrentLevel()">✕ Delete Level</button>
+      <a href="immune_pathway.html" target="_blank">
+        <button class="btn-small" style="padding:7px 14px;">▶ Test Game</button>
+      </a>
+    </div>
+  `;
+
+  // Wire renderer change
+  document.getElementById('f-renderer').addEventListener('change', () => {
+    syncCurrentLevel(); renderAll();
+  });
+
+  // Wire all text/number/select/textarea inputs to markDirty
+  document.getElementById('level-editor').querySelectorAll('input,select,textarea').forEach(el => {
+    if (!el.dataset.nowire) el.addEventListener('input', markDirty);
+  });
+
+  if (isBuiltin) setupBuiltinInteraction(lvl);
+  else setupImageInteraction(lvl);
+}
+
+function deleteCurrentLevel() {
+  if (currentLevelIdx === null) return;
+  deleteLevelAt({ stopPropagation: () => {} }, currentLevelIdx);
+}
+
+function sectionHtml(id, title, startOpen, bodyHtml) {
+  return `<div class="section${startOpen ? '' : ' collapsed'}" id="sec-${id}">
+    <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+      <span>${esc(title)} <span class="section-chevron">▼</span></span>
+    </div>
+    <div class="section-body">${bodyHtml}</div>
+  </div>`;
+}
+
+// ── LEVEL SETTINGS HTML ──
+function levelSettingsHtml(lvl) {
+  return `
+    <div class="field-row">
+      <div class="field grow"><label>Level Title</label>
+        <input type="text" id="f-title" value="${esc(lvl.title||'')}"></div>
+      <div class="field grow"><label>Pathway Name</label>
+        <input type="text" id="f-pathway" value="${esc(lvl.pathway||'')}"></div>
+    </div>
+    <div class="field-row">
+      <div class="field grow"><label>ID (unique key)</label>
+        <input type="text" id="f-id" value="${esc(lvl.id||'')}"></div>
+      <div class="field"><label>Renderer</label>
+        <select id="f-renderer">
+          <option value="builtin" ${lvl.renderer!=='image'?'selected':''}>Built-in</option>
+          <option value="image"   ${lvl.renderer==='image'?'selected':''}>Image</option>
+        </select></div>
+      <div class="field"><label>Difficulty</label>
+        <select id="f-difficulty">
+          <option value="1" ${lvl.difficulty===1?'selected':''}>1 — Easy</option>
+          <option value="2" ${lvl.difficulty===2?'selected':''}>2 — Medium</option>
+          <option value="3" ${lvl.difficulty===3?'selected':''}>3 — Hard</option>
+        </select></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Rounds to Unlock</label>
+        <input type="number" id="f-roundsToUnlock" value="${lvl.roundsToUnlock||3}" min="1" max="20"></div>
+      <div class="field"><label>Slots / Round</label>
+        <input type="number" id="f-slotsPerRound" value="${lvl.slotsPerRound||2}" min="1" max="20"></div>
+      <div class="field"><label>Pts / Slot</label>
+        <input type="number" id="f-pointsPerSlot" value="${lvl.pointsPerSlot||20}" min="1"></div>
+      <div class="field"><label>Penalty / Wrong</label>
+        <input type="number" id="f-penaltyPerWrong" value="${lvl.penaltyPerWrong||5}" min="0"></div>
+      <div class="field"><label>Perfect Bonus</label>
+        <input type="number" id="f-bonusAllFirstTry" value="${lvl.bonusAllFirstTry||25}" min="0"></div>
+    </div>
+    <div class="field full"><label>Description</label>
+      <textarea id="f-description">${esc(lvl.description||'')}</textarea></div>
+    <div class="field full"><label>Teaching Point (shown on level complete)</label>
+      <textarea id="f-teachingPoint">${esc(lvl.teachingPoint||'')}</textarea></div>`;
+}
+
+// ── BUILT-IN RENDERER HTML ──
+const NODE_TYPES = ['stimulus','receptor','kinase','tf','complex','dna','output','inhibitor'];
+const NODE_TYPE_LABELS = { stimulus:'Signal/Cytokine', receptor:'Receptor', kinase:'Kinase',
+  tf:'Transcription Factor', complex:'Complex', dna:'DNA Element', output:'Output', inhibitor:'Inhibitor' };
+
+function builtinHtml(lvl) {
+  const nodes = lvl.nodes || [];
+  const arrows = lvl.arrows || [];
+  const slotNodeIds = new Set((lvl.slots||[]).filter(s=>s.nodeId).map(s=>s.nodeId));
+
+  const nodeOptions = nodes.map(n => `<option value="${esc(n.id)}">${esc(n.label||n.id)}</option>`).join('');
+
+  const arrowRows = arrows.map((a,i) => `
+    <div class="row-card">
+      <div class="row-card-header">
+        <span class="row-label">${esc(nodeLabelById(lvl, a.from))} → ${esc(nodeLabelById(lvl, a.to))}</span>
+        <span class="arrow-chip">${a.type==='inhibition'?'⊣ Inhibition':'→ Activation'}</span>
+        <button class="btn-danger" onclick="deleteArrow(${i})">✕</button>
+      </div>
+    </div>`).join('') || `<span style="color:var(--muted);font-size:0.85rem;">No arrows. Add one below.</span>`;
+
+  const nodesRows = nodes.map((n,i) => `
+    <div class="row-card${selectedNodeId===n.id?' selected-card':''}">
+      <div class="row-card-header" onclick="selectNode('${esc(n.id)}')">
+        <span class="row-label" style="display:flex;align-items:center;gap:6px;">
+          <span style="width:10px;height:10px;border-radius:50%;background:currentColor;display:inline-block;" class="node-${esc(n.type||'stimulus')}"></span>
+          ${esc(n.label||'(unlabeled)')}
+          ${slotNodeIds.has(n.id)?'<span style="font-size:0.65rem;color:var(--gold);border:1px solid var(--gold);border-radius:4px;padding:1px 5px;">SLOT</span>':''}
+        </span>
+        <span style="font-size:0.75rem;color:var(--muted);">(${n.x}, ${n.y})</span>
+        <button class="btn-danger" onclick="event.stopPropagation();deleteNode('${esc(n.id)}')">✕</button>
+      </div>
+      ${selectedNodeId===n.id ? nodeEditHtml(n) : ''}
+    </div>`).join('') || `<span style="color:var(--muted);font-size:0.85rem;">No nodes. Add one below.</span>`;
+
+  return `
+    <div class="field full" style="font-size:0.8rem;color:var(--muted);">
+      Drag nodes to reposition. Click a node to edit its properties. ◆ marks nodes with a slot.
+    </div>
+    <div id="preview-wrap"><div id="preview-area"></div></div>
+
+    <div class="section collapsed" style="background:transparent;border-color:rgba(200,169,81,0.15);">
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))" style="background:rgba(30,77,43,0.5);">
+        <span>Nodes (${nodes.length}) <span class="section-chevron">▼</span></span>
+        <button class="btn-small" onclick="event.stopPropagation();addNode()">＋ Add Node</button>
+      </div>
+      <div class="section-body" id="nodes-body">${nodesRows}</div>
+    </div>
+
+    <div class="section collapsed" style="background:transparent;border-color:rgba(200,169,81,0.15);">
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))" style="background:rgba(30,77,43,0.5);">
+        <span>Arrows (${arrows.length}) <span class="section-chevron">▼</span></span>
+      </div>
+      <div class="section-body">
+        ${arrowRows}
+        <div id="add-arrow-form" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:4px;">
+          <div class="field"><label>From</label>
+            <select id="aa-from" style="font-size:0.82rem;padding:5px 8px;">${nodeOptions}</select></div>
+          <div class="field"><label>To</label>
+            <select id="aa-to" style="font-size:0.82rem;padding:5px 8px;">${nodeOptions}</select></div>
+          <div class="field"><label>Type</label>
+            <select id="aa-type" style="font-size:0.82rem;padding:5px 8px;">
+              <option value="activation">→ Activation</option>
+              <option value="inhibition">⊣ Inhibition</option>
+            </select></div>
+          <button class="btn-small" onclick="addArrow()" style="align-self:flex-end;">＋ Add</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function nodeEditHtml(n) {
+  const typeOpts = NODE_TYPES.map(t =>
+    `<option value="${t}" ${n.type===t?'selected':''}>${NODE_TYPE_LABELS[t]||t}</option>`).join('');
+  return `<div class="field-row" style="margin-top:8px;">
+    <div class="field grow"><label>Label</label>
+      <input type="text" value="${esc(n.label||'')}" oninput="updateNodeField('${esc(n.id)}','label',this.value)"></div>
+    <div class="field"><label>Type</label>
+      <select onchange="updateNodeField('${esc(n.id)}','type',this.value)">${typeOpts}</select></div>
+    <div class="field"><label>X %</label>
+      <input type="number" value="${n.x||50}" min="1" max="99" oninput="updateNodeField('${esc(n.id)}','x',+this.value)"></div>
+    <div class="field"><label>Y %</label>
+      <input type="number" value="${n.y||50}" min="1" max="99" oninput="updateNodeField('${esc(n.id)}','y',+this.value)"></div>
+    <div class="field grow"><label>ID</label>
+      <input type="text" value="${esc(n.id||'')}" oninput="updateNodeField('${esc(n.id)}','id',this.value)"></div>
+  </div>`;
+}
+
+function nodeLabelById(lvl, id) {
+  const n = (lvl.nodes||[]).find(n=>n.id===id);
+  return n ? (n.label||n.id) : id;
+}
+
+// ── IMAGE RENDERER HTML ──
+function imagePathHtml(lvl) {
+  return `
+    <div class="field-row">
+      <div class="field grow"><label>Image Filename (relative to imageDir)</label>
+        <input type="text" id="f-image" value="${esc(lvl.image||'')}" placeholder="pathway.png" oninput="syncCurrentLevel();renderImagePreview()"></div>
+    </div>
+    <div class="field full" style="font-size:0.8rem;color:var(--muted);">
+      Click <strong>📍 Place Slot</strong> then click on the image to add a molecule slot at that position.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+      <button class="btn-small" id="btn-place-slot" onclick="togglePlacingSlot()">📍 Place Slot</button>
+      <span id="placing-hint" style="font-size:0.78rem;color:var(--muted);display:none;">Click on the image below to place a slot</span>
+    </div>
+    <div id="img-preview-wrap"><img id="img-preview-img" src="" alt="" style="opacity:0.5;"></div>`;
+}
+
+// ── SLOTS HTML ──
+function slotsHtml(lvl) {
+  const isBuiltin = lvl.renderer !== 'image';
+  const nodes = lvl.nodes || [];
+  const nodeOptions = nodes.map(n => `<option value="${esc(n.id)}">${esc(n.label||n.id)}</option>`).join('');
+  const slots = lvl.slots || [];
+
+  const slotCards = slots.map((s, i) => {
+    const isMol = s.type === 'molecule';
+    const isArr = s.type === 'arrow';
+    return `<div class="row-card${s.id===selectedSlotId?' selected-card':''}">
+      <div class="row-card-header">
+        <span class="row-label">${esc(s.id||'(no id)')} — ${isMol?'Molecule':'Arrow'}</span>
+        <button class="btn-small" onclick="toggleSlotEdit('${esc(s.id)}')">Edit</button>
+        <button class="btn-danger" onclick="deleteSlot('${esc(s.id)}')">✕</button>
+      </div>
+      <div id="slot-edit-${esc(s.id)}" style="display:${s.id===selectedSlotId?'flex':'none'};flex-direction:column;gap:10px;padding-top:8px;border-top:1px solid var(--border);margin-top:4px;">
+        <div class="field-row">
+          <div class="field"><label>ID</label>
+            <input type="text" value="${esc(s.id||'')}" oninput="updateSlot(${i},'id',this.value)"></div>
+          <div class="field"><label>Type</label>
+            <select onchange="updateSlot(${i},'type',this.value)">
+              <option value="molecule" ${s.type==='molecule'?'selected':''}>Molecule</option>
+              <option value="arrow"    ${s.type==='arrow'?'selected':''}>Arrow</option>
+            </select></div>
+        </div>
+        ${isMol && isBuiltin ? `<div class="field"><label>Node ID</label>
+          <select onchange="updateSlot(${i},'nodeId',this.value)">
+            <option value="">— select node —</option>${nodeOptions}
+          </select></div>` : ''}
+        ${isArr && isBuiltin ? `<div class="field-row">
+          <div class="field"><label>From Node</label>
+            <select onchange="updateSlot(${i},'fromNodeId',this.value)"><option value="">—</option>${nodeOptions}</select></div>
+          <div class="field"><label>To Node</label>
+            <select onchange="updateSlot(${i},'toNodeId',this.value)"><option value="">—</option>${nodeOptions}</select></div>
+          </div>` : ''}
+        ${!isBuiltin ? `<div class="field-row">
+          <div class="field"><label>X %</label><input type="number" value="${s.x||50}" min="0" max="100" oninput="updateSlot(${i},'x',+this.value)"></div>
+          <div class="field"><label>Y %</label><input type="number" value="${s.y||50}" min="0" max="100" oninput="updateSlot(${i},'y',+this.value)"></div>
+          ${isMol?`<div class="field"><label>W %</label><input type="number" value="${s.w||10}" min="2" max="50" oninput="updateSlot(${i},'w',+this.value)"></div>
+          <div class="field"><label>H %</label><input type="number" value="${s.h||7}" min="2" max="30" oninput="updateSlot(${i},'h',+this.value)"></div>`:''}
+        </div>` : ''}
+        <div class="field-row">
+          <div class="field grow"><label>Correct Answer</label>
+            ${isArr ? `<select onchange="updateSlot(${i},'correct',this.value)">
+              <option value="activation" ${s.correct==='activation'?'selected':''}>→ Activation</option>
+              <option value="inhibition" ${s.correct==='inhibition'?'selected':''}>⊣ Inhibition</option>
+            </select>` : `<input type="text" value="${esc(s.correct||'')}" placeholder="exact molecule name"
+              oninput="updateSlot(${i},'correct',this.value)">`}
+          </div>
+        </div>
+        <div class="field full"><label>Options (player choices)</label>
+          <div class="tag-list" id="slot-opts-${esc(s.id)}">
+            ${(s.options||[]).map((o,oi)=>
+              `<span class="tag">${esc(o)}<span class="tag-del" onclick="removeSlotOption(${i},${oi})">×</span></span>`
+            ).join('')}
+          </div>
+          <div class="tag-add-row" style="margin-top:6px;">
+            <input type="text" id="slot-opt-input-${i}" placeholder="Add option…"
+              onkeydown="if(event.key==='Enter'){addSlotOption(${i});event.preventDefault();}">
+            <button class="btn-small" onclick="addSlotOption(${i})">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('') || `<span style="color:var(--muted);font-size:0.85rem;">No slots defined. Add one below.</span>`;
+
+  return `${slotCards}
+    <button class="btn-small" onclick="addSlot()" style="align-self:flex-start;margin-top:4px;">＋ Add Slot</button>`;
+}
+
+// ─── Slot CRUD ───
+function addSlot() {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  if (!lvl.slots) lvl.slots = [];
+  lvl.slots.push({ id: 'sl_' + Date.now(), type: 'molecule', correct: '', options: [] });
+  markDirty(); renderAll();
+}
+function deleteSlot(id) {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  lvl.slots = (lvl.slots||[]).filter(s => s.id !== id);
+  if (selectedSlotId === id) selectedSlotId = null;
+  markDirty(); renderAll();
+}
+function toggleSlotEdit(id) {
+  selectedSlotId = selectedSlotId === id ? null : id;
+  renderAll();
+}
+function updateSlot(i, field, val) {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  if (!lvl.slots[i]) return;
+  lvl.slots[i][field] = val;
+  markDirty();
+  if (field === 'type') renderAll();
+  else if (lvl.renderer === 'image') renderImagePreview();
+}
+function addSlotOption(i) {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  const inputEl = document.getElementById('slot-opt-input-' + i);
+  const val = inputEl ? inputEl.value.trim() : '';
+  if (!val || !lvl.slots[i]) return;
+  if (!lvl.slots[i].options) lvl.slots[i].options = [];
+  lvl.slots[i].options.push(val);
+  markDirty();
+  // Re-render just the tag list
+  const tagList = document.getElementById('slot-opts-' + lvl.slots[i].id);
+  if (tagList) tagList.innerHTML = lvl.slots[i].options.map((o,oi)=>
+    `<span class="tag">${esc(o)}<span class="tag-del" onclick="removeSlotOption(${i},${oi})">×</span></span>`
+  ).join('');
+  if (inputEl) inputEl.value = '';
+}
+function removeSlotOption(i, oi) {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  if (!lvl.slots[i] || !lvl.slots[i].options) return;
+  lvl.slots[i].options.splice(oi, 1);
+  markDirty();
+  const tagList = document.getElementById('slot-opts-' + lvl.slots[i].id);
+  if (tagList) tagList.innerHTML = lvl.slots[i].options.map((o,oi2)=>
+    `<span class="tag">${esc(o)}<span class="tag-del" onclick="removeSlotOption(${i},${oi2})">×</span></span>`
+  ).join('');
+}
+
+// ─── Node CRUD ───
+function addNode() {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  if (!lvl.nodes) lvl.nodes = [];
+  const id = 'node_' + Date.now();
+  lvl.nodes.push({ id, label: 'New Node', x: 50, y: 50, type: 'kinase' });
+  selectedNodeId = id;
+  markDirty(); renderAll();
+}
+function deleteNode(id) {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  lvl.nodes  = (lvl.nodes||[]).filter(n => n.id !== id);
+  lvl.arrows = (lvl.arrows||[]).filter(a => a.from !== id && a.to !== id);
+  if (selectedNodeId === id) selectedNodeId = null;
+  markDirty(); renderAll();
+}
+function selectNode(id) {
+  selectedNodeId = selectedNodeId === id ? null : id;
+  renderAll();
+}
+function updateNodeField(id, field, val) {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  const node = (lvl.nodes||[]).find(n => n.id === id);
+  if (!node) return;
+  if (field === 'id') {
+    // Update references in arrows and slots
+    (lvl.arrows||[]).forEach(a => { if(a.from===id) a.from=val; if(a.to===id) a.to=val; });
+    (lvl.slots||[]).forEach(s => {
+      if(s.nodeId===id) s.nodeId=val;
+      if(s.fromNodeId===id) s.fromNodeId=val;
+      if(s.toNodeId===id) s.toNodeId=val;
+    });
+    selectedNodeId = val;
+  }
+  node[field] = val;
+  markDirty();
+  renderBuiltinPreview();
+}
+
+// ─── Arrow CRUD ───
+function addArrow() {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  const from = document.getElementById('aa-from')?.value;
+  const to   = document.getElementById('aa-to')?.value;
+  const type = document.getElementById('aa-type')?.value || 'activation';
+  if (!from || !to || from === to) { alert('Select two different nodes.'); return; }
+  if (!lvl.arrows) lvl.arrows = [];
+  lvl.arrows.push({ from, to, type });
+  markDirty(); renderAll();
+}
+function deleteArrow(i) {
+  syncCurrentLevel();
+  const lvl = db.levels[currentLevelIdx];
+  lvl.arrows.splice(i, 1);
+  markDirty(); renderAll();
+}
+
+// ═══════════════════════════════════════════════════════
+//  BUILT-IN PREVIEW
+// ═══════════════════════════════════════════════════════
+function setupBuiltinInteraction(lvl) {
+  renderBuiltinPreview();
+}
+
+function renderBuiltinPreview() {
+  const area = document.getElementById('preview-area');
+  if (!area) return;
+  const lvl = db.levels[currentLevelIdx];
+  if (!lvl) return;
+  area.innerHTML = '';
+
+  const nodeMap = {};
+  (lvl.nodes||[]).forEach(n => { nodeMap[n.id] = n; });
+  const slotNodeIds = new Set((lvl.slots||[]).filter(s=>s.nodeId).map(s=>s.nodeId));
+  const arrowSlots  = (lvl.slots||[]).filter(s => s.type==='arrow' && s.fromNodeId && s.toNodeId);
+
+  // SVG
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox','0 0 100 100');
+  svg.setAttribute('preserveAspectRatio','none');
+  svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;';
+  svg.innerHTML = `<defs>
+    <marker id="pe-act" viewBox="0 0 10 10" refX="9" refY="5"
+      markerUnits="userSpaceOnUse" markerWidth="4" markerHeight="3" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="rgba(168,197,160,0.75)"/></marker>
+    <marker id="pe-inh" viewBox="0 0 4 10" refX="3" refY="5"
+      markerUnits="userSpaceOnUse" markerWidth="3" markerHeight="4" orient="auto">
+      <line x1="1" y1="0" x2="1" y2="10" stroke="rgba(239,83,80,0.8)" stroke-width="1.5"/></marker>
+  </defs>`;
+  const OFF = 4.5;
+  (lvl.arrows||[]).forEach(arrow => {
+    const s = nodeMap[arrow.from], t = nodeMap[arrow.to];
+    if (!s || !t) return;
+    const dx=t.x-s.x, dy=t.y-s.y, len=Math.sqrt(dx*dx+dy*dy)||1;
+    const ux=dx/len, uy=dy/len;
+    const isAct = arrow.type !== 'inhibition';
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',s.x+ux*OFF); line.setAttribute('y1',s.y+uy*OFF);
+    line.setAttribute('x2',t.x-ux*OFF); line.setAttribute('y2',t.y-uy*OFF);
+    line.setAttribute('stroke', isAct ? 'rgba(168,197,160,0.55)' : 'rgba(239,83,80,0.6)');
+    line.setAttribute('stroke-width','0.6');
+    line.setAttribute('marker-end', isAct ? 'url(#pe-act)' : 'url(#pe-inh)');
+    svg.appendChild(line);
+  });
+  area.appendChild(svg);
+
+  // Arrow slot badges
+  arrowSlots.forEach(s => {
+    const src = nodeMap[s.fromNodeId], tgt = nodeMap[s.toNodeId];
+    if (!src || !tgt) return;
+    const x=(src.x+tgt.x)/2, y=(src.y+tgt.y)/2;
+    const el = document.createElement('div');
+    el.className = 'prev-arrow-badge';
+    el.style.cssText = `left:${x}%;top:${y}%;`;
+    el.textContent = '?';
+    area.appendChild(el);
+  });
+
+  // Nodes
+  (lvl.nodes||[]).forEach(node => {
+    const el = document.createElement('div');
+    el.className = `prev-node node-${node.type||'kinase'}${node.id===selectedNodeId?' selected':''}${slotNodeIds.has(node.id)?' has-slot':''}`;
+    el.style.cssText = `left:${node.x}%;top:${node.y}%;`;
+    el.textContent = node.label || node.id;
+    el.title = `Drag to reposition\nClick to edit`;
+
+    // Drag
+    el.addEventListener('mousedown', e => startDrag(e, node));
+    el.addEventListener('touchstart', e => startDrag(e, node), {passive:false});
+    // Click to select
+    el.addEventListener('click', e => { e.stopPropagation(); syncCurrentLevel(); selectNode(node.id); });
+    area.appendChild(el);
+  });
+}
+
+function startDrag(e, node) {
+  e.preventDefault();
+  const wrap = document.getElementById('preview-wrap');
+  if (!wrap) return;
+  let moved = false;
+  const move = ev => {
+    moved = true;
+    const rect = wrap.getBoundingClientRect();
+    const cx = ev.touches ? ev.touches[0].clientX : ev.clientX;
+    const cy = ev.touches ? ev.touches[0].clientY : ev.clientY;
+    node.x = Math.round(Math.max(3, Math.min(97, (cx - rect.left) / rect.width  * 100)));
+    node.y = Math.round(Math.max(3, Math.min(97, (cy - rect.top)  / rect.height * 100)));
+    renderBuiltinPreview(); markDirty();
+  };
+  const up = () => {
+    window.removeEventListener('mousemove', move);
+    window.removeEventListener('touchmove', move);
+    window.removeEventListener('mouseup', up);
+    window.removeEventListener('touchend', up);
+    if (!moved) { syncCurrentLevel(); selectNode(node.id); }
+    else syncCurrentLevel();
+  };
+  window.addEventListener('mousemove', move);
+  window.addEventListener('touchmove', move, {passive:false});
+  window.addEventListener('mouseup', up);
+  window.addEventListener('touchend', up);
+}
+
+// ═══════════════════════════════════════════════════════
+//  IMAGE RENDERER
+// ═══════════════════════════════════════════════════════
+function setupImageInteraction(lvl) {
+  renderImagePreview();
+}
+
+function renderImagePreview() {
+  const wrap = document.getElementById('img-preview-wrap');
+  const img  = document.getElementById('img-preview-img');
+  if (!wrap || !img) return;
+  const lvl = db.levels[currentLevelIdx];
+  if (!lvl) return;
+
+  const imageDir = (db.meta && db.meta.imageDir) || 'immune_images/';
+  img.src = lvl.image ? imageDir + lvl.image : '';
+  img.style.opacity = lvl.image ? '1' : '0.3';
+
+  // Remove old slot badges
+  wrap.querySelectorAll('.img-slot-badge').forEach(el => el.remove());
+
+  // Render slot badges
+  (lvl.slots||[]).forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'img-slot-badge' + (s.id===selectedSlotId?' selected-slot':'');
+    el.style.cssText = `left:${s.x||50}%;top:${s.y||50}%;`;
+    el.textContent = s.correct || (s.type==='arrow' ? '?' : '?');
+    el.addEventListener('click', e => { e.stopPropagation(); selectedSlotId = selectedSlotId===s.id?null:s.id; renderAll(); });
+    wrap.appendChild(el);
+  });
+
+  // Click to place
+  wrap.onclick = e => {
+    if (!placingSlot) return;
+    const rect = wrap.getBoundingClientRect();
+    const x = Math.round((e.clientX - rect.left) / rect.width  * 1000) / 10;
+    const y = Math.round((e.clientY - rect.top)  / rect.height * 1000) / 10;
+    if (!lvl.slots) lvl.slots = [];
+    const newId = 'sl_' + Date.now();
+    lvl.slots.push({ id: newId, type: 'molecule', x, y, w: 10, h: 7, correct: '', options: [] });
+    selectedSlotId = newId;
+    placingSlot = false;
+    wrap.classList.remove('placing');
+    const hint = document.getElementById('placing-hint');
+    if (hint) hint.style.display = 'none';
+    const btn = document.getElementById('btn-place-slot');
+    if (btn) btn.textContent = '📍 Place Slot';
+    markDirty(); renderAll();
+  };
+}
+
+function togglePlacingSlot() {
+  placingSlot = !placingSlot;
+  const wrap = document.getElementById('img-preview-wrap');
+  const hint = document.getElementById('placing-hint');
+  const btn  = document.getElementById('btn-place-slot');
+  if (wrap) wrap.classList.toggle('placing', placingSlot);
+  if (hint) hint.style.display = placingSlot ? '' : 'none';
+  if (btn)  btn.textContent = placingSlot ? '✕ Cancel' : '📍 Place Slot';
+}
+
+// ═══════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════
+function toggleSection(el) { if (el) el.classList.toggle('collapsed'); }
+
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
+</body>
+</html>
