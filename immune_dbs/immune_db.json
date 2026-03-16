@@ -15,48 +15,260 @@
       "slotsPerRound": 4,
       "description": "Type I interferons (IFN-α/β) are secreted by virally infected cells. They bind the IFNAR1/2 receptor complex on neighboring cells and activate the JAK-STAT signaling cascade, driving expression of interferon-stimulated genes (ISGs).",
       "teachingPoint": "The ISGF3 complex — composed of STAT1, STAT2, and IRF9 — translocates to the nucleus and binds ISRE elements in the promoters of ISGs, establishing a broad antiviral state in uninfected cells.",
-      "nucleus": { "cx": 50, "cy": 75, "rx": 43, "ry": 22 },
+      "nucleus": {
+        "cx": 50,
+        "cy": 75,
+        "rx": 43,
+        "ry": 22
+      },
       "nodes": [
-        { "id": "ifnab",  "label": "IFN-α/β",   "x": 50, "y": 5,  "type": "stimulus"  },
-        { "id": "ifnar",  "label": "IFNAR1/2",  "x": 50, "y": 17, "type": "receptor"  },
-        { "id": "jak1",   "label": "JAK1",       "x": 22, "y": 29, "type": "kinase"    },
-        { "id": "tyk2",   "label": "TYK2",       "x": 78, "y": 29, "type": "kinase"    },
-        { "id": "stat1",  "label": "STAT1",      "x": 22, "y": 43, "type": "tf"        },
-        { "id": "stat2",  "label": "STAT2",      "x": 78, "y": 43, "type": "tf"        },
-        { "id": "irf9",   "label": "IRF9",       "x": 81, "y": 56, "type": "tf"        },
-        { "id": "isgf3",  "label": "ISGF3",      "x": 50, "y": 63, "type": "complex"   },
-        { "id": "isre",   "label": "ISRE",       "x": 50, "y": 76, "type": "dna"       },
-        { "id": "isgs",   "label": "ISGs",       "x": 50, "y": 89, "type": "output"    }
+        {
+          "id": "ifnab",
+          "label": "IFN-α/β",
+          "x": 50,
+          "y": 5,
+          "type": "stimulus"
+        },
+        {
+          "id": "ifnar",
+          "label": "IFNAR1/2",
+          "x": 50,
+          "y": 17,
+          "type": "receptor"
+        },
+        {
+          "id": "jak1",
+          "label": "JAK1",
+          "x": 22,
+          "y": 29,
+          "type": "kinase"
+        },
+        {
+          "id": "tyk2",
+          "label": "TYK2",
+          "x": 78,
+          "y": 29,
+          "type": "kinase"
+        },
+        {
+          "id": "stat1",
+          "label": "STAT1",
+          "x": 22,
+          "y": 43,
+          "type": "tf"
+        },
+        {
+          "id": "stat2",
+          "label": "STAT2",
+          "x": 78,
+          "y": 43,
+          "type": "tf"
+        },
+        {
+          "id": "irf9",
+          "label": "IRF9",
+          "x": 81,
+          "y": 56,
+          "type": "tf"
+        },
+        {
+          "id": "isgf3",
+          "label": "ISGF3",
+          "x": 50,
+          "y": 63,
+          "type": "complex"
+        },
+        {
+          "id": "isre",
+          "label": "ISRE",
+          "x": 50,
+          "y": 76,
+          "type": "dna"
+        },
+        {
+          "id": "isgs",
+          "label": "ISGs",
+          "x": 50,
+          "y": 89,
+          "type": "output"
+        }
       ],
       "arrows": [
-        { "from": "ifnab",  "to": "ifnar",  "type": "activation" },
-        { "from": "ifnar",  "to": "jak1",   "type": "activation" },
-        { "from": "ifnar",  "to": "tyk2",   "type": "activation" },
-        { "from": "jak1",   "to": "stat1",  "type": "activation" },
-        { "from": "tyk2",   "to": "stat2",  "type": "activation" },
-        { "from": "stat1",  "to": "isgf3",  "type": "activation" },
-        { "from": "stat2",  "to": "isgf3",  "type": "activation" },
-        { "from": "irf9",   "to": "isgf3",  "type": "activation" },
-        { "from": "isgf3",  "to": "isre",   "type": "activation" },
-        { "from": "isre",   "to": "isgs",   "type": "activation" }
+        {
+          "from": "ifnab",
+          "to": "ifnar",
+          "type": "activation"
+        },
+        {
+          "from": "ifnar",
+          "to": "jak1",
+          "type": "activation"
+        },
+        {
+          "from": "ifnar",
+          "to": "tyk2",
+          "type": "activation"
+        },
+        {
+          "from": "jak1",
+          "to": "stat1",
+          "type": "activation"
+        },
+        {
+          "from": "tyk2",
+          "to": "stat2",
+          "type": "activation"
+        },
+        {
+          "from": "stat1",
+          "to": "isgf3",
+          "type": "activation"
+        },
+        {
+          "from": "stat2",
+          "to": "isgf3",
+          "type": "activation"
+        },
+        {
+          "from": "irf9",
+          "to": "isgf3",
+          "type": "activation"
+        },
+        {
+          "from": "isgf3",
+          "to": "isre",
+          "type": "activation"
+        },
+        {
+          "from": "isre",
+          "to": "isgs",
+          "type": "activation"
+        }
       ],
       "slots": [
-        { "id": "sl_jak1",  "type": "molecule", "nodeId": "jak1",  "correct": "JAK1",     "options": ["JAK1",     "JAK2",   "TYK2",     "JAK3"   ] },
-        { "id": "sl_tyk2",  "type": "molecule", "nodeId": "tyk2",  "correct": "TYK2",     "options": ["TYK2",     "JAK1",   "JAK2",     "TYK1"   ] },
-        { "id": "sl_stat1", "type": "molecule", "nodeId": "stat1", "correct": "STAT1",    "options": ["STAT1",    "STAT2",  "STAT3",    "STAT6"  ] },
-        { "id": "sl_stat2", "type": "molecule", "nodeId": "stat2", "correct": "STAT2",    "options": ["STAT2",    "STAT1",  "STAT3",    "STAT6"  ] },
-        { "id": "sl_irf9",  "type": "molecule", "nodeId": "irf9",  "correct": "IRF9",     "options": ["IRF9",     "IRF3",   "IRF7",     "NF-κB"  ] },
-        { "id": "sl_isgf3", "type": "molecule", "nodeId": "isgf3", "correct": "ISGF3",   "options": ["ISGF3",    "AP-1",   "NF-κB",    "IRF3"   ] },
-        { "id": "sl_ifnar", "type": "molecule", "nodeId": "ifnar", "correct": "IFNAR1/2", "options": ["IFNAR1/2", "TNFR1",  "IL-6R",    "TLR4"   ] },
-        { "id": "sl_isre",  "type": "molecule", "nodeId": "isre",  "correct": "ISRE",     "options": ["ISRE",     "κB Sites", "AP-1 Site", "IRF-E"] },
-        { "id": "sl_arr1",  "type": "arrow", "fromNodeId": "isgf3", "toNodeId": "isre",  "correct": "activation", "options": ["activation", "inhibition"] },
-        { "id": "sl_arr2",  "type": "arrow", "fromNodeId": "ifnar", "toNodeId": "jak1",  "correct": "activation", "options": ["activation", "inhibition"] }
+        {
+          "id": "sl_jak1",
+          "type": "molecule",
+          "nodeId": "jak1",
+          "correct": "JAK1",
+          "options": [
+            "JAK1",
+            "JAK2",
+            "TYK2",
+            "JAK3"
+          ]
+        },
+        {
+          "id": "sl_tyk2",
+          "type": "molecule",
+          "nodeId": "tyk2",
+          "correct": "TYK2",
+          "options": [
+            "TYK2",
+            "JAK1",
+            "JAK2",
+            "TYK1"
+          ]
+        },
+        {
+          "id": "sl_stat1",
+          "type": "molecule",
+          "nodeId": "stat1",
+          "correct": "STAT1",
+          "options": [
+            "STAT1",
+            "STAT2",
+            "STAT3",
+            "STAT6"
+          ]
+        },
+        {
+          "id": "sl_stat2",
+          "type": "molecule",
+          "nodeId": "stat2",
+          "correct": "STAT2",
+          "options": [
+            "STAT2",
+            "STAT1",
+            "STAT3",
+            "STAT6"
+          ]
+        },
+        {
+          "id": "sl_irf9",
+          "type": "molecule",
+          "nodeId": "irf9",
+          "correct": "IRF9",
+          "options": [
+            "IRF9",
+            "IRF3",
+            "IRF7",
+            "NF-κB"
+          ]
+        },
+        {
+          "id": "sl_isgf3",
+          "type": "molecule",
+          "nodeId": "isgf3",
+          "correct": "ISGF3",
+          "options": [
+            "ISGF3",
+            "AP-1",
+            "NF-κB",
+            "IRF3"
+          ]
+        },
+        {
+          "id": "sl_ifnar",
+          "type": "molecule",
+          "nodeId": "ifnar",
+          "correct": "IFNAR1/2",
+          "options": [
+            "IFNAR1/2",
+            "TNFR1",
+            "IL-6R",
+            "TLR4"
+          ]
+        },
+        {
+          "id": "sl_isre",
+          "type": "molecule",
+          "nodeId": "isre",
+          "correct": "ISRE",
+          "options": [
+            "ISRE",
+            "κB Sites",
+            "AP-1 Site",
+            "IRF-E"
+          ]
+        },
+        {
+          "id": "sl_arr1",
+          "type": "arrow",
+          "fromNodeId": "isgf3",
+          "toNodeId": "isre",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_arr2",
+          "type": "arrow",
+          "fromNodeId": "ifnar",
+          "toNodeId": "jak1",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        }
       ],
       "pointsPerSlot": 20,
       "penaltyPerWrong": 5,
       "bonusAllFirstTry": 25
     },
-
     {
       "id": "rigi_mavs_ifnb",
       "title": "RIG-I/MAVS → IFN-β",
@@ -67,39 +279,184 @@
       "slotsPerRound": 2,
       "description": "Cytosolic viral RNA — including short double-stranded RNA and 5'-triphosphate single-stranded RNA — is sensed by the helicase RIG-I (encoded by DDX58). Binding exposes RIG-I's CARD domains, which signal through MAVS (Mitochondrial Antiviral Signaling protein) anchored on the mitochondrial outer membrane.",
       "teachingPoint": "MAVS forms prion-like filaments on the mitochondria that amplify signaling to the TBK1 kinase. TBK1 phosphorylates IRF3 at multiple C-terminal serine residues, causing IRF3 homodimerization and nuclear translocation to drive IFN-β transcription. This axis is essential for innate defense against RNA viruses including influenza, Sendai virus, and SARS-CoV-2.",
-      "nucleus": { "cx": 50, "cy": 80, "rx": 46, "ry": 18 },
+      "nucleus": {
+        "cx": 50,
+        "cy": 80,
+        "rx": 46,
+        "ry": 18
+      },
       "nodes": [
-        { "id": "viral_rna",   "label": "Viral RNA",        "x": 50, "y": 5,  "type": "stimulus" },
-        { "id": "rigi",        "label": "RIG-I",            "x": 50, "y": 18, "type": "receptor" },
-        { "id": "mavs",        "label": "MAVS",             "x": 50, "y": 32, "type": "complex"  },
-        { "id": "tbk1_r",      "label": "TBK1",             "x": 50, "y": 46, "type": "kinase"   },
-        { "id": "irf3_r",      "label": "IRF3",             "x": 50, "y": 58, "type": "tf"       },
-        { "id": "ifnbprom_r",  "label": "IFN-β Promoter",  "x": 50, "y": 73, "type": "dna"      },
-        { "id": "ifnb_r",      "label": "IFN-β",            "x": 50, "y": 87, "type": "output"   }
+        {
+          "id": "viral_rna",
+          "label": "Viral RNA",
+          "x": 50,
+          "y": 5,
+          "type": "stimulus"
+        },
+        {
+          "id": "rigi",
+          "label": "RIG-I",
+          "x": 50,
+          "y": 18,
+          "type": "receptor"
+        },
+        {
+          "id": "mavs",
+          "label": "MAVS",
+          "x": 50,
+          "y": 32,
+          "type": "complex"
+        },
+        {
+          "id": "tbk1_r",
+          "label": "TBK1",
+          "x": 50,
+          "y": 46,
+          "type": "kinase"
+        },
+        {
+          "id": "irf3_r",
+          "label": "IRF3",
+          "x": 50,
+          "y": 58,
+          "type": "tf"
+        },
+        {
+          "id": "ifnbprom_r",
+          "label": "IFN-β Promoter",
+          "x": 50,
+          "y": 73,
+          "type": "dna"
+        },
+        {
+          "id": "ifnb_r",
+          "label": "IFN-β",
+          "x": 50,
+          "y": 87,
+          "type": "output"
+        }
       ],
       "arrows": [
-        { "from": "viral_rna", "to": "rigi",       "type": "activation" },
-        { "from": "rigi",      "to": "mavs",       "type": "activation" },
-        { "from": "mavs",      "to": "tbk1_r",     "type": "activation" },
-        { "from": "tbk1_r",    "to": "irf3_r",     "type": "activation" },
-        { "from": "irf3_r",    "to": "ifnbprom_r", "type": "activation" },
-        { "from": "ifnbprom_r","to": "ifnb_r",     "type": "activation" }
+        {
+          "from": "viral_rna",
+          "to": "rigi",
+          "type": "activation"
+        },
+        {
+          "from": "rigi",
+          "to": "mavs",
+          "type": "activation"
+        },
+        {
+          "from": "mavs",
+          "to": "tbk1_r",
+          "type": "activation"
+        },
+        {
+          "from": "tbk1_r",
+          "to": "irf3_r",
+          "type": "activation"
+        },
+        {
+          "from": "irf3_r",
+          "to": "ifnbprom_r",
+          "type": "activation"
+        },
+        {
+          "from": "ifnbprom_r",
+          "to": "ifnb_r",
+          "type": "activation"
+        }
       ],
       "slots": [
-        { "id": "sl_r_rigi",          "type": "molecule", "nodeId": "rigi",      "correct": "RIG-I",          "options": ["RIG-I",          "MDA5",   "STING",  "TLR3"  ] },
-        { "id": "sl_r_mavs",          "type": "molecule", "nodeId": "mavs",      "correct": "MAVS",           "options": ["MAVS",           "STING",  "TRIF",   "ASC"   ] },
-        { "id": "sl_r_tbk1",          "type": "molecule", "nodeId": "tbk1_r",    "correct": "TBK1",           "options": ["TBK1",           "IKKβ",   "JAK1",   "IRAK4" ] },
-        { "id": "sl_r_irf3",          "type": "molecule", "nodeId": "irf3_r",    "correct": "IRF3",           "options": ["IRF3",           "NF-κB",  "STAT1",  "IRF7"  ] },
-        { "id": "sl_r_ifnbprom",      "type": "molecule", "nodeId": "ifnbprom_r","correct": "IFN-β Promoter", "options": ["IFN-β Promoter", "ISRE",   "κB Sites","AP-1 Site"] },
-        { "id": "sl_r_arr_mavs_tbk1", "type": "arrow",    "fromNodeId": "mavs",  "toNodeId": "tbk1_r",        "correct": "activation", "options": ["activation","inhibition"] },
-        { "id": "sl_r_nt_rigi",       "type": "nodetype", "nodeId": "rigi",      "correct": "receptor" },
-        { "id": "sl_r_nt_mavs",       "type": "nodetype", "nodeId": "mavs",      "correct": "complex"  }
+        {
+          "id": "sl_r_rigi",
+          "type": "molecule",
+          "nodeId": "rigi",
+          "correct": "RIG-I",
+          "options": [
+            "RIG-I",
+            "MDA5",
+            "STING",
+            "TLR3"
+          ]
+        },
+        {
+          "id": "sl_r_mavs",
+          "type": "molecule",
+          "nodeId": "mavs",
+          "correct": "MAVS",
+          "options": [
+            "MAVS",
+            "STING",
+            "TRIF",
+            "ASC"
+          ]
+        },
+        {
+          "id": "sl_r_tbk1",
+          "type": "molecule",
+          "nodeId": "tbk1_r",
+          "correct": "TBK1",
+          "options": [
+            "TBK1",
+            "IKKβ",
+            "JAK1",
+            "IRAK4"
+          ]
+        },
+        {
+          "id": "sl_r_irf3",
+          "type": "molecule",
+          "nodeId": "irf3_r",
+          "correct": "IRF3",
+          "options": [
+            "IRF3",
+            "NF-κB",
+            "STAT1",
+            "IRF7"
+          ]
+        },
+        {
+          "id": "sl_r_ifnbprom",
+          "type": "molecule",
+          "nodeId": "ifnbprom_r",
+          "correct": "IFN-β Promoter",
+          "options": [
+            "IFN-β Promoter",
+            "ISRE",
+            "κB Sites",
+            "AP-1 Site"
+          ]
+        },
+        {
+          "id": "sl_r_arr_mavs_tbk1",
+          "type": "arrow",
+          "fromNodeId": "mavs",
+          "toNodeId": "tbk1_r",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_r_nt_rigi",
+          "type": "nodetype",
+          "nodeId": "rigi",
+          "correct": "receptor"
+        },
+        {
+          "id": "sl_r_nt_mavs",
+          "type": "nodetype",
+          "nodeId": "mavs",
+          "correct": "complex"
+        }
       ],
       "pointsPerSlot": 20,
       "penaltyPerWrong": 5,
       "bonusAllFirstTry": 25
     },
-
     {
       "id": "cgas_sting_ifnb",
       "title": "cGAS-STING → IFN-β",
@@ -110,48 +467,249 @@
       "slotsPerRound": 2,
       "description": "Cytosolic double-stranded DNA — from viruses, intracellular bacteria, or damaged host cells — is detected by cGAS (cyclic GMP-AMP synthase). cGAS catalyzes synthesis of the second messenger 2'3'-cGAMP, which binds and activates STING (Stimulator of Interferon Genes) at the endoplasmic reticulum membrane.",
       "teachingPoint": "Upon cGAMP binding, STING dimerizes and translocates from the ER to the Golgi, where it recruits TBK1. TBK1 phosphorylates IRF3 to drive IFN-β production. STING simultaneously activates NF-κB via IKKβ, producing pro-inflammatory cytokines. This pathway defends against DNA viruses (HSV-1, vaccinia) and intracellular bacteria, and causes autoimmunity when cytosolic self-DNA accumulates (e.g., STING-associated vasculopathy, lupus).",
-      "nucleus": { "cx": 50, "cy": 78, "rx": 47, "ry": 18 },
+      "nucleus": {
+        "cx": 50,
+        "cy": 78,
+        "rx": 47,
+        "ry": 18
+      },
       "nodes": [
-        { "id": "cytdna",      "label": "Cytosolic DNA",              "x": 50, "y": 5,  "type": "stimulus" },
-        { "id": "cgas_c",      "label": "cGAS",                       "x": 50, "y": 16, "type": "kinase"   },
-        { "id": "cgamp_c",     "label": "cGAMP",                      "x": 50, "y": 27, "type": "stimulus" },
-        { "id": "sting_c",     "label": "STING",                      "x": 50, "y": 38, "type": "receptor" },
-        { "id": "tbk1_s",      "label": "TBK1",                       "x": 27, "y": 50, "type": "kinase"   },
-        { "id": "nfkb_s",      "label": "NF-κB",                      "x": 73, "y": 50, "type": "tf"       },
-        { "id": "irf3_s",      "label": "IRF3",                       "x": 27, "y": 62, "type": "tf"       },
-        { "id": "kbsite_s",    "label": "κB Sites",                   "x": 73, "y": 64, "type": "dna"      },
-        { "id": "ifnbprom_s",  "label": "IFN-β Promoter",            "x": 27, "y": 74, "type": "dna"      },
-        { "id": "cytok_s",     "label": "Pro-inflammatory Cytokines", "x": 73, "y": 75, "type": "output"   },
-        { "id": "ifnb_s",      "label": "IFN-β",                      "x": 27, "y": 88, "type": "output"   }
+        {
+          "id": "cytdna",
+          "label": "Cytosolic DNA",
+          "x": 50,
+          "y": 5,
+          "type": "stimulus"
+        },
+        {
+          "id": "cgas_c",
+          "label": "cGAS",
+          "x": 50,
+          "y": 16,
+          "type": "kinase"
+        },
+        {
+          "id": "cgamp_c",
+          "label": "cGAMP",
+          "x": 50,
+          "y": 27,
+          "type": "stimulus"
+        },
+        {
+          "id": "sting_c",
+          "label": "STING",
+          "x": 50,
+          "y": 38,
+          "type": "receptor"
+        },
+        {
+          "id": "tbk1_s",
+          "label": "TBK1",
+          "x": 23,
+          "y": 40,
+          "type": "kinase"
+        },
+        {
+          "id": "nfkb_s",
+          "label": "NF-κB",
+          "x": 73,
+          "y": 50,
+          "type": "tf"
+        },
+        {
+          "id": "irf3_s",
+          "label": "IRF3",
+          "x": 27,
+          "y": 54,
+          "type": "tf"
+        },
+        {
+          "id": "kbsite_s",
+          "label": "κB Sites",
+          "x": 62,
+          "y": 68,
+          "type": "dna"
+        },
+        {
+          "id": "ifnbprom_s",
+          "label": "IFN-β Promoter",
+          "x": 37,
+          "y": 75,
+          "type": "dna"
+        },
+        {
+          "id": "cytok_s",
+          "label": "Pro-inflammatory Cytokines",
+          "x": 71,
+          "y": 83,
+          "type": "output"
+        },
+        {
+          "id": "ifnb_s",
+          "label": "IFN-β",
+          "x": 37,
+          "y": 88,
+          "type": "output"
+        }
       ],
       "arrows": [
-        { "from": "cytdna",     "to": "cgas_c",     "type": "activation" },
-        { "from": "cgas_c",     "to": "cgamp_c",    "type": "activation" },
-        { "from": "cgamp_c",    "to": "sting_c",    "type": "activation" },
-        { "from": "sting_c",    "to": "tbk1_s",     "type": "activation" },
-        { "from": "sting_c",    "to": "nfkb_s",     "type": "activation" },
-        { "from": "tbk1_s",     "to": "irf3_s",     "type": "activation" },
-        { "from": "irf3_s",     "to": "ifnbprom_s", "type": "activation" },
-        { "from": "ifnbprom_s", "to": "ifnb_s",     "type": "activation" },
-        { "from": "nfkb_s",     "to": "kbsite_s",   "type": "activation" },
-        { "from": "kbsite_s",   "to": "cytok_s",    "type": "activation" }
+        {
+          "from": "cytdna",
+          "to": "cgas_c",
+          "type": "activation"
+        },
+        {
+          "from": "cgas_c",
+          "to": "cgamp_c",
+          "type": "activation"
+        },
+        {
+          "from": "cgamp_c",
+          "to": "sting_c",
+          "type": "activation"
+        },
+        {
+          "from": "sting_c",
+          "to": "tbk1_s",
+          "type": "activation"
+        },
+        {
+          "from": "sting_c",
+          "to": "nfkb_s",
+          "type": "activation"
+        },
+        {
+          "from": "tbk1_s",
+          "to": "irf3_s",
+          "type": "activation"
+        },
+        {
+          "from": "irf3_s",
+          "to": "ifnbprom_s",
+          "type": "activation"
+        },
+        {
+          "from": "ifnbprom_s",
+          "to": "ifnb_s",
+          "type": "activation"
+        },
+        {
+          "from": "nfkb_s",
+          "to": "kbsite_s",
+          "type": "activation"
+        },
+        {
+          "from": "kbsite_s",
+          "to": "cytok_s",
+          "type": "activation"
+        }
       ],
       "slots": [
-        { "id": "sl_cs_cgas",           "type": "molecule", "nodeId": "cgas_c",     "correct": "cGAS",           "options": ["cGAS",           "RIG-I",   "TLR9",    "AIM2"      ] },
-        { "id": "sl_cs_cgamp",          "type": "molecule", "nodeId": "cgamp_c",    "correct": "cGAMP",          "options": ["cGAMP",          "cAMP",    "cGMP",    "IP3"       ] },
-        { "id": "sl_cs_sting",          "type": "molecule", "nodeId": "sting_c",    "correct": "STING",          "options": ["STING",          "MAVS",    "TRIF",    "MyD88"     ] },
-        { "id": "sl_cs_tbk1",           "type": "molecule", "nodeId": "tbk1_s",     "correct": "TBK1",           "options": ["TBK1",           "JAK1",    "IKKβ",    "IRAK4"     ] },
-        { "id": "sl_cs_kbsite",         "type": "molecule", "nodeId": "kbsite_s",   "correct": "κB Sites",       "options": ["κB Sites",       "ISRE",    "IFN-β Promoter", "NF-AT Site"] },
-        { "id": "sl_cs_ifnbprom",       "type": "molecule", "nodeId": "ifnbprom_s", "correct": "IFN-β Promoter", "options": ["IFN-β Promoter", "ISRE",    "κB Sites", "AP-1 Site"] },
-        { "id": "sl_cs_arr_sting_tbk1", "type": "arrow", "fromNodeId": "sting_c",  "toNodeId": "tbk1_s",        "correct": "activation", "options": ["activation","inhibition"] },
-        { "id": "sl_cs_arr_sting_nfkb", "type": "arrow", "fromNodeId": "sting_c",  "toNodeId": "nfkb_s",        "correct": "activation", "options": ["activation","inhibition"] },
-        { "id": "sl_cs_nt_sting",       "type": "nodetype", "nodeId": "sting_c",    "correct": "receptor" }
+        {
+          "id": "sl_cs_cgas",
+          "type": "molecule",
+          "nodeId": "cgas_c",
+          "correct": "cGAS",
+          "options": [
+            "cGAS",
+            "RIG-I",
+            "TLR9",
+            "AIM2"
+          ]
+        },
+        {
+          "id": "sl_cs_cgamp",
+          "type": "molecule",
+          "nodeId": "cgamp_c",
+          "correct": "cGAMP",
+          "options": [
+            "cGAMP",
+            "cAMP",
+            "cGMP",
+            "IP3"
+          ]
+        },
+        {
+          "id": "sl_cs_sting",
+          "type": "molecule",
+          "nodeId": "sting_c",
+          "correct": "STING",
+          "options": [
+            "STING",
+            "MAVS",
+            "TRIF",
+            "MyD88"
+          ]
+        },
+        {
+          "id": "sl_cs_tbk1",
+          "type": "molecule",
+          "nodeId": "tbk1_s",
+          "correct": "TBK1",
+          "options": [
+            "TBK1",
+            "JAK1",
+            "IKKβ",
+            "IRAK4"
+          ]
+        },
+        {
+          "id": "sl_cs_kbsite",
+          "type": "molecule",
+          "nodeId": "kbsite_s",
+          "correct": "κB Sites",
+          "options": [
+            "κB Sites",
+            "ISRE",
+            "IFN-β Promoter",
+            "NF-AT Site"
+          ]
+        },
+        {
+          "id": "sl_cs_ifnbprom",
+          "type": "molecule",
+          "nodeId": "ifnbprom_s",
+          "correct": "IFN-β Promoter",
+          "options": [
+            "IFN-β Promoter",
+            "ISRE",
+            "κB Sites",
+            "AP-1 Site"
+          ]
+        },
+        {
+          "id": "sl_cs_arr_sting_tbk1",
+          "type": "arrow",
+          "fromNodeId": "sting_c",
+          "toNodeId": "tbk1_s",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_cs_arr_sting_nfkb",
+          "type": "arrow",
+          "fromNodeId": "sting_c",
+          "toNodeId": "nfkb_s",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_cs_nt_sting",
+          "type": "nodetype",
+          "nodeId": "sting_c",
+          "correct": "receptor"
+        }
       ],
       "pointsPerSlot": 20,
       "penaltyPerWrong": 5,
       "bonusAllFirstTry": 25
     },
-
     {
       "id": "tlr4_myd88_nfkb",
       "title": "TLR4-MyD88 → NF-κB",
@@ -162,46 +720,237 @@
       "slotsPerRound": 2,
       "description": "Lipopolysaccharide (LPS), a structural component of the Gram-negative bacterial outer membrane, is recognized at the cell surface by TLR4 in complex with MD-2. LPS binding drives TLR4 dimerization and cytoplasmic recruitment of the adaptor MyD88 via TIR domain–TIR domain interactions.",
       "teachingPoint": "MyD88 recruits IRAK4, which phosphorylates IRAK1, activating TRAF6. TRAF6 generates K63-linked ubiquitin chains that activate IKKβ. IKKβ phosphorylates IκBα (marking it for proteasomal degradation), releasing NF-κB (p50/RelA) to drive transcription of TNF-α, IL-6, and IL-12. Note: IKKβ inhibits IκBα, and IκBα normally inhibits NF-κB — so the net effect of IKKβ is NF-κB activation.",
-      "nucleus": { "cx": 50, "cy": 85, "rx": 46, "ry": 13 },
+      "nucleus": {
+        "cx": 50,
+        "cy": 85,
+        "rx": 46,
+        "ry": 13
+      },
       "nodes": [
-        { "id": "lps",      "label": "LPS",                  "x": 50, "y": 5,  "type": "stimulus"  },
-        { "id": "tlr4_t",   "label": "TLR4",                 "x": 50, "y": 16, "type": "receptor"  },
-        { "id": "myd88_t",  "label": "MyD88",                "x": 50, "y": 27, "type": "complex"   },
-        { "id": "irak4_t",  "label": "IRAK4",                "x": 50, "y": 38, "type": "kinase"    },
-        { "id": "traf6_t",  "label": "TRAF6",                "x": 50, "y": 49, "type": "complex"   },
-        { "id": "ikkb_t",   "label": "IKKβ",                 "x": 50, "y": 60, "type": "kinase"    },
-        { "id": "ikba_t",   "label": "IκBα",                 "x": 24, "y": 72, "type": "inhibitor" },
-        { "id": "nfkb_t",   "label": "NF-κB",                "x": 76, "y": 68, "type": "tf"        },
-        { "id": "kbsite_t", "label": "κB Sites",             "x": 76, "y": 79, "type": "dna"       },
-        { "id": "cytok_t",  "label": "TNF-α / IL-6 / IL-12", "x": 76, "y": 90, "type": "output"    }
+        {
+          "id": "lps",
+          "label": "LPS",
+          "x": 50,
+          "y": 5,
+          "type": "stimulus"
+        },
+        {
+          "id": "tlr4_t",
+          "label": "TLR4",
+          "x": 50,
+          "y": 16,
+          "type": "receptor"
+        },
+        {
+          "id": "myd88_t",
+          "label": "MyD88",
+          "x": 50,
+          "y": 27,
+          "type": "complex"
+        },
+        {
+          "id": "irak4_t",
+          "label": "IRAK4",
+          "x": 50,
+          "y": 38,
+          "type": "kinase"
+        },
+        {
+          "id": "traf6_t",
+          "label": "TRAF6",
+          "x": 50,
+          "y": 49,
+          "type": "complex"
+        },
+        {
+          "id": "ikkb_t",
+          "label": "IKKβ",
+          "x": 50,
+          "y": 60,
+          "type": "kinase"
+        },
+        {
+          "id": "ikba_t",
+          "label": "IκBα",
+          "x": 24,
+          "y": 72,
+          "type": "inhibitor"
+        },
+        {
+          "id": "nfkb_t",
+          "label": "NF-κB",
+          "x": 76,
+          "y": 68,
+          "type": "tf"
+        },
+        {
+          "id": "kbsite_t",
+          "label": "κB Sites",
+          "x": 76,
+          "y": 79,
+          "type": "dna"
+        },
+        {
+          "id": "cytok_t",
+          "label": "TNF-α / IL-6 / IL-12",
+          "x": 76,
+          "y": 90,
+          "type": "output"
+        }
       ],
       "arrows": [
-        { "from": "lps",      "to": "tlr4_t",  "type": "activation" },
-        { "from": "tlr4_t",   "to": "myd88_t", "type": "activation" },
-        { "from": "myd88_t",  "to": "irak4_t", "type": "activation" },
-        { "from": "irak4_t",  "to": "traf6_t", "type": "activation" },
-        { "from": "traf6_t",  "to": "ikkb_t",  "type": "activation" },
-        { "from": "ikkb_t",   "to": "ikba_t",  "type": "inhibition" },
-        { "from": "ikba_t",   "to": "nfkb_t",  "type": "inhibition" },
-        { "from": "nfkb_t",   "to": "kbsite_t","type": "activation" },
-        { "from": "kbsite_t", "to": "cytok_t", "type": "activation" }
+        {
+          "from": "lps",
+          "to": "tlr4_t",
+          "type": "activation"
+        },
+        {
+          "from": "tlr4_t",
+          "to": "myd88_t",
+          "type": "activation"
+        },
+        {
+          "from": "myd88_t",
+          "to": "irak4_t",
+          "type": "activation"
+        },
+        {
+          "from": "irak4_t",
+          "to": "traf6_t",
+          "type": "activation"
+        },
+        {
+          "from": "traf6_t",
+          "to": "ikkb_t",
+          "type": "activation"
+        },
+        {
+          "from": "ikkb_t",
+          "to": "ikba_t",
+          "type": "inhibition"
+        },
+        {
+          "from": "ikba_t",
+          "to": "nfkb_t",
+          "type": "inhibition"
+        },
+        {
+          "from": "nfkb_t",
+          "to": "kbsite_t",
+          "type": "activation"
+        },
+        {
+          "from": "kbsite_t",
+          "to": "cytok_t",
+          "type": "activation"
+        }
       ],
       "slots": [
-        { "id": "sl_t_tlr4",          "type": "molecule", "nodeId": "tlr4_t",   "correct": "TLR4",     "options": ["TLR4",    "TLR3",   "TLR9",  "NOD2"  ] },
-        { "id": "sl_t_myd88",         "type": "molecule", "nodeId": "myd88_t",  "correct": "MyD88",    "options": ["MyD88",   "TRIF",   "STING", "MAVS"  ] },
-        { "id": "sl_t_irak4",         "type": "molecule", "nodeId": "irak4_t",  "correct": "IRAK4",    "options": ["IRAK4",   "TBK1",   "IKKβ",  "RIP2"  ] },
-        { "id": "sl_t_traf6",         "type": "molecule", "nodeId": "traf6_t",  "correct": "TRAF6",    "options": ["TRAF6",   "TRADD",  "RIPK1", "ASC"   ] },
-        { "id": "sl_t_nfkb",          "type": "molecule", "nodeId": "nfkb_t",   "correct": "NF-κB",    "options": ["NF-κB",   "IRF3",   "AP-1",  "STAT3" ] },
-        { "id": "sl_t_kbsite",        "type": "molecule", "nodeId": "kbsite_t", "correct": "κB Sites", "options": ["κB Sites","ISRE",   "AP-1 Site","IRF-E"] },
-        { "id": "sl_t_arr_ikba_nfkb", "type": "arrow", "fromNodeId": "ikba_t",  "toNodeId": "nfkb_t",  "correct": "inhibition", "options": ["activation","inhibition"] },
-        { "id": "sl_t_arr_ikkb_ikba", "type": "arrow", "fromNodeId": "ikkb_t",  "toNodeId": "ikba_t",  "correct": "inhibition", "options": ["activation","inhibition"] },
-        { "id": "sl_t_nt_tlr4",       "type": "nodetype", "nodeId": "tlr4_t",   "correct": "receptor" }
+        {
+          "id": "sl_t_tlr4",
+          "type": "molecule",
+          "nodeId": "tlr4_t",
+          "correct": "TLR4",
+          "options": [
+            "TLR4",
+            "TLR3",
+            "TLR9",
+            "NOD2"
+          ]
+        },
+        {
+          "id": "sl_t_myd88",
+          "type": "molecule",
+          "nodeId": "myd88_t",
+          "correct": "MyD88",
+          "options": [
+            "MyD88",
+            "TRIF",
+            "STING",
+            "MAVS"
+          ]
+        },
+        {
+          "id": "sl_t_irak4",
+          "type": "molecule",
+          "nodeId": "irak4_t",
+          "correct": "IRAK4",
+          "options": [
+            "IRAK4",
+            "TBK1",
+            "IKKβ",
+            "RIP2"
+          ]
+        },
+        {
+          "id": "sl_t_traf6",
+          "type": "molecule",
+          "nodeId": "traf6_t",
+          "correct": "TRAF6",
+          "options": [
+            "TRAF6",
+            "TRADD",
+            "RIPK1",
+            "ASC"
+          ]
+        },
+        {
+          "id": "sl_t_nfkb",
+          "type": "molecule",
+          "nodeId": "nfkb_t",
+          "correct": "NF-κB",
+          "options": [
+            "NF-κB",
+            "IRF3",
+            "AP-1",
+            "STAT3"
+          ]
+        },
+        {
+          "id": "sl_t_kbsite",
+          "type": "molecule",
+          "nodeId": "kbsite_t",
+          "correct": "κB Sites",
+          "options": [
+            "κB Sites",
+            "ISRE",
+            "AP-1 Site",
+            "IRF-E"
+          ]
+        },
+        {
+          "id": "sl_t_arr_ikba_nfkb",
+          "type": "arrow",
+          "fromNodeId": "ikba_t",
+          "toNodeId": "nfkb_t",
+          "correct": "inhibition",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_t_arr_ikkb_ikba",
+          "type": "arrow",
+          "fromNodeId": "ikkb_t",
+          "toNodeId": "ikba_t",
+          "correct": "inhibition",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_t_nt_tlr4",
+          "type": "nodetype",
+          "nodeId": "tlr4_t",
+          "correct": "receptor"
+        }
       ],
       "pointsPerSlot": 20,
       "penaltyPerWrong": 5,
       "bonusAllFirstTry": 25
     },
-
     {
       "id": "nlrp3_inflammasome",
       "title": "NLRP3 Inflammasome",
@@ -212,45 +961,225 @@
       "slotsPerRound": 2,
       "description": "The NLRP3 inflammasome requires two sequential signals. Signal 1 (priming) — such as LPS/TLR4 — activates NF-κB to induce transcription of NLRP3 and pro-IL-1β. Signal 2 (activation) — NLRP3 agonists including extracellular ATP, monosodium urate crystals, cholesterol crystals, and pore-forming toxins — triggers NLRP3 oligomerization.",
       "teachingPoint": "Oligomerized NLRP3 recruits the adaptor ASC via PYD-PYD interactions. ASC in turn recruits pro-caspase-1 via CARD-CARD interactions, causing proximity-induced autoactivation. Active caspase-1 cleaves pro-IL-1β and pro-IL-18 into their secreted forms, and cleaves gasdermin D to initiate pyroptosis — a lytic, inflammatory cell death. This pathway is central to antibacterial defense and is implicated in gout, atherosclerosis, and metabolic syndrome.",
-      "nucleus": { "cx": 20, "cy": 27, "rx": 18, "ry": 12 },
+      "nucleus": {
+        "cx": 20,
+        "cy": 27,
+        "rx": 18,
+        "ry": 12
+      },
       "nodes": [
-        { "id": "signal1_n",    "label": "Priming Signal",          "x": 20, "y": 5,  "type": "stimulus" },
-        { "id": "signal2_n",    "label": "NLRP3 Agonist",           "x": 85, "y": 8,  "type": "stimulus" },
-        { "id": "nfkb_n",       "label": "NF-κB",                   "x": 20, "y": 14, "type": "tf"       },
-        { "id": "kbsite_n",     "label": "κB Sites",                "x": 20, "y": 27, "type": "dna"      },
-        { "id": "nlrp3_n",      "label": "NLRP3",                   "x": 65, "y": 38, "type": "complex"  },
-        { "id": "asc_n",        "label": "ASC",                     "x": 65, "y": 52, "type": "complex"  },
-        { "id": "casp1_pro_n",  "label": "Pro-Caspase-1",           "x": 65, "y": 66, "type": "complex"  },
-        { "id": "casp1_n",      "label": "Caspase-1",               "x": 65, "y": 80, "type": "kinase"   },
-        { "id": "il1b_n",       "label": "IL-1β / IL-18",           "x": 38, "y": 92, "type": "output"   },
-        { "id": "pyroptosis_n", "label": "Gasdermin D / Pyroptosis","x": 83, "y": 92, "type": "output"   }
+        {
+          "id": "signal1_n",
+          "label": "Priming Signal",
+          "x": 20,
+          "y": 5,
+          "type": "stimulus"
+        },
+        {
+          "id": "signal2_n",
+          "label": "NLRP3 Agonist",
+          "x": 85,
+          "y": 8,
+          "type": "stimulus"
+        },
+        {
+          "id": "nfkb_n",
+          "label": "NF-κB",
+          "x": 20,
+          "y": 14,
+          "type": "tf"
+        },
+        {
+          "id": "kbsite_n",
+          "label": "κB Sites",
+          "x": 20,
+          "y": 27,
+          "type": "dna"
+        },
+        {
+          "id": "nlrp3_n",
+          "label": "NLRP3",
+          "x": 65,
+          "y": 38,
+          "type": "complex"
+        },
+        {
+          "id": "asc_n",
+          "label": "ASC",
+          "x": 65,
+          "y": 52,
+          "type": "complex"
+        },
+        {
+          "id": "casp1_pro_n",
+          "label": "Pro-Caspase-1",
+          "x": 65,
+          "y": 66,
+          "type": "complex"
+        },
+        {
+          "id": "casp1_n",
+          "label": "Caspase-1",
+          "x": 65,
+          "y": 80,
+          "type": "kinase"
+        },
+        {
+          "id": "il1b_n",
+          "label": "IL-1β / IL-18",
+          "x": 38,
+          "y": 92,
+          "type": "output"
+        },
+        {
+          "id": "pyroptosis_n",
+          "label": "Gasdermin D / Pyroptosis",
+          "x": 83,
+          "y": 92,
+          "type": "output"
+        }
       ],
       "arrows": [
-        { "from": "signal1_n",   "to": "nfkb_n",      "type": "activation" },
-        { "from": "nfkb_n",      "to": "kbsite_n",    "type": "activation" },
-        { "from": "kbsite_n",    "to": "nlrp3_n",     "type": "activation" },
-        { "from": "signal2_n",   "to": "nlrp3_n",     "type": "activation" },
-        { "from": "nlrp3_n",     "to": "asc_n",       "type": "activation" },
-        { "from": "asc_n",       "to": "casp1_pro_n", "type": "activation" },
-        { "from": "casp1_pro_n", "to": "casp1_n",     "type": "activation" },
-        { "from": "casp1_n",     "to": "il1b_n",      "type": "activation" },
-        { "from": "casp1_n",     "to": "pyroptosis_n","type": "activation" }
+        {
+          "from": "signal1_n",
+          "to": "nfkb_n",
+          "type": "activation"
+        },
+        {
+          "from": "nfkb_n",
+          "to": "kbsite_n",
+          "type": "activation"
+        },
+        {
+          "from": "kbsite_n",
+          "to": "nlrp3_n",
+          "type": "activation"
+        },
+        {
+          "from": "signal2_n",
+          "to": "nlrp3_n",
+          "type": "activation"
+        },
+        {
+          "from": "nlrp3_n",
+          "to": "asc_n",
+          "type": "activation"
+        },
+        {
+          "from": "asc_n",
+          "to": "casp1_pro_n",
+          "type": "activation"
+        },
+        {
+          "from": "casp1_pro_n",
+          "to": "casp1_n",
+          "type": "activation"
+        },
+        {
+          "from": "casp1_n",
+          "to": "il1b_n",
+          "type": "activation"
+        },
+        {
+          "from": "casp1_n",
+          "to": "pyroptosis_n",
+          "type": "activation"
+        }
       ],
       "slots": [
-        { "id": "sl_n_nlrp3",           "type": "molecule", "nodeId": "nlrp3_n", "correct": "NLRP3",         "options": ["NLRP3",      "NOD2",      "STING",      "AIM2"      ] },
-        { "id": "sl_n_asc",             "type": "molecule", "nodeId": "asc_n",   "correct": "ASC",           "options": ["ASC",        "MAVS",      "TRIF",       "TRADD"     ] },
-        { "id": "sl_n_casp1",           "type": "molecule", "nodeId": "casp1_n", "correct": "Caspase-1",     "options": ["Caspase-1",  "Caspase-3", "Caspase-8",  "Granzyme B"] },
-        { "id": "sl_n_il1b",            "type": "molecule", "nodeId": "il1b_n",  "correct": "IL-1β / IL-18", "options": ["IL-1β / IL-18", "TNF-α", "IFN-γ",      "IL-6"      ] },
-        { "id": "sl_n_kbsite",          "type": "molecule", "nodeId": "kbsite_n","correct": "κB Sites",      "options": ["κB Sites",   "ISRE",      "AP-1 Site",  "NF-AT Site"] },
-        { "id": "sl_n_arr_nfkb_kbsite", "type": "arrow", "fromNodeId": "nfkb_n",   "toNodeId": "kbsite_n",  "correct": "activation", "options": ["activation","inhibition"] },
-        { "id": "sl_n_arr_sig2_nlrp3",  "type": "arrow", "fromNodeId": "signal2_n", "toNodeId": "nlrp3_n",  "correct": "activation", "options": ["activation","inhibition"] },
-        { "id": "sl_n_nt_nfkb",         "type": "nodetype", "nodeId": "nfkb_n",  "correct": "tf" }
+        {
+          "id": "sl_n_nlrp3",
+          "type": "molecule",
+          "nodeId": "nlrp3_n",
+          "correct": "NLRP3",
+          "options": [
+            "NLRP3",
+            "NOD2",
+            "STING",
+            "AIM2"
+          ]
+        },
+        {
+          "id": "sl_n_asc",
+          "type": "molecule",
+          "nodeId": "asc_n",
+          "correct": "ASC",
+          "options": [
+            "ASC",
+            "MAVS",
+            "TRIF",
+            "TRADD"
+          ]
+        },
+        {
+          "id": "sl_n_casp1",
+          "type": "molecule",
+          "nodeId": "casp1_n",
+          "correct": "Caspase-1",
+          "options": [
+            "Caspase-1",
+            "Caspase-3",
+            "Caspase-8",
+            "Granzyme B"
+          ]
+        },
+        {
+          "id": "sl_n_il1b",
+          "type": "molecule",
+          "nodeId": "il1b_n",
+          "correct": "IL-1β / IL-18",
+          "options": [
+            "IL-1β / IL-18",
+            "TNF-α",
+            "IFN-γ",
+            "IL-6"
+          ]
+        },
+        {
+          "id": "sl_n_kbsite",
+          "type": "molecule",
+          "nodeId": "kbsite_n",
+          "correct": "κB Sites",
+          "options": [
+            "κB Sites",
+            "ISRE",
+            "AP-1 Site",
+            "NF-AT Site"
+          ]
+        },
+        {
+          "id": "sl_n_arr_nfkb_kbsite",
+          "type": "arrow",
+          "fromNodeId": "nfkb_n",
+          "toNodeId": "kbsite_n",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_n_arr_sig2_nlrp3",
+          "type": "arrow",
+          "fromNodeId": "signal2_n",
+          "toNodeId": "nlrp3_n",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_n_nt_nfkb",
+          "type": "nodetype",
+          "nodeId": "nfkb_n",
+          "correct": "tf"
+        }
       ],
       "pointsPerSlot": 20,
       "penaltyPerWrong": 5,
       "bonusAllFirstTry": 25
     },
-
     {
       "id": "nod2_rip2_nfkb",
       "title": "NOD2-RIP2 → NF-κB",
@@ -261,37 +1190,203 @@
       "slotsPerRound": 2,
       "description": "NOD2 is an intracellular pattern recognition receptor that detects muramyl dipeptide (MDP), a minimal peptidoglycan fragment conserved in both Gram-positive and Gram-negative bacteria. Unlike surface TLRs, NOD2 surveys the cytoplasm for bacterial invasion or phagolysosomal escape.",
       "teachingPoint": "MDP binding causes NOD2 oligomerization, exposing its CARD domains to recruit RIP2 kinase (RIPK2) via CARD-CARD interactions. RIP2 activates TRAF6, which generates K63-linked ubiquitin chains that activate the TAK1-TAB complex. TAK1 phosphorylates IKKβ, triggering IκB degradation and NF-κB release. This drives antimicrobial peptide and cytokine expression. Loss-of-function NOD2 variants are the strongest known genetic risk factor for Crohn's disease.",
-      "nucleus": { "cx": 50, "cy": 87, "rx": 46, "ry": 12 },
+      "nucleus": {
+        "cx": 50,
+        "cy": 87,
+        "rx": 46,
+        "ry": 12
+      },
       "nodes": [
-        { "id": "mdp_nd",    "label": "MDP",                      "x": 50, "y": 4,  "type": "stimulus" },
-        { "id": "nod2_nd",   "label": "NOD2",                     "x": 50, "y": 14, "type": "receptor" },
-        { "id": "rip2_nd",   "label": "RIP2",                     "x": 50, "y": 26, "type": "kinase"   },
-        { "id": "traf6_nd",  "label": "TRAF6",                    "x": 50, "y": 38, "type": "complex"  },
-        { "id": "tak1_nd",   "label": "TAK1",                     "x": 50, "y": 50, "type": "kinase"   },
-        { "id": "ikkb_nd",   "label": "IKKβ",                     "x": 50, "y": 60, "type": "kinase"   },
-        { "id": "nfkb_nd",   "label": "NF-κB",                    "x": 50, "y": 70, "type": "tf"       },
-        { "id": "kbsite_nd", "label": "κB Sites",                 "x": 50, "y": 82, "type": "dna"      },
-        { "id": "amc_nd",    "label": "Antimicrobial Cytokines",  "x": 50, "y": 92, "type": "output"   }
+        {
+          "id": "mdp_nd",
+          "label": "MDP",
+          "x": 50,
+          "y": 4,
+          "type": "stimulus"
+        },
+        {
+          "id": "nod2_nd",
+          "label": "NOD2",
+          "x": 50,
+          "y": 14,
+          "type": "receptor"
+        },
+        {
+          "id": "rip2_nd",
+          "label": "RIP2",
+          "x": 50,
+          "y": 26,
+          "type": "kinase"
+        },
+        {
+          "id": "traf6_nd",
+          "label": "TRAF6",
+          "x": 50,
+          "y": 38,
+          "type": "complex"
+        },
+        {
+          "id": "tak1_nd",
+          "label": "TAK1",
+          "x": 50,
+          "y": 50,
+          "type": "kinase"
+        },
+        {
+          "id": "ikkb_nd",
+          "label": "IKKβ",
+          "x": 50,
+          "y": 60,
+          "type": "kinase"
+        },
+        {
+          "id": "nfkb_nd",
+          "label": "NF-κB",
+          "x": 50,
+          "y": 70,
+          "type": "tf"
+        },
+        {
+          "id": "kbsite_nd",
+          "label": "κB Sites",
+          "x": 50,
+          "y": 82,
+          "type": "dna"
+        },
+        {
+          "id": "amc_nd",
+          "label": "Antimicrobial Cytokines",
+          "x": 50,
+          "y": 92,
+          "type": "output"
+        }
       ],
       "arrows": [
-        { "from": "mdp_nd",    "to": "nod2_nd",  "type": "activation" },
-        { "from": "nod2_nd",   "to": "rip2_nd",  "type": "activation" },
-        { "from": "rip2_nd",   "to": "traf6_nd", "type": "activation" },
-        { "from": "traf6_nd",  "to": "tak1_nd",  "type": "activation" },
-        { "from": "tak1_nd",   "to": "ikkb_nd",  "type": "activation" },
-        { "from": "ikkb_nd",   "to": "nfkb_nd",  "type": "activation" },
-        { "from": "nfkb_nd",   "to": "kbsite_nd","type": "activation" },
-        { "from": "kbsite_nd", "to": "amc_nd",   "type": "activation" }
+        {
+          "from": "mdp_nd",
+          "to": "nod2_nd",
+          "type": "activation"
+        },
+        {
+          "from": "nod2_nd",
+          "to": "rip2_nd",
+          "type": "activation"
+        },
+        {
+          "from": "rip2_nd",
+          "to": "traf6_nd",
+          "type": "activation"
+        },
+        {
+          "from": "traf6_nd",
+          "to": "tak1_nd",
+          "type": "activation"
+        },
+        {
+          "from": "tak1_nd",
+          "to": "ikkb_nd",
+          "type": "activation"
+        },
+        {
+          "from": "ikkb_nd",
+          "to": "nfkb_nd",
+          "type": "activation"
+        },
+        {
+          "from": "nfkb_nd",
+          "to": "kbsite_nd",
+          "type": "activation"
+        },
+        {
+          "from": "kbsite_nd",
+          "to": "amc_nd",
+          "type": "activation"
+        }
       ],
       "slots": [
-        { "id": "sl_nd_nod2",          "type": "molecule", "nodeId": "nod2_nd",   "correct": "NOD2",     "options": ["NOD2",    "TLR4",  "NLRP3",   "RIG-I"  ] },
-        { "id": "sl_nd_rip2",          "type": "molecule", "nodeId": "rip2_nd",   "correct": "RIP2",     "options": ["RIP2",    "IRAK4", "TBK1",    "RIPK1"  ] },
-        { "id": "sl_nd_traf6",         "type": "molecule", "nodeId": "traf6_nd",  "correct": "TRAF6",    "options": ["TRAF6",   "MyD88", "ASC",     "TRADD"  ] },
-        { "id": "sl_nd_tak1",          "type": "molecule", "nodeId": "tak1_nd",   "correct": "TAK1",     "options": ["TAK1",    "TBK1",  "IKKβ",    "IKKα"   ] },
-        { "id": "sl_nd_kbsite",        "type": "molecule", "nodeId": "kbsite_nd", "correct": "κB Sites", "options": ["κB Sites","ISRE",  "AP-1 Site","Crohn's Gene"] },
-        { "id": "sl_nd_arr_nod2_rip2", "type": "arrow", "fromNodeId": "nod2_nd", "toNodeId": "rip2_nd", "correct": "activation", "options": ["activation","inhibition"] },
-        { "id": "sl_nd_nt_nod2",       "type": "nodetype", "nodeId": "nod2_nd",   "correct": "receptor" },
-        { "id": "sl_nd_nt_rip2",       "type": "nodetype", "nodeId": "rip2_nd",   "correct": "kinase"   }
+        {
+          "id": "sl_nd_nod2",
+          "type": "molecule",
+          "nodeId": "nod2_nd",
+          "correct": "NOD2",
+          "options": [
+            "NOD2",
+            "TLR4",
+            "NLRP3",
+            "RIG-I"
+          ]
+        },
+        {
+          "id": "sl_nd_rip2",
+          "type": "molecule",
+          "nodeId": "rip2_nd",
+          "correct": "RIP2",
+          "options": [
+            "RIP2",
+            "IRAK4",
+            "TBK1",
+            "RIPK1"
+          ]
+        },
+        {
+          "id": "sl_nd_traf6",
+          "type": "molecule",
+          "nodeId": "traf6_nd",
+          "correct": "TRAF6",
+          "options": [
+            "TRAF6",
+            "MyD88",
+            "ASC",
+            "TRADD"
+          ]
+        },
+        {
+          "id": "sl_nd_tak1",
+          "type": "molecule",
+          "nodeId": "tak1_nd",
+          "correct": "TAK1",
+          "options": [
+            "TAK1",
+            "TBK1",
+            "IKKβ",
+            "IKKα"
+          ]
+        },
+        {
+          "id": "sl_nd_kbsite",
+          "type": "molecule",
+          "nodeId": "kbsite_nd",
+          "correct": "κB Sites",
+          "options": [
+            "κB Sites",
+            "ISRE",
+            "AP-1 Site",
+            "Crohn's Gene"
+          ]
+        },
+        {
+          "id": "sl_nd_arr_nod2_rip2",
+          "type": "arrow",
+          "fromNodeId": "nod2_nd",
+          "toNodeId": "rip2_nd",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_nd_nt_nod2",
+          "type": "nodetype",
+          "nodeId": "nod2_nd",
+          "correct": "receptor"
+        },
+        {
+          "id": "sl_nd_nt_rip2",
+          "type": "nodetype",
+          "nodeId": "rip2_nd",
+          "correct": "kinase"
+        }
       ],
       "pointsPerSlot": 20,
       "penaltyPerWrong": 5,
