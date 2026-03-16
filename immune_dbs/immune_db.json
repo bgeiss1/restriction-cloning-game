@@ -12,7 +12,7 @@
       "renderer": "builtin",
       "difficulty": 2,
       "roundsToUnlock": 3,
-      "slotsPerRound": 2,
+      "slotsPerRound": 4,
       "description": "Type I interferons (IFN-α/β) are secreted by virally infected cells. They bind the IFNAR1/2 receptor complex on neighboring cells and activate the JAK-STAT signaling cascade, driving expression of interferon-stimulated genes (ISGs).",
       "teachingPoint": "The ISGF3 complex — composed of STAT1, STAT2, and IRF9 — translocates to the nucleus and binds ISRE elements in the promoters of ISGs, establishing a broad antiviral state in uninfected cells.",
       "nodes": [
