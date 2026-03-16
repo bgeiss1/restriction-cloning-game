@@ -576,6 +576,12 @@ function renderLevelEditor() {
   const lvl = db.levels[currentLevelIdx];
   const isBuiltin = lvl.renderer !== 'image';
 
+  // Preserve section open/closed state across re-renders
+  const sectionStates = {};
+  document.querySelectorAll('#level-editor .section[id]').forEach(sec => {
+    sectionStates[sec.id] = !sec.classList.contains('collapsed');
+  });
+
   document.getElementById('level-editor').innerHTML = `
     ${sectionHtml('settings', 'Level Settings', true, levelSettingsHtml(lvl))}
     ${isBuiltin ? sectionHtml('builtin', 'Pathway — Built-in Editor', false, builtinHtml(lvl)) : ''}
@@ -588,6 +594,13 @@ function renderLevelEditor() {
       </a>
     </div>
   `;
+
+  // Restore section open/closed states (default: open if no prior state)
+  document.querySelectorAll('#level-editor .section[id]').forEach(sec => {
+    if (sec.id in sectionStates) {
+      sec.classList.toggle('collapsed', !sectionStates[sec.id]);
+    }
+  });
 
   // Wire renderer change
   document.getElementById('f-renderer').addEventListener('change', () => {
