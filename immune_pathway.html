@@ -563,7 +563,19 @@ function renderBuiltin(lvl, area) {
     </marker>
   </defs>`;
 
-  const OFFSET = 4;
+  // Compute clearance from node center to box edge in arrow direction, plus a small gap.
+  // HALF_W / HALF_H are conservative SVG-unit estimates for typical node boxes
+  // across screen sizes (~375px phone → 1 SVG unit ≈ 3.5px; node min-width 64px ≈ 18 SVG units).
+  const HALF_W = 10;  // half-width of a node box in SVG units
+  const HALF_H = 4;   // half-height
+  const ARROW_GAP = 1.2; // extra clearance past the box edge
+
+  function arrowOffset(ux, uy) {
+    const tx = Math.abs(ux) > 0.01 ? HALF_W / Math.abs(ux) : 1e9;
+    const ty = Math.abs(uy) > 0.01 ? HALF_H / Math.abs(uy) : 1e9;
+    return Math.min(tx, ty) + ARROW_GAP;
+  }
+
   lvl.arrows.forEach(arrow => {
     // Arrow slots show only a ? badge — skip drawing the SVG line
     if (slotArrowKeys.has(arrow.from + '→' + arrow.to)) return;
@@ -573,10 +585,16 @@ function renderBuiltin(lvl, area) {
     const dx = t.x - s.x, dy = t.y - s.y;
     const len = Math.sqrt(dx*dx + dy*dy) || 1;
     const ux = dx/len, uy = dy/len;
+
+    // Clamp so the visible line segment is at least 0.5 SVG units
+    const off = arrowOffset(ux, uy);
+    const safeOff = Math.min(off, (len - 0.5) / 2);
+    if (safeOff <= 0) return;
+
     const isAct = arrow.type === 'activation';
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', s.x + ux*OFFSET); line.setAttribute('y1', s.y + uy*OFFSET);
-    line.setAttribute('x2', t.x - ux*OFFSET); line.setAttribute('y2', t.y - uy*OFFSET);
+    line.setAttribute('x1', s.x + ux*safeOff); line.setAttribute('y1', s.y + uy*safeOff);
+    line.setAttribute('x2', t.x - ux*safeOff); line.setAttribute('y2', t.y - uy*safeOff);
     line.setAttribute('stroke', isAct ? 'rgba(168,197,160,0.55)' : 'rgba(239,83,80,0.6)');
     line.setAttribute('stroke-width', '0.6');
     line.setAttribute('marker-end', isAct ? 'url(#act-head)' : 'url(#inh-head)');
