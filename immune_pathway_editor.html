@@ -998,22 +998,30 @@ function renderBuiltinPreview() {
   svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;';
   svg.innerHTML = `<defs>
     <marker id="pe-act" viewBox="0 0 10 10" refX="9" refY="5"
-      markerUnits="userSpaceOnUse" markerWidth="4" markerHeight="3" orient="auto">
+      markerUnits="userSpaceOnUse" markerWidth="2" markerHeight="1.5" orient="auto">
       <path d="M0,0 L10,5 L0,10 Z" fill="rgba(168,197,160,0.75)"/></marker>
     <marker id="pe-inh" viewBox="0 0 4 10" refX="1" refY="5"
-      markerUnits="userSpaceOnUse" markerWidth="3" markerHeight="4" orient="auto">
+      markerUnits="userSpaceOnUse" markerWidth="1.5" markerHeight="2.5" orient="auto">
       <line x1="1" y1="0" x2="1" y2="10" stroke="rgba(239,83,80,0.8)" stroke-width="1.5"/></marker>
   </defs>`;
-  const OFF = 4.5;
+  const PE_HALF_W = 10, PE_HALF_H = 4, PE_GAP = 1.2;
+  function peArrowOffset(ux, uy) {
+    const tx = Math.abs(ux) > 0.01 ? PE_HALF_W / Math.abs(ux) : 1e9;
+    const ty = Math.abs(uy) > 0.01 ? PE_HALF_H / Math.abs(uy) : 1e9;
+    return Math.min(tx, ty) + PE_GAP;
+  }
   (lvl.arrows||[]).forEach(arrow => {
     const s = nodeMap[arrow.from], t = nodeMap[arrow.to];
     if (!s || !t) return;
     const dx=t.x-s.x, dy=t.y-s.y, len=Math.sqrt(dx*dx+dy*dy)||1;
     const ux=dx/len, uy=dy/len;
+    const off = peArrowOffset(ux, uy);
+    const safeOff = Math.min(off, (len - 0.5) / 2);
+    if (safeOff <= 0) return;
     const isAct = arrow.type !== 'inhibition';
     const line = document.createElementNS('http://www.w3.org/2000/svg','line');
-    line.setAttribute('x1',s.x+ux*OFF); line.setAttribute('y1',s.y+uy*OFF);
-    line.setAttribute('x2',t.x-ux*OFF); line.setAttribute('y2',t.y-uy*OFF);
+    line.setAttribute('x1',s.x+ux*safeOff); line.setAttribute('y1',s.y+uy*safeOff);
+    line.setAttribute('x2',t.x-ux*safeOff); line.setAttribute('y2',t.y-uy*safeOff);
     line.setAttribute('stroke', isAct ? 'rgba(168,197,160,0.55)' : 'rgba(239,83,80,0.6)');
     line.setAttribute('stroke-width','0.6');
     line.setAttribute('marker-end', isAct ? 'url(#pe-act)' : 'url(#pe-inh)');
