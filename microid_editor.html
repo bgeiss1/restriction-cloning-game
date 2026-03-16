@@ -394,8 +394,8 @@ input[type=number] { width: 80px; }
       <span id="dirty" class="hidden">● Unsaved changes</span>
       <button class="btn-secondary" onclick="newOrganism()">+ Organism</button>
       <button class="btn-secondary" onclick="saveDB()">⬇ Download</button>
-      <button class="btn-publish" id="btn-update-game" onclick="updateGameDatabase()" style="display:none;">▶ Update Game DB</button>
       <button class="btn-primary" id="publish-btn" onclick="publishToGitHub()" style="display:none;">Save Database</button>
+      <button class="btn-publish" id="btn-update-game" onclick="updateGameDatabase()" style="display:none;">Load Current Database into Game</button>
       <a href="index.html" style="text-decoration:none;">
         <button class="btn-secondary" style="padding:7px 12px;">← Menu</button>
       </a>
@@ -733,12 +733,12 @@ async function updateGameDatabase() {
     if (currentFilename === gameFile) currentSha = data.content.sha;
 
     btn.textContent = '✓ Game Updated!';
-    setTimeout(() => { btn.textContent = '▶ Update Game DB'; }, 2500);
+    setTimeout(() => { btn.textContent = 'Load Current Database into Game'; }, 2500);
   } catch (err) {
     alert('Failed: ' + err.message);
   } finally {
     btn.disabled = false;
-    if (btn.textContent === 'Updating…') btn.textContent = '▶ Update Game DB';
+    if (btn.textContent === 'Updating…') btn.textContent = 'Load Current Database into Game';
   }
 }
 
