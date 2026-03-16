@@ -971,8 +971,8 @@
         {
           "id": "signal1_n",
           "label": "Priming Signal",
-          "x": 20,
-          "y": 5,
+          "x": 57,
+          "y": 7,
           "type": "stimulus"
         },
         {
@@ -985,8 +985,8 @@
         {
           "id": "nfkb_n",
           "label": "NF-κB",
-          "x": 20,
-          "y": 14,
+          "x": 22,
+          "y": 7,
           "type": "tf"
         },
         {
