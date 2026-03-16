@@ -814,7 +814,7 @@ function renderDbPanel() {
   }
   list.innerHTML = dbFiles.map(f =>
     `<div class="db-item${f === currentFilename ? ' active' : ''}" onclick="switchDb('${esc(f)}')">
-       <span class="db-item-dot"></span>${esc(f.replace(/\.json$/i, ''))}
+       <span class="db-item-dot"></span>${esc(f === 'master.json' ? 'Organism Bank' : f.replace(/\.json$/i, ''))}
      </div>`
   ).join('');
 }
@@ -827,7 +827,7 @@ function updateFilenameDisplay() {
       : isChildDb()
         ? '<span class="child-mode-badge">CHILD</span>'
         : '';
-    el.innerHTML = esc(currentFilename) + badge;
+    el.innerHTML = esc(isMasterDb() ? 'Organism Bank' : currentFilename) + badge;
   }
   renderDbPanel();
 }
