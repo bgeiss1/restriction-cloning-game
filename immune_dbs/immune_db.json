@@ -281,9 +281,9 @@
       "teachingPoint": "MAVS forms prion-like filaments on the mitochondria that amplify signaling to the TBK1 kinase. TBK1 phosphorylates IRF3 at multiple C-terminal serine residues, causing IRF3 homodimerization and nuclear translocation to drive IFN-β transcription. This axis is essential for innate defense against RNA viruses including influenza, Sendai virus, and SARS-CoV-2.",
       "nucleus": {
         "cx": 50,
-        "cy": 80,
-        "rx": 46,
-        "ry": 18
+        "cy": 88,
+        "rx": 65,
+        "ry": 24
       },
       "nodes": [
         {
@@ -469,9 +469,9 @@
       "teachingPoint": "Upon cGAMP binding, STING dimerizes and translocates from the ER to the Golgi, where it recruits TBK1. TBK1 phosphorylates IRF3 to drive IFN-β production. STING simultaneously activates NF-κB via IKKβ, producing pro-inflammatory cytokines. This pathway defends against DNA viruses (HSV-1, vaccinia) and intracellular bacteria, and causes autoimmunity when cytosolic self-DNA accumulates (e.g., STING-associated vasculopathy, lupus).",
       "nucleus": {
         "cx": 50,
-        "cy": 78,
-        "rx": 47,
-        "ry": 18
+        "cy": 88,
+        "rx": 67,
+        "ry": 29
       },
       "nodes": [
         {
@@ -722,9 +722,9 @@
       "teachingPoint": "MyD88 recruits IRAK4, which phosphorylates IRAK1, activating TRAF6. TRAF6 generates K63-linked ubiquitin chains that activate IKKβ. IKKβ phosphorylates IκBα (marking it for proteasomal degradation), releasing NF-κB (p50/RelA) to drive transcription of TNF-α, IL-6, and IL-12. Note: IKKβ inhibits IκBα, and IκBα normally inhibits NF-κB — so the net effect of IKKβ is NF-κB activation.",
       "nucleus": {
         "cx": 50,
-        "cy": 85,
-        "rx": 46,
-        "ry": 13
+        "cy": 94,
+        "rx": 66,
+        "ry": 19
       },
       "nodes": [
         {
