@@ -715,7 +715,7 @@ function builtinHtml(lvl) {
     </div>
     <div id="preview-wrap"><div id="preview-area"></div></div>
 
-    <div class="section collapsed" style="background:transparent;border-color:rgba(200,169,81,0.15);">
+    <div id="sec-nodes" class="section collapsed" style="background:transparent;border-color:rgba(200,169,81,0.15);">
       <div class="section-title" onclick="toggleSection(this.closest('.section'))" style="background:rgba(30,77,43,0.5);">
         <span>Nodes (${nodes.length}) <span class="section-chevron">▼</span></span>
         <button class="btn-small" onclick="event.stopPropagation();addNode()">＋ Add Node</button>
@@ -723,7 +723,7 @@ function builtinHtml(lvl) {
       <div class="section-body" id="nodes-body">${nodesRows}</div>
     </div>
 
-    <div class="section collapsed" style="background:transparent;border-color:rgba(200,169,81,0.15);">
+    <div id="sec-arrows" class="section collapsed" style="background:transparent;border-color:rgba(200,169,81,0.15);">
       <div class="section-title" onclick="toggleSection(this.closest('.section'))" style="background:rgba(30,77,43,0.5);">
         <span>Arrows (${arrows.length}) <span class="section-chevron">▼</span></span>
       </div>
