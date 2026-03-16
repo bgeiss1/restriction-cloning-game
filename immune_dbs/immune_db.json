@@ -17,9 +17,9 @@
       "teachingPoint": "The ISGF3 complex — composed of STAT1, STAT2, and IRF9 — translocates to the nucleus and binds ISRE elements in the promoters of ISGs, establishing a broad antiviral state in uninfected cells.",
       "nucleus": {
         "cx": 50,
-        "cy": 75,
-        "rx": 43,
-        "ry": 22
+        "cy": 81,
+        "rx": 77,
+        "ry": 25
       },
       "nodes": [
         {
@@ -1191,10 +1191,10 @@
       "description": "NOD2 is an intracellular pattern recognition receptor that detects muramyl dipeptide (MDP), a minimal peptidoglycan fragment conserved in both Gram-positive and Gram-negative bacteria. Unlike surface TLRs, NOD2 surveys the cytoplasm for bacterial invasion or phagolysosomal escape.",
       "teachingPoint": "MDP binding causes NOD2 oligomerization, exposing its CARD domains to recruit RIP2 kinase (RIPK2) via CARD-CARD interactions. RIP2 activates TRAF6, which generates K63-linked ubiquitin chains that activate the TAK1-TAB complex. TAK1 phosphorylates IKKβ, triggering IκB degradation and NF-κB release. This drives antimicrobial peptide and cytokine expression. Loss-of-function NOD2 variants are the strongest known genetic risk factor for Crohn's disease.",
       "nucleus": {
-        "cx": 50,
-        "cy": 87,
-        "rx": 46,
-        "ry": 12
+        "cx": 51,
+        "cy": 91,
+        "rx": 99,
+        "ry": 16
       },
       "nodes": [
         {
