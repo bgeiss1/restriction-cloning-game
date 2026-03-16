@@ -198,6 +198,16 @@ body {
 .arrow-slot.correct { border:2px solid var(--success); color:var(--success); cursor:default; background:rgba(0,0,0,0.65); }
 .arrow-slot.locked  { border:2px solid var(--danger); color:var(--danger); cursor:default; }
 
+/* Node-type slots */
+.node-unknown { background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.22) !important; color:var(--text-muted) !important; }
+.type-q { cursor:pointer; }
+.type-sub { display:block; font-size:0.58rem; font-weight:600; color:var(--gold); margin-top:2px; letter-spacing:0.02em; }
+.type-q:hover { opacity:0.8; }
+.type-q.active { box-shadow:0 0 0 3px rgba(200,169,81,0.45); }
+.type-q.correct .type-sub { color:inherit; }
+.type-q.locked { border-color:var(--danger) !important; color:var(--danger) !important; cursor:default; }
+.type-q.locked .type-sub { color:var(--danger); }
+
 /* ── PICKER PANEL ── */
 #pickerPanel {
   position:fixed; bottom:0; left:0; right:0; z-index:50;
@@ -536,12 +546,15 @@ function renderBuiltin(lvl, area) {
   const nodeMap = {};
   lvl.nodes.forEach(n => { nodeMap[n.id] = n; });
 
-  // Separate active slots into molecule slots (by nodeId) and arrow slots (by from→to key)
+  // Separate active slots into molecule slots, nodetype slots, and arrow slots
   const slotByNode = {};
+  const typeSlotByNode = {};
   const slotArrowKeys = new Set();
   activeSlots.forEach(s => {
     if (s.slot.type === 'arrow') {
       slotArrowKeys.add(s.slot.fromNodeId + '→' + s.slot.toNodeId);
+    } else if (s.slot.type === 'nodetype' && s.slot.nodeId) {
+      typeSlotByNode[s.slot.nodeId] = s;
     } else if (s.slot.nodeId) {
       slotByNode[s.slot.nodeId] = s;
     }
@@ -602,9 +615,12 @@ function renderBuiltin(lvl, area) {
   });
   area.appendChild(svg);
 
-  // Nodes / molecule slots
+  // Nodes / molecule slots / nodetype slots
+  const NODE_TYPE_LABELS = {stimulus:'Signal',receptor:'Receptor',kinase:'Kinase',
+    tf:'Transcription Factor',complex:'Complex',dna:'Promoter (DNA)',output:'Output',inhibitor:'Inhibitor'};
   lvl.nodes.forEach(node => {
     const ss = slotByNode[node.id];
+    const tss = typeSlotByNode[node.id];
     const el = document.createElement('div');
     el.style.cssText = `position:absolute;left:${node.x}%;top:${node.y}%;transform:translate(-50%,-50%);z-index:2;`;
     if (ss) {
@@ -612,6 +628,19 @@ function renderBuiltin(lvl, area) {
       el.className = 'pathway-slot' + (ss.locked ? ' locked' : '') + (ss.filled ? ' correct' : '');
       el.textContent = ss.locked ? '✕' : ss.filled ? ss.slot.correct : '?';
       if (!ss.filled && !ss.locked) el.addEventListener('click', () => tapSlot(ss.slot.id));
+    } else if (tss) {
+      el.id = 'slot-' + tss.slot.id;
+      if (tss.locked) {
+        el.className = 'pathway-node node-unknown type-q locked';
+        el.innerHTML = escHtml(node.label) + '<span class="type-sub">✕</span>';
+      } else if (tss.filled) {
+        el.className = 'pathway-node node-' + (tss.slot.correct || node.type || 'default') + ' type-q correct';
+        el.innerHTML = escHtml(node.label) + '<span class="type-sub">' + escHtml(NODE_TYPE_LABELS[tss.slot.correct] || tss.slot.correct) + '</span>';
+      } else {
+        el.className = 'pathway-node node-unknown type-q';
+        el.innerHTML = escHtml(node.label) + '<span class="type-sub">Type?</span>';
+        el.addEventListener('click', () => tapSlot(tss.slot.id));
+      }
     } else {
       el.className = 'pathway-node node-' + (node.type || 'default');
       el.textContent = node.label;
@@ -682,21 +711,32 @@ function tapSlot(slotId) {
   selectedSlotId = slotId;
 
   // Remove previous active styling
-  document.querySelectorAll('.pathway-slot, .arrow-slot').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.pathway-slot, .arrow-slot, .type-q').forEach(el => el.classList.remove('active'));
   const slotEl = document.getElementById('slot-' + slotId);
   if (slotEl) slotEl.classList.add('active');
 
   // Populate picker
   const slot = ss.slot;
   const isArrow = slot.type === 'arrow';
-  document.getElementById('pickerLabel').textContent =
-    isArrow ? 'Select relationship:' : 'Identify molecule:';
+  const isNodeType = slot.type === 'nodetype';
+  const ntLabels = {stimulus:'Signal',receptor:'Receptor',kinase:'Kinase',
+    tf:'Transcription Factor',complex:'Complex',dna:'Promoter (DNA)',output:'Output',inhibitor:'Inhibitor'};
+  if (isArrow) {
+    document.getElementById('pickerLabel').textContent = 'Select relationship:';
+  } else if (isNodeType) {
+    const node = (currentLevel.nodes || []).find(n => n.id === slot.nodeId);
+    document.getElementById('pickerLabel').textContent = 'What type is ' + (node ? node.label : slot.nodeId) + '?';
+  } else {
+    document.getElementById('pickerLabel').textContent = 'Identify molecule:';
+  }
 
-  const opts = slot.options || [];
+  const defaultNtOpts = ['stimulus','receptor','kinase','tf','complex','dna'];
+  const opts = slot.options || (isNodeType ? defaultNtOpts : []);
   const pickerOptions = document.getElementById('pickerOptions');
-  pickerOptions.innerHTML = opts.map((opt, i) => {
+  pickerOptions.innerHTML = opts.map((opt) => {
     const label = isArrow
       ? (opt === 'activation' ? '→ Activation' : '⊣ Inhibition')
+      : isNodeType ? (ntLabels[opt] || opt)
       : opt;
     return `<button class="picker-btn" data-val="${escHtml(opt)}">${escHtml(label)}</button>`;
   }).join('');
@@ -710,7 +750,7 @@ function tapSlot(slotId) {
 
 function closePicker() {
   document.getElementById('pickerPanel').classList.remove('open');
-  document.querySelectorAll('.pathway-slot, .arrow-slot').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.pathway-slot, .arrow-slot, .type-q').forEach(el => el.classList.remove('active'));
   selectedSlotId = null;
 }
 
@@ -736,10 +776,19 @@ function handleCorrect(ss) {
   if (slotEl) {
     slotEl.classList.remove('active');
     slotEl.classList.add('correct');
-    slotEl.classList.remove('pathway-slot');
-    slotEl.textContent = ss.slot.type === 'arrow'
-      ? (ss.slot.correct === 'activation' ? '→' : '⊣')
-      : ss.slot.correct;
+    if (ss.slot.type === 'nodetype') {
+      const node = (currentLevel.nodes || []).find(n => n.id === ss.slot.nodeId);
+      const ntLabels = {stimulus:'Signal',receptor:'Receptor',kinase:'Kinase',
+        tf:'Transcription Factor',complex:'Complex',dna:'Promoter (DNA)',output:'Output',inhibitor:'Inhibitor'};
+      slotEl.className = 'pathway-node node-' + (ss.slot.correct || 'default') + ' type-q correct';
+      slotEl.innerHTML = escHtml(node ? node.label : ss.slot.nodeId)
+        + '<span class="type-sub">' + escHtml(ntLabels[ss.slot.correct] || ss.slot.correct) + '</span>';
+    } else if (ss.slot.type === 'arrow') {
+      slotEl.textContent = ss.slot.correct === 'activation' ? '→' : '⊣';
+    } else {
+      slotEl.classList.remove('pathway-slot');
+      slotEl.textContent = ss.slot.correct;
+    }
     slotEl.style.cursor = 'default';
   }
 
@@ -754,6 +803,7 @@ function handleCorrect(ss) {
 
 function handleWrong(ss, btnEl) {
   const lvl = currentLevel;
+  const lockThreshold = ss.slot.type === 'arrow' ? 1 : 3;
   score = Math.max(0, score - (lvl.penaltyPerWrong || 5));
   ss.wrongCount++;
   ss.firstTry = false;
@@ -771,12 +821,13 @@ function handleWrong(ss, btnEl) {
   updateHeader();
   updateWrongCount(ss);
 
-  if (ss.wrongCount >= 3) {
+  if (ss.wrongCount >= lockThreshold) {
     ss.locked = true;
     const slotEl = document.getElementById('slot-' + ss.slot.id);
     if (slotEl) { slotEl.classList.add('locked'); slotEl.textContent = '✕'; }
     closePicker();
-    showToast('3 wrong — restarting level!', 'danger', 2200);
+    const wrongMsg = lockThreshold === 1 ? '1 wrong — restarting level!' : `${lockThreshold} wrong — restarting level!`;
+    showToast(wrongMsg, 'danger', 2200);
     setTimeout(() => {
       roundsCompleted = 0;
       score = 0;
@@ -788,7 +839,8 @@ function handleWrong(ss, btnEl) {
 function updateWrongCount(ss) {
   const el = document.getElementById('wrongCountRow');
   if (!el) return;
-  const remaining = 3 - ss.wrongCount;
+  const lockThreshold = ss.slot.type === 'arrow' ? 1 : 3;
+  const remaining = lockThreshold - ss.wrongCount;
   el.textContent = ss.wrongCount > 0
     ? `${ss.wrongCount} wrong — ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining before restart`
     : '';

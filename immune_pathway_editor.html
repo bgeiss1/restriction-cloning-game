@@ -794,9 +794,11 @@ function slotsHtml(lvl) {
   const slotCards = slots.map((s, i) => {
     const isMol = s.type === 'molecule';
     const isArr = s.type === 'arrow';
+    const isNT  = s.type === 'nodetype';
+    const typeLabel = isMol ? 'Molecule' : isArr ? 'Arrow' : isNT ? 'Node Type' : s.type;
     return `<div class="row-card${s.id===selectedSlotId?' selected-card':''}">
       <div class="row-card-header">
-        <span class="row-label">${esc(s.id||'(no id)')} — ${isMol?'Molecule':'Arrow'}</span>
+        <span class="row-label">${esc(s.id||'(no id)')} — ${typeLabel}</span>
         <button class="btn-small" onclick="toggleSlotEdit('${esc(s.id)}')">Edit</button>
         <button class="btn-danger" onclick="deleteSlot('${esc(s.id)}')">✕</button>
       </div>
@@ -808,9 +810,10 @@ function slotsHtml(lvl) {
             <select onchange="updateSlot(${i},'type',this.value)">
               <option value="molecule" ${s.type==='molecule'?'selected':''}>Molecule</option>
               <option value="arrow"    ${s.type==='arrow'?'selected':''}>Arrow</option>
+              <option value="nodetype" ${s.type==='nodetype'?'selected':''}>Node Type</option>
             </select></div>
         </div>
-        ${isMol && isBuiltin ? `<div class="field"><label>Node ID</label>
+        ${(isMol || isNT) && isBuiltin ? `<div class="field"><label>Node ID</label>
           <select onchange="updateSlot(${i},'nodeId',this.value)">
             <option value="">— select node —</option>${nodeOptions}
           </select></div>` : ''}
@@ -831,11 +834,21 @@ function slotsHtml(lvl) {
             ${isArr ? `<select onchange="updateSlot(${i},'correct',this.value)">
               <option value="activation" ${s.correct==='activation'?'selected':''}>→ Activation</option>
               <option value="inhibition" ${s.correct==='inhibition'?'selected':''}>⊣ Inhibition</option>
+            </select>` : isNT ? `<select onchange="updateSlot(${i},'correct',this.value)">
+              <option value="">— select type —</option>
+              <option value="stimulus"  ${s.correct==='stimulus'?'selected':''}>Signal</option>
+              <option value="receptor"  ${s.correct==='receptor'?'selected':''}>Receptor</option>
+              <option value="kinase"    ${s.correct==='kinase'?'selected':''}>Kinase</option>
+              <option value="tf"        ${s.correct==='tf'?'selected':''}>Transcription Factor</option>
+              <option value="complex"   ${s.correct==='complex'?'selected':''}>Complex</option>
+              <option value="dna"       ${s.correct==='dna'?'selected':''}>Promoter (DNA)</option>
+              <option value="output"    ${s.correct==='output'?'selected':''}>Output</option>
+              <option value="inhibitor" ${s.correct==='inhibitor'?'selected':''}>Inhibitor</option>
             </select>` : `<input type="text" value="${esc(s.correct||'')}" placeholder="exact molecule name"
               oninput="updateSlot(${i},'correct',this.value)">`}
           </div>
         </div>
-        <div class="field full"><label>Options (player choices)</label>
+        ${isNT ? `<p style="font-size:0.8rem;color:var(--muted);margin:0;">Node Type slots use fixed options (Signal / Receptor / Kinase / Transcription Factor / Complex / Promoter). No need to add options manually.</p>` : `<div class="field full"><label>Options (player choices)</label>
           <div class="tag-list" id="slot-opts-${esc(s.id)}">
             ${(s.options||[]).map((o,oi)=>
               `<span class="tag">${esc(o)}<span class="tag-del" onclick="removeSlotOption(${i},${oi})">×</span></span>`
@@ -846,7 +859,7 @@ function slotsHtml(lvl) {
               onkeydown="if(event.key==='Enter'){addSlotOption(${i});event.preventDefault();}">
             <button class="btn-small" onclick="addSlotOption(${i})">Add</button>
           </div>
-        </div>
+        </div>`}
       </div>
     </div>`;
   }).join('') || `<span style="color:var(--muted);font-size:0.85rem;">No slots defined. Add one below.</span>`;
