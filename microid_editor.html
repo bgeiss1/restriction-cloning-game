@@ -619,7 +619,7 @@ async function connectWithPat(pat, silent) {
     const data = await githubGet(pat, currentFilename);
     sessionStorage.setItem('microid_editor_pat', pat);
     currentSha = data.sha;
-    const json = atob(data.content.replace(/\n/g, ''));
+    const json = b64decode(data.content);
     db = JSON.parse(json);
     if (!db.meta) db.meta = {};
     if (!db.organisms) db.organisms = [];
@@ -654,6 +654,9 @@ async function connectWithPat(pat, silent) {
 // ═══════════════════════════════════════════════════════════════════════
 //  GITHUB API
 // ═══════════════════════════════════════════════════════════════════════
+// Decode base64 content from GitHub API preserving UTF-8 (handles α β etc.)
+function b64decode(str) { return decodeURIComponent(escape(atob(str.replace(/\n/g, '')))); }
+
 async function githubGet(pat, filename) {
   filename = filename || currentFilename;
   const resp = await fetch(githubFileApi(filename), {
@@ -760,7 +763,7 @@ async function switchDb(filename) {
     const data = await githubGet(pat, filename);
     currentFilename = filename;
     currentSha = data.sha;
-    db = JSON.parse(atob(data.content.replace(/\n/g, '')));
+    db = JSON.parse(b64decode(data.content));
     if (!db.meta) db.meta = {};
     if (!db.organisms) db.organisms = [];
     if (!db.questions) db.questions = [];
@@ -1469,7 +1472,7 @@ function isMasterDb() { return currentFilename === 'master.json'; }
 async function ensureMaster(pat) {
   if (masterCache) return masterCache;
   const data = await githubGet(pat, 'master.json');
-  const master = JSON.parse(atob(data.content.replace(/\n/g, '')));
+  const master = JSON.parse(b64decode(data.content));
   masterCache = master.organisms || [];
   return masterCache;
 }
