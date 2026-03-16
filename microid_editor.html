@@ -814,7 +814,7 @@ function renderDbPanel() {
   }
   list.innerHTML = dbFiles.map(f =>
     `<div class="db-item${f === currentFilename ? ' active' : ''}" onclick="switchDb('${esc(f)}')">
-       <span class="db-item-dot"></span>${esc(f)}
+       <span class="db-item-dot"></span>${esc(f.replace(/\.json$/i, ''))}
      </div>`
   ).join('');
 }
