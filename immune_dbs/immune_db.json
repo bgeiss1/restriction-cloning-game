@@ -276,7 +276,7 @@
       "renderer": "builtin",
       "difficulty": 2,
       "roundsToUnlock": 3,
-      "slotsPerRound": 2,
+      "slotsPerRound": 4,
       "description": "Cytosolic viral RNA — including short double-stranded RNA and 5'-triphosphate single-stranded RNA — is sensed by the helicase RIG-I (encoded by DDX58). Binding exposes RIG-I's CARD domains, which signal through MAVS (Mitochondrial Antiviral Signaling protein) anchored on the mitochondrial outer membrane.",
       "teachingPoint": "MAVS forms prion-like filaments on the mitochondria that amplify signaling to the TBK1 kinase. TBK1 phosphorylates IRF3 at multiple C-terminal serine residues, causing IRF3 homodimerization and nuclear translocation to drive IFN-β transcription. This axis is essential for innate defense against RNA viruses including influenza, Sendai virus, and SARS-CoV-2.",
       "nucleus": {
@@ -464,7 +464,7 @@
       "renderer": "builtin",
       "difficulty": 3,
       "roundsToUnlock": 3,
-      "slotsPerRound": 2,
+      "slotsPerRound": 4,
       "description": "Cytosolic double-stranded DNA — from viruses, intracellular bacteria, or damaged host cells — is detected by cGAS (cyclic GMP-AMP synthase). cGAS catalyzes synthesis of the second messenger 2'3'-cGAMP, which binds and activates STING (Stimulator of Interferon Genes) at the endoplasmic reticulum membrane.",
       "teachingPoint": "Upon cGAMP binding, STING dimerizes and translocates from the ER to the Golgi, where it recruits TBK1. TBK1 phosphorylates IRF3 to drive IFN-β production. STING simultaneously activates NF-κB via IKKβ, producing pro-inflammatory cytokines. This pathway defends against DNA viruses (HSV-1, vaccinia) and intracellular bacteria, and causes autoimmunity when cytosolic self-DNA accumulates (e.g., STING-associated vasculopathy, lupus).",
       "nucleus": {
@@ -717,7 +717,7 @@
       "renderer": "builtin",
       "difficulty": 2,
       "roundsToUnlock": 4,
-      "slotsPerRound": 2,
+      "slotsPerRound": 4,
       "description": "Lipopolysaccharide (LPS), a structural component of the Gram-negative bacterial outer membrane, is recognized at the cell surface by TLR4 in complex with MD-2. LPS binding drives TLR4 dimerization and cytoplasmic recruitment of the adaptor MyD88 via TIR domain–TIR domain interactions.",
       "teachingPoint": "MyD88 recruits IRAK4, which phosphorylates IRAK1, activating TRAF6. TRAF6 generates K63-linked ubiquitin chains that activate IKKβ. IKKβ phosphorylates IκBα (marking it for proteasomal degradation), releasing NF-κB (p50/RelA) to drive transcription of TNF-α, IL-6, and IL-12. Note: IKKβ inhibits IκBα, and IκBα normally inhibits NF-κB — so the net effect of IKKβ is NF-κB activation.",
       "nucleus": {
@@ -958,7 +958,7 @@
       "renderer": "builtin",
       "difficulty": 3,
       "roundsToUnlock": 3,
-      "slotsPerRound": 2,
+      "slotsPerRound": 4,
       "description": "The NLRP3 inflammasome requires two sequential signals. Signal 1 (priming) — such as LPS/TLR4 — activates NF-κB to induce transcription of NLRP3 and pro-IL-1β. Signal 2 (activation) — NLRP3 agonists including extracellular ATP, monosodium urate crystals, cholesterol crystals, and pore-forming toxins — triggers NLRP3 oligomerization.",
       "teachingPoint": "Oligomerized NLRP3 recruits the adaptor ASC via PYD-PYD interactions. ASC in turn recruits pro-caspase-1 via CARD-CARD interactions, causing proximity-induced autoactivation. Active caspase-1 cleaves pro-IL-1β and pro-IL-18 into their secreted forms, and cleaves gasdermin D to initiate pyroptosis — a lytic, inflammatory cell death. This pathway is central to antibacterial defense and is implicated in gout, atherosclerosis, and metabolic syndrome.",
       "nucleus": {
@@ -1187,7 +1187,7 @@
       "renderer": "builtin",
       "difficulty": 3,
       "roundsToUnlock": 3,
-      "slotsPerRound": 2,
+      "slotsPerRound": 4,
       "description": "NOD2 is an intracellular pattern recognition receptor that detects muramyl dipeptide (MDP), a minimal peptidoglycan fragment conserved in both Gram-positive and Gram-negative bacteria. Unlike surface TLRs, NOD2 surveys the cytoplasm for bacterial invasion or phagolysosomal escape.",
       "teachingPoint": "MDP binding causes NOD2 oligomerization, exposing its CARD domains to recruit RIP2 kinase (RIPK2) via CARD-CARD interactions. RIP2 activates TRAF6, which generates K63-linked ubiquitin chains that activate the TAK1-TAB complex. TAK1 phosphorylates IKKβ, triggering IκB degradation and NF-κB release. This drives antimicrobial peptide and cytokine expression. Loss-of-function NOD2 variants are the strongest known genetic risk factor for Crohn's disease.",
       "nucleus": {
