@@ -8,47 +8,256 @@
     {
       "id": "ifn_alpha_1",
       "title": "Type I IFN Signaling",
-      "pathway": "IFN-α/β → JAK-STAT Cascade",
+      "pathway": "IFN-Î±/Î² â JAK-STAT Cascade",
       "renderer": "builtin",
       "difficulty": 2,
       "roundsToUnlock": 3,
       "slotsPerRound": 2,
-      "description": "Type I interferons (IFN-α/β) are secreted by virally infected cells. They bind the IFNAR1/2 receptor complex on neighboring cells and activate the JAK-STAT signaling cascade, driving expression of interferon-stimulated genes (ISGs).",
-      "teachingPoint": "The ISGF3 complex — composed of STAT1, STAT2, and IRF9 — translocates to the nucleus and binds ISRE elements in the promoters of ISGs, establishing a broad antiviral state in uninfected cells.",
+      "description": "Type I interferons (IFN-Î±/Î²) are secreted by virally infected cells. They bind the IFNAR1/2 receptor complex on neighboring cells and activate the JAK-STAT signaling cascade, driving expression of interferon-stimulated genes (ISGs).",
+      "teachingPoint": "The ISGF3 complex â composed of STAT1, STAT2, and IRF9 â translocates to the nucleus and binds ISRE elements in the promoters of ISGs, establishing a broad antiviral state in uninfected cells.",
       "nodes": [
-        { "id": "ifnab",  "label": "IFN-α/β",  "x": 50, "y": 5,  "type": "stimulus" },
-        { "id": "ifnar",  "label": "IFNAR1/2", "x": 50, "y": 17, "type": "receptor" },
-        { "id": "jak1",   "label": "JAK1",     "x": 22, "y": 29, "type": "kinase" },
-        { "id": "tyk2",   "label": "TYK2",     "x": 78, "y": 29, "type": "kinase" },
-        { "id": "stat1",  "label": "STAT1",    "x": 22, "y": 43, "type": "tf" },
-        { "id": "stat2",  "label": "STAT2",    "x": 78, "y": 43, "type": "tf" },
-        { "id": "irf9",   "label": "IRF9",     "x": 81, "y": 56, "type": "tf" },
-        { "id": "isgf3",  "label": "ISGF3",   "x": 50, "y": 63, "type": "complex" },
-        { "id": "isre",   "label": "ISRE",     "x": 50, "y": 76, "type": "dna" },
-        { "id": "isgs",   "label": "ISGs",     "x": 50, "y": 89, "type": "output" }
+        {
+          "id": "ifnab",
+          "label": "IFN-Î±/Î²",
+          "x": 50,
+          "y": 5,
+          "type": "stimulus"
+        },
+        {
+          "id": "ifnar",
+          "label": "IFNAR1/2",
+          "x": 50,
+          "y": 17,
+          "type": "receptor"
+        },
+        {
+          "id": "jak1",
+          "label": "JAK1",
+          "x": 22,
+          "y": 29,
+          "type": "kinase"
+        },
+        {
+          "id": "tyk2",
+          "label": "TYK2",
+          "x": 78,
+          "y": 29,
+          "type": "kinase"
+        },
+        {
+          "id": "stat1",
+          "label": "STAT1",
+          "x": 22,
+          "y": 43,
+          "type": "tf"
+        },
+        {
+          "id": "stat2",
+          "label": "STAT2",
+          "x": 78,
+          "y": 43,
+          "type": "tf"
+        },
+        {
+          "id": "irf9",
+          "label": "IRF9",
+          "x": 81,
+          "y": 56,
+          "type": "tf"
+        },
+        {
+          "id": "isgf3",
+          "label": "ISGF3",
+          "x": 50,
+          "y": 63,
+          "type": "complex"
+        },
+        {
+          "id": "isre",
+          "label": "ISRE",
+          "x": 50,
+          "y": 76,
+          "type": "dna"
+        },
+        {
+          "id": "isgs",
+          "label": "ISGs",
+          "x": 50,
+          "y": 89,
+          "type": "output"
+        },
+        {
+          "id": "node_1773683218738",
+          "label": "Test Node",
+          "x": 81,
+          "y": 75,
+          "type": "kinase"
+        }
       ],
       "arrows": [
-        { "from": "ifnab",  "to": "ifnar",  "type": "activation" },
-        { "from": "ifnar",  "to": "jak1",   "type": "activation" },
-        { "from": "ifnar",  "to": "tyk2",   "type": "activation" },
-        { "from": "jak1",   "to": "stat1",  "type": "activation" },
-        { "from": "tyk2",   "to": "stat2",  "type": "activation" },
-        { "from": "stat1",  "to": "isgf3",  "type": "activation" },
-        { "from": "stat2",  "to": "isgf3",  "type": "activation" },
-        { "from": "irf9",   "to": "isgf3",  "type": "activation" },
-        { "from": "isgf3",  "to": "isre",   "type": "activation" },
-        { "from": "isre",   "to": "isgs",   "type": "activation" }
+        {
+          "from": "ifnab",
+          "to": "ifnar",
+          "type": "activation"
+        },
+        {
+          "from": "ifnar",
+          "to": "jak1",
+          "type": "activation"
+        },
+        {
+          "from": "ifnar",
+          "to": "tyk2",
+          "type": "activation"
+        },
+        {
+          "from": "jak1",
+          "to": "stat1",
+          "type": "activation"
+        },
+        {
+          "from": "tyk2",
+          "to": "stat2",
+          "type": "activation"
+        },
+        {
+          "from": "stat1",
+          "to": "isgf3",
+          "type": "activation"
+        },
+        {
+          "from": "stat2",
+          "to": "isgf3",
+          "type": "activation"
+        },
+        {
+          "from": "irf9",
+          "to": "isgf3",
+          "type": "activation"
+        },
+        {
+          "from": "isgf3",
+          "to": "isre",
+          "type": "activation"
+        },
+        {
+          "from": "isre",
+          "to": "isgs",
+          "type": "activation"
+        },
+        {
+          "from": "node_1773683218738",
+          "to": "irf9",
+          "type": "inhibition"
+        }
       ],
       "slots": [
-        { "id": "sl_jak1",  "type": "molecule", "nodeId": "jak1",  "correct": "JAK1",     "options": ["JAK1","JAK2","TYK2","JAK3"] },
-        { "id": "sl_tyk2",  "type": "molecule", "nodeId": "tyk2",  "correct": "TYK2",     "options": ["TYK2","JAK1","JAK2","TYK1"] },
-        { "id": "sl_stat1", "type": "molecule", "nodeId": "stat1", "correct": "STAT1",    "options": ["STAT1","STAT2","STAT3","STAT6"] },
-        { "id": "sl_stat2", "type": "molecule", "nodeId": "stat2", "correct": "STAT2",    "options": ["STAT2","STAT1","STAT3","STAT6"] },
-        { "id": "sl_irf9",  "type": "molecule", "nodeId": "irf9",  "correct": "IRF9",     "options": ["IRF9","IRF3","IRF7","NF-κB"] },
-        { "id": "sl_isgf3", "type": "molecule", "nodeId": "isgf3", "correct": "ISGF3",    "options": ["ISGF3","AP-1","NF-κB","IRF3"] },
-        { "id": "sl_ifnar", "type": "molecule", "nodeId": "ifnar", "correct": "IFNAR1/2", "options": ["IFNAR1/2","TNFR1","IL-6R","TLR4"] },
-        { "id": "sl_arr1",  "type": "arrow", "fromNodeId": "isgf3", "toNodeId": "isre",  "correct": "activation", "options": ["activation","inhibition"] },
-        { "id": "sl_arr2",  "type": "arrow", "fromNodeId": "ifnar", "toNodeId": "jak1",  "correct": "activation", "options": ["activation","inhibition"] }
+        {
+          "id": "sl_jak1",
+          "type": "molecule",
+          "nodeId": "jak1",
+          "correct": "JAK1",
+          "options": [
+            "JAK1",
+            "JAK2",
+            "TYK2",
+            "JAK3"
+          ]
+        },
+        {
+          "id": "sl_tyk2",
+          "type": "molecule",
+          "nodeId": "tyk2",
+          "correct": "TYK2",
+          "options": [
+            "TYK2",
+            "JAK1",
+            "JAK2",
+            "TYK1"
+          ]
+        },
+        {
+          "id": "sl_stat1",
+          "type": "molecule",
+          "nodeId": "stat1",
+          "correct": "STAT1",
+          "options": [
+            "STAT1",
+            "STAT2",
+            "STAT3",
+            "STAT6"
+          ]
+        },
+        {
+          "id": "sl_stat2",
+          "type": "molecule",
+          "nodeId": "stat2",
+          "correct": "STAT2",
+          "options": [
+            "STAT2",
+            "STAT1",
+            "STAT3",
+            "STAT6"
+          ]
+        },
+        {
+          "id": "sl_irf9",
+          "type": "molecule",
+          "nodeId": "irf9",
+          "correct": "IRF9",
+          "options": [
+            "IRF9",
+            "IRF3",
+            "IRF7",
+            "NF-ÎºB"
+          ]
+        },
+        {
+          "id": "sl_isgf3",
+          "type": "molecule",
+          "nodeId": "isgf3",
+          "correct": "ISGF3",
+          "options": [
+            "ISGF3",
+            "AP-1",
+            "NF-ÎºB",
+            "IRF3"
+          ]
+        },
+        {
+          "id": "sl_ifnar",
+          "type": "molecule",
+          "nodeId": "ifnar",
+          "correct": "IFNAR1/2",
+          "options": [
+            "IFNAR1/2",
+            "TNFR1",
+            "IL-6R",
+            "TLR4"
+          ]
+        },
+        {
+          "id": "sl_arr1",
+          "type": "arrow",
+          "fromNodeId": "isgf3",
+          "toNodeId": "isre",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        },
+        {
+          "id": "sl_arr2",
+          "type": "arrow",
+          "fromNodeId": "ifnar",
+          "toNodeId": "jak1",
+          "correct": "activation",
+          "options": [
+            "activation",
+            "inhibition"
+          ]
+        }
       ],
       "pointsPerSlot": 20,
       "penaltyPerWrong": 5,
