@@ -483,8 +483,10 @@ input[type=number] { width: 80px; }
       </div>
 
       <!-- META section — always visible when DB is loaded -->
-      <div id="meta-section" style="display:none;">
-        <div class="section-title">Database Settings</div>
+      <div id="meta-section" class="section" style="display:none;">
+        <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+          <span>Database Settings <span class="section-chevron">▼</span></span>
+        </div>
         <div class="section-body">
           <div class="field-row">
             <div class="field grow">
@@ -501,6 +503,11 @@ input[type=number] { width: 80px; }
             <input type="text" id="meta-imgdir" placeholder="microid_images/" oninput="metaChanged()">
           </div>
         </div>
+      </div>
+
+      <!-- ORG TOOLBAR — visible when an organism is selected -->
+      <div id="org-toolbar" style="display:none;flex-direction:row;align-items:center;justify-content:flex-end;">
+        <button class="btn-small" id="collapse-all-btn" onclick="toggleAllSections()">⊟ Collapse All</button>
       </div>
 
       <!-- ORGANISM EDITOR — rendered here -->
@@ -947,6 +954,9 @@ function selectOrg(i) {
   renderOrgEditor();
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('org-editor').style.display = '';
+  document.getElementById('org-toolbar').style.display = 'flex';
+  const btn = document.getElementById('collapse-all-btn');
+  if (btn) btn.textContent = '⊟ Collapse All';
   document.getElementById('custom-questions-panel').style.display = 'none';
   document.getElementById('btn-show-questions').classList.remove('active');
 }
@@ -990,6 +1000,7 @@ function deleteOrgAt(e, i) {
     currentIdx = null;
     document.getElementById('emptyState').style.display = '';
     document.getElementById('org-editor').style.display = 'none';
+    document.getElementById('org-toolbar').style.display = 'none';
   } else if (currentIdx > i) {
     currentIdx--;
   }
@@ -1041,6 +1052,7 @@ function renderAll() {
     renderOrgEditor();
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('org-editor').style.display = '';
+    document.getElementById('org-toolbar').style.display = 'flex';
   }
 }
 
@@ -1153,15 +1165,15 @@ function renderOrgEditor() {
       </div>
     </div>
 
-    <!-- LAB FINDINGS -->
+    <!-- DIAGNOSTICS -->
     <div class="section collapsed">
-      <div class="section-title" onclick="toggleSection(this.closest('.section'))">Lab Findings <span class="section-chevron">▼</span></div>
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">Diagnostics <span class="section-chevron">▼</span></div>
       <div class="section-body">
         <div class="tag-list" id="tag-labFindings">
           ${renderTags(org.labFindings || [], 'labFindings')}
         </div>
         <div class="tag-add-row" style="margin-top:6px;">
-          <input type="text" id="new-labFindings" placeholder="Add lab finding…" onkeydown="tagKeydown(event,'labFindings')">
+          <input type="text" id="new-labFindings" placeholder="Add diagnostic…" onkeydown="tagKeydown(event,'labFindings')">
           <button class="btn-small" onclick="addTag('labFindings')">Add</button>
         </div>
       </div>
@@ -1258,6 +1270,17 @@ function renderTags(arr, field) {
 function toggleSection(sectionEl) {
   if (!sectionEl) return;
   sectionEl.classList.toggle('collapsed');
+}
+
+function toggleAllSections() {
+  const sections = [...document.querySelectorAll('#org-editor .section')];
+  const anyExpanded = sections.some(s => !s.classList.contains('collapsed'));
+  sections.forEach(s => {
+    if (anyExpanded) s.classList.add('collapsed');
+    else s.classList.remove('collapsed');
+  });
+  const btn = document.getElementById('collapse-all-btn');
+  if (btn) btn.textContent = anyExpanded ? '⊞ Expand All' : '⊟ Collapse All';
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1589,6 +1612,7 @@ function showCustomQuestions() {
   renderSidebar();
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('org-editor').style.display = 'none';
+  document.getElementById('org-toolbar').style.display = 'none';
   document.getElementById('custom-questions-panel').style.display = '';
   document.getElementById('btn-show-questions').classList.add('active');
   renderCustomQuestions();
