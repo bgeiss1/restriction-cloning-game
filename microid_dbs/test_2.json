@@ -8,7 +8,8 @@
   "masterRef": "master.json",
   "selectedIds": [
     "s_aureus",
-    "ebola"
+    "ebola",
+    "giardia"
   ],
   "organisms": [
     {
@@ -87,7 +88,7 @@
       "images": [
         {
           "file": "ebola_virus_tem.jpg",
-          "caption": "Transmission electron micrograph ÃÂ¢ÃÂÃÂ filamentous filovirus particles"
+          "caption": "Transmission electron micrograph ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ filamentous filovirus particles"
         }
       ],
       "diseases": [
@@ -117,8 +118,54 @@
       ],
       "treatment": "Supportive care; IV fluid resuscitation; mAb therapies (Inmazeb, Ebanga) for EVD-Zaire",
       "prevention": "rVSV-ZEBOV vaccine (Ervebo) for Zaire ebolavirus; strict contact and droplet precautions; PPE",
-      "learnMore": "Ebola causes viral hemorrhagic fever with case fatality rates of 25ÃÂ¢ÃÂÃÂ90%. It triggers a massive cytokine storm and interferes with coagulation. The 2013ÃÂ¢ÃÂÃÂ2016 West Africa outbreak killed over 11,000 people.",
+      "learnMore": "Ebola causes viral hemorrhagic fever with case fatality rates of 25ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ90%. It triggers a massive cytokine storm and interferes with coagulation. The 2013ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ2016 West Africa outbreak killed over 11,000 people.",
+      "vector": ""
+    },
+    {
+      "id": "giardia",
+      "name": "Giardia lamblia",
+      "commonName": "Giardia",
+      "type": "parasite",
+      "subtype": "protozoa",
+      "difficulty": 1,
+      "morphology": "Pear-shaped trophozoite with 2 nuclei (owl-face appearance); oval cyst with 4 nuclei",
+      "images": [
+        {
+          "file": "Giardia_lamblia_SEM.jpg",
+          "caption": "Trichrome stain pear-shaped trophozoite with 2 nuclei (owl-face)"
+        }
+      ],
+      "diseases": [
+        {
+          "name": "Giardiasis",
+          "symptoms": [
+            "foul-smelling greasy diarrhea",
+            "bloating",
+            "flatulence",
+            "abdominal cramps",
+            "nausea",
+            "weight loss",
+            "malabsorption"
+          ]
+        }
+      ],
+      "transmission": [
+        "fecal-oral",
+        "contaminated water (mountain streams)",
+        "person-to-person"
+      ],
+      "reservoir": "Humans; beavers and other mammals (zoonotic source)",
+      "labFindings": [
+        "Stool ova & parasites (O&P) ÃÂÃÂ¢ÃÂÃÂÃÂÃÂ trophozoites or cysts",
+        "Giardia stool antigen EIA or DFA",
+        "PCR",
+        "No blood or mucus in stool (non-invasive)"
+      ],
+      "treatment": "Metronidazole or tinidazole; nitazoxanide",
+      "prevention": "Boil or filter water from natural sources; hand hygiene; food safety",
+      "learnMore": "Giardia cysts are highly resistant to chlorine. They are the most common intestinal parasitic infection in the US. The parasite attaches to the intestinal epithelium via a ventral adhesive disk, causing malabsorption without tissue invasion.",
       "vector": ""
     }
-  ]
+  ],
+  "questions": []
 }
