@@ -346,7 +346,7 @@ body {
   <!-- Picker panel -->
   <div id="pickerPanel">
     <div id="pickerHeader">
-      <span id="pickerLabel">Select molecule: <span id="pickerSlotName"></span></span>
+      <span id="pickerLabel">Select molecule:</span>
       <button id="pickerClose" onclick="closePicker()">✕</button>
     </div>
     <div id="pickerOptions"></div>
@@ -662,9 +662,8 @@ function tapSlot(slotId) {
   // Populate picker
   const slot = ss.slot;
   const isArrow = slot.type === 'arrow';
-  document.getElementById('pickerLabel').innerHTML =
+  document.getElementById('pickerLabel').textContent =
     isArrow ? 'Select relationship:' : 'Identify molecule:';
-  document.getElementById('pickerSlotName').textContent = '';
 
   const opts = slot.options || [];
   const pickerOptions = document.getElementById('pickerOptions');
