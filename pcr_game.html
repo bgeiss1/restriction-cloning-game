@@ -1411,16 +1411,16 @@ const P2_PASS  = Math.round(P2_TOTAL * 0.8); // 240
 
 const P2_TASKS = [
   {
-    seqOffset: 0,   windowLen: 140, targetAmplicon: 80,  tolerance: 15,
-    task: 'Design a primer pair to amplify a <strong>~80 bp</strong> product from the start of the GFP coding sequence. Both primers must satisfy all four design rules.',
+    seqOffset: 227, windowLen: 140, targetAmplicon: 80,  tolerance: 15,
+    task: 'Design a primer pair to amplify a <strong>~80 bp</strong> product from the middle of the GFP coding sequence. Both primers must satisfy all four design rules.',
   },
   {
-    seqOffset: 180, windowLen: 140, targetAmplicon: 100, tolerance: 20,
-    task: 'Design a primer pair to amplify a <strong>~100 bp</strong> product from a different region of GFP. Check for primer–dimer risk at the 3′ ends.',
+    seqOffset: 377, windowLen: 140, targetAmplicon: 100, tolerance: 20,
+    task: 'Design a primer pair to amplify a <strong>~100 bp</strong> product from a later region of GFP. Check for primer–dimer risk at the 3′ ends.',
   },
   {
-    seqOffset: 360, windowLen: 140, targetAmplicon: 60,  tolerance: 12,
-    task: 'Design a primer pair to amplify a <strong>~60 bp</strong> product. This is a tighter target — position your primers carefully.',
+    seqOffset: 577, windowLen: 140, targetAmplicon: 60,  tolerance: 12,
+    task: 'Design a primer pair to amplify a <strong>~60 bp</strong> product from near the end of the GFP coding sequence. This is a tighter target — position your primers carefully.',
   },
 ];
 
