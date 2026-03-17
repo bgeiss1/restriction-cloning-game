@@ -99,22 +99,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #gameHeader h1 { font-size: 1rem; font-weight: 700; color: var(--gold); }
 .hud-cluster { display: flex; align-items: center; gap: 10px; }
 .hud-score { font-size: 0.88rem; font-weight: 700; color: var(--gold); }
-.hud-level { font-size: 0.78rem; color: var(--muted); }
 
-/* ── MODULE PROGRESS BAR ── */
-#moduleBar {
-  background: var(--green-dark); border-bottom: 1px solid var(--border);
-  padding: 6px 14px; display: flex; align-items: center; gap: 8px; flex-shrink: 0;
-}
-.mod-label { font-size: 0.72rem; color: var(--muted); font-weight: 700;
-  text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
-.level-pips { display: flex; gap: 5px; }
-.level-pip {
-  width: 22px; height: 6px; border-radius: 3px;
-  background: rgba(255,255,255,0.12);
-}
-.level-pip.done { background: var(--success); }
-.level-pip.current { background: var(--gold); }
 
 /* ── GAME CONTENT ── */
 #gameContent { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 16px; }
@@ -334,16 +319,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   <div id="gameHeader">
     <h1 id="moduleTitle">Module 1 · Primer Evaluation</h1>
     <div class="hud-cluster">
+      <span id="livesDisplay" style="font-size:0.82rem;font-weight:700;letter-spacing:0.04em;"></span>
       <span class="hud-score" id="scoreDisplay">0 pts</span>
       <button class="btn-back" onclick="showPartSelect()" style="padding:5px 10px;">← Back</button>
     </div>
-  </div>
-
-  <!-- Module progress bar -->
-  <div id="moduleBar">
-    <span class="mod-label">Level</span>
-    <div class="level-pips" id="levelPips"></div>
-    <span class="hud-level" id="levelLabel"></span>
   </div>
 
   <!-- Scrollable content -->
@@ -374,11 +353,26 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 ══════════════════════════════════════════ -->
 <div id="modCompleteOverlay">
   <div class="mod-complete-box">
-    <div style="font-size:3rem;">🎉</div>
-    <h2>Module Complete!</h2>
+    <div id="modCompleteIcon" style="font-size:3rem;">🎉</div>
+    <h2 id="modCompleteTitle">Module Complete!</h2>
     <p id="modCompleteBody"></p>
     <div class="final-score-line">Score: <span id="modFinalScore"></span></div>
-    <button class="btn-result" onclick="finishModule()">Continue to Part Select</button>
+    <div id="modScoreNeeded" style="font-size:0.82rem;color:var(--muted);margin-top:-6px;"></div>
+    <button class="btn-result" id="btnModContinue" onclick="finishModule()">Continue to Part Select</button>
+    <button class="btn-result" id="btnModRetry" style="display:none;background:var(--green-mid);border:1.5px solid var(--border);" onclick="retryModule()">Try Again</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     CHALLENGE RESTART OVERLAY
+══════════════════════════════════════════ -->
+<div id="challengeRestartOverlay" style="display:none;position:fixed;inset:0;z-index:110;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;padding:20px;">
+  <div class="mod-complete-box" style="border-color:var(--warn);">
+    <div style="font-size:3rem;">⚠️</div>
+    <h2 style="color:var(--warn);">Challenge Reset</h2>
+    <p id="challengeRestartBody" style="font-size:0.9rem;color:var(--muted);line-height:1.65;"></p>
+    <div class="final-score-line">Tutorial score: <span id="challengeRestartScore"></span></div>
+    <button class="btn-result" onclick="restartChallenge()">Try Again</button>
   </div>
 </div>
 
@@ -699,7 +693,8 @@ const M1_LEVELS = [
   // ─── LEVEL 5: ALL CRITERIA ──────────────────────
   {
     focus: 'All Criteria',
-    task:  'Apply <strong>all four rules</strong>: length 18–25 bp · GC 40–60% · no run ≥ 5 · 3′ end G or C. Only one primer passes every check.',
+    hideCriteria: true,
+    task:  'Apply the rules you\'ve learned to choose the best primer for PCR.',
     hint:  'Work through each rule systematically. In harder rounds the wrong answers fail by only one criterion — read carefully.',
     showCriteria: ['length','gc','run','end'],
     rounds: [
@@ -754,21 +749,146 @@ const M1_LEVELS = [
           wrongLabel: 'AAAAA at positions 6–10 — only 1 flaw: the homopolymer run.' }
       ]}
     ]
+  },
+
+  // ─── LEVEL 6: CHALLENGE ROUND ───────────────────
+  {
+    focus:     'Challenge Round',
+    challenge: true,
+    showCriteria: [],
+    task:  'Apply <strong>all four rules from memory</strong> — no hints, no rule card. Get <strong>5 correct in a row</strong> to complete the module.',
+    hint:  'Remember: 18–25 bp · GC 40–60% · no run of 5 or more · 3′ end must be G or C.',
+    pool: [
+      { correctIdx: 3, primers: [
+        { seq: 'CGCACCATCTTCTTCAAAAA',
+          wrongLabel: 'AAAAA at the 3′ end (run of 5) and ends in A — two failures.' },
+        { seq: 'GCGAGGGCGAGGAGCTGTTC',
+          wrongLabel: 'GC content 70% — too high (need 40–60%).' },
+        { seq: 'GAAGTTCATCTGCACC',
+          wrongLabel: 'Too short (16 bp) — below the 18 bp minimum.' },
+        { seq: 'TTCTTCAAGGACGACGGCAC',
+          okLabel:    '20 bp ✓  GC 55% ✓  Longest run 2 ✓  3′ C ✓' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'GCATCGATCGATCGATCGAC',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 1 ✓  3′ C ✓' },
+        { seq: 'GCGCGCGCGCGCGCGCGCGC',
+          wrongLabel: 'GC content 100% — completely unusable. Forms extremely stable secondary structures.' },
+        { seq: 'ATTTTTTCGATCGATCGATC',
+          wrongLabel: 'TTTTTT at positions 2–7 (run of 6) and GC content 35% — two failures.' },
+        { seq: 'TATTCAATAAATTTAATACA',
+          wrongLabel: 'GC content 10% — far too low. Also ends in A.' }
+      ]},
+      { correctIdx: 2, primers: [
+        { seq: 'AAGCAGCACGACTTCTTCAT',
+          wrongLabel: 'Ends in T — the 3′ base must be G or C.' },
+        { seq: 'GAAGTTCATCTGCACCACCGGCAAGC',
+          wrongLabel: 'Too long (26 bp) — just 1 bp over the 25 bp maximum.' },
+        { seq: 'CACCATCTTCTTCAAGGACG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 2 ✓  3′ G ✓' },
+        { seq: 'GCGCGATCGATAGATGCCGC',
+          wrongLabel: 'GC content 65% — just over the 60% ceiling.' }
+      ]},
+      { correctIdx: 3, primers: [
+        { seq: 'TATCAGCATTATCAAGATCC',
+          wrongLabel: 'GC content 35% — just under the 40% floor.' },
+        { seq: 'GCATCAAAAAGAAGGGCATC',
+          wrongLabel: 'AAAAA at positions 6–10 (run of 5).' },
+        { seq: 'GCATCGAGCTGAAGGGCATA',
+          wrongLabel: 'Ends in A — the 3′ base disqualifies it.' },
+        { seq: 'GCATCGAGCTGAAGGGCATC',
+          okLabel:    '20 bp ✓  GC 60% ✓  Longest run 3 ✓  3′ C ✓' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'ATCGATCGATCGATCGATCC',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 1 ✓  3′ C ✓' },
+        { seq: 'ATCGATCGATCGATCGATCA',
+          wrongLabel: 'Ends in A — differs from the correct primer by only 1 base.' },
+        { seq: 'GCGCGATCGATAGATGCCGC',
+          wrongLabel: 'GC content 65% — only 1 flaw: 5% over the ceiling.' },
+        { seq: 'GCATCAAAAAGAAGGGCATC',
+          wrongLabel: 'AAAAA at positions 6–10 — only 1 flaw: the homopolymer run.' }
+      ]},
+      { correctIdx: 1, primers: [
+        { seq: 'GAAGTTCATCTGCACCACCA',
+          wrongLabel: 'Ends in A — only the 3′ terminal base fails.' },
+        { seq: 'GAAGTTCATCTGCACCACCG',
+          okLabel:    '20 bp ✓  GC 55% ✓  Longest run 2 ✓  3′ G ✓' },
+        { seq: 'GCGAGGGCGAGGGCGATGCC',
+          wrongLabel: 'GC content 80% — far too high.' },
+        { seq: 'GAAGTTCATCTG',
+          wrongLabel: 'Too short (12 bp) — far below the 18 bp minimum.' }
+      ]},
+      { correctIdx: 2, primers: [
+        { seq: 'CACCATCTTCTTCAAGGACT',
+          wrongLabel: 'Ends in T — check the last nucleotide carefully.' },
+        { seq: 'AATTATCAGCATTATCAGCC',
+          wrongLabel: 'GC content 35% — just under the 40% floor.' },
+        { seq: 'GCATCGAGCTGAAGGGCATC',
+          okLabel:    '20 bp ✓  GC 60% ✓  Longest run 3 ✓  3′ C ✓' },
+        { seq: 'GCATCAAAAAGAAGGGCATC',
+          wrongLabel: 'AAAAA at positions 6–10 (run of 5).' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'AAGCAGCACGACTTCTTCAG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 2 ✓  3′ G ✓' },
+        { seq: 'AAGCAGCACGACTTCTTCAA',
+          wrongLabel: 'Ends in A — the 3′ terminal base must be G or C.' },
+        { seq: 'AAGCAGCACGACTTCTTCAGCATCGG',
+          wrongLabel: 'Too long (26 bp) — just 1 bp over the maximum.' },
+        { seq: 'GCGCGCGCGCGCGCGCGCGC',
+          wrongLabel: 'GC content 100% — completely unusable.' }
+      ]},
+      { correctIdx: 1, primers: [
+        { seq: 'CACCATCTTCTTCAAGGACA',
+          wrongLabel: 'Ends in A — otherwise a valid primer.' },
+        { seq: 'TTCTTCAAGGACGACGGCAC',
+          okLabel:    '20 bp ✓  GC 55% ✓  Longest run 2 ✓  3′ C ✓' },
+        { seq: 'GCATCAAAAAGAAGGGCATC',
+          wrongLabel: 'AAAAA at positions 6–10 (run of 5).' },
+        { seq: 'TATTCAATAAATTTAATACA',
+          wrongLabel: 'GC content 10% — far too low. Also ends in A.' }
+      ]},
+      { correctIdx: 2, primers: [
+        { seq: 'ATCGATCGATCGATCGATCA',
+          wrongLabel: 'Ends in A — differs from the correct primer by 1 base.' },
+        { seq: 'GCGCGATCGATAGATGCCGC',
+          wrongLabel: 'GC content 65% — just over the 60% ceiling.' },
+        { seq: 'CACCATCTTCTTCAAGGACG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 2 ✓  3′ G ✓' },
+        { seq: 'GCATCAAAAAGAAGGGCATC',
+          wrongLabel: 'AAAAA at positions 6–10 (run of 5).' }
+      ]}
+    ]
   }
 ];
+
+// ════════════════════════════════════════════════════
+//  SCORING CONSTANTS
+// ════════════════════════════════════════════════════
+const LEVEL_TARGET    = 50;    // pts needed to complete each tutorial level
+const CHALLENGE_MAX   = 750;   // max pts from challenge round
+const TOTAL_POSSIBLE  = 1000;  // 250 tutorial + 750 challenge
+const PASS_THRESHOLD  = Math.round(TOTAL_POSSIBLE * 0.8); // 800
+const CHALLENGE_LIVES = 2;     // wrong presses allowed before challenge restart
 
 // ════════════════════════════════════════════════════
 //  GAME STATE
 // ════════════════════════════════════════════════════
 const state = {
-  score:          0,
-  levelIdx:       0,
-  roundIdx:       0,
+  score:          0,    // total accumulated score
+  tutorialScore:  0,    // tutorial-only score; preserved on challenge restart
+  levelIdx:       0,    // current level (0 = Level 1 tutorial … 5 = challenge)
+  levelScore:     0,    // pts earned in current tutorial level (resets per level)
   selectedIdx:    null,
   revealed:       false,
-  penalties:      0,
-  displayPrimers: [],   // shuffled primer order for current round
-  displayCorrect: 0     // correct index in displayPrimers
+  penalties:      0,    // wrong presses on current question
+  displayPrimers: [],
+  displayCorrect: 0,
+  streak:         0,    // challenge: consecutive correct answers
+  shuffledPool:   [],   // shuffled question indices (tutorial cycling + challenge)
+  poolIdx:        0,    // current position in shuffled pool
+  challengeWrong: 0,    // total wrong presses accumulated this challenge attempt
 };
 
 function shuffleArray(arr) {
@@ -790,8 +910,9 @@ function showScreen(id) {
 function showPartSelect() { showScreen('partSelectScreen'); }
 function startPart(n) {
   if (n !== 1) return;
-  state.score = 0; state.levelIdx = 0; state.roundIdx = 0;
+  state.score = 0; state.tutorialScore = 0; state.levelIdx = 0; state.levelScore = 0;
   state.selectedIdx = null; state.revealed = false; state.penalties = 0;
+  state.streak = 0; state.shuffledPool = []; state.poolIdx = 0; state.challengeWrong = 0;
   showScreen('gameScreen');
   renderLevel();
 }
@@ -815,35 +936,42 @@ function statBadgeHtml(key, text, showCriteria, ev) {
 //  RENDER LEVEL
 // ════════════════════════════════════════════════════
 function renderLevel() {
-  const lvl   = M1_LEVELS[state.levelIdx];
-  const round = lvl.rounds[state.roundIdx];
+  const lvl = M1_LEVELS[state.levelIdx];
   state.selectedIdx = null; state.revealed = false; state.penalties = 0;
+
+  // Init pool if entering a new level (tutorial cycles its rounds; challenge uses pool)
+  if (state.shuffledPool.length === 0) {
+    const src = lvl.challenge ? lvl.pool : lvl.rounds;
+    state.shuffledPool = shuffleArray([...Array(src.length).keys()]);
+    state.poolIdx = 0;
+  }
+  const src   = lvl.challenge ? lvl.pool : lvl.rounds;
+  const round = src[state.shuffledPool[state.poolIdx % state.shuffledPool.length]];
 
   // Shuffle primers for this display
   const idxOrder = shuffleArray([0,1,2,3]);
   state.displayPrimers = idxOrder.map(i => round.primers[i]);
   state.displayCorrect = idxOrder.indexOf(round.correctIdx);
 
-  // header + pips
+  // Update header
   document.getElementById('scoreDisplay').textContent = state.score + ' pts';
-  const numRounds = lvl.rounds.length;
-  document.getElementById('moduleTitle').textContent =
-    `Module 1 · Primer Evaluation · Round ${state.roundIdx + 1}/${numRounds}`;
-  const totalSteps  = M1_LEVELS.reduce((s, l) => s + l.rounds.length, 0);
-  const currentStep = M1_LEVELS.slice(0, state.levelIdx).reduce((s, l) => s + l.rounds.length, 0) + state.roundIdx;
-  document.getElementById('levelPips').innerHTML = Array.from({length: totalSteps}, (_, i) =>
-    `<div class="level-pip ${i < currentStep ? 'done' : i === currentStep ? 'current' : ''}"></div>`
-  ).join('');
-  document.getElementById('levelLabel').textContent = `${currentStep + 1} / ${totalSteps}`;
+  if (lvl.challenge) {
+    document.getElementById('moduleTitle').textContent = 'Module 1 · Challenge Round';
+    updateChallengeHUD();
+  } else {
+    document.getElementById('moduleTitle').textContent =
+      `Level ${state.levelIdx + 1} · ${escHtml(lvl.focus)} — ${state.levelScore} / ${LEVEL_TARGET} pts`;
+    document.getElementById('livesDisplay').textContent = '';
+  }
 
-  // action bar
+  // Action bar
   const btnS = document.getElementById('btnSubmit');
   const btnN = document.getElementById('btnNext');
   btnS.disabled = true; btnS.textContent = 'Select Primer'; btnS.style.display = '';
   btnN.style.display = 'none';
 
-  // criteria reference card
-  const criteriaHtml = `
+  // Criteria reference card (hidden in challenge and level 5)
+  const criteriaHtml = (lvl.challenge || lvl.hideCriteria) ? '' : `
     <div class="criteria-box">
       <div class="task-label" style="margin-bottom:6px;">Primer Design Rules</div>
       <div class="row"><span>Length</span><span class="criteria-val">18 – 25 bp</span></div>
@@ -853,7 +981,7 @@ function renderLevel() {
       <div class="row"><span>Melting temp (Tm)</span><span class="criteria-val">covered in Module 2</span></div>
     </div>`;
 
-  // nucleotide color legend
+  // Nucleotide color legend
   const legendHtml = `<div class="nt-legend">
     <span class="nt-dot"><span class="nt-A">●</span> A</span>
     <span class="nt-dot"><span class="nt-T">●</span> T</span>
@@ -861,7 +989,7 @@ function renderLevel() {
     <span class="nt-dot"><span class="nt-C">●</span> C</span>
   </div>`;
 
-  // primer cards — stats hidden until a card is selected
+  // Primer cards
   const labels = ['A','B','C','D'];
   const cardsHtml = state.displayPrimers.map((p, i) =>
     `<div class="primer-card" id="pcard-${i}" onclick="selectPrimer(${i})">
@@ -889,6 +1017,21 @@ function renderLevel() {
       ${legendHtml}
     </div>
     <div class="primer-cards">${cardsHtml}</div>`;
+}
+
+function updateChallengeHUD() {
+  const remaining = CHALLENGE_LIVES - state.challengeWrong;
+  const livesEl = document.getElementById('livesDisplay');
+  if (remaining === CHALLENGE_LIVES) {
+    livesEl.textContent = '';
+    livesEl.style.color = '';
+  } else {
+    livesEl.textContent = `⚠ ${remaining} wrong left`;
+    livesEl.style.color = remaining === 1 ? 'var(--danger)' : 'var(--warn)';
+  }
+  const challengeEarned = state.score - state.tutorialScore;
+  document.getElementById('moduleTitle').textContent =
+    `Challenge Round — ${challengeEarned} / ${CHALLENGE_MAX} pts`;
 }
 
 // ════════════════════════════════════════════════════
@@ -942,8 +1085,20 @@ function submitAnswer() {
   if (idx === state.displayCorrect) {
     // ── CORRECT ──
     state.revealed = true;
-    const earned = 5;
+    const allCriteria = ['length','gc','run','end'];
+
+    // Scoring — tutorial vs challenge
+    let earned;
+    if (lvl.challenge) {
+      const raw = [50, 25, 10, 0][Math.min(state.penalties, 3)];
+      const challengeEarned = state.score - state.tutorialScore;
+      earned = Math.min(raw, CHALLENGE_MAX - challengeEarned);
+    } else {
+      const raw = [10, 6, 2, 1][Math.min(state.penalties, 3)];
+      earned = Math.min(raw, LEVEL_TARGET - state.levelScore);
+    }
     state.score += earned;
+    if (!lvl.challenge) state.levelScore += earned;
     document.getElementById('scoreDisplay').textContent = state.score + ' pts';
 
     card.classList.add('correct', 'disabled');
@@ -951,8 +1106,7 @@ function submitAnswer() {
     exp.textContent = state.displayPrimers[idx].okLabel;
     exp.style.display = 'block';
 
-    // reveal all wrong cards with flaws + stats
-    const allCriteria = ['length','gc','run','end'];
+    // Reveal all wrong cards
     state.displayPrimers.forEach((p, i) => {
       if (i === idx) {
         document.getElementById(`pstats-${i}`).innerHTML = primerStatsHtml(p.seq, allCriteria);
@@ -967,19 +1121,35 @@ function submitAnswer() {
       document.getElementById(`pstats-${i}`).innerHTML = primerStatsHtml(p.seq, allCriteria);
     });
 
-    // show level result overlay
-    const body = state.penalties === 0
-      ? 'First try — perfect!'
-      : `Correct after ${state.penalties + 1} attempts.`;
-    showResultOverlay('✓ Correct!', 'good', body, `+${earned} pts`);
-
-    // swap buttons
     document.getElementById('btnSubmit').style.display = 'none';
     const btnN = document.getElementById('btnNext');
-    btnN.style.display = 'block';
-    const isLastStep = state.roundIdx >= lvl.rounds.length - 1 &&
-                       state.levelIdx >= M1_LEVELS.length - 1;
-    btnN.textContent = isLastStep ? 'Finish Module →' : 'Next →';
+
+    if (lvl.challenge) {
+      const challengeEarned = state.score - state.tutorialScore;
+      updateChallengeHUD();
+      if (challengeEarned >= CHALLENGE_MAX) {
+        setTimeout(() => showModuleComplete(), 600);
+        return;
+      }
+      const attemptNote = state.penalties === 0 ? 'First try!' : `${state.penalties + 1} attempt(s).`;
+      showResultOverlay('✓ Correct!', 'good', `${challengeEarned} / ${CHALLENGE_MAX} pts — ${attemptNote}`, `+${earned} pts`);
+      btnN.style.display = 'block';
+      btnN.textContent = 'Next Question →';
+    } else {
+      const levelDone = state.levelScore >= LEVEL_TARGET;
+      const body = state.penalties === 0 ? 'First try — perfect!' : `Correct after ${state.penalties + 1} attempts.`;
+      const scoreNote = levelDone
+        ? (state.levelIdx < M1_LEVELS.length - 1 ? `Level ${state.levelIdx + 1} complete!` : '')
+        : `${state.levelScore} / ${LEVEL_TARGET} pts this level`;
+      showResultOverlay('✓ Correct!', 'good', `${body}  ${scoreNote}`, `+${earned} pts`);
+      btnN.style.display = 'block';
+      if (levelDone) {
+        const isLast = state.levelIdx >= M1_LEVELS.length - 1;
+        btnN.textContent = isLast ? 'Finish Module →' : (state.levelIdx === M1_LEVELS.length - 2 ? 'Start Challenge →' : 'Next Level →');
+      } else {
+        btnN.textContent = 'Next Question →';
+      }
+    }
 
   } else {
     // ── WRONG ──
@@ -989,9 +1159,17 @@ function submitAnswer() {
     fl.textContent = state.displayPrimers[idx].wrongLabel;
     fl.style.display = 'block';
     state.selectedIdx = null;
-    const btnS = document.getElementById('btnSubmit');
-    btnS.disabled = true;
-    btnS.textContent = 'Select Primer';
+    document.getElementById('btnSubmit').disabled = true;
+    document.getElementById('btnSubmit').textContent = 'Select Primer';
+
+    if (lvl.challenge) {
+      state.challengeWrong++;
+      updateChallengeHUD();
+      if (state.challengeWrong >= CHALLENGE_LIVES) {
+        // Show restart overlay after brief pause so player sees the flaw
+        setTimeout(() => showChallengeRestart(), 900);
+      }
+    }
   }
 }
 
@@ -1001,15 +1179,39 @@ function submitAnswer() {
 function nextLevel() {
   dismissResult();
   const lvl = M1_LEVELS[state.levelIdx];
-  if (state.roundIdx < lvl.rounds.length - 1) {
-    state.roundIdx++;
-  } else if (state.levelIdx < M1_LEVELS.length - 1) {
+
+  if (lvl.challenge) {
+    // Advance pool within challenge
+    state.poolIdx++;
+    if (state.poolIdx >= state.shuffledPool.length) {
+      state.shuffledPool = shuffleArray([...Array(lvl.pool.length).keys()]);
+      state.poolIdx = 0;
+    }
+  } else if (state.levelScore >= LEVEL_TARGET) {
+    // Tutorial level complete — advance to next level
+    if (state.levelIdx >= M1_LEVELS.length - 1) {
+      showModuleComplete();
+      return;
+    }
     state.levelIdx++;
-    state.roundIdx = 0;
+    state.levelScore = 0;
+    state.shuffledPool = [];  // will re-init in renderLevel
+    state.poolIdx = 0;
+    if (state.levelIdx === M1_LEVELS.length - 1) {
+      // Entering challenge — snapshot tutorial score and reset challenge tracking
+      state.tutorialScore = state.score;
+      state.streak = 0;
+      state.challengeWrong = 0;
+    }
   } else {
-    showModuleComplete();
-    return;
+    // Tutorial level not yet complete — next question in same level
+    state.poolIdx++;
+    if (state.poolIdx >= state.shuffledPool.length) {
+      state.shuffledPool = shuffleArray([...Array(lvl.rounds.length).keys()]);
+      state.poolIdx = 0;
+    }
   }
+
   renderLevel();
   document.getElementById('gameContent').scrollTop = 0;
 }
@@ -1028,17 +1230,49 @@ function showResultOverlay(title, cls, body, scoreText) {
 function dismissResult() {
   document.getElementById('resultOverlay').classList.remove('show');
 }
+function showChallengeRestart() {
+  const challengeEarned = state.score - state.tutorialScore;
+  document.getElementById('challengeRestartBody').textContent =
+    `You used both wrong answers. Your tutorial score is saved — give the challenge another shot. ` +
+    `Points earned this attempt: ${challengeEarned} pts (lost on restart).`;
+  document.getElementById('challengeRestartScore').textContent = state.tutorialScore + ' pts';
+  document.getElementById('challengeRestartOverlay').style.display = 'flex';
+}
+function restartChallenge() {
+  document.getElementById('challengeRestartOverlay').style.display = 'none';
+  // Reset to challenge entry state
+  state.score        = state.tutorialScore;
+  state.streak       = 0;
+  state.challengeWrong = 0;
+  state.shuffledPool = [];
+  state.poolIdx      = 0;
+  document.getElementById('scoreDisplay').textContent = state.score + ' pts';
+  renderLevel();
+  document.getElementById('gameContent').scrollTop = 0;
+}
 function showModuleComplete() {
-  document.getElementById('modCompleteBody').textContent =
-    'You\'ve mastered all four rules of PCR primer design: appropriate length (18–25 bp), ' +
-    'balanced GC content (40–60%), no homopolymer runs (\u22655), and a G or C at the 3\u2032 end. ' +
-    'These fundamentals underpin every primer you will ever design. Module 2 covers melting temperature calculation.';
-  document.getElementById('modFinalScore').textContent = state.score + ' pts';
+  const passed = state.score >= PASS_THRESHOLD;
+  document.getElementById('modCompleteIcon').textContent  = passed ? '🎉' : '📋';
+  document.getElementById('modCompleteTitle').textContent = passed ? 'Module Complete!' : 'Not Quite!';
+  document.getElementById('modCompleteBody').textContent  = passed
+    ? 'You\'ve mastered all four rules of PCR primer design from memory: appropriate length (18–25 bp), ' +
+      'balanced GC content (40–60%), no homopolymer runs (\u22655 identical bases), and a G or C at the 3\u2032 end. ' +
+      'Module 2 covers melting temperature calculation and thermocycling parameters.'
+    : 'You need at least 80% to pass. Review the rules for each criterion and try again — ' +
+      'focus on getting each answer right on the first attempt.';
+  document.getElementById('modFinalScore').textContent   = state.score + ' pts';
+  document.getElementById('modScoreNeeded').textContent  = `${PASS_THRESHOLD} pts needed to pass · Tutorial: ${state.tutorialScore} / 250 · Challenge: ${state.score - state.tutorialScore} / 750`;
+  document.getElementById('btnModContinue').style.display = passed ? '' : 'none';
+  document.getElementById('btnModRetry').style.display    = passed ? 'none' : '';
   document.getElementById('modCompleteOverlay').classList.add('show');
 }
 function finishModule() {
   document.getElementById('modCompleteOverlay').classList.remove('show');
   showPartSelect();
+}
+function retryModule() {
+  document.getElementById('modCompleteOverlay').classList.remove('show');
+  startPart(1);
 }
 document.getElementById('startScreen').classList.add('active');
 </script>
