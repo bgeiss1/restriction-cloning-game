@@ -1431,12 +1431,12 @@ const P2_TASKS = [
 // Defaults place both primers at the outermost edges (min 18 bp each) so students
 // must explore the full window to find compliant primers at the right spacing.
 const P2_DEFAULTS = [
-  { fwdL: 1, fwdR: 18, revL: 122, revR: 139 },
-  { fwdL: 1, fwdR: 18, revL: 122, revR: 139 },
-  { fwdL: 1, fwdR: 18, revL: 122, revR: 139 },
+  { fwdL: 1, fwdR: 1, revL: 139, revR: 139 },
+  { fwdL: 1, fwdR: 1, revL: 139, revR: 139 },
+  { fwdL: 1, fwdR: 1, revL: 139, revR: 139 },
 ];
 
-const p2State = { taskIdx: 0, score: 0, fwdL: 1, fwdR: 18, revL: 122, revR: 139, submitted: false };
+const p2State = { taskIdx: 0, score: 0, fwdL: 1, fwdR: 1, revL: 139, revR: 139, submitted: false };
 
 function complement(base) {
   return { A:'T', T:'A', G:'C', C:'G' }[base.toUpperCase()] || base;
