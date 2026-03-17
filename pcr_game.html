@@ -406,17 +406,20 @@ function maxRun(seq) {
   return max;
 }
 function evaluatePrimer(seq) {
-  const len = seq.length;
-  const gc  = gcContent(seq);
-  const tm  = calcTm(seq);
-  const run = maxRun(seq);
+  const len  = seq.length;
+  const gc   = gcContent(seq);
+  const tm   = calcTm(seq);
+  const run  = maxRun(seq);
+  const endBase = seq.toUpperCase()[seq.length - 1];
+  const endOk   = endBase === 'G' || endBase === 'C';
   const flaws = [];
   if (len < 18)       flaws.push({ key:'len',  msg: `Length ${len} bp — too short (min 18 bp)` });
   else if (len > 25)  flaws.push({ key:'len',  msg: `Length ${len} bp — too long (max 25 bp)` });
   if (gc < 40)        flaws.push({ key:'gc',   msg: `GC content ${gc}% — too low (need 40–60%)` });
   else if (gc > 60)   flaws.push({ key:'gc',   msg: `GC content ${gc}% — too high (need 40–60%)` });
   if (run >= 5)       flaws.push({ key:'run',  msg: `Run of ${run} identical bases — avoid ≥5 in a row` });
-  return { len, gc, tm, run, flaws, ok: flaws.length === 0 };
+  if (!endOk)         flaws.push({ key:'end',  msg: `3′ end is ${endBase} — should be G or C for stable priming` });
+  return { len, gc, tm, run, endBase, endOk, flaws, ok: flaws.length === 0 };
 }
 function rcSeq(seq) {
   const comp = { A:'T', T:'A', G:'C', C:'G' };
@@ -450,7 +453,7 @@ const GFP_SEQ =
   'TGCTGGAGTTCGTGACCGCCGCCGGGATCACTCTCGGCATGGACGAGCTGTACAAG';
 
 // ════════════════════════════════════════════════════
-//  MODULE 1 LEVEL DATA
+//  MODULE 1 LEVEL DATA  (each level has rounds[])
 // ════════════════════════════════════════════════════
 const M1_LEVELS = [
   {
@@ -458,16 +461,33 @@ const M1_LEVELS = [
     task:  'Select the only primer with an <strong>appropriate length</strong> for PCR. Valid primers are <strong>18–25 bp</strong>.',
     hint:  'Too short → non-specific binding. Too long → slow extension, higher cost.',
     showCriteria: ['length'],
-    correctIdx: 1,
-    primers: [
-      { seq: 'GAAGTTCATC',
-        wrongLabel: 'Too short (10 bp — well below the 18 bp minimum).' },
-      { seq: 'GAAGTTCATCTGCACCACCG',
-        okLabel:    'Length 20 bp ✓  GC 55% ✓  No problem runs ✓' },
-      { seq: 'GAAGTTCATCTGCACCACCGGCAAGCTGCCCGTG',
-        wrongLabel: 'Too long (34 bp — exceeds the 25 bp maximum).' },
-      { seq: 'TCATCTG',
-        wrongLabel: 'Too short (7 bp — far below minimum; would bind almost anywhere in any genome).' }
+    rounds: [
+      {
+        correctIdx: 1,
+        primers: [
+          { seq: 'GAAGTTCATC',
+            wrongLabel: 'Too short (10 bp — well below the 18 bp minimum).' },
+          { seq: 'GAAGTTCATCTGCACCACCG',
+            okLabel:    'Length 20 bp ✓  GC 55% ✓  No problem runs ✓  3′ end G ✓' },
+          { seq: 'GAAGTTCATCTGCACCACCGGCAAGCTGCCCGTG',
+            wrongLabel: 'Too long (34 bp — exceeds the 25 bp maximum).' },
+          { seq: 'TCATCTG',
+            wrongLabel: 'Too short (7 bp — far below minimum; would bind almost anywhere in any genome).' }
+        ]
+      },
+      {
+        correctIdx: 0,
+        primers: [
+          { seq: 'AAGCAGCACGACTTCTTCAG',
+            okLabel:    'Length 20 bp ✓  GC 50% ✓  No problem runs ✓  3′ end G ✓' },
+          { seq: 'AAGCAGCACGAC',
+            wrongLabel: 'Too short (12 bp — below the 18 bp minimum).' },
+          { seq: 'AAGCAGCACGACTTCTTCAGCGTGTCCGGCGAG',
+            wrongLabel: 'Too long (33 bp — exceeds the 25 bp maximum).' },
+          { seq: 'TTCTTCAG',
+            wrongLabel: 'Too short (8 bp — far below minimum).' }
+        ]
+      }
     ]
   },
   {
@@ -475,50 +495,101 @@ const M1_LEVELS = [
     task:  'All four primers are the correct length. Select the one with <strong>appropriate GC content</strong> (40–60%).',
     hint:  'G–C pairs have 3 hydrogen bonds; A–T pairs have 2. Too few G/C bases → low melting temperature and weak binding. Too many → primer may mis-fold or be hard to melt.',
     showCriteria: ['length','gc'],
-    correctIdx: 2,
-    primers: [
-      { seq: 'GCGAGGGCGAGGGCGATGCC',
-        wrongLabel: 'GC content 80% — far too high. This primer is likely to form hairpins and secondary structures.' },
-      { seq: 'TATTCAATAAATTTAATACA',
-        wrongLabel: 'GC content 10% — far too low. The primer will barely stick to the template at typical annealing temperatures.' },
-      { seq: 'GAAGTTCATCTGCACCACCG',
-        okLabel:    'Length 20 bp ✓  GC 55% ✓  No problem runs ✓' },
-      { seq: 'GAAGTTCATCTGTATAATAA',
-        wrongLabel: 'GC content 25% — too low. Swapping several G/C bases for A/T drops the melting temperature below a useful range.' }
+    rounds: [
+      {
+        correctIdx: 2,
+        primers: [
+          { seq: 'GCGAGGGCGAGGGCGATGCC',
+            wrongLabel: 'GC content 80% — far too high. This primer is likely to form hairpins and secondary structures.' },
+          { seq: 'TATTCAATAAATTTAATACA',
+            wrongLabel: 'GC content 10% — far too low. The primer will barely stick to the template at typical annealing temperatures.' },
+          { seq: 'GAAGTTCATCTGCACCACCG',
+            okLabel:    'Length 20 bp ✓  GC 55% ✓  No problem runs ✓  3′ end G ✓' },
+          { seq: 'GAAGTTCATCTGTATAATAA',
+            wrongLabel: 'GC content 25% — too low. Swapping G/C bases for A/T drops the melting temperature below a useful range.' }
+        ]
+      },
+      {
+        correctIdx: 2,
+        primers: [
+          { seq: 'GCGCGGCTATCGATCGCGCG',
+            wrongLabel: 'GC content 75% — too high. G/C-rich primers are prone to hairpin formation and self-annealing.' },
+          { seq: 'ATCTTCTTCAATTTATAAAT',
+            wrongLabel: 'GC content 15% — far too low. Melting temperature will be well below any useful annealing range.' },
+          { seq: 'ATCGATCGATCGATCGATCC',
+            okLabel:    'Length 20 bp ✓  GC 50% ✓  No problem runs ✓  3′ end C ✓' },
+          { seq: 'TATTCAGGAATTTAAGATCC',
+            wrongLabel: 'GC content 30% — too low. Insufficient G/C base pairs for stable, specific priming.' }
+        ]
+      }
     ]
   },
   {
     focus: 'Homopolymer Runs',
-    task:  'All primers below have acceptable length and GC content. Select the one with <strong>no homopolymer run</strong> (no stretch of 5 or more identical bases).',
+    task:  'All primers below have acceptable length and GC content. Select the one with <strong>no homopolymer run ≥ 5</strong> (no stretch of five or more identical bases).',
     hint:  'Long runs of a single base (e.g., AAAAA) promote primer–dimer formation and can cause polymerase slippage, reducing PCR efficiency.',
     showCriteria: ['length','gc','run'],
-    correctIdx: 0,
-    primers: [
-      { seq: 'GCCAACTTCAAGATCCGCCA',
-        okLabel:    'Length 20 bp ✓  GC 55% ✓  Longest run: 2 ✓' },
-      { seq: 'GCAAGCTGCCCAAAAGATCC',
-        wrongLabel: 'Contains AAAA at positions 12–15. Runs of 4+ same bases encourage hairpin formation at the 3\' end.' },
-      { seq: 'CATCTGCAATTTTTCCGCAA',
-        wrongLabel: 'Contains TTTTT at positions 10–14. This poly-T stretch will cause slippage during synthesis.' },
-      { seq: 'GGGGCGACACCCTGGTGAAC',
-        wrongLabel: 'Contains GGGG at positions 1–4, plus overall GC content of 65%. Two problems.' }
+    rounds: [
+      {
+        correctIdx: 0,
+        primers: [
+          { seq: 'GCCAACTTCAAGATCCGCCG',
+            okLabel:    'Length 20 bp ✓  GC 60% ✓  Longest run: 2 ✓  3′ end G ✓' },
+          { seq: 'GCAAGCTGCCCAAAAAGACC',
+            wrongLabel: 'Contains AAAAA at positions 12–16 (run of 5). Homopolymer runs promote primer–dimer formation and polymerase slippage.' },
+          { seq: 'CATCTGCAATTTTTCCGCAA',
+            wrongLabel: 'Contains TTTTT at positions 10–14 (run of 5). This poly-T stretch will cause slippage during synthesis.' },
+          { seq: 'GGGGGCGACACCCTGGTGAC',
+            wrongLabel: 'Contains GGGGG at positions 1–5 (run of 5), plus GC content 70% — two separate problems.' }
+        ]
+      },
+      {
+        correctIdx: 0,
+        primers: [
+          { seq: 'CGTAGCTAGCTAGCTAGCTG',
+            okLabel:    'Length 20 bp ✓  GC 50% ✓  Longest run: 1 ✓  3′ end G ✓' },
+          { seq: 'CGTAGCTTAAAAATCTAGCG',
+            wrongLabel: 'Contains AAAAA at positions 8–12 (run of 5). Homopolymer runs cause polymerase slippage.' },
+          { seq: 'CGTAGCTTTTTGTCTAGCGG',
+            wrongLabel: 'Contains TTTTT at positions 7–11 (run of 5). This poly-T stretch reduces PCR efficiency.' },
+          { seq: 'ATAGCATCCCCCTCGATACG',
+            wrongLabel: 'Contains CCCCC at positions 8–12 (run of 5). Long C-runs can cause primer self-annealing.' }
+        ]
+      }
     ]
   },
   {
     focus: 'All Criteria',
-    task:  'Apply <strong>all three rules</strong>: length 18–25 bp, GC 40–60%, no homopolymer run ≥ 5. Only one primer passes every check.',
-    hint:  'Work through each candidate systematically: check length first, then GC%, then scan for runs.',
-    showCriteria: ['length','gc','run'],
-    correctIdx: 3,
-    primers: [
-      { seq: 'CGCACCATCTTCTTCAAAAA',
-        wrongLabel: 'Poly-AAAAA at the 3\' end. A homopolymer at the very 3\' tip is especially problematic — it\'s where polymerase extension begins.' },
-      { seq: 'GCGAGGGCGAGGAGCTGTTC',
-        wrongLabel: 'GC content 70% — too high. Despite correct length and no long runs, the high GC will raise Tm out of a usable range.' },
-      { seq: 'GAAGTTCATCTGCACC',
-        wrongLabel: 'Length 16 bp — too short. It may work in some cases, but falls below the reliable minimum.' },
-      { seq: 'TTCTTCAAGGACGACGGCAA',
-        okLabel:    'Length 20 bp ✓  GC 50% ✓  Longest run: 2 ✓  All criteria met.' }
+    task:  'Apply <strong>all four rules</strong>: length 18–25 bp, GC 40–60%, no homopolymer run ≥ 5, and 3′ end must be G or C. Only one primer passes every check.',
+    hint:  'Work through each candidate systematically: check length, then GC%, then runs, then the 3′ base.',
+    showCriteria: ['length','gc','run','end'],
+    rounds: [
+      {
+        correctIdx: 3,
+        primers: [
+          { seq: 'CGCACCATCTTCTTCAAAAA',
+            wrongLabel: 'AAAAA at the 3′ end (run of 5) — especially problematic where polymerase extension begins. Also ends in A.' },
+          { seq: 'GCGAGGGCGAGGAGCTGTTC',
+            wrongLabel: 'GC content 70% — too high. Despite correct length and no long runs, the high GC raises Tm out of a usable range.' },
+          { seq: 'GAAGTTCATCTGCACC',
+            wrongLabel: 'Length 16 bp — too short. Falls below the reliable minimum for specific amplification.' },
+          { seq: 'TTCTTCAAGGACGACGGCAC',
+            okLabel:    'Length 20 bp ✓  GC 50% ✓  Longest run: 2 ✓  3′ end C ✓  All criteria met.' }
+        ]
+      },
+      {
+        correctIdx: 0,
+        primers: [
+          { seq: 'GCATCGATCGATCGATCGAC',
+            okLabel:    'Length 20 bp ✓  GC 50% ✓  Longest run: 1 ✓  3′ end C ✓  All criteria met.' },
+          { seq: 'GCGCGCGCGCGCGCGCGCGC',
+            wrongLabel: 'GC content 100% — far too high. This primer forms extremely stable secondary structures and cannot be denatured effectively.' },
+          { seq: 'ATTTTTTCGATCGATCGATC',
+            wrongLabel: 'Contains TTTTTT at positions 2–7 (run of 6) and GC content 35% — two separate failures.' },
+          { seq: 'TATTCAATAAATTTAATACA',
+            wrongLabel: 'GC content 10% — far too low. Also ends in A, violating the 3′ G/C rule. Multiple failures.' }
+        ]
+      }
     ]
   }
 ];
@@ -529,9 +600,11 @@ const M1_LEVELS = [
 const state = {
   score:       0,
   levelIdx:    0,
-  selectedIdx: null,   // which primer card the player tapped
-  revealed:    false,  // has the answer been submitted
-  penalties:   0       // wrong attempts on current level
+  roundIdx:    0,
+  totalRounds: 1,      // set from ?rounds=N URL param
+  selectedIdx: null,
+  revealed:    false,
+  penalties:   0
 };
 
 // ════════════════════════════════════════════════════
@@ -544,7 +617,11 @@ function showScreen(id) {
 function showPartSelect() { showScreen('partSelectScreen'); }
 function startPart(n) {
   if (n !== 1) return;
-  state.score = 0; state.levelIdx = 0; state.selectedIdx = null; state.revealed = false; state.penalties = 0;
+  const rParam = parseInt(new URL(window.location.href).searchParams.get('rounds') || '1', 10);
+  const maxRounds = Math.max(...M1_LEVELS.map(l => l.rounds.length));
+  state.totalRounds = Math.max(1, Math.min(rParam, maxRounds));
+  state.score = 0; state.levelIdx = 0; state.roundIdx = 0;
+  state.selectedIdx = null; state.revealed = false; state.penalties = 0;
   showScreen('gameScreen');
   renderLevel();
 }
@@ -553,14 +630,13 @@ function startPart(n) {
 //  STAT BADGE HELPER
 // ════════════════════════════════════════════════════
 function statBadgeHtml(key, text, showCriteria, ev) {
-  const criteriaKey = key === 'len' ? 'length' : key; // 'length','gc','run'
-  if (!showCriteria.includes(criteriaKey)) {
-    return `<span class="stat-badge stat-hidden" title="Covered in a later level">?</span>`;
-  }
+  const criteriaKey = key === 'len' ? 'length' : key; // 'length','gc','run','end'
+  if (!showCriteria.includes(criteriaKey)) return '';
   let cls = 'stat-ok';
   if (key === 'len' && (ev.len < 18 || ev.len > 25)) cls = 'stat-bad';
   if (key === 'gc'  && (ev.gc  < 40 || ev.gc  > 60)) cls = 'stat-bad';
   if (key === 'run' && ev.run >= 5)                   cls = 'stat-bad';
+  if (key === 'end' && !ev.endOk)                     cls = 'stat-bad';
   const icon = cls === 'stat-ok' ? '✓' : '✗';
   return `<span class="stat-badge ${cls}">${icon} ${escHtml(text)}</span>`;
 }
@@ -569,16 +645,20 @@ function statBadgeHtml(key, text, showCriteria, ev) {
 //  RENDER LEVEL
 // ════════════════════════════════════════════════════
 function renderLevel() {
-  const lvl = M1_LEVELS[state.levelIdx];
+  const lvl   = M1_LEVELS[state.levelIdx];
+  const round = lvl.rounds[state.roundIdx];
   state.selectedIdx = null; state.revealed = false; state.penalties = 0;
 
   // header + pips
   document.getElementById('scoreDisplay').textContent = state.score + ' pts';
-  document.getElementById('moduleTitle').textContent = 'Module 1 · Primer Evaluation';
-  document.getElementById('levelPips').innerHTML = M1_LEVELS.map((_, i) =>
-    `<div class="level-pip ${i < state.levelIdx ? 'done' : i === state.levelIdx ? 'current' : ''}"></div>`
+  const roundInfo = state.totalRounds > 1 ? ` · Round ${state.roundIdx + 1}/${state.totalRounds}` : '';
+  document.getElementById('moduleTitle').textContent = 'Module 1 · Primer Evaluation' + roundInfo;
+  const totalSteps   = M1_LEVELS.length * state.totalRounds;
+  const currentStep  = state.levelIdx * state.totalRounds + state.roundIdx;
+  document.getElementById('levelPips').innerHTML = Array.from({length: totalSteps}, (_, i) =>
+    `<div class="level-pip ${i < currentStep ? 'done' : i === currentStep ? 'current' : ''}"></div>`
   ).join('');
-  document.getElementById('levelLabel').textContent = `${state.levelIdx + 1} / ${M1_LEVELS.length}`;
+  document.getElementById('levelLabel').textContent = `${currentStep + 1} / ${totalSteps}`;
 
   // action bar
   const btnS = document.getElementById('btnSubmit');
@@ -593,6 +673,7 @@ function renderLevel() {
       <div class="row"><span>Length</span><span class="criteria-val">18 – 25 bp</span></div>
       <div class="row"><span>GC content</span><span class="criteria-val">40 – 60 %</span></div>
       <div class="row"><span>Homopolymer run</span><span class="criteria-val">≤ 4 identical bases</span></div>
+      <div class="row"><span>3′ end base</span><span class="criteria-val">G or C</span></div>
       <div class="row"><span>Melting temp (Tm)</span><span class="criteria-val">covered in Module 2</span></div>
     </div>`;
 
@@ -604,24 +685,19 @@ function renderLevel() {
     <span class="nt-dot"><span class="nt-C">●</span> C</span>
   </div>`;
 
-  // primer cards
+  // primer cards — stats hidden until a card is selected
   const labels = ['A','B','C','D'];
-  const cardsHtml = lvl.primers.map((p, i) => {
-    const ev = evaluatePrimer(p.seq);
-    const statsHtml =
-      statBadgeHtml('len', ev.len + ' bp',    lvl.showCriteria, ev) +
-      statBadgeHtml('gc',  ev.gc  + '% GC',   lvl.showCriteria, ev) +
-      statBadgeHtml('run', 'run: ' + ev.run,  lvl.showCriteria, ev);
-    return `<div class="primer-card" id="pcard-${i}" onclick="selectPrimer(${i})">
+  const cardsHtml = round.primers.map((p, i) =>
+    `<div class="primer-card" id="pcard-${i}" onclick="selectPrimer(${i})">
       <div class="primer-card-header">
         <span class="primer-letter">${labels[i]}</span>
         <div class="primer-seq-display">${seqHtml(p.seq)}</div>
       </div>
-      <div class="primer-stats" id="pstats-${i}">${statsHtml}</div>
+      <div class="primer-stats" id="pstats-${i}"></div>
       <div class="primer-flaw"    id="pflaw-${i}"></div>
       <div class="primer-explain" id="pexplain-${i}"></div>
-    </div>`;
-  }).join('');
+    </div>`
+  ).join('');
 
   document.getElementById('gameContent').innerHTML = `
     <div class="task-card">
@@ -642,18 +718,39 @@ function renderLevel() {
 // ════════════════════════════════════════════════════
 //  PRIMER SELECTION
 // ════════════════════════════════════════════════════
+function primerStatsHtml(seq, showCriteria) {
+  const ev = evaluatePrimer(seq);
+  return statBadgeHtml('len', ev.len + ' bp',         showCriteria, ev) +
+         statBadgeHtml('gc',  ev.gc  + '% GC',        showCriteria, ev) +
+         statBadgeHtml('run', 'run: ' + ev.run,        showCriteria, ev) +
+         statBadgeHtml('end', '3\u2032 ' + ev.endBase, showCriteria, ev);
+}
 function selectPrimer(idx) {
   if (state.revealed) return;
-  // don't re-select a card already marked wrong
   const card = document.getElementById(`pcard-${idx}`);
   if (card.classList.contains('wrong') || card.classList.contains('disabled')) return;
 
+  const lvl   = M1_LEVELS[state.levelIdx];
+  const round = lvl.rounds[state.roundIdx];
+
+  // Clear stats on previously selected card (if not wrong)
+  if (state.selectedIdx !== null && state.selectedIdx !== idx) {
+    const prev = document.getElementById(`pcard-${state.selectedIdx}`);
+    if (!prev.classList.contains('wrong')) {
+      document.getElementById(`pstats-${state.selectedIdx}`).innerHTML = '';
+    }
+  }
+
   state.selectedIdx = idx;
   document.querySelectorAll('.primer-card').forEach((c, i) => {
-    if (!c.classList.contains('wrong') && !c.classList.contains('disabled')) {
+    if (!c.classList.contains('wrong') && !c.classList.contains('disabled'))
       c.classList.toggle('selected', i === idx);
-    }
   });
+
+  // Reveal stats for newly selected card
+  document.getElementById(`pstats-${idx}`).innerHTML =
+    primerStatsHtml(round.primers[idx].seq, lvl.showCriteria);
+
   const btnS = document.getElementById('btnSubmit');
   btnS.disabled = false;
   btnS.textContent = `Submit Primer ${'ABCD'[idx]}`;
@@ -664,12 +761,13 @@ function selectPrimer(idx) {
 // ════════════════════════════════════════════════════
 function submitAnswer() {
   if (state.selectedIdx === null || state.revealed) return;
-  const lvl = M1_LEVELS[state.levelIdx];
-  const idx = state.selectedIdx;
-  const card = document.getElementById(`pcard-${idx}`);
+  const lvl   = M1_LEVELS[state.levelIdx];
+  const round = lvl.rounds[state.roundIdx];
+  const idx   = state.selectedIdx;
+  const card  = document.getElementById(`pcard-${idx}`);
   card.classList.remove('selected');
 
-  if (idx === lvl.correctIdx) {
+  if (idx === round.correctIdx) {
     // ── CORRECT ──
     state.revealed = true;
     const earned = Math.max(5, 30 - state.penalties * 5);
@@ -678,11 +776,11 @@ function submitAnswer() {
 
     card.classList.add('correct', 'disabled');
     const exp = document.getElementById(`pexplain-${idx}`);
-    exp.textContent = lvl.primers[idx].okLabel;
+    exp.textContent = round.primers[idx].okLabel;
     exp.style.display = 'block';
 
     // reveal all wrong cards
-    lvl.primers.forEach((p, i) => {
+    round.primers.forEach((p, i) => {
       if (i === idx) return;
       const c = document.getElementById(`pcard-${i}`);
       c.classList.remove('selected');
@@ -692,33 +790,33 @@ function submitAnswer() {
       fl.style.display = 'block';
     });
 
-    // show all stat badges fully revealed
-    lvl.primers.forEach((p, i) => {
-      const ev = evaluatePrimer(p.seq);
+    // reveal all 4 stat badges for every card
+    const allCriteria = ['length','gc','run','end'];
+    round.primers.forEach((p, i) => {
       document.getElementById(`pstats-${i}`).innerHTML =
-        statBadgeHtml('len', ev.len + ' bp',   ['length','gc','run'], ev) +
-        statBadgeHtml('gc',  ev.gc  + '% GC',  ['length','gc','run'], ev) +
-        statBadgeHtml('run', 'run: ' + ev.run, ['length','gc','run'], ev);
+        primerStatsHtml(p.seq, allCriteria);
     });
 
     // show level result overlay
-    const msgParts = state.penalties === 0
-      ? ['✓ Correct!', 'good', 'First try — perfect!']
-      : ['✓ Correct!', 'good', `Correct after ${state.penalties + 1} attempt${state.penalties > 0 ? 's' : ''}.`];
-    showResultOverlay(msgParts[0], msgParts[1], msgParts[2], `+${earned} pts`);
+    const body = state.penalties === 0
+      ? 'First try — perfect!'
+      : `Correct after ${state.penalties + 1} attempts.`;
+    showResultOverlay('✓ Correct!', 'good', body, `+${earned} pts`);
 
     // swap buttons
     document.getElementById('btnSubmit').style.display = 'none';
     const btnN = document.getElementById('btnNext');
     btnN.style.display = 'block';
-    btnN.textContent = state.levelIdx < M1_LEVELS.length - 1 ? 'Next Level →' : 'Finish Module →';
+    const isLastStep = state.roundIdx >= state.totalRounds - 1 &&
+                       state.levelIdx >= M1_LEVELS.length - 1;
+    btnN.textContent = isLastStep ? 'Finish Module →' : 'Next →';
 
   } else {
     // ── WRONG ──
     state.penalties++;
     card.classList.add('wrong');
     const fl = document.getElementById(`pflaw-${idx}`);
-    fl.textContent = lvl.primers[idx].wrongLabel;
+    fl.textContent = round.primers[idx].wrongLabel;
     fl.style.display = 'block';
     state.selectedIdx = null;
     const btnS = document.getElementById('btnSubmit');
@@ -728,17 +826,21 @@ function submitAnswer() {
 }
 
 // ════════════════════════════════════════════════════
-//  NEXT LEVEL
+//  NEXT LEVEL / ROUND
 // ════════════════════════════════════════════════════
 function nextLevel() {
   dismissResult();
-  if (state.levelIdx < M1_LEVELS.length - 1) {
+  if (state.roundIdx < state.totalRounds - 1) {
+    state.roundIdx++;
+  } else if (state.levelIdx < M1_LEVELS.length - 1) {
     state.levelIdx++;
-    renderLevel();
-    document.getElementById('gameContent').scrollTop = 0;
+    state.roundIdx = 0;
   } else {
     showModuleComplete();
+    return;
   }
+  renderLevel();
+  document.getElementById('gameContent').scrollTop = 0;
 }
 
 // ════════════════════════════════════════════════════
@@ -757,9 +859,9 @@ function dismissResult() {
 }
 function showModuleComplete() {
   document.getElementById('modCompleteBody').textContent =
-    'You\'ve mastered the three core rules of PCR primer design: appropriate length, ' +
-    'balanced GC content, and no homopolymer runs. These fundamentals underpin every ' +
-    'primer you will ever design. Module 2 covers melting temperature calculation.';
+    'You\'ve mastered the four core rules of PCR primer design: appropriate length, ' +
+    'balanced GC content, no homopolymer runs, and a G or C at the 3′ end. These ' +
+    'fundamentals underpin every primer you will ever design. Module 2 covers melting temperature calculation.';
   document.getElementById('modFinalScore').textContent = state.score + ' pts';
   document.getElementById('modCompleteOverlay').classList.add('show');
 }
