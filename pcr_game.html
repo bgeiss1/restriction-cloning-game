@@ -663,7 +663,7 @@ function renderLevel() {
   // action bar
   const btnS = document.getElementById('btnSubmit');
   const btnN = document.getElementById('btnNext');
-  btnS.disabled = true; btnS.textContent = 'Select a primer first'; btnS.style.display = '';
+  btnS.disabled = true; btnS.textContent = 'Select Primer'; btnS.style.display = '';
   btnN.style.display = 'none';
 
   // criteria reference card
@@ -730,9 +730,6 @@ function selectPrimer(idx) {
   const card = document.getElementById(`pcard-${idx}`);
   if (card.classList.contains('wrong') || card.classList.contains('disabled')) return;
 
-  const lvl   = M1_LEVELS[state.levelIdx];
-  const round = lvl.rounds[state.roundIdx];
-
   // Clear stats on previously selected card (if not wrong)
   if (state.selectedIdx !== null && state.selectedIdx !== idx) {
     const prev = document.getElementById(`pcard-${state.selectedIdx}`);
@@ -747,13 +744,9 @@ function selectPrimer(idx) {
       c.classList.toggle('selected', i === idx);
   });
 
-  // Reveal stats for newly selected card
-  document.getElementById(`pstats-${idx}`).innerHTML =
-    primerStatsHtml(round.primers[idx].seq, lvl.showCriteria);
-
   const btnS = document.getElementById('btnSubmit');
   btnS.disabled = false;
-  btnS.textContent = `Submit Primer ${'ABCD'[idx]}`;
+  btnS.textContent = 'Select Primer';
 }
 
 // ════════════════════════════════════════════════════
@@ -767,6 +760,10 @@ function submitAnswer() {
   const card  = document.getElementById(`pcard-${idx}`);
   card.classList.remove('selected');
 
+  // Always reveal stats for the selected card on button press
+  document.getElementById(`pstats-${idx}`).innerHTML =
+    primerStatsHtml(round.primers[idx].seq, lvl.showCriteria);
+
   if (idx === round.correctIdx) {
     // ── CORRECT ──
     state.revealed = true;
@@ -779,22 +776,20 @@ function submitAnswer() {
     exp.textContent = round.primers[idx].okLabel;
     exp.style.display = 'block';
 
-    // reveal all wrong cards
+    // reveal all wrong cards with flaws + stats
+    const allCriteria = ['length','gc','run','end'];
     round.primers.forEach((p, i) => {
-      if (i === idx) return;
+      if (i === idx) {
+        document.getElementById(`pstats-${i}`).innerHTML = primerStatsHtml(p.seq, allCriteria);
+        return;
+      }
       const c = document.getElementById(`pcard-${i}`);
       c.classList.remove('selected');
       c.classList.add('wrong', 'disabled');
       const fl = document.getElementById(`pflaw-${i}`);
       fl.textContent = p.wrongLabel;
       fl.style.display = 'block';
-    });
-
-    // reveal all 4 stat badges for every card
-    const allCriteria = ['length','gc','run','end'];
-    round.primers.forEach((p, i) => {
-      document.getElementById(`pstats-${i}`).innerHTML =
-        primerStatsHtml(p.seq, allCriteria);
+      document.getElementById(`pstats-${i}`).innerHTML = primerStatsHtml(p.seq, allCriteria);
     });
 
     // show level result overlay
@@ -821,7 +816,7 @@ function submitAnswer() {
     state.selectedIdx = null;
     const btnS = document.getElementById('btnSubmit');
     btnS.disabled = true;
-    btnS.textContent = 'Select a different primer';
+    btnS.textContent = 'Select Primer';
   }
 }
 
