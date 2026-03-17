@@ -364,6 +364,19 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 </div>
 
 <!-- ══════════════════════════════════════════
+     LEVEL COMPLETE OVERLAY
+══════════════════════════════════════════ -->
+<div id="levelCompleteOverlay" style="display:none;position:fixed;inset:0;z-index:105;background:rgba(0,0,0,0.78);align-items:center;justify-content:center;padding:20px;">
+  <div class="result-box" style="border-color:var(--gold);gap:12px;">
+    <div style="font-size:2.6rem;">⭐</div>
+    <div id="lcTitle" style="font-size:1.3rem;font-weight:800;color:var(--success);"></div>
+    <div id="lcScore" style="font-size:0.88rem;color:var(--muted);"></div>
+    <div id="lcNext" style="font-size:0.95rem;font-weight:700;color:var(--gold);padding:10px 14px;background:rgba(200,169,81,0.1);border:1px solid var(--border);border-radius:8px;text-align:center;"></div>
+    <button class="btn-result" onclick="advanceLevel()">Continue →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
      CHALLENGE RESTART OVERLAY
 ══════════════════════════════════════════ -->
 <div id="challengeRestartOverlay" style="display:none;position:fixed;inset:0;z-index:110;background:rgba(0,0,0,0.85);align-items:center;justify-content:center;padding:20px;">
@@ -1137,16 +1150,12 @@ function submitAnswer() {
       btnN.textContent = 'Next Question →';
     } else {
       const levelDone = state.levelScore >= LEVEL_TARGET;
-      const body = state.penalties === 0 ? 'First try — perfect!' : `Correct after ${state.penalties + 1} attempts.`;
-      const scoreNote = levelDone
-        ? (state.levelIdx < M1_LEVELS.length - 1 ? `Level ${state.levelIdx + 1} complete!` : '')
-        : `${state.levelScore} / ${LEVEL_TARGET} pts this level`;
-      showResultOverlay('✓ Correct!', 'good', `${body}  ${scoreNote}`, `+${earned} pts`);
-      btnN.style.display = 'block';
       if (levelDone) {
-        const isLast = state.levelIdx >= M1_LEVELS.length - 1;
-        btnN.textContent = isLast ? 'Finish Module →' : (state.levelIdx === M1_LEVELS.length - 2 ? 'Start Challenge →' : 'Next Level →');
+        setTimeout(() => showLevelComplete(), 400);
       } else {
+        const body = state.penalties === 0 ? 'First try — perfect!' : `Correct after ${state.penalties + 1} attempts.`;
+        showResultOverlay('✓ Correct!', 'good', `${body} · ${state.levelScore} / ${LEVEL_TARGET} pts`, `+${earned} pts`);
+        btnN.style.display = 'block';
         btnN.textContent = 'Next Question →';
       }
     }
@@ -1229,6 +1238,21 @@ function showResultOverlay(title, cls, body, scoreText) {
 }
 function dismissResult() {
   document.getElementById('resultOverlay').classList.remove('show');
+}
+function showLevelComplete() {
+  const lvl     = M1_LEVELS[state.levelIdx];
+  const isLast  = state.levelIdx >= M1_LEVELS.length - 2; // level 5 → challenge next
+  const nextLvl = M1_LEVELS[state.levelIdx + 1];
+  document.getElementById('lcTitle').textContent  = `Level ${state.levelIdx + 1} Complete!`;
+  document.getElementById('lcScore').textContent  = `${state.levelScore} / ${LEVEL_TARGET} pts earned`;
+  document.getElementById('lcNext').textContent   = isLast
+    ? 'Up next: Challenge Round'
+    : `Up next: Level ${state.levelIdx + 2} · ${nextLvl.focus}`;
+  document.getElementById('levelCompleteOverlay').style.display = 'flex';
+}
+function advanceLevel() {
+  document.getElementById('levelCompleteOverlay').style.display = 'none';
+  nextLevel();
 }
 function showChallengeRestart() {
   const challengeEarned = state.score - state.tutorialScore;
