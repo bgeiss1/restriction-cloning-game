@@ -303,7 +303,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
           <div class="part-title">Part 1 · Primer &amp; Amplicon Design</div>
           <div class="part-sub">Evaluate primers · Calculate Tm · Place primers · Analyze amplicons</div>
         </div>
-        <div class="part-badge">4 modules</div>
+        <div class="part-badge">5 levels</div>
       </div>
       <div class="part-card locked">
         <div class="part-icon">🌡️</div>
@@ -453,143 +453,306 @@ const GFP_SEQ =
   'TGCTGGAGTTCGTGACCGCCGCCGGGATCACTCTCGGCATGGACGAGCTGTACAAG';
 
 // ════════════════════════════════════════════════════
-//  MODULE 1 LEVEL DATA  (each level has rounds[])
+//  MODULE 1 LEVEL DATA  (5 levels × 5 rounds each)
 // ════════════════════════════════════════════════════
 const M1_LEVELS = [
+  // ─── LEVEL 1: PRIMER LENGTH ─────────────────────
   {
     focus: 'Primer Length',
     task:  'Select the only primer with an <strong>appropriate length</strong> for PCR. Valid primers are <strong>18–25 bp</strong>.',
-    hint:  'Too short → non-specific binding. Too long → slow extension, higher cost.',
+    hint:  'Too short → non-specific binding to many sites. Too long → slow annealing, higher synthesis cost. Sweet spot: 18–25 bp.',
     showCriteria: ['length'],
     rounds: [
-      {
-        correctIdx: 1,
-        primers: [
-          { seq: 'GAAGTTCATC',
-            wrongLabel: 'Too short (10 bp — well below the 18 bp minimum).' },
-          { seq: 'GAAGTTCATCTGCACCACCG',
-            okLabel:    'Length 20 bp ✓  GC 55% ✓  No problem runs ✓  3′ end G ✓' },
-          { seq: 'GAAGTTCATCTGCACCACCGGCAAGCTGCCCGTG',
-            wrongLabel: 'Too long (34 bp — exceeds the 25 bp maximum).' },
-          { seq: 'TCATCTG',
-            wrongLabel: 'Too short (7 bp — far below minimum; would bind almost anywhere in any genome).' }
-        ]
-      },
-      {
-        correctIdx: 0,
-        primers: [
-          { seq: 'AAGCAGCACGACTTCTTCAG',
-            okLabel:    'Length 20 bp ✓  GC 50% ✓  No problem runs ✓  3′ end G ✓' },
-          { seq: 'AAGCAGCACGAC',
-            wrongLabel: 'Too short (12 bp — below the 18 bp minimum).' },
-          { seq: 'AAGCAGCACGACTTCTTCAGCGTGTCCGGCGAG',
-            wrongLabel: 'Too long (33 bp — exceeds the 25 bp maximum).' },
-          { seq: 'TTCTTCAG',
-            wrongLabel: 'Too short (8 bp — far below minimum).' }
-        ]
-      }
+      { correctIdx: 1, primers: [
+        { seq: 'GAAGTTCATC',
+          wrongLabel: 'Too short (10 bp) — well below the 18 bp minimum. This primer will bind non-specifically across the genome.' },
+        { seq: 'GAAGTTCATCTGCACCACCG',
+          okLabel:    '20 bp ✓  GC 55% ✓  Runs ✓  3′ G ✓' },
+        { seq: 'GAAGTTCATCTGCACCACCGGCAAGCTGCCCGTG',
+          wrongLabel: 'Too long (34 bp) — exceeds the 25 bp maximum. Extension time and cost increase without added specificity.' },
+        { seq: 'TCATCTG',
+          wrongLabel: 'Too short (7 bp) — far below minimum; would bind almost anywhere in any genome.' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'AAGCAGCACGACTTCTTCAG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Runs ✓  3′ G ✓' },
+        { seq: 'AAGCAGCACGAC',
+          wrongLabel: 'Too short (12 bp) — below the 18 bp minimum. Insufficient length for specific template binding.' },
+        { seq: 'AAGCAGCACGACTTCTTCAGCGTGTCCGGCGAG',
+          wrongLabel: 'Too long (33 bp) — exceeds the 25 bp maximum.' },
+        { seq: 'TTCTTCAG',
+          wrongLabel: 'Too short (8 bp) — far below minimum.' }
+      ]},
+      { correctIdx: 2, primers: [
+        { seq: 'CACCATCTTCTTCAAGG',
+          wrongLabel: 'Too short (17 bp) — just 1 bp below the 18 bp minimum. Always count carefully near the boundary.' },
+        { seq: 'CACCATCTTCTTCAAGGACGACGGCA',
+          wrongLabel: 'Too long (26 bp) — just 1 bp over the 25 bp maximum. Close, but still fails the rule.' },
+        { seq: 'CACCATCTTCTTCAAGGACG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Runs ✓  3′ G ✓' },
+        { seq: 'CATCTTC',
+          wrongLabel: 'Too short (7 bp) — far below minimum.' }
+      ]},
+      { correctIdx: 3, primers: [
+        { seq: 'TTCTTCAAGG',
+          wrongLabel: 'Too short (10 bp) — below the 18 bp minimum.' },
+        { seq: 'TTCTTCAAGGACGACGGCACATCCTG',
+          wrongLabel: 'Too long (26 bp) — just 1 bp over the maximum.' },
+        { seq: 'TTCTTCAAGGACGACGGCACATCCTGGGCACAAG',
+          wrongLabel: 'Too long (34 bp) — well over the maximum.' },
+        { seq: 'TTCTTCAAGGACGACGGCAC',
+          okLabel:    '20 bp ✓  GC 55% ✓  Runs ✓  3′ C ✓' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'GCATCGAGCTGAAGGGCATC',
+          okLabel:    '20 bp ✓  GC 60% ✓  Runs ✓  3′ C ✓' },
+        { seq: 'GCATCGAGCTGAAGGGC',
+          wrongLabel: 'Too short (17 bp) — just 1 bp below the minimum. Easily missed when counting quickly.' },
+        { seq: 'GCATCGAGCTGAAGGGCATCGACTTC',
+          wrongLabel: 'Too long (26 bp) — just 1 bp over the maximum.' },
+        { seq: 'GCATCGAG',
+          wrongLabel: 'Too short (8 bp) — far below minimum.' }
+      ]}
     ]
   },
+
+  // ─── LEVEL 2: GC CONTENT ────────────────────────
   {
     focus: 'GC Content',
-    task:  'All four primers are the correct length. Select the one with <strong>appropriate GC content</strong> (40–60%).',
-    hint:  'G–C pairs have 3 hydrogen bonds; A–T pairs have 2. Too few G/C bases → low melting temperature and weak binding. Too many → primer may mis-fold or be hard to melt.',
+    task:  'All four primers are the correct length. Select the one with <strong>GC content between 40–60%</strong>.',
+    hint:  'G–C pairs have 3 hydrogen bonds; A–T have 2. Too low GC → weak binding, poor specificity. Too high → hairpins, hard to denature. Aim for 40–60%.',
     showCriteria: ['length','gc'],
     rounds: [
-      {
-        correctIdx: 2,
-        primers: [
-          { seq: 'GCGAGGGCGAGGGCGATGCC',
-            wrongLabel: 'GC content 80% — far too high. This primer is likely to form hairpins and secondary structures.' },
-          { seq: 'TATTCAATAAATTTAATACA',
-            wrongLabel: 'GC content 10% — far too low. The primer will barely stick to the template at typical annealing temperatures.' },
-          { seq: 'GAAGTTCATCTGCACCACCG',
-            okLabel:    'Length 20 bp ✓  GC 55% ✓  No problem runs ✓  3′ end G ✓' },
-          { seq: 'GAAGTTCATCTGTATAATAA',
-            wrongLabel: 'GC content 25% — too low. Swapping G/C bases for A/T drops the melting temperature below a useful range.' }
-        ]
-      },
-      {
-        correctIdx: 2,
-        primers: [
-          { seq: 'GCGCGGCTATCGATCGCGCG',
-            wrongLabel: 'GC content 75% — too high. G/C-rich primers are prone to hairpin formation and self-annealing.' },
-          { seq: 'ATCTTCTTCAATTTATAAAT',
-            wrongLabel: 'GC content 15% — far too low. Melting temperature will be well below any useful annealing range.' },
-          { seq: 'ATCGATCGATCGATCGATCC',
-            okLabel:    'Length 20 bp ✓  GC 50% ✓  No problem runs ✓  3′ end C ✓' },
-          { seq: 'TATTCAGGAATTTAAGATCC',
-            wrongLabel: 'GC content 30% — too low. Insufficient G/C base pairs for stable, specific priming.' }
-        ]
-      }
+      { correctIdx: 2, primers: [
+        { seq: 'GCGAGGGCGAGGGCGATGCC',
+          wrongLabel: 'GC content 80% — far too high. Prone to hairpin formation and secondary structure.' },
+        { seq: 'TATTCAATAAATTTAATACA',
+          wrongLabel: 'GC content 10% — far too low. The primer will barely anneal at any practical temperature.' },
+        { seq: 'GAAGTTCATCTGCACCACCG',
+          okLabel:    '20 bp ✓  GC 55% ✓  Runs ✓  3′ G ✓' },
+        { seq: 'GAAGTTCATCTGTATAATAA',
+          wrongLabel: 'GC content 25% — too low. Too few G/C pairs give insufficient hydrogen bonding.' }
+      ]},
+      { correctIdx: 2, primers: [
+        { seq: 'GCGCGGCTATCGATCGCGCG',
+          wrongLabel: 'GC content 75% — too high. G/C-rich primers are prone to self-annealing.' },
+        { seq: 'ATCTTCTTCAATTTATAAAT',
+          wrongLabel: 'GC content 15% — far too low. Melting temperature will be too low for reliable priming.' },
+        { seq: 'ATCGATCGATCGATCGATCC',
+          okLabel:    '20 bp ✓  GC 50% ✓  Runs ✓  3′ C ✓' },
+        { seq: 'TATTCAGGAATTTAAGATCC',
+          wrongLabel: 'GC content 30% — too low. Insufficient G/C base pairs for stable, specific priming.' }
+      ]},
+      { correctIdx: 1, primers: [
+        { seq: 'GCGCGATCGATAGATGCCGC',
+          wrongLabel: 'GC content 65% — just over the 60% ceiling. Even modest excess increases hairpin risk.' },
+        { seq: 'CACCATCTTCTTCAAGGACG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Runs ✓  3′ G ✓' },
+        { seq: 'AATTATCAGCATTATCAGCC',
+          wrongLabel: 'GC content 35% — just under the 40% floor. Just slightly too AT-rich for reliable annealing.' },
+        { seq: 'ATCTTCTTCAATTTATAAAT',
+          wrongLabel: 'GC content 15% — far too low.' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'TTCTTCAAGGACGACGGCAC',
+          okLabel:    '20 bp ✓  GC 55% ✓  Runs ✓  3′ C ✓' },
+        { seq: 'GCGCGATCGATAGATGCCGC',
+          wrongLabel: 'GC content 65% — just over the 60% ceiling.' },
+        { seq: 'TATCAGCATTATCAAGATCC',
+          wrongLabel: 'GC content 35% — just under the 40% floor.' },
+        { seq: 'GCGAGGGCGAGGGCGATGCC',
+          wrongLabel: 'GC content 80% — far too high.' }
+      ]},
+      { correctIdx: 3, primers: [
+        { seq: 'GCGCGATCGATAGATGCCGC',
+          wrongLabel: 'GC content 65% — just over the ceiling. Check carefully: 13 G/C out of 20 bases = 65%.' },
+        { seq: 'AATTATCAGCATTATCAGCC',
+          wrongLabel: 'GC content 35% — just under the floor. Count again: 7 G/C out of 20 bases = 35%.' },
+        { seq: 'TATCAGCATTATCAAGATCC',
+          wrongLabel: 'GC content 35% — still just under 40%. A second 35% decoy to reinforce careful counting.' },
+        { seq: 'GCATCGAGCTGAAGGGCATC',
+          okLabel:    '20 bp ✓  GC 60% ✓  Runs ✓  3′ C ✓' }
+      ]}
     ]
   },
+
+  // ─── LEVEL 3: HOMOPOLYMER RUNS ──────────────────
   {
     focus: 'Homopolymer Runs',
-    task:  'All primers below have acceptable length and GC content. Select the one with <strong>no homopolymer run ≥ 5</strong> (no stretch of five or more identical bases).',
-    hint:  'Long runs of a single base (e.g., AAAAA) promote primer–dimer formation and can cause polymerase slippage, reducing PCR efficiency.',
+    task:  'All primers have correct length and GC content. Select the one with <strong>no homopolymer run of 5 or more</strong> identical consecutive bases.',
+    hint:  'Runs of 5+ same bases (e.g., AAAAA) promote primer–dimer formation and cause polymerase slippage, reducing yield and specificity.',
     showCriteria: ['length','gc','run'],
     rounds: [
-      {
-        correctIdx: 0,
-        primers: [
-          { seq: 'GCCAACTTCAAGATCCGCCG',
-            okLabel:    'Length 20 bp ✓  GC 60% ✓  Longest run: 2 ✓  3′ end G ✓' },
-          { seq: 'GCAAGCTGCCCAAAAAGACC',
-            wrongLabel: 'Contains AAAAA at positions 12–16 (run of 5). Homopolymer runs promote primer–dimer formation and polymerase slippage.' },
-          { seq: 'CATCTGCAATTTTTCCGCAA',
-            wrongLabel: 'Contains TTTTT at positions 10–14 (run of 5). This poly-T stretch will cause slippage during synthesis.' },
-          { seq: 'GGGGGCGACACCCTGGTGAC',
-            wrongLabel: 'Contains GGGGG at positions 1–5 (run of 5), plus GC content 70% — two separate problems.' }
-        ]
-      },
-      {
-        correctIdx: 0,
-        primers: [
-          { seq: 'CGTAGCTAGCTAGCTAGCTG',
-            okLabel:    'Length 20 bp ✓  GC 50% ✓  Longest run: 1 ✓  3′ end G ✓' },
-          { seq: 'CGTAGCTTAAAAATCTAGCG',
-            wrongLabel: 'Contains AAAAA at positions 8–12 (run of 5). Homopolymer runs cause polymerase slippage.' },
-          { seq: 'CGTAGCTTTTTGTCTAGCGG',
-            wrongLabel: 'Contains TTTTT at positions 7–11 (run of 5). This poly-T stretch reduces PCR efficiency.' },
-          { seq: 'ATAGCATCCCCCTCGATACG',
-            wrongLabel: 'Contains CCCCC at positions 8–12 (run of 5). Long C-runs can cause primer self-annealing.' }
-        ]
-      }
+      { correctIdx: 0, primers: [
+        { seq: 'GCCAACTTCAAGATCCGCCG',
+          okLabel:    '20 bp ✓  GC 60% ✓  Longest run 2 ✓  3′ G ✓' },
+        { seq: 'GCAAGCTGCCCAAAAAGACC',
+          wrongLabel: 'AAAAA at positions 12–16 (run of 5). Homopolymer runs cause polymerase slippage and primer–dimer formation.' },
+        { seq: 'CATCTGCAATTTTTCCGCAA',
+          wrongLabel: 'TTTTT at positions 10–14 (run of 5). Poly-T runs are especially prone to slippage.' },
+        { seq: 'GGGGGCGACACCCTGGTGAC',
+          wrongLabel: 'GGGGG at positions 1–5 (run of 5) plus GC content 70% — two problems.' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'CGTAGCTAGCTAGCTAGCTG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 1 ✓  3′ G ✓' },
+        { seq: 'CGTAGCTTAAAAATCTAGCG',
+          wrongLabel: 'AAAAA at positions 8–12 (run of 5). Polymerase slippage occurs at homopolymer stretches.' },
+        { seq: 'CGTAGCTTTTTGTCTAGCGG',
+          wrongLabel: 'TTTTT at positions 7–11 (run of 5). This poly-T stretch reduces PCR efficiency.' },
+        { seq: 'ATAGCATCCCCCTCGATACG',
+          wrongLabel: 'CCCCC at positions 8–12 (run of 5). Long C-runs can promote primer self-annealing.' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'TTCTTCAAGGACGACGGCAC',
+          okLabel:    '20 bp ✓  GC 55% ✓  Longest run 2 ✓  3′ C ✓' },
+        { seq: 'TTCAAAAAGACGACGGCACG',
+          wrongLabel: 'AAAAA at positions 4–8 (run of 5). Even in the middle of a primer, runs destabilize extension.' },
+        { seq: 'TTCTTTTTGACGACGGCACG',
+          wrongLabel: 'TTTTT at positions 4–8 (run of 5). Poly-T runs promote slippage regardless of position.' },
+        { seq: 'AGATCCCCCATGATCATCGG',
+          wrongLabel: 'CCCCC at positions 5–9 (run of 5). This C-run will cause inefficient priming.' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'CACCATCTTCTTCAAGGACG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 2 ✓  3′ G ✓' },
+        { seq: 'CACCCCCTTCTTCAAGGACG',
+          wrongLabel: 'CCCCC at positions 3–7 (run of 5). Easy to miss when the run sits near the 5′ end.' },
+        { seq: 'CACCATCTTTTTTAAGGACG',
+          wrongLabel: 'TTTTTT at positions 8–13 (run of 6). Longer than 5 — polymerase slippage nearly guaranteed.' },
+        { seq: 'CACCATCTGGGGGAAGGACG',
+          wrongLabel: 'GGGGG at positions 9–13 (run of 5) plus GC content 65% — two problems.' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'GCATCGAGCTGAAGGGCATC',
+          okLabel:    '20 bp ✓  GC 60% ✓  Longest run 3 (GGG — acceptable) ✓  3′ C ✓' },
+        { seq: 'GCATCAAAAAGAAGGGCATC',
+          wrongLabel: 'AAAAA at positions 6–10 (run of 5). Note: GGG in the correct primer is only 3 — well within the ≤4 limit.' },
+        { seq: 'GCATCAAGCTGGGGGATCAC',
+          wrongLabel: 'GGGGG at positions 11–15 (run of 5). Five or more triggers the rule; four or fewer is acceptable.' },
+        { seq: 'GCATCTTTTTAGGGCATCAC',
+          wrongLabel: 'TTTTT at positions 6–10 (run of 5). Poly-T runs reduce PCR efficiency.' }
+      ]}
     ]
   },
+
+  // ─── LEVEL 4: 3′ G/C END ────────────────────────
   {
-    focus: 'All Criteria',
-    task:  'Apply <strong>all four rules</strong>: length 18–25 bp, GC 40–60%, no homopolymer run ≥ 5, and 3′ end must be G or C. Only one primer passes every check.',
-    hint:  'Work through each candidate systematically: check length, then GC%, then runs, then the 3′ base.',
+    focus: "3′ G or C End",
+    task:  "All primers below have correct length, GC content, and no long runs. Select the one whose <strong>3′ end base is G or C</strong>.",
+    hint:  "The 3′ end is where DNA polymerase begins extension. A G or C there provides an extra hydrogen bond to the template, giving a more stable 'clamp' and reducing mispriming.",
     showCriteria: ['length','gc','run','end'],
     rounds: [
-      {
-        correctIdx: 3,
-        primers: [
-          { seq: 'CGCACCATCTTCTTCAAAAA',
-            wrongLabel: 'AAAAA at the 3′ end (run of 5) — especially problematic where polymerase extension begins. Also ends in A.' },
-          { seq: 'GCGAGGGCGAGGAGCTGTTC',
-            wrongLabel: 'GC content 70% — too high. Despite correct length and no long runs, the high GC raises Tm out of a usable range.' },
-          { seq: 'GAAGTTCATCTGCACC',
-            wrongLabel: 'Length 16 bp — too short. Falls below the reliable minimum for specific amplification.' },
-          { seq: 'TTCTTCAAGGACGACGGCAC',
-            okLabel:    'Length 20 bp ✓  GC 50% ✓  Longest run: 2 ✓  3′ end C ✓  All criteria met.' }
-        ]
-      },
-      {
-        correctIdx: 0,
-        primers: [
-          { seq: 'GCATCGATCGATCGATCGAC',
-            okLabel:    'Length 20 bp ✓  GC 50% ✓  Longest run: 1 ✓  3′ end C ✓  All criteria met.' },
-          { seq: 'GCGCGCGCGCGCGCGCGCGC',
-            wrongLabel: 'GC content 100% — far too high. This primer forms extremely stable secondary structures and cannot be denatured effectively.' },
-          { seq: 'ATTTTTTCGATCGATCGATC',
-            wrongLabel: 'Contains TTTTTT at positions 2–7 (run of 6) and GC content 35% — two separate failures.' },
-          { seq: 'TATTCAATAAATTTAATACA',
-            wrongLabel: 'GC content 10% — far too low. Also ends in A, violating the 3′ G/C rule. Multiple failures.' }
-        ]
-      }
+      { correctIdx: 0, primers: [
+        { seq: 'GAAGTTCATCTGCACCACCG',
+          okLabel:    '20 bp ✓  GC 55% ✓  Runs ✓  3′ G ✓' },
+        { seq: 'GAAGTTCATCTGCACCACCA',
+          wrongLabel: "Ends in A — only the last base differs from the correct primer. The 3′ terminal must be G or C for stable polymerase initiation." },
+        { seq: 'GAAGTTCATCTGCACCACCT',
+          wrongLabel: "Ends in T — again just the last base. T provides only 2 hydrogen bonds at the 3′ clamp position." },
+        { seq: 'AAGCAGCACGACTTCTTCAT',
+          wrongLabel: "Ends in T — the 3′ base must be G or C." }
+      ]},
+      { correctIdx: 2, primers: [
+        { seq: 'TTCTTCAAGGACGACGGCAA',
+          wrongLabel: "Ends in A — the 3′ terminal A cannot form the stable G/C clamp needed for efficient initiation." },
+        { seq: 'TTCTTCAAGGACGACGGCAT',
+          wrongLabel: "Ends in T — only 1 base away from the correct primer below. Check the last base carefully." },
+        { seq: 'TTCTTCAAGGACGACGGCAC',
+          okLabel:    '20 bp ✓  GC 55% ✓  Runs ✓  3′ C ✓' },
+        { seq: 'CACCATCTTCTTCAAGGACA',
+          wrongLabel: "Ends in A — a well-designed primer in all other respects, but the 3′ A disqualifies it." }
+      ]},
+      { correctIdx: 1, primers: [
+        { seq: 'CACCATCTTCTTCAAGGACA',
+          wrongLabel: "Ends in A — differs from the correct primer below by only 1 base at the 3′ end." },
+        { seq: 'CACCATCTTCTTCAAGGACG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Runs ✓  3′ G ✓' },
+        { seq: 'CACCATCTTCTTCAAGGACT',
+          wrongLabel: "Ends in T — differs from the correct primer by only 1 base. Always check the terminal nucleotide." },
+        { seq: 'GCATCGAGCTGAAGGGCATA',
+          wrongLabel: "Ends in A — another otherwise-valid primer disqualified by its 3′ terminal base." }
+      ]},
+      { correctIdx: 2, primers: [
+        { seq: 'GCATCGAGCTGAAGGGCATA',
+          wrongLabel: "Ends in A — only 1 base from the correct primer. The 3′ base is the deciding factor here." },
+        { seq: 'GCATCGAGCTGAAGGGCATT',
+          wrongLabel: "Ends in T — again just 1 base from the correct answer. Scan to the very last nucleotide." },
+        { seq: 'GCATCGAGCTGAAGGGCATC',
+          okLabel:    '20 bp ✓  GC 60% ✓  Runs ✓  3′ C ✓' },
+        { seq: 'ATCGATCGATCGATCGATCA',
+          wrongLabel: "Ends in A — otherwise a perfectly valid primer, disqualified only by its 3′ terminal base." }
+      ]},
+      { correctIdx: 3, primers: [
+        { seq: 'ATCGATCGATCGATCGATCA',
+          wrongLabel: "Ends in A — differs from the correct primer by 1 base." },
+        { seq: 'ATCGATCGATCGATCGATCT',
+          wrongLabel: "Ends in T — just 1 base from correct. The last nucleotide determines whether polymerase can initiate efficiently." },
+        { seq: 'CACCATCTTCTTCAAGGACT',
+          wrongLabel: "Ends in T — a high-quality primer in length, GC, and runs, but disqualified by the terminal T." },
+        { seq: 'ATCGATCGATCGATCGATCC',
+          okLabel:    '20 bp ✓  GC 50% ✓  Runs ✓  3′ C ✓' }
+      ]}
+    ]
+  },
+
+  // ─── LEVEL 5: ALL CRITERIA ──────────────────────
+  {
+    focus: 'All Criteria',
+    task:  'Apply <strong>all four rules</strong>: length 18–25 bp · GC 40–60% · no run ≥ 5 · 3′ end G or C. Only one primer passes every check.',
+    hint:  'Work through each rule systematically. In harder rounds the wrong answers fail by only one criterion — read carefully.',
+    showCriteria: ['length','gc','run','end'],
+    rounds: [
+      { correctIdx: 3, primers: [
+        { seq: 'CGCACCATCTTCTTCAAAAA',
+          wrongLabel: 'AAAAA at the 3′ end (run of 5) — especially harmful where extension begins. Also ends in A. Two failures.' },
+        { seq: 'GCGAGGGCGAGGAGCTGTTC',
+          wrongLabel: 'GC content 70% — too high despite correct length and clean runs.' },
+        { seq: 'GAAGTTCATCTGCACC',
+          wrongLabel: 'Too short (16 bp) — falls below the 18 bp minimum.' },
+        { seq: 'TTCTTCAAGGACGACGGCAC',
+          okLabel:    '20 bp ✓  GC 55% ✓  Longest run 2 ✓  3′ C ✓  All criteria met.' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'GCATCGATCGATCGATCGAC',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 1 ✓  3′ C ✓  All criteria met.' },
+        { seq: 'GCGCGCGCGCGCGCGCGCGC',
+          wrongLabel: 'GC content 100% — completely unusable. Forms extremely stable secondary structures.' },
+        { seq: 'ATTTTTTCGATCGATCGATC',
+          wrongLabel: 'TTTTTT at positions 2–7 (run of 6) and GC content 35% — two failures.' },
+        { seq: 'TATTCAATAAATTTAATACA',
+          wrongLabel: 'GC content 10% — far too low. Also ends in A. Multiple failures.' }
+      ]},
+      { correctIdx: 2, primers: [
+        { seq: 'AAGCAGCACGACTTCTTCAT',
+          wrongLabel: "Ends in T — only 1 flaw: the 3′ terminal base. Everything else (length 20, GC 45%, runs clean) would pass." },
+        { seq: 'GAAGTTCATCTGCACCACCGGCAAGC',
+          wrongLabel: 'Too long (26 bp) — just 1 bp over the maximum. Only 1 flaw: length.' },
+        { seq: 'CACCATCTTCTTCAAGGACG',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 2 ✓  3′ G ✓  All criteria met.' },
+        { seq: 'GCGCGATCGATAGATGCCGC',
+          wrongLabel: 'GC content 65% — just over the 60% ceiling. Only 1 flaw: GC too high.' }
+      ]},
+      { correctIdx: 3, primers: [
+        { seq: 'TATCAGCATTATCAAGATCC',
+          wrongLabel: 'GC content 35% — just under the 40% floor. Only 1 flaw: GC too low.' },
+        { seq: 'GCATCAAAAAGAAGGGCATC',
+          wrongLabel: 'AAAAA at positions 6–10 (run of 5). Only 1 flaw: the homopolymer run.' },
+        { seq: 'GCATCGAGCTGAAGGGCATA',
+          wrongLabel: "Ends in A — only 1 flaw: the 3′ base. All other properties (20 bp, GC 60%, run ≤ 4) are acceptable." },
+        { seq: 'GCATCGAGCTGAAGGGCATC',
+          okLabel:    '20 bp ✓  GC 60% ✓  Longest run 3 ✓  3′ C ✓  All criteria met.' }
+      ]},
+      { correctIdx: 0, primers: [
+        { seq: 'ATCGATCGATCGATCGATCC',
+          okLabel:    '20 bp ✓  GC 50% ✓  Longest run 1 ✓  3′ C ✓  All criteria met.' },
+        { seq: 'ATCGATCGATCGATCGATCA',
+          wrongLabel: "Ends in A — only 1 flaw: the 3′ terminal base. Identical to the correct primer except the last nucleotide." },
+        { seq: 'GCGCGATCGATAGATGCCGC',
+          wrongLabel: 'GC content 65% — only 1 flaw: 5% over the ceiling. Everything else passes.' },
+        { seq: 'GCATCAAAAAGAAGGGCATC',
+          wrongLabel: 'AAAAA at positions 6–10 — only 1 flaw: the homopolymer run.' }
+      ]}
     ]
   }
 ];
@@ -598,14 +761,24 @@ const M1_LEVELS = [
 //  GAME STATE
 // ════════════════════════════════════════════════════
 const state = {
-  score:       0,
-  levelIdx:    0,
-  roundIdx:    0,
-  totalRounds: 1,      // set from ?rounds=N URL param
-  selectedIdx: null,
-  revealed:    false,
-  penalties:   0
+  score:          0,
+  levelIdx:       0,
+  roundIdx:       0,
+  selectedIdx:    null,
+  revealed:       false,
+  penalties:      0,
+  displayPrimers: [],   // shuffled primer order for current round
+  displayCorrect: 0     // correct index in displayPrimers
 };
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 // ════════════════════════════════════════════════════
 //  SCREEN NAVIGATION
@@ -617,9 +790,6 @@ function showScreen(id) {
 function showPartSelect() { showScreen('partSelectScreen'); }
 function startPart(n) {
   if (n !== 1) return;
-  const rParam = parseInt(new URL(window.location.href).searchParams.get('rounds') || '1', 10);
-  const maxRounds = Math.max(...M1_LEVELS.map(l => l.rounds.length));
-  state.totalRounds = Math.max(1, Math.min(rParam, maxRounds));
   state.score = 0; state.levelIdx = 0; state.roundIdx = 0;
   state.selectedIdx = null; state.revealed = false; state.penalties = 0;
   showScreen('gameScreen');
@@ -649,12 +819,18 @@ function renderLevel() {
   const round = lvl.rounds[state.roundIdx];
   state.selectedIdx = null; state.revealed = false; state.penalties = 0;
 
+  // Shuffle primers for this display
+  const idxOrder = shuffleArray([0,1,2,3]);
+  state.displayPrimers = idxOrder.map(i => round.primers[i]);
+  state.displayCorrect = idxOrder.indexOf(round.correctIdx);
+
   // header + pips
   document.getElementById('scoreDisplay').textContent = state.score + ' pts';
-  const roundInfo = state.totalRounds > 1 ? ` · Round ${state.roundIdx + 1}/${state.totalRounds}` : '';
-  document.getElementById('moduleTitle').textContent = 'Module 1 · Primer Evaluation' + roundInfo;
-  const totalSteps   = M1_LEVELS.length * state.totalRounds;
-  const currentStep  = state.levelIdx * state.totalRounds + state.roundIdx;
+  const numRounds = lvl.rounds.length;
+  document.getElementById('moduleTitle').textContent =
+    `Module 1 · Primer Evaluation · Round ${state.roundIdx + 1}/${numRounds}`;
+  const totalSteps  = M1_LEVELS.reduce((s, l) => s + l.rounds.length, 0);
+  const currentStep = M1_LEVELS.slice(0, state.levelIdx).reduce((s, l) => s + l.rounds.length, 0) + state.roundIdx;
   document.getElementById('levelPips').innerHTML = Array.from({length: totalSteps}, (_, i) =>
     `<div class="level-pip ${i < currentStep ? 'done' : i === currentStep ? 'current' : ''}"></div>`
   ).join('');
@@ -687,7 +863,7 @@ function renderLevel() {
 
   // primer cards — stats hidden until a card is selected
   const labels = ['A','B','C','D'];
-  const cardsHtml = round.primers.map((p, i) =>
+  const cardsHtml = state.displayPrimers.map((p, i) =>
     `<div class="primer-card" id="pcard-${i}" onclick="selectPrimer(${i})">
       <div class="primer-card-header">
         <span class="primer-letter">${labels[i]}</span>
@@ -754,31 +930,30 @@ function selectPrimer(idx) {
 // ════════════════════════════════════════════════════
 function submitAnswer() {
   if (state.selectedIdx === null || state.revealed) return;
-  const lvl   = M1_LEVELS[state.levelIdx];
-  const round = lvl.rounds[state.roundIdx];
-  const idx   = state.selectedIdx;
-  const card  = document.getElementById(`pcard-${idx}`);
+  const lvl = M1_LEVELS[state.levelIdx];
+  const idx = state.selectedIdx;
+  const card = document.getElementById(`pcard-${idx}`);
   card.classList.remove('selected');
 
   // Always reveal stats for the selected card on button press
   document.getElementById(`pstats-${idx}`).innerHTML =
-    primerStatsHtml(round.primers[idx].seq, lvl.showCriteria);
+    primerStatsHtml(state.displayPrimers[idx].seq, lvl.showCriteria);
 
-  if (idx === round.correctIdx) {
+  if (idx === state.displayCorrect) {
     // ── CORRECT ──
     state.revealed = true;
-    const earned = Math.max(5, 30 - state.penalties * 5);
+    const earned = 5;
     state.score += earned;
     document.getElementById('scoreDisplay').textContent = state.score + ' pts';
 
     card.classList.add('correct', 'disabled');
     const exp = document.getElementById(`pexplain-${idx}`);
-    exp.textContent = round.primers[idx].okLabel;
+    exp.textContent = state.displayPrimers[idx].okLabel;
     exp.style.display = 'block';
 
     // reveal all wrong cards with flaws + stats
     const allCriteria = ['length','gc','run','end'];
-    round.primers.forEach((p, i) => {
+    state.displayPrimers.forEach((p, i) => {
       if (i === idx) {
         document.getElementById(`pstats-${i}`).innerHTML = primerStatsHtml(p.seq, allCriteria);
         return;
@@ -802,7 +977,7 @@ function submitAnswer() {
     document.getElementById('btnSubmit').style.display = 'none';
     const btnN = document.getElementById('btnNext');
     btnN.style.display = 'block';
-    const isLastStep = state.roundIdx >= state.totalRounds - 1 &&
+    const isLastStep = state.roundIdx >= lvl.rounds.length - 1 &&
                        state.levelIdx >= M1_LEVELS.length - 1;
     btnN.textContent = isLastStep ? 'Finish Module →' : 'Next →';
 
@@ -811,7 +986,7 @@ function submitAnswer() {
     state.penalties++;
     card.classList.add('wrong');
     const fl = document.getElementById(`pflaw-${idx}`);
-    fl.textContent = round.primers[idx].wrongLabel;
+    fl.textContent = state.displayPrimers[idx].wrongLabel;
     fl.style.display = 'block';
     state.selectedIdx = null;
     const btnS = document.getElementById('btnSubmit');
@@ -825,7 +1000,8 @@ function submitAnswer() {
 // ════════════════════════════════════════════════════
 function nextLevel() {
   dismissResult();
-  if (state.roundIdx < state.totalRounds - 1) {
+  const lvl = M1_LEVELS[state.levelIdx];
+  if (state.roundIdx < lvl.rounds.length - 1) {
     state.roundIdx++;
   } else if (state.levelIdx < M1_LEVELS.length - 1) {
     state.levelIdx++;
@@ -854,9 +1030,9 @@ function dismissResult() {
 }
 function showModuleComplete() {
   document.getElementById('modCompleteBody').textContent =
-    'You\'ve mastered the four core rules of PCR primer design: appropriate length, ' +
-    'balanced GC content, no homopolymer runs, and a G or C at the 3′ end. These ' +
-    'fundamentals underpin every primer you will ever design. Module 2 covers melting temperature calculation.';
+    'You\'ve mastered all four rules of PCR primer design: appropriate length (18–25 bp), ' +
+    'balanced GC content (40–60%), no homopolymer runs (\u22655), and a G or C at the 3\u2032 end. ' +
+    'These fundamentals underpin every primer you will ever design. Module 2 covers melting temperature calculation.';
   document.getElementById('modFinalScore').textContent = state.score + ' pts';
   document.getElementById('modCompleteOverlay').classList.add('show');
 }
