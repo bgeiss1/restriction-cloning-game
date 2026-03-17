@@ -1428,13 +1428,15 @@ const P2_TASKS = [
 // fwdL=5' end, fwdR=3' end of fwd primer.
 // revL=left boundary (= 3' end of synthesized rev primer), revR=right boundary (= 5' end).
 // Amplicon = revR − fwdL + 1
+// Defaults place both primers at the outermost edges (min 18 bp each) so students
+// must explore the full window to find compliant primers at the right spacing.
 const P2_DEFAULTS = [
-  { fwdL: 5, fwdR: 24, revL: 65, revR: 84 },  // amp = 84-5+1 = 80
-  { fwdL: 5, fwdR: 24, revL: 85, revR: 104 }, // amp = 104-5+1 = 100
-  { fwdL: 5, fwdR: 24, revL: 45, revR: 64 },  // amp = 64-5+1 = 60
+  { fwdL: 1, fwdR: 18, revL: 122, revR: 139 },
+  { fwdL: 1, fwdR: 18, revL: 122, revR: 139 },
+  { fwdL: 1, fwdR: 18, revL: 122, revR: 139 },
 ];
 
-const p2State = { taskIdx: 0, score: 0, fwdL: 5, fwdR: 24, revL: 65, revR: 84, submitted: false };
+const p2State = { taskIdx: 0, score: 0, fwdL: 1, fwdR: 18, revL: 122, revR: 139, submitted: false };
 
 function complement(base) {
   return { A:'T', T:'A', G:'C', C:'G' }[base.toUpperCase()] || base;
