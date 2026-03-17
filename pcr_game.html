@@ -250,6 +250,63 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(200,169,81,0.25); border-radius: 4px; }
+
+/* ── PART 2 SCREEN ── */
+#p2Screen { background: var(--bg); }
+#p2Header {
+  height: 54px; background: var(--green-dark);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; flex-shrink: 0; gap: 10px;
+}
+#p2Header h1 { font-size: 1rem; font-weight: 700; color: var(--gold); }
+#p2Content { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 16px; }
+#p2ActionBar {
+  position: sticky; bottom: 0; background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 10px 14px; display: flex; gap: 10px; align-items: center; flex-shrink: 0;
+}
+.p2-section {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+}
+.p2-label { font-size: 0.72rem; font-weight: 700; color: var(--gold);
+  text-transform: uppercase; letter-spacing: 0.06em; }
+.p2-slider-row { display: flex; flex-direction: column; gap: 4px; }
+.p2-slider-meta { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted); }
+.p2-slider-meta span { color: var(--gold); font-weight: 700; }
+input[type=range].p2-range { width: 100%; accent-color: var(--gold); cursor: pointer; height: 24px; }
+.p2-seq-preview {
+  font-family: 'Courier New', monospace; font-size: 0.78rem; letter-spacing: 0.1em;
+  word-break: break-all; line-height: 1.5; padding: 8px 10px;
+  background: rgba(0,0,0,0.3); border-radius: 6px; border: 1px solid var(--border); min-height: 2.2em;
+}
+.p2-mini-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.p2-amp-box {
+  background: rgba(200,169,81,0.07); border: 1px solid rgba(200,169,81,0.25);
+  border-radius: 8px; padding: 10px 14px; font-size: 0.88rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.p2-amp-size { font-size: 1.3rem; font-weight: 800; color: var(--gold); }
+.p2-amp-label { color: var(--muted); font-size: 0.8rem; }
+.p2-amp-note { font-size: 0.8rem; font-weight: 700; }
+.p2-amp-note.ok  { color: var(--success); }
+.p2-amp-note.bad { color: var(--danger); }
+.p2-score-grid { display: grid; grid-template-columns: 1fr auto; gap: 5px 16px; font-size: 0.82rem; }
+.p2-score-label { color: var(--muted); }
+.p2-score-pts   { font-weight: 700; text-align: right; }
+.p2-score-pts.ok  { color: var(--success); }
+.p2-score-pts.bad { color: var(--danger); }
+.nt.fwd-hl { background: rgba(200,169,81,0.35); border-radius: 2px; }
+.nt.rev-hl { background: rgba(79,195,247,0.35);  border-radius: 2px; }
+.nt.amp-hl { background: rgba(102,187,106,0.14); }
+
+/* ── PART 2 COMPLETE OVERLAY ── */
+#p2CompleteOverlay {
+  display: none; position: fixed; inset: 0; z-index: 120;
+  background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px;
+}
+#p2CompleteOverlay.show { display: flex; }
 </style>
 </head>
 <body>
@@ -263,10 +320,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
   <h2>MIP Molecular Madness</h2>
   <div class="info-box">
     <strong>Learn PCR from the ground up.</strong><br>
-    Design primers, run thermocycles, and calculate amplification efficiency — all with real GFP sequence data.<br><br>
-    <strong>Part 1 · Primer &amp; Amplicon Design</strong><br>
-    <strong>Part 2 · Assay Setup &amp; Thermocycling</strong><br>
-    <strong>Part 3 · Efficiency &amp; Copy Number</strong>
+    Evaluate primers, design primer pairs on real GFP sequence data, and master the rules of good PCR design.<br><br>
+    <strong>Part 1 · Primer Evaluation</strong> — 5 levels + challenge<br>
+    <strong>Part 2 · Primer Pair Design</strong> — 3 tasks on dsDNA<br>
+    <strong>Part 3 · Assay Setup</strong> — coming soon
   </div>
   <button class="btn-start" onclick="showPartSelect()">Start →</button>
   <a href="index.html" class="btn-back">← Menu</a>
@@ -290,13 +347,13 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
         </div>
         <div class="part-badge">5 levels</div>
       </div>
-      <div class="part-card locked">
-        <div class="part-icon">🌡️</div>
+      <div class="part-card" onclick="startPart(2)">
+        <div class="part-icon">🧬</div>
         <div class="part-info">
-          <div class="part-title">Part 2 · Assay Setup &amp; Thermocycling</div>
-          <div class="part-sub">Master mix volumes · Cycle parameters · Troubleshooting</div>
+          <div class="part-title">Part 2 · Primer Pair Design</div>
+          <div class="part-sub">Place primers on dsDNA · Evaluate rules · Check for dimers</div>
         </div>
-        <div class="part-lock">🔒</div>
+        <div class="part-badge">3 tasks</div>
       </div>
       <div class="part-card locked">
         <div class="part-icon">📊</div>
@@ -386,6 +443,39 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
     <p id="challengeRestartBody" style="font-size:0.9rem;color:var(--muted);line-height:1.65;"></p>
     <div class="final-score-line">Tutorial score: <span id="challengeRestartScore"></span></div>
     <button class="btn-result" onclick="restartChallenge()">Try Again</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PART 2 SCREEN
+══════════════════════════════════════════ -->
+<div class="screen" id="p2Screen">
+  <div id="p2Header">
+    <h1 id="p2Title">Part 2 · Primer Pair Design</h1>
+    <div class="hud-cluster">
+      <span class="hud-score" id="p2ScoreDisplay">0 pts</span>
+      <button class="btn-back" onclick="showPartSelect()" style="padding:5px 10px;">← Back</button>
+    </div>
+  </div>
+  <div id="p2Content"></div>
+  <div id="p2ActionBar">
+    <button class="btn-submit" id="btnMakePrimers" onclick="submitP2()">Make Primers</button>
+    <button class="btn-next"   id="btnP2Next"      style="display:none;" onclick="nextP2Task()">Next Task →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PART 2 COMPLETE OVERLAY
+══════════════════════════════════════════ -->
+<div id="p2CompleteOverlay">
+  <div class="mod-complete-box">
+    <div id="p2CompleteIcon" style="font-size:3rem;">🧬</div>
+    <h2 id="p2CompleteTitle">Part 2 Complete!</h2>
+    <p id="p2CompleteBody" style="font-size:0.9rem;color:var(--muted);line-height:1.65;"></p>
+    <div class="final-score-line">Score: <span id="p2FinalScore"></span></div>
+    <div id="p2ScoreNeeded" style="font-size:0.82rem;color:var(--muted);margin-top:-6px;"></div>
+    <button class="btn-result" onclick="finishP2()">Continue to Part Select</button>
+    <button class="btn-result" id="btnP2Retry" style="display:none;background:var(--green-mid);border:1.5px solid var(--border);" onclick="retryP2()">Try Again</button>
   </div>
 </div>
 
@@ -922,12 +1012,15 @@ function showScreen(id) {
 }
 function showPartSelect() { showScreen('partSelectScreen'); }
 function startPart(n) {
-  if (n !== 1) return;
-  state.score = 0; state.tutorialScore = 0; state.levelIdx = 0; state.levelScore = 0;
-  state.selectedIdx = null; state.revealed = false; state.penalties = 0;
-  state.streak = 0; state.shuffledPool = []; state.poolIdx = 0; state.challengeWrong = 0;
-  showScreen('gameScreen');
-  renderLevel();
+  if (n === 1) {
+    state.score = 0; state.tutorialScore = 0; state.levelIdx = 0; state.levelScore = 0;
+    state.selectedIdx = null; state.revealed = false; state.penalties = 0;
+    state.streak = 0; state.shuffledPool = []; state.poolIdx = 0; state.challengeWrong = 0;
+    showScreen('gameScreen');
+    renderLevel();
+  } else if (n === 2) {
+    startP2();
+  }
 }
 
 // ════════════════════════════════════════════════════
@@ -1298,6 +1391,376 @@ function retryModule() {
   document.getElementById('modCompleteOverlay').classList.remove('show');
   startPart(1);
 }
+// ════════════════════════════════════════════════════
+//  PART 2 — PRIMER PAIR DESIGN
+// ════════════════════════════════════════════════════
+const P2_TOTAL = 300;
+const P2_PASS  = Math.round(P2_TOTAL * 0.8); // 240
+
+const P2_TASKS = [
+  {
+    seqOffset: 0,   windowLen: 140, targetAmplicon: 80,  tolerance: 15,
+    task: 'Design a primer pair to amplify a <strong>~80 bp</strong> product from the start of the GFP coding sequence. Both primers must satisfy all four design rules.',
+  },
+  {
+    seqOffset: 180, windowLen: 140, targetAmplicon: 100, tolerance: 20,
+    task: 'Design a primer pair to amplify a <strong>~100 bp</strong> product from a different region of GFP. Check for primer–dimer risk at the 3′ ends.',
+  },
+  {
+    seqOffset: 360, windowLen: 140, targetAmplicon: 60,  tolerance: 12,
+    task: 'Design a primer pair to amplify a <strong>~60 bp</strong> product. This is a tighter target — position your primers carefully.',
+  },
+];
+
+// Reasonable starting positions that give the right amplicon size (unevaluated quality)
+const P2_DEFAULTS = [
+  { fwdStart: 5,  fwdLen: 20, revStart: 65, revLen: 20 },  // 65+20-5 = 80
+  { fwdStart: 5,  fwdLen: 20, revStart: 85, revLen: 20 },  // 85+20-5 = 100
+  { fwdStart: 5,  fwdLen: 20, revStart: 45, revLen: 20 },  // 45+20-5 = 60
+];
+
+const p2State = { taskIdx: 0, score: 0, fwdStart: 5, fwdLen: 20, revStart: 65, revLen: 20, submitted: false };
+
+function complement(base) {
+  return { A:'T', T:'A', G:'C', C:'G' }[base.toUpperCase()] || base;
+}
+
+function primerDimerCheck(fwd, rev) {
+  // Returns true if 3′ end (last 8 nt) of either primer has ≥5 consecutive
+  // complementary bases anywhere in the other primer
+  const MIN = 5;
+  function has3primeComp(tail, other) {
+    const rc = rcSeq(tail);
+    for (let i = 0; i <= other.length - MIN; i++) {
+      let m = 0;
+      for (let j = 0; j < Math.min(rc.length, other.length - i); j++) {
+        if (rc[j].toUpperCase() === other[i + j].toUpperCase()) m++;
+        else break;
+      }
+      if (m >= MIN) return true;
+    }
+    return false;
+  }
+  return has3primeComp(fwd.slice(-8), rev) || has3primeComp(rev.slice(-8), fwd);
+}
+
+function startP2() {
+  p2State.taskIdx = 0;
+  p2State.score   = 0;
+  Object.assign(p2State, P2_DEFAULTS[0]);
+  showScreen('p2Screen');
+  renderP2Task();
+}
+
+function renderP2Task() {
+  const t   = P2_TASKS[p2State.taskIdx];
+  const seq = GFP_SEQ.slice(t.seqOffset, t.seqOffset + t.windowLen);
+  p2State.submitted = false;
+
+  document.getElementById('p2Title').textContent        = `Part 2 · Task ${p2State.taskIdx + 1} of ${P2_TASKS.length}`;
+  document.getElementById('p2ScoreDisplay').textContent = p2State.score + ' pts';
+
+  const btnM = document.getElementById('btnMakePrimers');
+  btnM.disabled = false; btnM.textContent = 'Make Primers'; btnM.style.display = '';
+  document.getElementById('btnP2Next').style.display = 'none';
+
+  document.getElementById('p2Content').innerHTML = buildP2Html(seq, t);
+  updateP2Live(seq, t);
+  document.getElementById('p2Content').scrollTop = 0;
+}
+
+function buildP2Html(seq, t) {
+  const wl = t.windowLen;
+  const fs = p2State.fwdStart, fl = p2State.fwdLen;
+  const rs = p2State.revStart, rl = p2State.revLen;
+  return `
+    <div class="task-card">
+      <div class="task-label">Task ${p2State.taskIdx + 1} · Primer Pair Design</div>
+      <div class="task-text">${t.task}</div>
+      <div style="margin-top:10px;font-size:0.8rem;color:var(--muted);border-top:1px solid var(--border);padding-top:8px;line-height:1.6;">
+        💡 Rules: 18–25 bp · GC 40–60% · no run ≥5 · 3′ end G or C · no primer–dimer
+      </div>
+    </div>
+
+    <div class="p2-section">
+      <div class="p2-label">Double-Stranded DNA — ${wl} bp window <span style="font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;">(top 5′→3′, bottom 3′→5′)</span></div>
+      <div class="nt-legend" style="font-size:0.7rem;">
+        <span class="nt-dot"><span class="nt-A">●</span> A</span>
+        <span class="nt-dot"><span class="nt-T">●</span> T</span>
+        <span class="nt-dot"><span class="nt-G">●</span> G</span>
+        <span class="nt-dot"><span class="nt-C">●</span> C</span>
+        <span style="color:var(--gold);font-size:0.68rem;">■ fwd primer</span>
+        <span style="color:#4FC3F7;font-size:0.68rem;">■ rev primer</span>
+        <span style="color:var(--success);font-size:0.68rem;">■ amplicon</span>
+      </div>
+      <div id="p2DnaDisplay"></div>
+    </div>
+
+    <div class="p2-section">
+      <div class="p2-label">Forward Primer — top strand · 5′→3′</div>
+      <div class="p2-slider-row">
+        <div class="p2-slider-meta"><span>Start position</span><span id="p2FwdStartVal">${fs}</span></div>
+        <input type="range" class="p2-range" id="slFwdStart" min="1" max="${wl - 18}" value="${fs}" oninput="onP2Slider()">
+      </div>
+      <div class="p2-slider-row">
+        <div class="p2-slider-meta"><span>Length</span><span id="p2FwdLenVal">${fl} bp</span></div>
+        <input type="range" class="p2-range" id="slFwdLen" min="18" max="25" value="${fl}" oninput="onP2Slider()">
+      </div>
+      <div class="p2-seq-preview" id="p2FwdSeq"></div>
+      <div class="p2-mini-stats" id="p2FwdStats"></div>
+    </div>
+
+    <div class="p2-section">
+      <div class="p2-label">Reverse Primer — bottom strand · as synthesized 5′→3′</div>
+      <div class="p2-slider-row">
+        <div class="p2-slider-meta"><span>Binding start (top strand position)</span><span id="p2RevStartVal">${rs}</span></div>
+        <input type="range" class="p2-range" id="slRevStart" min="20" max="${wl - 18}" value="${rs}" oninput="onP2Slider()">
+      </div>
+      <div class="p2-slider-row">
+        <div class="p2-slider-meta"><span>Length</span><span id="p2RevLenVal">${rl} bp</span></div>
+        <input type="range" class="p2-range" id="slRevLen" min="18" max="25" value="${rl}" oninput="onP2Slider()">
+      </div>
+      <div class="p2-seq-preview" id="p2RevSeq"></div>
+      <div class="p2-mini-stats" id="p2RevStats"></div>
+    </div>
+
+    <div class="p2-amp-box">
+      <div>
+        <div class="p2-amp-label">Amplicon size</div>
+        <div class="p2-amp-size" id="p2AmpSize">—</div>
+      </div>
+      <div class="p2-amp-note" id="p2AmpNote"></div>
+    </div>
+
+    <div id="p2ScoreSection" style="display:none;" class="p2-section">
+      <div class="p2-label">Score Breakdown</div>
+      <div class="p2-score-grid" id="p2ScoreGrid"></div>
+    </div>`;
+}
+
+function onP2Slider() {
+  if (p2State.submitted) return;
+  const t   = P2_TASKS[p2State.taskIdx];
+  const seq = GFP_SEQ.slice(t.seqOffset, t.seqOffset + t.windowLen);
+  p2State.fwdStart = parseInt(document.getElementById('slFwdStart').value);
+  p2State.fwdLen   = parseInt(document.getElementById('slFwdLen').value);
+  p2State.revStart = parseInt(document.getElementById('slRevStart').value);
+  p2State.revLen   = parseInt(document.getElementById('slRevLen').value);
+  updateP2Live(seq, t);
+}
+
+function updateP2Live(seq, t) {
+  const fs = p2State.fwdStart, fl = p2State.fwdLen;
+  const rs = p2State.revStart, rl = p2State.revLen;
+
+  document.getElementById('p2FwdStartVal').textContent = fs;
+  document.getElementById('p2FwdLenVal').textContent   = fl + ' bp';
+  document.getElementById('p2RevStartVal').textContent = rs;
+  document.getElementById('p2RevLenVal').textContent   = rl + ' bp';
+
+  const fwdSeq = seq.slice(fs - 1, fs - 1 + fl).toUpperCase();
+  const revSeq = rcSeq(seq.slice(rs - 1, rs - 1 + rl).toUpperCase());
+
+  document.getElementById('p2FwdSeq').innerHTML = seqHtml(fwdSeq);
+  document.getElementById('p2RevSeq').innerHTML = seqHtml(revSeq);
+  document.getElementById('p2FwdStats').innerHTML = p2PrimerStatsHtml(fwdSeq);
+  document.getElementById('p2RevStats').innerHTML = p2PrimerStatsHtml(revSeq);
+
+  const ampSize  = rs + rl - fs;
+  const validAmp = rs > fs + fl - 1 && ampSize > 0 && rs + rl - 1 <= t.windowLen;
+  const onTarget = validAmp && Math.abs(ampSize - t.targetAmplicon) <= t.tolerance;
+
+  document.getElementById('p2AmpSize').textContent = validAmp ? ampSize + ' bp' : '—';
+  const noteEl = document.getElementById('p2AmpNote');
+  if (!validAmp) {
+    noteEl.textContent = rs <= fs + fl - 1 ? 'Primers overlap — no amplicon' : 'Reverse primer out of window';
+    noteEl.className = 'p2-amp-note bad';
+  } else if (onTarget) {
+    noteEl.textContent = `✓ On target (${t.targetAmplicon} ± ${t.tolerance} bp)`;
+    noteEl.className = 'p2-amp-note ok';
+  } else {
+    noteEl.textContent = `Target: ~${t.targetAmplicon} bp (± ${t.tolerance} bp)`;
+    noteEl.className = 'p2-amp-note bad';
+  }
+
+  document.getElementById('p2DnaDisplay').innerHTML = renderDNA(seq, fs, fl, rs, rl);
+}
+
+function p2PrimerStatsHtml(seq) {
+  const ev  = evaluatePrimer(seq);
+  const all = ['length','gc','run','end'];
+  return statBadgeHtml('len', ev.len + ' bp',         all, ev) +
+         statBadgeHtml('gc',  ev.gc  + '% GC',        all, ev) +
+         statBadgeHtml('run', 'run: ' + ev.run,        all, ev) +
+         statBadgeHtml('end', '3\u2032 ' + ev.endBase, all, ev);
+}
+
+function renderDNA(seq, fwdStart, fwdLen, revStart, revLen) {
+  const n      = seq.length;
+  const fwdEnd = fwdStart + fwdLen - 1;
+  const revEnd = revStart + revLen - 1;
+  const validAmp = revStart > fwdEnd && revEnd <= n;
+  let topHtml = '', botHtml = '';
+
+  for (let i = 1; i <= n; i++) {
+    const topNt = seq[i - 1].toUpperCase();
+    const botNt = complement(topNt);
+    let tCls = `nt nt-${topNt}`;
+    let bCls = `nt nt-${botNt}`;
+
+    if (i >= fwdStart && i <= fwdEnd) {
+      tCls += ' fwd-hl';
+    } else if (validAmp && i > fwdEnd && i < revStart) {
+      tCls += ' amp-hl';
+    }
+
+    if (revEnd <= n && i >= revStart && i <= revEnd) {
+      bCls += ' rev-hl';
+    } else if (validAmp && i > fwdEnd && i < revStart) {
+      bCls += ' amp-hl';
+    }
+
+    topHtml += `<span class="${tCls}">${topNt}</span>`;
+    botHtml += `<span class="${bCls}">${botNt}</span>`;
+  }
+
+  return `<div class="dna-wrap">
+    <div class="dna-strand-row">
+      <span class="strand-dir">5′</span>
+      <div class="dna-seq">${topHtml}</div>
+      <span class="strand-dir">3′</span>
+    </div>
+    <div style="border-bottom:1px solid rgba(255,255,255,0.08);margin:2px 0 2px 32px;"></div>
+    <div class="dna-strand-row">
+      <span class="strand-dir">3′</span>
+      <div class="dna-seq">${botHtml}</div>
+      <span class="strand-dir">5′</span>
+    </div>
+  </div>`;
+}
+
+function submitP2() {
+  if (p2State.submitted) return;
+  p2State.submitted = true;
+
+  const t   = P2_TASKS[p2State.taskIdx];
+  const seq = GFP_SEQ.slice(t.seqOffset, t.seqOffset + t.windowLen);
+  const res = scoreP2Task(seq, t);
+
+  p2State.score += res.total;
+  document.getElementById('p2ScoreDisplay').textContent = p2State.score + ' pts';
+
+  // Show score breakdown inline
+  const scoreSection = document.getElementById('p2ScoreSection');
+  scoreSection.style.display = '';
+
+  const fwdPtsClass  = res.fwdPts  >= 25 ? 'ok' : res.fwdPts  > 0 ? '' : 'bad';
+  const revPtsClass  = res.revPts  >= 25 ? 'ok' : res.revPts  > 0 ? '' : 'bad';
+  const ampPtsClass  = res.ampPts  > 0 ? 'ok' : 'bad';
+  const dimerPtsClass = res.dimerPts > 0 ? 'ok' : 'bad';
+  const totalClass   = res.total >= 75 ? 'ok' : res.total >= 50 ? '' : 'bad';
+
+  document.getElementById('p2ScoreGrid').innerHTML = `
+    <span class="p2-score-label">Forward primer</span>
+    <span class="p2-score-pts ${fwdPtsClass}">${res.fwdPts} / 25</span>
+    <span class="p2-score-label" style="grid-column:1/3;padding-left:10px;font-size:0.75rem;">${escHtml(res.fwdNote)}</span>
+    <span class="p2-score-label">Reverse primer</span>
+    <span class="p2-score-pts ${revPtsClass}">${res.revPts} / 25</span>
+    <span class="p2-score-label" style="grid-column:1/3;padding-left:10px;font-size:0.75rem;">${escHtml(res.revNote)}</span>
+    <span class="p2-score-label">Amplicon size</span>
+    <span class="p2-score-pts ${ampPtsClass}">${res.ampPts} / 25</span>
+    <span class="p2-score-label" style="grid-column:1/3;padding-left:10px;font-size:0.75rem;">${escHtml(res.ampNote)}</span>
+    <span class="p2-score-label">Primer–dimer check</span>
+    <span class="p2-score-pts ${dimerPtsClass}">${res.dimerPts} / 25</span>
+    <span class="p2-score-label" style="grid-column:1/3;padding-left:10px;font-size:0.75rem;">${escHtml(res.dimerNote)}</span>
+    <span style="font-weight:700;color:var(--text);border-top:1px solid var(--border);padding-top:6px;">Task score</span>
+    <span class="p2-score-pts ${totalClass}" style="border-top:1px solid var(--border);padding-top:6px;">${res.total} / 100</span>`;
+
+  setTimeout(() => scoreSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+
+  document.getElementById('btnMakePrimers').style.display = 'none';
+  const btnNext = document.getElementById('btnP2Next');
+  const isLast  = p2State.taskIdx >= P2_TASKS.length - 1;
+  btnNext.textContent = isLast ? 'Finish →' : 'Next Task →';
+  btnNext.style.display = '';
+}
+
+function scoreP2Task(seq, t) {
+  const fs = p2State.fwdStart, fl = p2State.fwdLen;
+  const rs = p2State.revStart, rl = p2State.revLen;
+
+  const fwdSeq = seq.slice(fs - 1, fs - 1 + fl).toUpperCase();
+  const revSeq = rcSeq(seq.slice(rs - 1, rs - 1 + rl).toUpperCase());
+
+  const fwdEv = evaluatePrimer(fwdSeq);
+  const revEv = evaluatePrimer(revSeq);
+
+  // Proportional scoring: 25 × (rules passed / 4)
+  const fwdPts  = Math.round(25 * (4 - fwdEv.flaws.length) / 4);
+  const fwdNote = fwdEv.ok ? 'All rules pass' : fwdEv.flaws.map(f => f.msg).join('; ');
+
+  const revPts  = Math.round(25 * (4 - revEv.flaws.length) / 4);
+  const revNote = revEv.ok ? 'All rules pass' : revEv.flaws.map(f => f.msg).join('; ');
+
+  // Amplicon
+  const ampSize  = rs + rl - fs;
+  const validAmp = rs > fs + fl - 1 && ampSize > 0 && rs + rl - 1 <= t.windowLen;
+  let ampPts = 0, ampNote;
+  if (!validAmp) {
+    ampNote = 'Primers overlap or out of window — no valid amplicon';
+  } else if (Math.abs(ampSize - t.targetAmplicon) <= t.tolerance) {
+    ampPts = 25;
+    ampNote = `${ampSize} bp — within ±${t.tolerance} bp of target (${t.targetAmplicon} bp) ✓`;
+  } else {
+    ampNote = `${ampSize} bp — outside ±${t.tolerance} bp of target (${t.targetAmplicon} bp)`;
+  }
+
+  // Primer-dimer
+  const dimer     = primerDimerCheck(fwdSeq, revSeq);
+  const dimerPts  = dimer ? 0 : 25;
+  const dimerNote = dimer
+    ? '3′-end complementarity detected — dimer risk'
+    : 'No significant 3′ complementarity ✓';
+
+  return { fwdPts, fwdNote, revPts, revNote, ampPts, ampNote, dimerPts, dimerNote,
+           total: fwdPts + revPts + ampPts + dimerPts };
+}
+
+function nextP2Task() {
+  if (p2State.taskIdx >= P2_TASKS.length - 1) {
+    showP2Complete();
+    return;
+  }
+  p2State.taskIdx++;
+  Object.assign(p2State, P2_DEFAULTS[p2State.taskIdx]);
+  renderP2Task();
+}
+
+function showP2Complete() {
+  const passed = p2State.score >= P2_PASS;
+  document.getElementById('p2CompleteIcon').textContent  = passed ? '🎉' : '📋';
+  document.getElementById('p2CompleteTitle').textContent = passed ? 'Part 2 Complete!' : 'Not Quite!';
+  document.getElementById('p2CompleteBody').textContent  = passed
+    ? 'You successfully designed valid primer pairs across all three GFP amplification tasks. ' +
+      'You can identify good primer positions, evaluate design rules, and avoid primer–dimer interactions.'
+    : `You need at least ${P2_PASS} pts (80%) to pass. Review your primer placement, check each ` +
+      'design rule carefully, and watch for 3′-end complementarity between your primers.';
+  document.getElementById('p2FinalScore').textContent  = p2State.score + ' / ' + P2_TOTAL + ' pts';
+  document.getElementById('p2ScoreNeeded').textContent = `${P2_PASS} pts needed to pass`;
+  document.getElementById('btnP2Retry').style.display  = passed ? 'none' : '';
+  document.getElementById('p2CompleteOverlay').classList.add('show');
+}
+
+function finishP2() {
+  document.getElementById('p2CompleteOverlay').classList.remove('show');
+  showPartSelect();
+}
+
+function retryP2() {
+  document.getElementById('p2CompleteOverlay').classList.remove('show');
+  startP2();
+}
+
 document.getElementById('startScreen').classList.add('active');
 </script>
 </body>
