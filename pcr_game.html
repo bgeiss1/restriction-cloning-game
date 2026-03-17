@@ -1441,22 +1441,18 @@ function complement(base) {
 }
 
 function primerDimerCheck(fwd, rev) {
-  // Returns true if 3′ end (last 8 nt) of either primer has ≥5 consecutive
-  // complementary bases anywhere in the other primer
-  const MIN = 5;
-  function has3primeComp(tail, other) {
-    const rc = rcSeq(tail);
-    for (let i = 0; i <= other.length - MIN; i++) {
-      let m = 0;
-      for (let j = 0; j < Math.min(rc.length, other.length - i); j++) {
-        if (rc[j].toUpperCase() === other[i + j].toUpperCase()) m++;
-        else break;
-      }
-      if (m >= MIN) return true;
+  // Returns true if the last 4 nt of either primer's 3′ end are fully
+  // complementary to any 4-mer anywhere in the other primer.
+  // (4-nt 3′ complementarity is the practical threshold for dimer risk.)
+  const TAIL = 4;
+  function tip3prime(p1, p2) {
+    const tip = rcSeq(p1.slice(-TAIL)); // RC of last 4 nt = what it would anneal to
+    for (let i = 0; i <= p2.length - TAIL; i++) {
+      if (p2.slice(i, i + TAIL).toUpperCase() === tip.toUpperCase()) return true;
     }
     return false;
   }
-  return has3primeComp(fwd.slice(-8), rev) || has3primeComp(rev.slice(-8), fwd);
+  return tip3prime(fwd, rev) || tip3prime(rev, fwd);
 }
 
 function startP2() {
@@ -1733,7 +1729,7 @@ function submitP2() {
   const btnNext = document.getElementById('btnP2Next');
   const isLast  = p2State.taskIdx >= P2_TASKS.length - 1;
   btnNext.textContent = isLast ? 'Finish →' : 'Next Task →';
-  btnNext.style.display = '';
+  btnNext.style.display = 'block';
 }
 
 function scoreP2Task(seq, t) {
