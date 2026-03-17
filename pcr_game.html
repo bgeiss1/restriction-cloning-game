@@ -1722,9 +1722,25 @@ function submitP2() {
     <span class="p2-score-label" style="grid-column:1/3;padding-left:10px;font-size:0.75rem;">${escHtml(res.ampNote)}</span>
     <span class="p2-score-label">Primer–dimer check</span>
     <span class="p2-score-pts ${dimerPtsClass}">${res.dimerPts} / 25</span>
-    <span class="p2-score-label" style="grid-column:1/3;padding-left:10px;font-size:0.75rem;">${escHtml(res.dimerNote)}</span>
+    <span class="p2-score-label" style="grid-column:1/3;padding-left:10px;font-size:0.75rem;">
+      ${escHtml(res.dimerNote)}
+      ${res.dimerPts === 0 ? `&nbsp;<button onclick="toggleDimerCard()" style="font-size:0.7rem;padding:2px 7px;border-radius:4px;border:1px solid rgba(239,83,80,0.5);background:transparent;color:var(--danger);cursor:pointer;vertical-align:middle;">Show interaction ↓</button>` : ''}
+    </span>
     <span style="font-weight:700;color:var(--text);border-top:1px solid var(--border);padding-top:6px;">Task score</span>
     <span class="p2-score-pts ${totalClass}" style="border-top:1px solid var(--border);padding-top:6px;">${res.total} / 100</span>`;
+
+  // Build dimer card if needed
+  const existingDimer = document.getElementById('p2DimerCard');
+  if (existingDimer) existingDimer.remove();
+  if (res.dimerPts === 0) {
+    const fwdSeq = seq.slice(p2State.fwdL - 1, p2State.fwdR).toUpperCase();
+    const revSeq = rcSeq(seq.slice(p2State.revL - 1, p2State.revR).toUpperCase());
+    const dimerDiv = document.createElement('div');
+    dimerDiv.id = 'p2DimerCard';
+    dimerDiv.style.display = 'none';
+    dimerDiv.innerHTML = buildDimerCard(fwdSeq, revSeq);
+    scoreSection.after(dimerDiv);
+  }
 
   setTimeout(() => scoreSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
 
@@ -1773,6 +1789,79 @@ function scoreP2Task(seq, t) {
 
   return { fwdPts, fwdNote, revPts, revNote, ampPts, ampNote, dimerPts, dimerNote,
            total: fwdPts + revPts + ampPts + dimerPts };
+}
+
+function findDimerAlignment(fwdSeq, revSeq) {
+  const TAIL = 4;
+  const tip1 = rcSeq(fwdSeq.slice(-TAIL));
+  for (let i = 0; i <= revSeq.length - TAIL; i++) {
+    if (revSeq.slice(i, i + TAIL).toUpperCase() === tip1.toUpperCase())
+      return { donorSeq: fwdSeq, donorLabel: 'Fwd', acceptorSeq: revSeq, acceptorLabel: 'Rev', matchPos: i };
+  }
+  const tip2 = rcSeq(revSeq.slice(-TAIL));
+  for (let i = 0; i <= fwdSeq.length - TAIL; i++) {
+    if (fwdSeq.slice(i, i + TAIL).toUpperCase() === tip2.toUpperCase())
+      return { donorSeq: revSeq, donorLabel: 'Rev', acceptorSeq: fwdSeq, acceptorLabel: 'Fwd', matchPos: i };
+  }
+  return null;
+}
+
+function buildDimerCard(fwdSeq, revSeq) {
+  const TAIL = 4, CTX = 8;
+  const al = findDimerAlignment(fwdSeq, revSeq);
+  if (!al) return '';
+  const { donorSeq, donorLabel, acceptorSeq, acceptorLabel, matchPos } = al;
+
+  // Donor: up to CTX chars of context before highlighted 3′ tail
+  const donorPre  = donorSeq.slice(-CTX - TAIL, -TAIL);
+  const donorTail = donorSeq.slice(-TAIL);
+
+  // Acceptor shown 3′→5′ (reversed string), with CTX chars around match
+  const accRev   = [...acceptorSeq].reverse().join('');
+  const rMatch   = acceptorSeq.length - matchPos - TAIL; // match start in reversed string
+  const accPre   = accRev.slice(Math.max(0, rMatch - CTX), rMatch);
+  const accMatch = accRev.slice(rMatch, rMatch + TAIL);
+  const accPost  = accRev.slice(rMatch + TAIL, rMatch + TAIL + CTX);
+
+  // Pad so the matching columns align: preW = max of both pre-lengths
+  const preW  = Math.max(donorPre.length, accPre.length);
+  const dPad  = '\u00A0'.repeat(preW - donorPre.length);
+  const aPad  = '\u00A0'.repeat(preW - accPre.length);
+  // Bars sit at: 6-char label + preW chars of pre-region
+  const barPad = '\u00A0'.repeat(6 + preW);
+
+  function ntSpanDimer(c, highlight) {
+    c = c.toUpperCase();
+    const s = highlight ? ' style="background:rgba(239,83,80,0.3);border-radius:2px;"' : '';
+    return `<span class="nt nt-${c}"${s}>${c}</span>`;
+  }
+  function seqD(s, hl) { return s.split('').map(c => ntSpanDimer(c, hl)).join(''); }
+
+  const row1 = `<div style="white-space:nowrap;"><span style="color:var(--gold);font-weight:700;">${donorLabel} 5′</span>${dPad}${seqD(donorPre,false)}${seqD(donorTail,true)}<span style="color:var(--muted);"> 3′</span></div>`;
+  const rowB = `<div style="white-space:nowrap;color:var(--danger);">${barPad}||||</div>`;
+  const row2 = `<div style="white-space:nowrap;"><span style="color:#4FC3F7;font-weight:700;">${acceptorLabel} 3′</span>${aPad}${seqD(accPre,false)}${seqD(accMatch,true)}${seqD(accPost,false)}<span style="color:var(--muted);"> 5′</span></div>`;
+
+  return `<div class="p2-section" style="border-color:rgba(239,83,80,0.45);">
+    <div class="p2-label" style="color:var(--danger);">⚠ Primer–Dimer Interaction</div>
+    <p style="font-size:0.82rem;color:var(--muted);line-height:1.6;">
+      The 3′ end of the <strong style="color:var(--text);">${donorLabel} primer</strong>
+      is complementary to a region in the <strong style="color:var(--text);">${acceptorLabel} primer</strong>
+      (highlighted in red). When primers anneal to each other instead of the template,
+      the polymerase extends the dimer — consuming reagents and reducing yield of
+      your target amplicon.
+    </p>
+    <div style="font-family:'Courier New',monospace;font-size:0.82rem;letter-spacing:0;line-height:1.8;overflow-x:auto;background:rgba(0,0,0,0.25);padding:10px 14px;border-radius:6px;border:1px solid rgba(239,83,80,0.2);">
+      ${row1}${rowB}${row2}
+    </div>
+  </div>`;
+}
+
+function toggleDimerCard() {
+  const el = document.getElementById('p2DimerCard');
+  if (!el) return;
+  const nowHidden = el.style.display === 'none';
+  el.style.display = nowHidden ? '' : 'none';
+  if (nowHidden) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function refreshP2Task() {
