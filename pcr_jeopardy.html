@@ -539,12 +539,12 @@ const DEFAULT_CFG = {
 };
 
 // ============================================================
-// SCORE SUBMISSION — replace with your fine-grained PAT
-// (repo: restriction-cloning-game, permission: Contents read+write)
+// SCORE SUBMISSION — Cloudflare Worker proxy
+// Set SCORE_WORKER_URL to your deployed worker URL, e.g.:
+//   https://pcr-score-worker.YOUR-SUBDOMAIN.workers.dev
+// Leave blank to disable auto-submit (local export still works).
 // ============================================================
-const SCORE_PAT    = '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';
-const SCORE_FOLDER = 'pcr_jeopardy_scores';
-const GITHUB_REPO  = 'bgeiss1/restriction-cloning-game';
+const SCORE_WORKER_URL = '';
 
 // ============================================================
 // STATE
@@ -1076,29 +1076,24 @@ function saveScore(){
 }
 
 async function autoSubmitScore(rec){
-  if(!SCORE_PAT||SCORE_PAT.includes('REPLACE')) return;
   const el=document.getElementById('submitStatus');
+  if(!SCORE_WORKER_URL){
+    if(el){ el.textContent='Auto-submit not configured — use Export Score below.'; el.style.color='var(--muted)'; }
+    return;
+  }
   if(el){ el.textContent='Submitting score…'; el.style.color='var(--muted)'; }
   try {
-    const safeName = rec.playerName.replace(/[^a-z0-9]/gi,'_');
-    const safeDate = rec.date.slice(0,19).replace(/[:T]/g,'-');
-    const filename = `${SCORE_FOLDER}/${safeName}_${safeDate}.json`;
-    const content  = btoa(unescape(encodeURIComponent(JSON.stringify(rec,null,2))));
-    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`,{
-      method:'PUT',
-      headers:{
-        'Authorization':`token ${SCORE_PAT}`,
-        'Accept':'application/vnd.github.v3+json',
-        'Content-Type':'application/json'
-      },
-      body: JSON.stringify({ message:`Score: ${rec.playerName} ${rec.date.slice(0,10)}`, content })
+    const r = await fetch(SCORE_WORKER_URL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(rec),
     });
-    if(r.ok){
+    const json = await r.json().catch(()=>({ok:false}));
+    if(json.ok){
       if(el){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
     } else {
-      const errText = await r.text().catch(()=>'');
-      console.error('Score submission failed', r.status, errText);
-      if(el){ el.textContent=`Score saved locally (HTTP ${r.status} — see console for details).`; el.style.color='var(--warn)'; }
+      console.error('Score submission failed', json);
+      if(el){ el.textContent=`Score saved locally (HTTP ${json.status||r.status} — see console).`; el.style.color='var(--warn)'; }
     }
   } catch(e) {
     console.error('Score submission error', e);
