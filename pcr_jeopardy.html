@@ -547,7 +547,9 @@ let S = {
   timerSecs: 0,
   timerHandle: null,
   timerLocked: false,
-  stats: { correct:0, wrong:0, hsWon:false, finalWon:false, finalWager:0, start:null }
+  lastRecord: null,   // detailed record of most recent completed run
+  stats: { correct:0, wrong:0, hsWon:false, finalWon:false, finalWager:0, start:null,
+           questionResults:[], currentAnswers:[], finalAnswer:'' }
 };
 
 // ============================================================
@@ -641,7 +643,8 @@ function startGame(){
   if(!n) return;
   S.playerName = n;
   S.dntps = 0;
-  S.stats = {correct:0,wrong:0,hsWon:false,finalWon:false,finalWager:0,start:new Date().toISOString()};
+  S.stats = {correct:0,wrong:0,hsWon:false,finalWon:false,finalWager:0,start:new Date().toISOString(),
+             questionResults:[],currentAnswers:[],finalAnswer:''};
   buildBoard();
   showScreen('boardScreen');
   updateHud();
@@ -785,6 +788,8 @@ function openQuestion(){
   document.getElementById('qNext').style.display='none';
   document.getElementById('attLeft').textContent='2';
 
+  S.stats.currentAnswers=[];
+
   const card=document.getElementById('qCard');
   card.classList.remove('flipped');
   document.getElementById('questionOverlay').classList.remove('hidden');
@@ -817,6 +822,8 @@ function setTimerUI(rem,total){
 }
 
 function timerExpired(){
+  const typed=document.getElementById('qInput').value.trim();
+  S.stats.currentAnswers.push(typed||'(timed out)');
   S.attempts++;
   if(S.attempts>=2){ revealAns(); return; }
   document.getElementById('attLeft').textContent='1';
@@ -830,6 +837,7 @@ document.getElementById('qSubmit').addEventListener('click',()=>{
   const raw=document.getElementById('qInput').value.trim();
   if(!raw) return;
   clearInterval(S.timerHandle); S.timerLocked=true;
+  S.stats.currentAnswers.push(raw);
   const q=S.cur.q;
   if(checkAns(raw,q)){
     document.getElementById('qInput').className='q-input ok';
@@ -837,6 +845,7 @@ document.getElementById('qSubmit').addEventListener('click',()=>{
     const gain=S.cur.hotStart?(S.wager??q.value):q.value;
     S.dntps+=gain; S.stats.correct++;
     if(S.cur.hotStart) S.stats.hsWon=true;
+    recordQResult('correct');
     showFb('ok',`✓ Correct! +${fmt(gain)} dNTPs`+(q.explain?`<br><small style="opacity:.85">${q.explain}</small>`:''));
     document.getElementById('qNext').style.display='block';
     updateHud();
@@ -860,10 +869,28 @@ function revealAns(){
   const q=S.cur.q;
   const pen=S.cur.hotStart?Math.round((S.wager??0)*cfg.penaltyMultiplier):Math.round(q.value*cfg.penaltyMultiplier);
   S.dntps-=pen; S.stats.wrong++;
+  recordQResult('wrong');
   const penStr=pen>0?` −${fmt(pen)} dNTPs`:'';
   showFb('rev',`✗ The answer: <strong>${q.answer}</strong>${penStr}`+(q.explain?`<br><small style="opacity:.85">${q.explain}</small>`:''));
   document.getElementById('qNext').style.display='block';
   updateHud();
+}
+
+function recordQResult(result){
+  const q=S.cur.q;
+  const cat=cfg.categories.find(c=>c.id===q.category)||{name:q.category};
+  S.stats.questionResults.push({
+    questionId: q.id,
+    category:   cat.name,
+    value:      q.value,
+    clue:       q.clue,
+    correctAnswer: q.answer,
+    result,
+    attempts:   S.stats.currentAnswers.length,
+    playerAnswers: [...S.stats.currentAnswers],
+    hotStart:   !!S.cur.hotStart,
+    wager:      S.cur.hotStart ? (S.wager??null) : null
+  });
 }
 
 function showFb(cls,html){ const el=document.getElementById('qFeedback'); el.className='q-feedback '+cls; el.innerHTML=html; el.style.display='block'; }
@@ -941,6 +968,7 @@ document.getElementById('finalInput').addEventListener('keydown',e=>{ if(e.key==
 document.getElementById('finalSubmit').addEventListener('click',()=>{
   clearInterval(S.timerHandle); S.timerLocked=true;
   const raw=document.getElementById('finalInput').value.trim();
+  S.stats.finalAnswer=raw;
   const fq=cfg.finalQuestion;
   const ok=raw&&checkAns(raw,fq);
   const wager=S.stats.finalWager;
@@ -997,17 +1025,22 @@ function showEnd(){
 // ============================================================
 function saveScore(){
   const rec={
-    playerName:S.playerName,
-    date:new Date().toISOString(),
-    finalDNTPs:S.dntps,
-    targetDNTPs:cfg.targetDNTPs,
-    targetMet:S.dntps>=cfg.targetDNTPs,
-    correct:S.stats.correct,
-    wrong:S.stats.wrong,
-    hotStartWon:S.stats.hsWon,
-    finalWon:S.stats.finalWon,
-    finalWager:S.stats.finalWager
+    playerName:   S.playerName,
+    date:         new Date().toISOString(),
+    finalDNTPs:   S.dntps,
+    targetDNTPs:  cfg.targetDNTPs,
+    targetMet:    S.dntps>=cfg.targetDNTPs,
+    correct:      S.stats.correct,
+    wrong:        S.stats.wrong,
+    hotStart:     { won: S.stats.hsWon },
+    finalReaction: cfg.finalEnabled ? {
+      wagered:     S.stats.finalWager,
+      won:         S.stats.finalWon,
+      playerAnswer:S.stats.finalAnswer
+    } : null,
+    questionResults: S.stats.questionResults
   };
+  S.lastRecord = rec;
   try {
     const arr=JSON.parse(localStorage.getItem('pcr_jeopardy_scores')||'[]');
     arr.push(rec);
@@ -1017,13 +1050,15 @@ function saveScore(){
 
 document.getElementById('btnExport').addEventListener('click',()=>{
   try {
-    const data=localStorage.getItem('pcr_jeopardy_scores')||'[]';
-    const blob=new Blob([data],{type:'application/json'});
+    if(!S.lastRecord){ toast('No score to export.'); return; }
+    const safeName = S.lastRecord.playerName.replace(/[^a-z0-9]/gi,'_');
+    const safeDate = S.lastRecord.date.slice(0,19).replace(/[:T]/g,'-');
+    const blob=new Blob([JSON.stringify(S.lastRecord,null,2)],{type:'application/json'});
     const a=document.createElement('a');
     a.href=URL.createObjectURL(blob);
-    a.download='pcr_jeopardy_scores.json';
+    a.download=`jeopardy_${safeName}_${safeDate}.json`;
     a.click();
-    toast('Scores exported!');
+    toast('Score exported! Give this file to your instructor.');
   } catch { toast('Export failed.'); }
 });
 

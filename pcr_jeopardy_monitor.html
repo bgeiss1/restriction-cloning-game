@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jeopardy! PCR — Instructor Monitor</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #111c15;
+  --bg-mid:   #1a2e1e;
+  --bg-card:  #1f3525;
+  --bg-input: #0e1710;
+  --green:    #1E4D2B;
+  --gold:     #C8A951;
+  --gold-lt:  #e0c060;
+  --text:     #e8f5e9;
+  --muted:    #a8c5a0;
+  --success:  #66BB6A;
+  --warn:     #FFA726;
+  --danger:   #EF5350;
+  --border:   rgba(200,169,81,0.25);
+  --radius:   7px;
+  --mono:     'Courier New', monospace;
+}
+html, body { height:100%; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,sans-serif; font-size:14px; overflow:hidden; }
+
+/* ── TOP BAR ── */
+#topbar {
+  height:48px; background:var(--bg-mid); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 16px; flex-shrink:0; gap:12px;
+}
+#topbar h1 { font-size:1.05rem; color:var(--gold); white-space:nowrap; }
+#topbar-right { display:flex; align-items:center; gap:8px; }
+
+/* ── LAYOUT ── */
+#app  { display:flex; flex-direction:column; height:100vh; }
+#body { display:flex; flex:1; overflow:hidden; }
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width:220px; flex-shrink:0; display:flex; flex-direction:column;
+  border-right:1px solid var(--border); background:var(--bg-mid); overflow:hidden;
+}
+.sidebar-label {
+  padding:10px 12px 4px; font-size:0.7rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);
+}
+.tab-btn {
+  display:flex; align-items:center; gap:10px;
+  padding:11px 14px; cursor:pointer;
+  border-bottom:1px solid rgba(200,169,81,0.08);
+  transition:background 0.12s; user-select:none;
+}
+.tab-btn:hover  { background:rgba(200,169,81,0.07); }
+.tab-btn.active { background:rgba(200,169,81,0.14); }
+.tab-icon { font-size:1.1rem; flex-shrink:0; }
+.tab-name { font-size:0.85rem; font-weight:600; color:var(--text); }
+.tab-sub  { font-size:0.75rem; color:var(--muted); margin-top:1px; }
+.tab-btn.active .tab-sub { color:var(--gold); }
+.sidebar-footer {
+  margin-top:auto; padding:12px; border-top:1px solid var(--border);
+  font-size:0.73rem; color:var(--muted); line-height:1.7;
+}
+
+/* ── MAIN ── */
+#main { flex:1; overflow-y:auto; padding:20px 24px; display:flex; flex-direction:column; gap:18px; }
+.empty-hint { margin:auto; text-align:center; color:var(--muted); line-height:2; font-size:0.95rem; }
+
+/* ── SECTION ── */
+.section { background:var(--bg-card); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.section-title {
+  padding:10px 16px; background:var(--green); font-size:0.8rem; font-weight:700;
+  letter-spacing:0.05em; color:var(--gold); text-transform:uppercase;
+  display:flex; align-items:center; justify-content:space-between;
+  cursor:pointer; user-select:none;
+}
+.section-title:hover { background:#245c34; }
+.chevron { font-size:0.75rem; color:var(--muted); transition:transform 0.15s; }
+.section.collapsed .chevron { transform:rotate(-90deg); }
+.section.collapsed .section-body { display:none; }
+.section-body { padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+
+/* ── FORM ── */
+.field { display:flex; flex-direction:column; gap:4px; }
+.field.grow { flex:1; min-width:120px; }
+.field-row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+label { font-size:0.78rem; color:var(--muted); font-weight:600; }
+input[type=text], input[type=date], select {
+  background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius);
+  color:var(--text); font-size:0.88rem; padding:7px 10px; font-family:inherit; width:100%;
+}
+input[type=text]:focus, input[type=date]:focus, select:focus { outline:none; border-color:var(--gold); }
+.hint { font-size:0.74rem; color:var(--muted); margin-top:2px; }
+
+/* ── BUTTONS ── */
+.btn-primary { padding:7px 16px; border-radius:var(--radius);
+  background:var(--gold); color:#1a1a00; font-size:0.88rem; font-weight:700;
+  border:none; cursor:pointer; white-space:nowrap; }
+.btn-primary:hover { background:var(--gold-lt); }
+.btn-secondary { padding:7px 14px; border-radius:var(--radius);
+  background:none; border:1px solid var(--border);
+  color:var(--muted); font-size:0.88rem; cursor:pointer; white-space:nowrap; }
+.btn-secondary:hover { border-color:var(--gold); color:var(--gold-lt); }
+.btn-publish { padding:7px 14px; border-radius:var(--radius);
+  background:rgba(102,187,106,0.18); border:1.5px solid rgba(102,187,106,0.5);
+  color:var(--success); font-size:0.88rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+.btn-publish:hover { background:rgba(102,187,106,0.32); }
+.btn-publish:disabled { opacity:0.45; cursor:default; }
+.btn-small { padding:4px 11px; border-radius:var(--radius);
+  border:1px solid var(--border); background:rgba(200,169,81,0.1);
+  color:var(--gold); font-size:0.8rem; cursor:pointer; white-space:nowrap; }
+.btn-small:hover { background:rgba(200,169,81,0.22); }
+.btn-danger { padding:4px 10px; border-radius:var(--radius);
+  background:rgba(239,83,80,0.1); border:1px solid rgba(239,83,80,0.28);
+  color:var(--danger); font-size:0.8rem; cursor:pointer; white-space:nowrap; }
+.btn-danger:hover { background:rgba(239,83,80,0.25); }
+
+/* ── TABLES ── */
+.data-table { width:100%; border-collapse:collapse; font-size:0.84rem; }
+.data-table th {
+  text-align:left; padding:7px 10px; font-size:0.72rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.06em; color:var(--muted);
+  border-bottom:1px solid var(--border); cursor:pointer; user-select:none; white-space:nowrap;
+}
+.data-table th:hover { color:var(--gold); }
+.data-table th.sort-asc::after  { content:' ▲'; color:var(--gold); }
+.data-table th.sort-desc::after { content:' ▼'; color:var(--gold); }
+.data-table td { padding:7px 10px; border-bottom:1px solid rgba(255,255,255,0.05); vertical-align:top; }
+.data-table tr:hover td { background:rgba(255,255,255,0.03); }
+.data-table tr.clickable { cursor:pointer; }
+.mono { font-family:var(--mono); }
+
+/* ── BADGES ── */
+.badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:0.75rem; font-weight:700; }
+.badge.ok   { background:rgba(102,187,106,0.18); color:var(--success); border:1px solid rgba(102,187,106,0.35); }
+.badge.fail { background:rgba(239,83,80,0.12);   color:var(--danger);  border:1px solid rgba(239,83,80,0.3); }
+.badge.warn { background:rgba(255,167,38,0.14);  color:var(--warn);    border:1px solid rgba(255,167,38,0.35); }
+
+/* ── DIFFICULTY BAR ── */
+.diff-bar-wrap { display:flex; align-items:center; gap:8px; }
+.diff-bar { height:8px; border-radius:4px; background:rgba(255,255,255,0.08); flex:1; overflow:hidden; }
+.diff-bar-fill { height:100%; border-radius:4px; }
+.diff-pct { font-size:0.78rem; font-family:var(--mono); min-width:36px; text-align:right; }
+
+/* ── PLAYER DRAWER ── */
+#playerDrawer {
+  position:fixed; right:0; top:0; bottom:0; width:min(560px,90vw);
+  background:var(--bg-card); border-left:1px solid var(--border);
+  z-index:100; display:flex; flex-direction:column; overflow:hidden;
+  transform:translateX(100%); transition:transform 0.25s ease;
+}
+#playerDrawer.open { transform:translateX(0); }
+#drawerHeader {
+  padding:14px 18px; background:var(--green);
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+#drawerHeader h2 { font-size:1rem; color:var(--gold); }
+#drawerClose { background:none; border:none; color:var(--muted); font-size:1.2rem;
+  cursor:pointer; padding:2px 6px; }
+#drawerClose:hover { color:var(--text); }
+#drawerBody { flex:1; overflow-y:auto; padding:16px 18px; display:flex; flex-direction:column; gap:14px; }
+
+/* ── QUESTION RESULT CARD ── */
+.qr-card { background:rgba(0,0,0,0.2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:10px 14px; display:flex; flex-direction:column; gap:6px; }
+.qr-card.correct { border-left:3px solid var(--success); }
+.qr-card.wrong   { border-left:3px solid var(--danger); }
+.qr-meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.qr-cat  { font-size:0.72rem; color:var(--gold); font-weight:700; text-transform:uppercase; letter-spacing:0.05em; }
+.qr-val  { font-size:0.72rem; color:var(--muted); font-family:var(--mono); }
+.qr-clue { font-size:0.84rem; color:var(--text); line-height:1.5; }
+.qr-answer-row { font-size:0.8rem; }
+.qr-answer-row .lbl { color:var(--muted); }
+.qr-player-answers { display:flex; flex-wrap:wrap; gap:5px; }
+.qr-attempt { font-size:0.76rem; padding:2px 8px; border-radius:10px; font-family:var(--mono); }
+.qr-attempt.wrong   { background:rgba(239,83,80,0.12); color:var(--danger); border:1px solid rgba(239,83,80,0.3); }
+.qr-attempt.correct { background:rgba(102,187,106,0.12); color:var(--success); border:1px solid rgba(102,187,106,0.35); }
+.qr-attempt.timeout { background:rgba(255,167,38,0.1); color:var(--warn); border:1px solid rgba(255,167,38,0.3); }
+
+/* ── CALLOUT ── */
+.callout { border-radius:8px; padding:10px 14px; font-size:0.84rem; line-height:1.6; }
+.callout.warn { background:rgba(255,167,38,0.1); border:1px solid rgba(255,167,38,0.35); color:#ffe082; }
+.callout.info { background:rgba(200,169,81,0.08); border:1px solid var(--border); color:var(--muted); }
+
+/* ── SESSION PILL LIST ── */
+.session-item {
+  display:flex; align-items:center; gap:10px; padding:9px 12px;
+  background:rgba(0,0,0,0.15); border:1px solid var(--border);
+  border-radius:var(--radius); cursor:pointer; transition:background 0.12s;
+}
+.session-item:hover  { background:rgba(200,169,81,0.08); border-color:var(--gold); }
+.session-item.active { background:rgba(200,169,81,0.14); border-color:var(--gold); }
+.session-name { flex:1; font-size:0.88rem; color:var(--text); font-weight:600; }
+.session-meta { font-size:0.75rem; color:var(--muted); }
+
+/* ── CONNECT OVERLAY ── */
+#connect-overlay {
+  position:fixed; inset:0; z-index:200;
+  display:flex; align-items:center; justify-content:center; background:var(--bg);
+}
+#connect-overlay.hidden { display:none; }
+#connect-box {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+  padding:36px 40px; width:420px; display:flex; flex-direction:column; gap:16px;
+}
+#connect-box h1 { font-size:1.35rem; color:var(--gold); }
+#connect-box p  { color:var(--muted); font-size:0.88rem; line-height:1.6; }
+#connect-box input[type=password] {
+  width:100%; padding:9px 12px;
+  background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius);
+  color:var(--text); font-size:0.95rem; font-family:inherit;
+}
+#connect-box input[type=password]:focus { outline:none; border-color:var(--gold); }
+#connect-error { color:var(--danger); font-size:0.85rem; min-height:1.2em; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(200,169,81,0.25); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<!-- ── CONNECT OVERLAY ── -->
+<div id="connect-overlay" class="hidden">
+  <div id="connect-box">
+    <h1>📊 Jeopardy! PCR — Monitor</h1>
+    <p>Enter your GitHub Personal Access Token to load and save session data.<br>
+       Needs <strong>repo</strong> (Contents read &amp; write) scope.</p>
+    <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
+    <div id="connect-error"></div>
+    <button class="btn-primary" id="connect-btn">Connect</button>
+    <div style="text-align:center;">
+      <button class="btn-secondary" id="offline-btn" style="font-size:0.8rem;">
+        Use offline (import files only, no GitHub save)
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── PLAYER DRAWER ── -->
+<div id="playerDrawer">
+  <div id="drawerHeader">
+    <h2 id="drawerTitle">Player Detail</h2>
+    <button id="drawerClose">✕</button>
+  </div>
+  <div id="drawerBody"></div>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <h1>📊 Jeopardy! PCR — Instructor Monitor</h1>
+    <div id="topbar-right">
+      <button class="btn-secondary" onclick="importFiles()">📂 Import Player Files</button>
+      <button class="btn-publish" id="publish-btn" onclick="publishSession()" style="display:none">💾 Save Session</button>
+      <button class="btn-secondary" onclick="downloadSession()" id="download-btn" style="display:none">⬇ Download Session</button>
+      <a href="index.html" style="text-decoration:none;"><button class="btn-secondary">← Menu</button></a>
+    </div>
+  </div>
+
+  <div id="body">
+    <div id="sidebar">
+      <div class="sidebar-label">Navigation</div>
+      <div class="tab-btn active" id="tab-sessions" onclick="selectTab('sessions')">
+        <div class="tab-icon">📋</div>
+        <div>
+          <div class="tab-name">Sessions</div>
+          <div class="tab-sub" id="session-sub">Manage class sessions</div>
+        </div>
+      </div>
+      <div class="tab-btn" id="tab-class" onclick="selectTab('class')">
+        <div class="tab-icon">👥</div>
+        <div>
+          <div class="tab-name">Class Overview</div>
+          <div class="tab-sub" id="class-sub">— players</div>
+        </div>
+      </div>
+      <div class="tab-btn" id="tab-questions" onclick="selectTab('questions')">
+        <div class="tab-icon">❓</div>
+        <div>
+          <div class="tab-name">Question Analysis</div>
+          <div class="tab-sub" id="q-sub">Difficulty &amp; errors</div>
+        </div>
+      </div>
+      <div class="tab-btn" id="tab-trends" onclick="selectTab('trends')">
+        <div class="tab-icon">📈</div>
+        <div>
+          <div class="tab-name">Learning Trends</div>
+          <div class="tab-sub">Cross-session progress</div>
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        Students export a score file from the game end screen. Collect those files and import them here.
+      </div>
+    </div>
+
+    <div id="main">
+      <div id="panelSessions"  style="display:none"></div>
+      <div id="panelClass"     style="display:none"></div>
+      <div id="panelQuestions" style="display:none"></div>
+      <div id="panelTrends"    style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" multiple style="display:none" onchange="handleImport(event)">
+
+<script>
+// ═══════════════════════════════════════════════
+// GITHUB CONFIG
+// ═══════════════════════════════════════════════
+const GITHUB_REPO   = 'bgeiss1/restriction-cloning-game';
+const GITHUB_API    = `https://api.github.com/repos/${GITHUB_REPO}/contents/`;
+const SESSION_PREFIX = 'pcr_jeopardy_s_';
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let pat = null;
+let sessions = {};      // id → session object
+let activeSessionId = null;
+let currentTab = 'sessions';
+let sortState = { col: null, dir: 'desc' };
+
+function activeSession() { return sessions[activeSessionId] || null; }
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  const saved = sessionStorage.getItem('pcr_jeopardy_monitor_pat');
+  const onGH  = location.hostname.endsWith('github.io');
+
+  if (onGH) {
+    if (saved) { await connectWithPat(saved, true); }
+    else { showConnect(); }
+  } else {
+    // Local dev: try to load without PAT
+    selectTab('sessions');
+  }
+
+  document.getElementById('connect-btn').addEventListener('click', async () => {
+    const v = document.getElementById('pat-input').value.trim();
+    if (!v) { document.getElementById('connect-error').textContent='Please enter a PAT.'; return; }
+    const btn = document.getElementById('connect-btn');
+    btn.disabled=true; btn.textContent='Connecting…';
+    document.getElementById('connect-error').textContent='';
+    await connectWithPat(v, false);
+    btn.disabled=false; btn.textContent='Connect';
+  });
+  document.getElementById('pat-input').addEventListener('keydown', e => {
+    if (e.key==='Enter') document.getElementById('connect-btn').click();
+  });
+  document.getElementById('offline-btn').addEventListener('click', () => {
+    document.getElementById('connect-overlay').classList.add('hidden');
+    selectTab('sessions');
+  });
+  document.getElementById('drawerClose').addEventListener('click', closeDrawer);
+});
+
+function showConnect() {
+  document.getElementById('connect-overlay').classList.remove('hidden');
+}
+
+async function connectWithPat(p, silent) {
+  try {
+    // Test auth and load existing session list
+    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/`, {
+      cache:'no-store',
+      headers:{ 'Authorization':`token ${p}`, 'Accept':'application/vnd.github.v3+json' }
+    });
+    if (!r.ok) throw new Error(`GitHub ${r.status}`);
+    pat = p;
+    sessionStorage.setItem('pcr_jeopardy_monitor_pat', p);
+    await loadSessionsFromGitHub();
+    document.getElementById('connect-overlay').classList.add('hidden');
+    document.getElementById('publish-btn').style.display = '';
+    selectTab('sessions');
+  } catch(err) {
+    if (silent) {
+      sessionStorage.removeItem('pcr_jeopardy_monitor_pat');
+      pat = null;
+      if (location.hostname.endsWith('github.io')) showConnect();
+      else selectTab('sessions');
+    } else {
+      document.getElementById('connect-error').textContent = 'Error: ' + err.message;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+// GITHUB API
+// ═══════════════════════════════════════════════
+function b64d(s) { return decodeURIComponent(escape(atob(s.replace(/\n/g,'')))); }
+
+async function ghGet(path) {
+  const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+    cache:'no-store',
+    headers:{ 'Authorization':`token ${pat}`, 'Accept':'application/vnd.github.v3+json' }
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status}: ${(await r.text()).slice(0,200)}`);
+  return r.json();
+}
+
+async function ghPut(path, contentStr, message) {
+  let sha = '';
+  try { const ex = await ghGet(path); sha = ex.sha; } catch {}
+  const content = btoa(unescape(encodeURIComponent(contentStr)));
+  const body = { message, content };
+  if (sha) body.sha = sha;
+  const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
+    method:'PUT',
+    headers:{ 'Authorization':`token ${pat}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function loadSessionsFromGitHub() {
+  if (!pat) return;
+  try {
+    const listing = await ghGet('');
+    const sessionFiles = listing.filter(f => f.name.startsWith(SESSION_PREFIX) && f.name.endsWith('.json'));
+    for (const f of sessionFiles) {
+      const data = await ghGet(f.name);
+      const s = JSON.parse(b64d(data.content));
+      sessions[s.sessionId] = s;
+    }
+  } catch(e) { console.warn('Could not load sessions:', e.message); }
+}
+
+// ═══════════════════════════════════════════════
+// IMPORT PLAYER FILES
+// ═══════════════════════════════════════════════
+function importFiles() { document.getElementById('fileInput').click(); }
+
+function handleImport(e) {
+  const files = [...e.target.files];
+  if (!files.length) return;
+  let loaded = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const rec = JSON.parse(ev.target.result);
+        if (rec.playerName && rec.date && rec.questionResults) {
+          mergePlayerRecord(rec);
+          loaded++;
+          if (loaded===files.length) { updateSideCounts(); selectTab(currentTab); }
+        } else { alert(`${file.name}: not a valid player score file.`); }
+      } catch { alert(`${file.name}: could not parse JSON.`); }
+    };
+    reader.readAsText(file);
+  });
+  e.target.value='';
+}
+
+function mergePlayerRecord(rec) {
+  if (!activeSessionId) {
+    // Auto-create a session if none exists
+    const id = 'default_' + new Date().toISOString().slice(0,10);
+    if (!sessions[id]) {
+      sessions[id] = { sessionId:id, sessionName:'Session — '+new Date().toLocaleDateString(), created:new Date().toISOString(), players:[] };
+    }
+    activeSessionId = id;
+  }
+  const s = sessions[activeSessionId];
+  // Dedup by playerName + date
+  const key = rec.playerName + '|' + rec.date;
+  const exists = s.players.some(p => p.playerName+'|'+p.date === key);
+  if (!exists) s.players.push(rec);
+  showDownloadBtn();
+}
+
+function showDownloadBtn() {
+  document.getElementById('download-btn').style.display = '';
+}
+
+// ═══════════════════════════════════════════════
+// SESSIONS PANEL
+// ═══════════════════════════════════════════════
+function renderSessions() {
+  const p = document.getElementById('panelSessions');
+  const list = Object.values(sessions);
+
+  const sessionItems = list.map(s => `
+    <div class="session-item${s.sessionId===activeSessionId?' active':''}" onclick="activateSession('${s.sessionId}')">
+      <span style="font-size:1.2rem;">📋</span>
+      <div style="flex:1;min-width:0;">
+        <div class="session-name">${esc(s.sessionName)}</div>
+        <div class="session-meta">${s.players.length} player${s.players.length===1?'':'s'} · ${new Date(s.created).toLocaleDateString()}</div>
+      </div>
+      <button class="btn-danger" style="font-size:0.75rem;" onclick="event.stopPropagation();deleteSession('${s.sessionId}')">✕</button>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:0.84rem;">No sessions yet. Create one below.</div>';
+
+  p.innerHTML = `
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)">
+        <span>📋 Sessions (${list.length})</span><span class="chevron">▾</span>
+      </div>
+      <div class="section-body">
+        ${sessionItems}
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)">
+        <span>➕ Create New Session</span><span class="chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="field-row">
+          <div class="field grow">
+            <label>Session name</label>
+            <input type="text" id="new-session-name" placeholder="e.g. Lab 3 — March 18">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="createSession()">Create Session</button>
+        <div class="hint">After creating, import student score files via the toolbar button above.</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)">
+        <span>📂 Import &amp; Upload</span><span class="chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="callout info">
+          At game end, each student clicks <strong>Export Score</strong> and downloads a JSON file.
+          Collect those files and click <strong>Import Player Files</strong> in the toolbar above.
+          Files are added to the currently active session.
+        </div>
+        ${pat ? '<div class="callout info">GitHub connected. Use <strong>Save Session</strong> to publish to GitHub Pages so you can access this data from any device.</div>' : '<div class="callout warn">No GitHub connection. Data is only in this browser. Use Download Session to save a local backup.</div>'}
+      </div>
+    </div>`;
+}
+
+function createSession() {
+  const name = document.getElementById('new-session-name').value.trim();
+  if (!name) return;
+  const id = Date.now().toString(36);
+  sessions[id] = { sessionId:id, sessionName:name, created:new Date().toISOString(), players:[] };
+  activeSessionId = id;
+  updateSideCounts(); renderSessions(); showDownloadBtn();
+}
+
+function activateSession(id) {
+  activeSessionId = id;
+  updateSideCounts(); renderSessions();
+}
+
+function deleteSession(id) {
+  if (!confirm('Delete this session and all its player data?')) return;
+  delete sessions[id];
+  if (activeSessionId===id) activeSessionId = Object.keys(sessions)[0] || null;
+  updateSideCounts(); renderSessions();
+}
+
+// ═══════════════════════════════════════════════
+// CLASS OVERVIEW
+// ═══════════════════════════════════════════════
+function renderClass() {
+  const p = document.getElementById('panelClass');
+  const s = activeSession();
+  if (!s) { p.innerHTML = '<div class="empty-hint">No active session.<br>Go to Sessions and create or select one.</div>'; return; }
+  if (!s.players.length) { p.innerHTML = '<div class="empty-hint">No players in this session yet.<br>Import student score files via the toolbar.</div>'; return; }
+
+  const players = [...s.players];
+  const col = sortState.col || 'finalDNTPs';
+  const dir = sortState.dir;
+  players.sort((a,b) => {
+    let av = a[col], bv = b[col];
+    if (typeof av==='boolean') av=av?1:0;
+    if (typeof bv==='boolean') bv=bv?1:0;
+    if (av===undefined) av=-Infinity;
+    if (bv===undefined) bv=-Infinity;
+    return dir==='desc' ? (bv>av?1:bv<av?-1:0) : (av>bv?1:av<bv?-1:0);
+  });
+
+  const metCount = players.filter(p=>p.targetMet).length;
+  const avgScore = Math.round(players.reduce((a,p)=>a+(p.finalDNTPs||0),0)/players.length);
+
+  const th = (lbl,key) => {
+    const cls = sortState.col===key ? (sortState.dir==='desc'?'sort-desc':'sort-asc') : '';
+    return `<th class="${cls}" onclick="sortBy('${key}')">${lbl}</th>`;
+  };
+
+  const rows = players.map(pl => {
+    const qs = pl.questionResults||[];
+    const correct = qs.filter(q=>q.result==='correct').length;
+    const wrong   = qs.filter(q=>q.result==='wrong').length;
+    const struggled = qs.filter(q=>q.result==='correct'&&q.attempts>1).length;
+    const hsInfo = pl.hotStart?.won ? '<span class="badge ok">✓</span>' : (pl.hotStart ? '<span class="badge fail">✗</span>' : '—');
+    const fnInfo = pl.finalReaction ? (pl.finalReaction.won ? '<span class="badge ok">✓</span>' : '<span class="badge fail">✗</span>') : '—';
+    return `<tr class="clickable" onclick="openDrawer('${encodeURIComponent(pl.playerName+'|'+pl.date)}')">
+      <td><strong>${esc(pl.playerName)}</strong><br><span style="font-size:0.72rem;color:var(--muted)">${new Date(pl.date).toLocaleString()}</span></td>
+      <td class="mono">${(pl.finalDNTPs||0).toLocaleString()}</td>
+      <td>${pl.targetMet ? '<span class="badge ok">✓ Met</span>' : '<span class="badge fail">✗ Missed</span>'}</td>
+      <td class="mono">${correct}</td>
+      <td class="mono">${wrong}</td>
+      <td class="mono" style="color:var(--warn)">${struggled}</td>
+      <td>${hsInfo}</td>
+      <td>${fnInfo}</td>
+    </tr>`;
+  }).join('');
+
+  p.innerHTML = `
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)">
+        <span>👥 ${esc(s.sessionName)} — Summary</span><span class="chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="field-row" style="gap:20px;">
+          <div><div style="font-size:0.75rem;color:var(--muted)">Players</div><div style="font-size:1.5rem;font-weight:700;font-family:var(--mono);color:var(--gold)">${players.length}</div></div>
+          <div><div style="font-size:0.75rem;color:var(--muted)">Target Met</div><div style="font-size:1.5rem;font-weight:700;font-family:var(--mono);color:var(--success)">${metCount}</div></div>
+          <div><div style="font-size:0.75rem;color:var(--muted)">Avg Score</div><div style="font-size:1.5rem;font-weight:700;font-family:var(--mono);color:var(--gold)">${avgScore.toLocaleString()}</div></div>
+          <div><div style="font-size:0.75rem;color:var(--muted)">Target</div><div style="font-size:1.5rem;font-weight:700;font-family:var(--mono);color:var(--muted)">${(s.players[0]?.targetDNTPs||'—').toLocaleString()}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)">
+        <span>👥 Player Roster — click a row for detail</span><span class="chevron">▾</span>
+      </div>
+      <div class="section-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr>
+            ${th('Player','playerName')}
+            ${th('dNTPs','finalDNTPs')}
+            ${th('Target','targetMet')}
+            ${th('Correct','correct')}
+            ${th('Wrong','wrong')}
+            ${th('Struggled','struggled')}
+            <th>Hot Start</th>
+            <th>Final</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function sortBy(col) {
+  if (sortState.col===col) sortState.dir = sortState.dir==='desc'?'asc':'desc';
+  else { sortState.col=col; sortState.dir='desc'; }
+  renderClass();
+}
+
+// ═══════════════════════════════════════════════
+// QUESTION ANALYSIS
+// ═══════════════════════════════════════════════
+function renderQuestions() {
+  const p = document.getElementById('panelQuestions');
+  const s = activeSession();
+  if (!s || !s.players.length) {
+    p.innerHTML = '<div class="empty-hint">No player data in the active session.</div>';
+    return;
+  }
+
+  // Aggregate per question id
+  const qMap = {};
+  s.players.forEach(pl => {
+    (pl.questionResults||[]).forEach(qr => {
+      const key = qr.questionId || (qr.category+'|'+qr.value);
+      if (!qMap[key]) qMap[key] = { questionId:key, category:qr.category, value:qr.value, clue:qr.clue, correctAnswer:qr.correctAnswer, results:[] };
+      qMap[key].results.push(qr);
+    });
+  });
+
+  const rows = Object.values(qMap).map(q => {
+    const total    = q.results.length;
+    const correct  = q.results.filter(r=>r.result==='correct').length;
+    const wrong    = q.results.filter(r=>r.result==='wrong').length;
+    const struggled= q.results.filter(r=>r.result==='correct'&&r.attempts>1).length;
+    const pct      = total ? Math.round(correct/total*100) : 0;
+    const avgAtt   = total ? (q.results.reduce((a,r)=>a+(r.attempts||1),0)/total).toFixed(1) : '—';
+    // Collect wrong answers across all failed attempts
+    const wrongAnswers = [];
+    q.results.forEach(r => {
+      if (r.result==='wrong') {
+        (r.playerAnswers||[]).filter(a=>a&&a!=='(timed out)').forEach(a=>wrongAnswers.push(a));
+      }
+    });
+    // Count most common wrong answers
+    const waCounts = {};
+    wrongAnswers.forEach(a=>{ waCounts[a]=(waCounts[a]||0)+1; });
+    const topWrong = Object.entries(waCounts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([a,n])=>`<span style="color:var(--danger);font-size:0.76rem;">"${esc(a)}"${n>1?` ×${n}`:''}</span>`).join(' · ');
+    const barColor = pct>=80?'var(--success)':pct>=50?'var(--warn)':'var(--danger)';
+    return { q, pct, total, correct, wrong, struggled, avgAtt, topWrong, barColor };
+  }).sort((a,b)=>a.pct-b.pct); // lowest success first
+
+  const problemRows = rows.filter(r=>r.pct<60);
+  const callout = problemRows.length ? `
+    <div class="callout warn">
+      <strong>⚠ Focus areas (below 60% success):</strong><br>
+      ${problemRows.map(r=>`<span style="font-weight:600;">${esc(r.q.category)} ${r.q.value} dNTPs</span> — ${r.pct}% correct`).join('<br>')}
+    </div>` : `<div class="callout info">✓ No questions below 60% success rate for this session.</div>`;
+
+  const tableRows = rows.map(r => `
+    <tr>
+      <td><span style="color:var(--gold);font-size:0.78rem;font-weight:700;">${esc(r.q.category)}</span></td>
+      <td class="mono">${r.q.value}</td>
+      <td>
+        <div class="diff-bar-wrap">
+          <div class="diff-bar"><div class="diff-bar-fill" style="width:${r.pct}%;background:${r.barColor}"></div></div>
+          <span class="diff-pct" style="color:${r.barColor}">${r.pct}%</span>
+        </div>
+      </td>
+      <td class="mono">${r.correct}/${r.total}</td>
+      <td class="mono" style="color:var(--warn)">${r.struggled}</td>
+      <td class="mono">${r.avgAtt}</td>
+      <td style="max-width:220px;font-size:0.78rem;color:var(--muted);line-height:1.5;">${r.topWrong||'—'}</td>
+    </tr>`).join('');
+
+  p.innerHTML = `
+    ${callout}
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)">
+        <span>❓ Question Difficulty (sorted: hardest first)</span><span class="chevron">▾</span>
+      </div>
+      <div class="section-body" style="padding:0;">
+        <table class="data-table">
+          <thead><tr>
+            <th>Category</th><th>dNTPs</th><th>Success Rate</th>
+            <th>Correct</th><th>Struggled</th><th>Avg Attempts</th><th>Common Wrong Answers</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)">
+        <span>📝 Clue Reference</span><span class="chevron">▾</span>
+      </div>
+      <div class="section-body">
+        ${rows.map(r=>`
+          <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <div style="display:flex;gap:8px;align-items:baseline;margin-bottom:3px;">
+              <span style="color:var(--gold);font-size:0.72rem;font-weight:700;text-transform:uppercase;">${esc(r.q.category)}</span>
+              <span style="color:var(--muted);font-size:0.72rem;font-family:var(--mono)">${r.q.value} dNTPs</span>
+              <span style="font-size:0.72rem;" style="color:${r.barColor}">${r.pct}%</span>
+            </div>
+            <div style="font-size:0.83rem;color:var(--text);line-height:1.5;">${r.q.clue||'—'}</div>
+            <div style="font-size:0.78rem;color:var(--success);margin-top:3px;">Answer: ${esc(r.q.correctAnswer||'')}</div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// LEARNING TRENDS
+// ═══════════════════════════════════════════════
+function renderTrends() {
+  const p = document.getElementById('panelTrends');
+  // Collect all players across all sessions, grouped by name
+  const byName = {};
+  Object.values(sessions).forEach(s => {
+    s.players.forEach(pl => {
+      const n = pl.playerName.trim().toLowerCase();
+      if (!byName[n]) byName[n] = { name:pl.playerName, runs:[] };
+      byName[n].runs.push({ ...pl, sessionName:s.sessionName, sessionId:s.sessionId });
+    });
+  });
+  const multiRun = Object.values(byName).filter(p=>p.runs.length>1);
+
+  if (!Object.keys(byName).length) {
+    p.innerHTML='<div class="empty-hint">No data across any session yet.</div>'; return;
+  }
+  if (!multiRun.length) {
+    p.innerHTML=`<div class="empty-hint">No students with multiple runs yet.<br>Trends appear once a student has played in at least two sessions.</div>`; return;
+  }
+
+  const cards = multiRun.map(student => {
+    student.runs.sort((a,b)=>new Date(a.date)-new Date(b.date));
+    const rows = student.runs.map((r,i) => {
+      const qs = r.questionResults||[];
+      const correct = qs.filter(q=>q.result==='correct').length;
+      const total   = qs.length;
+      const pct     = total ? Math.round(correct/total*100) : 0;
+      const prev    = i>0 ? student.runs[i-1] : null;
+      const prevPct = prev ? (() => { const pqs=prev.questionResults||[]; return pqs.length?Math.round(pqs.filter(q=>q.result==='correct').length/pqs.length*100):0; })() : null;
+      const delta   = prevPct!==null ? pct-prevPct : null;
+      const deltaStr = delta===null?'—':delta>0?`<span style="color:var(--success)">+${delta}%</span>`:delta<0?`<span style="color:var(--danger)">${delta}%</span>`:`<span style="color:var(--muted)">±0%</span>`;
+      return `<tr>
+        <td>${esc(r.sessionName)}</td>
+        <td>${new Date(r.date).toLocaleDateString()}</td>
+        <td class="mono">${r.finalDNTPs.toLocaleString()}</td>
+        <td>${r.targetMet?'<span class="badge ok">✓</span>':'<span class="badge fail">✗</span>'}</td>
+        <td class="mono">${correct}/${total} (${pct}%)</td>
+        <td>${deltaStr}</td>
+      </tr>`;
+    }).join('');
+    return `
+      <div class="section">
+        <div class="section-title" onclick="toggleSec(this)">
+          <span>📈 ${esc(student.name)} — ${student.runs.length} runs</span><span class="chevron">▾</span>
+        </div>
+        <div class="section-body" style="padding:0;">
+          <table class="data-table">
+            <thead><tr><th>Session</th><th>Date</th><th>Score</th><th>Target</th><th>Correct</th><th>Change</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }).join('');
+
+  p.innerHTML = `
+    <div class="callout info" style="margin-bottom:4px;">
+      Showing ${multiRun.length} student${multiRun.length===1?'':'s'} with runs in multiple sessions. Names are matched case-insensitively.
+    </div>
+    ${cards}`;
+}
+
+// ═══════════════════════════════════════════════
+// PLAYER DRAWER
+// ═══════════════════════════════════════════════
+function openDrawer(key) {
+  const s = activeSession(); if (!s) return;
+  const [name, date] = decodeURIComponent(key).split('|');
+  const pl = s.players.find(p=>p.playerName===name&&p.date===date);
+  if (!pl) return;
+
+  document.getElementById('drawerTitle').textContent = pl.playerName;
+  const body = document.getElementById('drawerBody');
+
+  const qs = pl.questionResults||[];
+  const correct   = qs.filter(q=>q.result==='correct');
+  const wrong     = qs.filter(q=>q.result==='wrong');
+  const struggled = qs.filter(q=>q.result==='correct'&&q.attempts>1);
+
+  const qCards = qs.map(qr => {
+    const isCorrect = qr.result==='correct';
+    const isStruggled = isCorrect && qr.attempts>1;
+    const answers = (qr.playerAnswers||[]).map((a,i) => {
+      const isLast = i===qr.playerAnswers.length-1;
+      const cls = a==='(timed out)'?'timeout':isLast&&isCorrect?'correct':'wrong';
+      return `<span class="qr-attempt ${cls}">${esc(a)}</span>`;
+    }).join('');
+    const hsNote = qr.hotStart ? `<span class="badge warn">🔥 Hot Start · wagered ${(qr.wager||0).toLocaleString()}</span>` : '';
+    return `
+      <div class="qr-card ${qr.result}">
+        <div class="qr-meta">
+          <span class="qr-cat">${esc(qr.category)}</span>
+          <span class="qr-val">${qr.value} dNTPs</span>
+          ${isCorrect ? `<span class="badge ok">${isStruggled?'✓ struggled':'✓ correct'}</span>` : '<span class="badge fail">✗ failed</span>'}
+          ${hsNote}
+        </div>
+        <div class="qr-clue">${qr.clue||'—'}</div>
+        <div class="qr-answer-row"><span class="lbl">Correct: </span><span style="color:var(--success)">${esc(qr.correctAnswer||'')}</span></div>
+        ${qr.playerAnswers?.length ? `<div class="qr-answer-row"><span class="lbl">Player typed: </span></div><div class="qr-player-answers">${answers}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  const finalBlock = pl.finalReaction ? `
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)"><span>⚗️ The Reaction</span><span class="chevron">▾</span></div>
+      <div class="section-body">
+        <div class="field-row" style="gap:16px;">
+          <div><div style="font-size:0.75rem;color:var(--muted)">Wagered</div><div style="font-size:1.1rem;font-weight:700;font-family:var(--mono);color:var(--gold)">${(pl.finalReaction.wagered||0).toLocaleString()}</div></div>
+          <div><div style="font-size:0.75rem;color:var(--muted)">Result</div><div>${pl.finalReaction.won?'<span class="badge ok">✓ Won</span>':'<span class="badge fail">✗ Lost</span>'}</div></div>
+        </div>
+        ${pl.finalReaction.playerAnswer ? `<div style="font-size:0.84rem;color:var(--muted)">Answered: <span style="color:var(--text)">${esc(pl.finalReaction.playerAnswer)}</span></div>` : ''}
+      </div>
+    </div>` : '';
+
+  body.innerHTML = `
+    <div style="display:flex;gap:14px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:80px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;">
+        <div style="font-size:0.72rem;color:var(--muted)">Score</div>
+        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--gold)">${(pl.finalDNTPs||0).toLocaleString()}</div>
+        <div>${pl.targetMet?'<span class="badge ok">Target met</span>':'<span class="badge fail">Target missed</span>'}</div>
+      </div>
+      <div style="flex:1;min-width:80px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;">
+        <div style="font-size:0.72rem;color:var(--muted)">Correct</div>
+        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--success)">${correct.length}</div>
+      </div>
+      <div style="flex:1;min-width:80px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;">
+        <div style="font-size:0.72rem;color:var(--muted)">Failed</div>
+        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--danger)">${wrong.length}</div>
+      </div>
+      <div style="flex:1;min-width:80px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;">
+        <div style="font-size:0.72rem;color:var(--muted)">Struggled</div>
+        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--warn)">${struggled.length}</div>
+      </div>
+    </div>
+    ${finalBlock}
+    <div class="section">
+      <div class="section-title" onclick="toggleSec(this)"><span>❓ Question Results</span><span class="chevron">▾</span></div>
+      <div class="section-body">${qCards || '<div style="color:var(--muted)">No question data recorded.</div>'}</div>
+    </div>`;
+
+  document.getElementById('playerDrawer').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('playerDrawer').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════
+// SAVE / DOWNLOAD SESSION
+// ═══════════════════════════════════════════════
+async function publishSession() {
+  if (!pat) { alert('Not connected to GitHub.'); return; }
+  const s = activeSession(); if (!s) { alert('No active session.'); return; }
+  const btn = document.getElementById('publish-btn');
+  btn.disabled=true; btn.textContent='Saving…';
+  try {
+    const filename = SESSION_PREFIX + s.sessionId + '.json';
+    const str = JSON.stringify(s, null, 2);
+    const msg = `Update ${filename} — ${new Date().toISOString().slice(0,16)}`;
+    await ghPut(filename, str, msg);
+    btn.textContent='✓ Saved!';
+    setTimeout(()=>{ btn.textContent='💾 Save Session'; },2500);
+  } catch(err) {
+    alert('Save failed: '+err.message);
+  } finally {
+    btn.disabled=false;
+    if (btn.textContent==='Saving…') btn.textContent='💾 Save Session';
+  }
+}
+
+function downloadSession() {
+  const s = activeSession(); if (!s) return;
+  const blob = new Blob([JSON.stringify(s,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = SESSION_PREFIX + s.sessionId + '.json';
+  a.click();
+}
+
+// ═══════════════════════════════════════════════
+// TAB / UTILS
+// ═══════════════════════════════════════════════
+function selectTab(tab) {
+  currentTab = tab;
+  ['sessions','class','questions','trends'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active',t===tab);
+    const panel = document.getElementById('panel'+t.charAt(0).toUpperCase()+t.slice(1));
+    panel.style.display = t===tab ? 'flex' : 'none';
+    if (t===tab) panel.style.flexDirection='column';
+  });
+  updateSideCounts();
+  if (tab==='sessions')  renderSessions();
+  if (tab==='class')     renderClass();
+  if (tab==='questions') renderQuestions();
+  if (tab==='trends')    renderTrends();
+}
+
+function updateSideCounts() {
+  const s = activeSession();
+  document.getElementById('session-sub').textContent = Object.keys(sessions).length + ' session' + (Object.keys(sessions).length===1?'':'s');
+  document.getElementById('class-sub').textContent   = s ? s.players.length+' player'+(s.players.length===1?'':'s') : '— players';
+}
+
+function toggleSec(titleEl) { titleEl.closest('.section').classList.toggle('collapsed'); }
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
