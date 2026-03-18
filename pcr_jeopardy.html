@@ -342,10 +342,6 @@
       <div>Timer: <span id="timerDisp">30</span>s / question</div>
     </div>
     <button class="btn-start" id="btnStart" disabled>Start Reaction</button>
-    <!-- DEBUG — remove before production -->
-    <button id="btnDebugFinal" style="margin-top:4px;background:none;border:1px dashed rgba(200,169,81,0.3);
-      border-radius:6px;color:rgba(200,169,81,0.5);font-size:0.72rem;padding:5px;cursor:pointer;font-family:var(--font);"
-      onclick="debugSkipToFinal()">⚗ skip to Reaction (debug)</button>
   </div>
 </div>
 
@@ -542,7 +538,7 @@ const DEFAULT_CFG = {
 // SCORE SUBMISSION — replace with your fine-grained PAT
 // (repo: restriction-cloning-game, permission: Contents read+write)
 // ============================================================
-const SCORE_PAT    = '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';
+const SCORE_PAT    = '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';
 const SCORE_FOLDER = 'pcr_jeopardy_scores';
 const GITHUB_REPO  = 'bgeiss1/restriction-cloning-game';
 
@@ -1080,15 +1076,11 @@ async function autoSubmitScore(rec){
       },
       body: JSON.stringify({ message:`Score: ${rec.playerName} ${rec.date.slice(0,10)}`, content })
     });
-    if(r.ok){
-      if(el){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
-    } else {
-      const errText = await r.text().catch(()=>'');
-      console.error('Score submission failed', r.status, errText);
-      if(el){ el.textContent=`Score saved locally (HTTP ${r.status} — see console for details).`; el.style.color='var(--warn)'; }
+    if(el){
+      if(r.ok){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
+      else    { el.textContent='Score saved locally (submission failed).'; el.style.color='var(--warn)'; }
     }
-  } catch(e) {
-    console.error('Score submission error', e);
+  } catch {
     if(el){ el.textContent='Score saved locally (no network).'; el.style.color='var(--warn)'; }
   }
 }
@@ -1122,19 +1114,6 @@ document.getElementById('hudMenuBtn').addEventListener('click',()=>{
   document.getElementById('btnStart').disabled=true;
   showScreen('nameScreen');
 });
-
-// ============================================================
-// DEBUG — remove before production
-// ============================================================
-function debugSkipToFinal(){
-  const n = document.getElementById('nameInput').value.trim() || 'Debug';
-  S.playerName = n;
-  S.dntps = 1000;
-  S.stats = {correct:0,wrong:0,hsWon:false,finalWon:false,finalWager:0,start:new Date().toISOString(),
-             questionResults:[],currentAnswers:[],finalAnswer:''};
-  updateHud();
-  showFinal();
-}
 
 // ============================================================
 // GO
