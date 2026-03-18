@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jeopardy! PCR — Editor</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #111c15;
+  --bg-mid:   #1a2e1e;
+  --bg-card:  #1f3525;
+  --bg-input: #0e1710;
+  --green:    #1E4D2B;
+  --gold:     #C8A951;
+  --gold-lt:  #e0c060;
+  --text:     #e8f5e9;
+  --muted:    #a8c5a0;
+  --success:  #66BB6A;
+  --warn:     #FFA726;
+  --danger:   #EF5350;
+  --border:   rgba(200,169,81,0.25);
+  --radius:   7px;
+}
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif; font-size: 14px; overflow: hidden; }
+
+/* ── TOP BAR ── */
+#topbar {
+  height: 48px; background: var(--bg-mid); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; flex-shrink: 0; gap: 12px;
+}
+#topbar h1 { font-size: 1.05rem; color: var(--gold); white-space: nowrap; }
+#topbar-right { display: flex; align-items: center; gap: 8px; }
+#dirty { color: var(--warn); font-size: 0.82rem; font-weight: 600; }
+#dirty.hidden { display: none; }
+
+/* ── LAYOUT ── */
+#app  { display: flex; flex-direction: column; height: 100vh; }
+#body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: 210px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-right: 1px solid var(--border); background: var(--bg-mid); overflow: hidden;
+}
+.sidebar-section-label {
+  padding: 10px 12px 4px; font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+}
+.tab-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; cursor: pointer;
+  border-bottom: 1px solid rgba(200,169,81,0.08);
+  transition: background 0.12s; user-select: none;
+}
+.tab-btn:hover { background: rgba(200,169,81,0.07); }
+.tab-btn.active { background: rgba(200,169,81,0.14); }
+.tab-icon { font-size: 1.1rem; flex-shrink: 0; }
+.tab-info { flex: 1; min-width: 0; }
+.tab-name  { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.tab-sub   { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
+.tab-btn.active .tab-sub { color: var(--gold); }
+.sidebar-footer {
+  margin-top: auto; padding: 12px; border-top: 1px solid var(--border);
+  font-size: 0.74rem; color: var(--muted); line-height: 1.7;
+}
+
+/* ── MAIN ── */
+#main { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+
+/* ── SECTION (collapsible) ── */
+.section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.section-title {
+  padding: 10px 16px; background: var(--green); font-size: 0.8rem; font-weight: 700;
+  letter-spacing: 0.05em; color: var(--gold); text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.section-title:hover { background: #245c34; }
+.section-chevron { font-size: 0.75rem; color: var(--muted); transition: transform 0.15s;
+  margin-left: 6px; display: inline-block; }
+.section.collapsed .section-chevron { transform: rotate(-90deg); }
+.section.collapsed .section-body { display: none; }
+.section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.section-title-left { display: flex; align-items: center; gap: 8px; }
+
+/* ── FORM ELEMENTS ── */
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.grow { flex: 1; min-width: 120px; }
+.field-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+input[type=text], input[type=number], select, textarea {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.88rem; padding: 7px 10px; font-family: inherit; width: 100%;
+}
+input[type=text]:focus, input[type=number]:focus, select:focus, textarea:focus
+  { outline: none; border-color: var(--gold); }
+textarea { resize: vertical; min-height: 72px; line-height: 1.5; }
+input[type=checkbox] { accent-color: var(--gold); width: 15px; height: 15px; cursor: pointer; }
+input[type=color] { background: none; border: 1px solid var(--border); border-radius: 4px;
+  padding: 2px; cursor: pointer; width: 36px; height: 30px; }
+.hint { font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+.inline-check { display: flex; align-items: center; gap: 7px; font-size: 0.85rem; color: var(--text); }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  padding: 7px 16px; border-radius: var(--radius);
+  background: var(--gold); color: #1a1a00; font-size: 0.88rem; font-weight: 700;
+  border: none; cursor: pointer; white-space: nowrap;
+}
+.btn-primary:hover { background: var(--gold-lt); }
+.btn-secondary {
+  padding: 7px 14px; border-radius: var(--radius);
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); font-size: 0.88rem; cursor: pointer; white-space: nowrap;
+}
+.btn-secondary:hover { border-color: var(--gold); color: var(--gold-lt); }
+.btn-publish {
+  padding: 7px 14px; border-radius: var(--radius);
+  background: rgba(102,187,106,0.18); border: 1.5px solid rgba(102,187,106,0.5);
+  color: var(--success); font-size: 0.88rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.btn-publish:hover { background: rgba(102,187,106,0.32); }
+.btn-publish:disabled { opacity: 0.45; cursor: default; }
+.btn-small {
+  padding: 4px 11px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: rgba(200,169,81,0.1);
+  color: var(--gold); font-size: 0.8rem; cursor: pointer; white-space: nowrap;
+}
+.btn-small:hover { background: rgba(200,169,81,0.22); }
+.btn-danger {
+  padding: 4px 10px; border-radius: var(--radius);
+  background: rgba(239,83,80,0.1); border: 1px solid rgba(239,83,80,0.28);
+  color: var(--danger); font-size: 0.8rem; cursor: pointer; white-space: nowrap;
+}
+.btn-danger:hover { background: rgba(239,83,80,0.25); }
+
+/* ── QUESTION CARDS ── */
+.q-card {
+  background: rgba(0,0,0,0.2); border: 1.5px solid var(--border);
+  border-radius: var(--radius); display: flex; flex-direction: column;
+}
+.q-card-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  cursor: pointer; user-select: none;
+}
+.q-card-header:hover { background: rgba(255,255,255,0.03); border-radius: var(--radius) var(--radius) 0 0; }
+.q-num { font-size: 0.7rem; font-weight: 700; color: var(--gold);
+  background: rgba(200,169,81,0.12); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1px 8px; flex-shrink: 0; white-space: nowrap; }
+.q-preview { flex: 1; font-size: 0.84rem; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.q-chevron { font-size: 0.7rem; color: var(--muted); flex-shrink: 0;
+  transition: transform 0.15s; }
+.q-card.open .q-chevron { transform: rotate(180deg); }
+.q-body { display: none; flex-direction: column; gap: 12px;
+  padding: 14px 16px; border-top: 1px solid var(--border); }
+.q-card.open .q-body { display: flex; }
+
+/* ── CATEGORY ROW ── */
+.cat-row {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,0,0,0.15); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 8px 12px;
+}
+.cat-swatch { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.15); }
+.cat-name-field { flex: 1; }
+.cat-id-tag { font-size: 0.7rem; color: var(--muted); font-family: monospace; flex-shrink: 0; }
+
+/* ── CAT FILTER PILLS ── */
+#catPills { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 4px; }
+.cat-pill {
+  padding: 4px 13px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+  border: 1.5px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--muted); cursor: pointer; transition: background 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.cat-pill:hover { border-color: var(--gold); color: var(--gold); }
+.cat-pill.active { background: rgba(200,169,81,0.18); border-color: var(--gold); color: var(--gold); }
+
+/* ── CONNECT OVERLAY ── */
+#connect-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center; background: var(--bg);
+}
+#connect-overlay.hidden { display: none; }
+#connect-box {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 36px 40px; width: 420px; display: flex; flex-direction: column; gap: 16px;
+}
+#connect-box h1 { font-size: 1.35rem; color: var(--gold); }
+#connect-box p  { color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
+#connect-box input[type=password] {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.95rem; font-family: inherit;
+}
+#connect-box input[type=password]:focus { outline: none; border-color: var(--gold); }
+#connect-error { color: var(--danger); font-size: 0.85rem; min-height: 1.2em; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(200,169,81,0.25); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ── CONNECT OVERLAY ── -->
+<div id="connect-overlay" class="hidden">
+  <div id="connect-box">
+    <h1>🎙️ Jeopardy! PCR — Editor</h1>
+    <p>Enter your GitHub Personal Access Token to load and publish the question bank.<br>
+       The token needs <strong>repo</strong> (Contents read &amp; write) scope.</p>
+    <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
+    <div id="connect-error"></div>
+    <button class="btn-primary" id="connect-btn">Connect</button>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- ── TOP BAR ── -->
+  <div id="topbar">
+    <h1>🎙️ Jeopardy! PCR — Editor</h1>
+    <div id="topbar-right">
+      <span id="dirty" class="hidden">● Unsaved changes</span>
+      <button class="btn-secondary" onclick="loadBuiltins()">↩ Load built-ins</button>
+      <button class="btn-secondary" onclick="downloadJSON()">⬇ Download</button>
+      <button class="btn-secondary" onclick="openFile()">📂 Open JSON</button>
+      <button class="btn-publish" id="publish-btn" onclick="publishToGitHub()">💾 Save to GitHub</button>
+      <a href="index.html" style="text-decoration:none;">
+        <button class="btn-secondary">← Menu</button>
+      </a>
+    </div>
+  </div>
+
+  <div id="body">
+
+    <!-- ── SIDEBAR ── -->
+    <div id="sidebar">
+      <div class="sidebar-section-label">Sections</div>
+      <div class="tab-btn active" id="tab-settings" onclick="selectTab('settings')">
+        <div class="tab-icon">⚙️</div>
+        <div class="tab-info">
+          <div class="tab-name">Game Settings</div>
+          <div class="tab-sub">Timer, target, board size…</div>
+        </div>
+      </div>
+      <div class="tab-btn" id="tab-categories" onclick="selectTab('categories')">
+        <div class="tab-icon">📋</div>
+        <div class="tab-info">
+          <div class="tab-name">Categories</div>
+          <div class="tab-sub" id="cat-count-sub">0 categories</div>
+        </div>
+      </div>
+      <div class="tab-btn" id="tab-questions" onclick="selectTab('questions')">
+        <div class="tab-icon">❓</div>
+        <div class="tab-info">
+          <div class="tab-name">Questions</div>
+          <div class="tab-sub" id="q-count-sub">0 questions</div>
+        </div>
+      </div>
+      <div class="tab-btn" id="tab-final" onclick="selectTab('final')">
+        <div class="tab-icon">⚗️</div>
+        <div class="tab-info">
+          <div class="tab-name">The Reaction</div>
+          <div class="tab-sub">Final question</div>
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        Questions are served to the game via GitHub Pages. Board requires one question per (category × value) combination.
+      </div>
+    </div>
+
+    <!-- ── MAIN PANEL ── -->
+    <div id="main">
+      <div id="panelSettings"  style="display:none;"></div>
+      <div id="panelCategories" style="display:none;"></div>
+      <div id="panelQuestions" style="display:none;"></div>
+      <div id="panelFinal"     style="display:none;"></div>
+    </div>
+
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
+
+<script>
+// ═══════════════════════════════════════════════
+//  GITHUB CONFIG
+// ═══════════════════════════════════════════════
+const GITHUB_REPO = 'bgeiss1/restriction-cloning-game';
+const QS_FILE     = 'pcr_jeopardy.json';
+const GITHUB_API  = `https://api.github.com/repos/${GITHUB_REPO}/contents/${QS_FILE}`;
+
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let db = {};
+let dirty = false;
+let currentSha = '';
+let currentTab = 'settings';
+let selectedCat = null;   // id of category shown in Questions panel
+
+const DEFAULT_DB = {
+  title: "PCR Jeopardy",
+  targetDNTPs: 1000,
+  penaltyMultiplier: 1.0,
+  hotStartCount: 1,
+  finalEnabled: true,
+  allowSkipFinal: false,
+  boardCols: 5,
+  boardRows: 5,
+  rowValues: [100, 200, 300, 400, 500],
+  timerSeconds: 30,
+  categories: [],
+  questions: [],
+  finalQuestion: { category:"The Reaction", clue:"", answer:"", acceptedAnswers:[], exactMatch:false, explain:"" }
+};
+
+// Built-in question bank — mirrors DEFAULT_CFG in pcr_jeopardy.html
+const BUILTIN_CFG = {
+  categories: [
+    { id:"cat_primers",   name:"Primers" },
+    { id:"cat_steps",     name:"PCR Steps" },
+    { id:"cat_reagents",  name:"Reagents" },
+    { id:"cat_calc",      name:"Calculations" },
+    { id:"cat_trouble",   name:"Troubleshoot" }
+  ],
+  questions: [
+    { id:"q1",  category:"cat_primers",  value:100, clue:"Short single-stranded DNA sequences that define where DNA polymerase begins synthesis.", answer:"primers", acceptedAnswers:["primer"], exactMatch:false, explain:"Primers (~18–22 nt) anneal to template DNA and provide a 3'-OH for extension." },
+    { id:"q2",  category:"cat_primers",  value:200, clue:"In the basic Tm formula (4°C × G/C + 2°C × A/T), GC pairs contribute more because they form this many hydrogen bonds.", answer:"three", acceptedAnswers:["3","3 hydrogen bonds"], exactMatch:false, explain:"G-C pairs form 3 hydrogen bonds vs. 2 for A-T, making them more stable and raising Tm." },
+    { id:"q3",  category:"cat_primers",  value:300, clue:"A hairpin forms when a primer has complementary sequences at its 5' and 3' ends, folding back on itself into this structure.", answer:"stem loop", acceptedAnswers:["hairpin","stem-loop"], exactMatch:false, explain:"Stem-loop structures reduce primer availability and can inhibit PCR or cause mispriming." },
+    { id:"q4",  category:"cat_primers",  value:400, clue:"Primer pairs with Tm values differing by more than 5°C may cause this outcome at a shared annealing temperature.", answer:"unequal amplification", acceptedAnswers:["poor amplification","one primer anneals poorly","asymmetric amplification"], exactMatch:false, explain:"When Tm values differ >5°C, the lower-Tm primer may not bind well at the higher annealing temperature." },
+    { id:"q5",  category:"cat_primers",  value:500, clue:"This artifact occurs when primers anneal to each other rather than the template, consuming primer and reducing yield.", answer:"primer dimer", acceptedAnswers:["primer-dimer","dimer"], exactMatch:false, explain:"Primer dimers form via complementary 3' ends and are amplified by Taq, appearing as a small band near the bottom of a gel." },
+    { id:"q6",  category:"cat_steps",    value:100, clue:"The PCR step at ~95°C that separates double-stranded DNA into single strands.", answer:"denaturation", acceptedAnswers:["denaturing","melting"], exactMatch:false, explain:"Denaturation breaks hydrogen bonds between complementary bases, producing single-stranded templates." },
+    { id:"q7",  category:"cat_steps",    value:200, clue:"The PCR step where primers bind to their complementary sequences on single-stranded template.", answer:"annealing", acceptedAnswers:["primer annealing"], exactMatch:false, explain:"Annealing occurs 5°C below the primer Tm, typically 50–65°C, allowing specific primer binding." },
+    { id:"q8",  category:"cat_steps",    value:300, clue:"Extension time per kilobase of product for Taq polymerase (in minutes).", answer:"1", acceptedAnswers:["one","1 minute","~1 min"], exactMatch:true, explain:"Taq extends at ~1 min/kb at 72°C; High-fidelity polymerases are often slower (~2 min/kb)." },
+    { id:"q9",  category:"cat_steps",    value:400, clue:"Typical number of PCR cycles for routine amplification from genomic DNA.", answer:"30", acceptedAnswers:["30 cycles","25 to 35","25-35"], exactMatch:false, explain:"25–35 cycles amplify a single copy ~10⁷–10¹⁰ fold; exceeding 35 cycles increases non-specific bands." },
+    { id:"q10", category:"cat_steps",    value:500, clue:"The optional final step (5–10 min at 72°C) ensures all partial extension products are fully completed.", answer:"final extension", acceptedAnswers:["final elongation","extension"], exactMatch:false, explain:"The final extension fills in any incomplete strands before storage." },
+    { id:"q11", category:"cat_reagents", value:100, clue:"The four nucleotide building blocks incorporated by DNA polymerase during PCR extension.", answer:"dNTPs", acceptedAnswers:["dntp","deoxyribonucleotides","deoxynucleotide triphosphates"], exactMatch:false, explain:"dNTPs (dATP, dCTP, dGTP, dTTP) provide the nucleotides for new strand synthesis." },
+    { id:"q12", category:"cat_reagents", value:200, clue:"Thermostable DNA polymerase originally isolated from Thermus aquaticus, the workhorse of PCR.", answer:"Taq polymerase", acceptedAnswers:["taq","taq DNA polymerase"], exactMatch:false, explain:"Taq survives repeated 95°C denaturation; it lacks 3'→5' proofreading and adds A-overhangs." },
+    { id:"q13", category:"cat_reagents", value:300, clue:"The divalent cation cofactor required by all thermostable polymerases; typical concentration in PCR is 1.5–2.5 mM.", answer:"magnesium", acceptedAnswers:["mg2+","mg","magnesium ions","mgcl2","magnesium chloride"], exactMatch:false, explain:"Mg²⁺ is essential for polymerase catalysis and primer annealing; too much or too little reduces specificity." },
+    { id:"q14", category:"cat_reagents", value:400, clue:"Typical concentration of each dNTP in a standard PCR reaction.", answer:"200 micromolar", acceptedAnswers:["200 uM","200µM","0.2 mM","200 μM"], exactMatch:false, explain:"200 µM per dNTP is standard; higher concentrations can inhibit Taq by chelating Mg²⁺." },
+    { id:"q15", category:"cat_reagents", value:500, clue:"These reagents — antibodies, aptamers, or chemical modifications — block polymerase activity below ~60°C to improve specificity.", answer:"hot start reagents", acceptedAnswers:["hot start","hot start antibody","hot-start"], exactMatch:false, explain:"Hot-start strategies prevent extension at room temperature, reducing primer dimers and non-specific bands." },
+    { id:"q16", category:"cat_calc",     value:100, clue:"After 10 PCR cycles starting from a single template copy, the theoretical number of copies produced.", answer:"1024", acceptedAnswers:["1,024","2^10"], exactMatch:true, explain:"PCR doubles copies each cycle: 2¹⁰ = 1024." },
+    { id:"q17", category:"cat_calc",     value:200, clue:"If PCR efficiency is 95%, each cycle multiplies copies by this decimal value.", answer:"1.95", acceptedAnswers:["1.95x"], exactMatch:true, explain:"Efficiency E means each cycle multiplies by (1 + E/100); 95% → 1.95." },
+    { id:"q18", category:"cat_calc",     value:300, clue:"Average molecular weight of one base pair in daltons, used in DNA copy number calculations.", answer:"660", acceptedAnswers:["660 g/mol","660 da","660 daltons"], exactMatch:true, explain:"Each bp ~660 Da; divide DNA mass (in g) by (bp count × 660) to get moles, then multiply by Avogadro's number." },
+    { id:"q19", category:"cat_calc",     value:400, clue:"A standard curve slope of −3.32 in qPCR corresponds to this PCR efficiency (in %).", answer:"100", acceptedAnswers:["100%","~100%","approximately 100"], exactMatch:true, explain:"Efficiency = (10^(−1/slope) − 1) × 100; slope −3.322 = 100% efficiency." },
+    { id:"q20", category:"cat_calc",     value:500, clue:"In a serial dilution standard curve, each 10-fold dilution step should shift the Ct by approximately this many cycles at 100% efficiency.", answer:"3.32", acceptedAnswers:["3.3","~3.32","3.32 cycles"], exactMatch:true, explain:"log₂(10) ≈ 3.32 cycles per decade; this is the mathematical basis for the −3.32 slope at perfect efficiency." },
+    { id:"q21", category:"cat_trouble",  value:100, clue:"Multiple non-specific bands on a gel suggest the annealing temperature should be adjusted in this direction.", answer:"higher", acceptedAnswers:["increase","raised","up","increase temperature"], exactMatch:false, explain:"Raising the annealing temperature increases primer specificity, eliminating non-target bands." },
+    { id:"q22", category:"cat_trouble",  value:200, clue:"A smear on an agarose gel rather than a distinct band usually indicates too many of these.", answer:"cycles", acceptedAnswers:["too many cycles","pcr cycles"], exactMatch:false, explain:"Over-cycling causes re-amplification of non-specific products, creating a continuous smear." },
+    { id:"q23", category:"cat_trouble",  value:300, clue:"Heme in whole blood inhibits Taq polymerase; a common fix is to add BSA or dilute the sample. The underlying problem is called PCR ____.", answer:"inhibition", acceptedAnswers:["pcr inhibition","taq inhibition"], exactMatch:false, explain:"Blood, soil, and clinical samples often contain PCR inhibitors; dilution, BSA, or specialized extraction kits help." },
+    { id:"q24", category:"cat_trouble",  value:400, clue:"No band at all despite good template quality most often indicates a problem with this component of the master mix.", answer:"primers", acceptedAnswers:["primer","primer design"], exactMatch:false, explain:"Degraded, misprimed, or incorrectly designed primers are the most common cause of no-amplification failures." },
+    { id:"q25", category:"cat_trouble",  value:500, clue:"Amplicon contamination producing false positives in subsequent runs is called this type of contamination.", answer:"carryover", acceptedAnswers:["carryover contamination","amplicon contamination","carry-over"], exactMatch:false, explain:"Carryover contamination is prevented by physical separation of pre/post-PCR areas, UV decontamination, and UNG treatment." }
+  ],
+  finalQuestion: {
+    category: "The Reaction",
+    clue: "In real-time PCR, this value — the cycle number at which fluorescence crosses the threshold — is used to quantify starting template amount.",
+    answer: "Ct",
+    acceptedAnswers:["Cq","cycle threshold","threshold cycle","crossing threshold","Ct value","Cq value"],
+    exactMatch: false,
+    explain: "Ct (or Cq) is inversely proportional to log₂(initial template); a Ct difference of ~3.32 represents a 10-fold difference in starting quantity."
+  }
+};
+
+function loadBuiltins() {
+  if (db.questions.length > 0 || db.categories.length > 0) {
+    if (!confirm('This will replace all current categories and questions with the built-in defaults. Continue?')) return;
+  }
+  db.categories    = JSON.parse(JSON.stringify(BUILTIN_CFG.categories));
+  db.questions     = JSON.parse(JSON.stringify(BUILTIN_CFG.questions));
+  db.finalQuestion = JSON.parse(JSON.stringify(BUILTIN_CFG.finalQuestion));
+  markDirty();
+  selectTab(currentTab || 'questions');
+}
+
+function ensureStructure() {
+  db = Object.assign({}, DEFAULT_DB, db);
+  if (!Array.isArray(db.categories))   db.categories = [];
+  if (!Array.isArray(db.questions))    db.questions  = [];
+  if (!Array.isArray(db.rowValues))    db.rowValues  = [100,200,300,400,500];
+  if (!db.finalQuestion) db.finalQuestion = { category:"The Reaction", clue:"", answer:"", acceptedAnswers:[], exactMatch:false, explain:"" };
+}
+
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  const onGH    = location.hostname.endsWith('github.io');
+  const savedPat = sessionStorage.getItem('pcr_jeopardy_editor_pat');
+
+  if (onGH) {
+    if (savedPat) { await connectWithPat(savedPat, true); }
+    else { showConnectOverlay(); }
+  } else {
+    try {
+      const r = await fetch(QS_FILE + '?t=' + Date.now());
+      if (r.ok) { db = await r.json(); }
+    } catch {}
+    ensureStructure();
+    if (savedPat) document.getElementById('publish-btn').style.display = '';
+    selectTab('settings');
+  }
+
+  document.getElementById('connect-btn').addEventListener('click', async () => {
+    const pat = document.getElementById('pat-input').value.trim();
+    if (!pat) { document.getElementById('connect-error').textContent = 'Please enter a PAT.'; return; }
+    const btn = document.getElementById('connect-btn');
+    btn.disabled = true; btn.textContent = 'Connecting…';
+    document.getElementById('connect-error').textContent = '';
+    await connectWithPat(pat, false);
+    btn.disabled = false; btn.textContent = 'Connect';
+  });
+  document.getElementById('pat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('connect-btn').click();
+  });
+});
+
+function showConnectOverlay() {
+  document.getElementById('connect-overlay').classList.remove('hidden');
+}
+
+async function connectWithPat(pat, silent) {
+  try {
+    const data = await githubGet(pat);
+    sessionStorage.setItem('pcr_jeopardy_editor_pat', pat);
+    currentSha = data.sha;
+    db = JSON.parse(b64decode(data.content));
+    ensureStructure();
+    document.getElementById('connect-overlay').classList.add('hidden');
+    document.getElementById('publish-btn').style.display = '';
+    dirty = false; updateDirty();
+    selectTab(currentTab);
+  } catch (err) {
+    if (silent) {
+      sessionStorage.removeItem('pcr_jeopardy_editor_pat');
+      ensureStructure();
+      selectTab('settings');
+      if (location.hostname.endsWith('github.io')) showConnectOverlay();
+    } else {
+      document.getElementById('connect-error').textContent = 'Error: ' + err.message;
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  GITHUB API
+// ═══════════════════════════════════════════════
+function b64decode(str) { return decodeURIComponent(escape(atob(str.replace(/\n/g,'')))); }
+
+async function githubGet(pat) {
+  const r = await fetch(GITHUB_API, {
+    cache: 'no-store',
+    headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!r.ok) throw new Error(`GitHub ${r.status}: ${(await r.text()).slice(0,200)}`);
+  return r.json();
+}
+
+async function githubPut(pat, contentStr, message) {
+  let sha = '';
+  try { const ex = await githubGet(pat); sha = ex.sha; } catch {}
+  const content = btoa(unescape(encodeURIComponent(contentStr)));
+  const body = { message, content };
+  if (sha) body.sha = sha;
+  const r = await fetch(GITHUB_API, {
+    method: 'PUT',
+    headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function publishToGitHub() {
+  const pat = sessionStorage.getItem('pcr_jeopardy_editor_pat');
+  if (!pat) { alert('Not connected to GitHub.'); return; }
+  const btn = document.getElementById('publish-btn');
+  btn.disabled = true; btn.textContent = 'Publishing…';
+  try {
+    const str = JSON.stringify(db, null, 2);
+    const msg = `Update ${QS_FILE} — ${new Date().toISOString().slice(0,16)} (Jeopardy Editor)`;
+    const data = await githubPut(pat, str, msg);
+    currentSha = data.content.sha;
+    dirty = false; updateDirty();
+    btn.textContent = '✓ Published!';
+    setTimeout(() => { btn.textContent = '💾 Save to GitHub'; }, 2500);
+  } catch (err) {
+    alert('Publish failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === 'Publishing…') btn.textContent = '💾 Save to GitHub';
+  }
+}
+
+// ═══════════════════════════════════════════════
+//  FILE I/O
+// ═══════════════════════════════════════════════
+function openFile() { document.getElementById('fileInput').click(); }
+
+function handleFileLoad(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { db = JSON.parse(ev.target.result); ensureStructure(); currentSha = ''; dirty = false; updateDirty(); selectTab(currentTab); }
+    catch { alert('Invalid JSON file.'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function downloadJSON() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = QS_FILE; a.click();
+  dirty = false; updateDirty();
+}
+
+// ═══════════════════════════════════════════════
+//  DIRTY / SIDE-COUNTS
+// ═══════════════════════════════════════════════
+function markDirty() { dirty = true; updateDirty(); }
+function updateDirty() { document.getElementById('dirty').classList.toggle('hidden', !dirty); }
+
+function updateSideCounts() {
+  document.getElementById('cat-count-sub').textContent = db.categories.length + ' categor' + (db.categories.length===1?'y':'ies');
+  document.getElementById('q-count-sub').textContent   = db.questions.length  + ' question' + (db.questions.length===1?'':'s');
+}
+
+// ═══════════════════════════════════════════════
+//  TAB SELECTION
+// ═══════════════════════════════════════════════
+function selectTab(tab) {
+  currentTab = tab;
+  ['settings','categories','questions','final'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+    document.getElementById('panel'+cap(t)).style.display = t===tab ? 'flex' : 'none';
+    if (t===tab) document.getElementById('panel'+cap(t)).style.flexDirection = 'column';
+  });
+  updateSideCounts();
+  if (tab==='settings')    renderSettings();
+  if (tab==='categories')  renderCategories();
+  if (tab==='questions')   renderQuestions();
+  if (tab==='final')       renderFinal();
+}
+const cap = s => s.charAt(0).toUpperCase()+s.slice(1);
+
+// ═══════════════════════════════════════════════
+//  ⚙️ SETTINGS PANEL
+// ═══════════════════════════════════════════════
+function renderSettings() {
+  const p = document.getElementById('panelSettings');
+  const rowVals = (db.rowValues||[]).join(', ');
+  p.innerHTML = `
+    <div class="section">
+      <div class="section-title" onclick="toggleSection(this)">
+        <span>⚙️ Game Configuration</span><span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div class="field-row">
+          <div class="field grow">
+            <label>Target dNTPs (to "start PCR")</label>
+            <input type="number" id="cfg-target" value="${db.targetDNTPs||1000}" min="0" step="50">
+          </div>
+          <div class="field grow">
+            <label>Timer (seconds per question)</label>
+            <input type="number" id="cfg-timer" value="${db.timerSeconds||30}" min="5" max="300" step="5">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field grow">
+            <label>Board columns (categories shown)</label>
+            <input type="number" id="cfg-cols" value="${db.boardCols||5}" min="3" max="6">
+            <div class="hint">3–6. Uses the first N categories.</div>
+          </div>
+          <div class="field grow">
+            <label>Board rows (value tiers)</label>
+            <input type="number" id="cfg-rows" value="${db.boardRows||5}" min="3" max="6">
+          </div>
+        </div>
+        <div class="field">
+          <label>Row values (comma-separated, one per row)</label>
+          <input type="text" id="cfg-rowvals" value="${rowVals}" placeholder="100, 200, 300, 400, 500">
+          <div class="hint">Must have at least as many values as rows. Used for cell labels and scoring.</div>
+        </div>
+        <div class="field-row">
+          <div class="field grow">
+            <label>Wrong-answer penalty</label>
+            <select id="cfg-penalty">
+              <option value="0"   ${db.penaltyMultiplier===0?'selected':''}>None (0 dNTPs lost)</option>
+              <option value="0.5" ${db.penaltyMultiplier===0.5?'selected':''}>50% of question value</option>
+              <option value="1"   ${(!db.penaltyMultiplier||db.penaltyMultiplier===1)?'selected':''}>100% of question value</option>
+            </select>
+          </div>
+          <div class="field grow">
+            <label>Hot Start cells on board</label>
+            <input type="number" id="cfg-hs" value="${db.hotStartCount??1}" min="0" max="5">
+            <div class="hint">0 = no Hot Start cells.</div>
+          </div>
+        </div>
+        <div class="field-row" style="gap:20px;">
+          <label class="inline-check">
+            <input type="checkbox" id="cfg-final" ${db.finalEnabled!==false?'checked':''}>
+            Enable "The Reaction" final question
+          </label>
+          <label class="inline-check">
+            <input type="checkbox" id="cfg-skipfinal" ${db.allowSkipFinal?'checked':''}>
+            Allow students to skip final
+          </label>
+        </div>
+        <button class="btn-primary" onclick="saveSettings()">Apply Settings</button>
+      </div>
+    </div>`;
+}
+
+function saveSettings() {
+  const parseRowVals = v => v.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+  const cols = Math.min(6,Math.max(3,parseInt(document.getElementById('cfg-cols').value)||5));
+  const rows = Math.min(6,Math.max(3,parseInt(document.getElementById('cfg-rows').value)||5));
+  let rv = parseRowVals(document.getElementById('cfg-rowvals').value);
+  if (rv.length < rows) { alert(`Row values must have at least ${rows} entries (one per row).`); return; }
+  rv = rv.slice(0, rows);
+  db.targetDNTPs       = parseInt(document.getElementById('cfg-target').value)||1000;
+  db.timerSeconds      = parseInt(document.getElementById('cfg-timer').value)||30;
+  db.boardCols         = cols;
+  db.boardRows         = rows;
+  db.rowValues         = rv;
+  db.penaltyMultiplier = parseFloat(document.getElementById('cfg-penalty').value);
+  db.hotStartCount     = parseInt(document.getElementById('cfg-hs').value)||0;
+  db.finalEnabled      = document.getElementById('cfg-final').checked;
+  db.allowSkipFinal    = document.getElementById('cfg-skipfinal').checked;
+  markDirty();
+  renderSettings();
+  alert('Settings applied. Remember to Save to GitHub.');
+}
+
+// ═══════════════════════════════════════════════
+//  📋 CATEGORIES PANEL
+// ═══════════════════════════════════════════════
+function renderCategories() {
+  const p = document.getElementById('panelCategories');
+  const catRows = db.categories.map((cat, i) => `
+    <div class="cat-row">
+      <input type="color" value="${cat.color||'#1565C0'}" title="Category color"
+        onchange="updateCat(${i},'color',this.value)">
+      <input type="text" class="cat-name-field" value="${esc(cat.name)}" placeholder="Category name"
+        oninput="updateCat(${i},'name',this.value)">
+      <span class="cat-id-tag">${cat.id}</span>
+      <button class="btn-danger" onclick="deleteCat(${i})">✕</button>
+    </div>`).join('');
+
+  const usage = {};
+  db.questions.forEach(q => { usage[q.category] = (usage[q.category]||0)+1; });
+  const usageRows = db.categories.map(c =>
+    `<div style="display:flex;justify-content:space-between;font-size:0.82rem;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+       <span style="color:var(--text)">${esc(c.name)}</span>
+       <span style="color:var(--muted);font-family:monospace">${usage[c.id]||0} question${(usage[c.id]||0)===1?'':'s'}</span>
+     </div>`
+  ).join('') || '<div style="color:var(--muted);font-size:0.82rem;">No categories yet.</div>';
+
+  p.innerHTML = `
+    <div class="section">
+      <div class="section-title" onclick="toggleSection(this)">
+        <span>📋 Categories (${db.categories.length})</span><span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div style="display:flex;flex-direction:column;gap:7px;" id="cat-list">
+          ${catRows || '<div style="color:var(--muted);font-size:0.84rem;">No categories yet. Add one below.</div>'}
+        </div>
+        <div class="field-row">
+          <div class="field grow">
+            <label>New category name</label>
+            <input type="text" id="new-cat-name" placeholder="e.g. Primers" maxlength="40">
+          </div>
+          <div style="padding-top:19px;">
+            <button class="btn-small" onclick="addCategory()">+ Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title" onclick="toggleSection(this)">
+        <span>📊 Question Coverage</span><span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div style="font-size:0.76rem;color:var(--muted);margin-bottom:6px;">
+          Board uses the first <strong style="color:var(--gold)">${db.boardCols}</strong> categories
+          and needs 1 question per (category × value) = <strong style="color:var(--gold)">${db.boardCols * db.boardRows}</strong> total.
+        </div>
+        ${usageRows}
+      </div>
+    </div>`;
+}
+
+function updateCat(i, field, val) {
+  db.categories[i][field] = val; markDirty(); updateSideCounts();
+}
+function addCategory() {
+  const inp = document.getElementById('new-cat-name');
+  const name = inp.value.trim(); if (!name) return;
+  const id = 'cat_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'_') + '_' + Date.now().toString(36);
+  db.categories.push({ id, name, color: '#1565C0' });
+  inp.value = ''; markDirty(); renderCategories(); updateSideCounts();
+  if (!selectedCat) selectedCat = id;
+}
+function deleteCat(i) {
+  const cat = db.categories[i];
+  const inUse = db.questions.some(q => q.category === cat.id);
+  if (inUse && !confirm(`"${cat.name}" has questions assigned to it. Delete category and unassign those questions?`)) return;
+  db.questions.forEach(q => { if (q.category===cat.id) q.category=''; });
+  db.categories.splice(i,1);
+  if (selectedCat===cat.id) selectedCat = db.categories[0]?.id || null;
+  markDirty(); renderCategories(); updateSideCounts();
+}
+
+// ═══════════════════════════════════════════════
+//  ❓ QUESTIONS PANEL
+// ═══════════════════════════════════════════════
+function renderQuestions() {
+  const p = document.getElementById('panelQuestions');
+  if (!db.categories.length) {
+    p.innerHTML = `<div style="margin:auto;text-align:center;color:var(--muted);padding:40px;">
+      No categories yet. <a href="#" onclick="selectTab('categories')" style="color:var(--gold);">Add categories first.</a>
+    </div>`;
+    return;
+  }
+  if (!selectedCat || !db.categories.find(c=>c.id===selectedCat)) {
+    selectedCat = db.categories[0].id;
+  }
+  const cat = db.categories.find(c=>c.id===selectedCat);
+  const qs = db.questions.filter(q=>q.category===selectedCat);
+  const allValues = db.rowValues || [100,200,300,400,500];
+
+  const pills = db.categories.map(c =>
+    `<div class="cat-pill${c.id===selectedCat?' active':''}" onclick="pickCat('${c.id}')">${esc(c.name)}</div>`
+  ).join('');
+
+  const qCards = qs.map((q,i) => {
+    const idx = db.questions.indexOf(q);
+    const acc = (q.acceptedAnswers||[]).join(', ');
+    const preview = q.clue ? q.clue.replace(/<[^>]+>/g,'').slice(0,60) : '(empty clue)';
+    const valOpts = allValues.map(v=>`<option value="${v}" ${q.value===v?'selected':''}>${v}</option>`).join('');
+    return `
+      <div class="q-card" id="qcard-${idx}">
+        <div class="q-card-header" onclick="toggleQ(${idx})">
+          <span class="q-num">${i+1} · ${q.value} dNTPs</span>
+          <span class="q-preview">${esc(preview)}</span>
+          <span class="q-chevron">▾</span>
+        </div>
+        <div class="q-body">
+          <div class="field-row">
+            <div class="field" style="min-width:140px;">
+              <label>Point value (dNTPs)</label>
+              <select onchange="updateQ(${idx},'value',parseInt(this.value))">${valOpts}</select>
+            </div>
+            <div class="field grow" style="justify-content:flex-end;padding-top:18px;">
+              <button class="btn-danger" onclick="deleteQ(${idx})">✕ Delete Question</button>
+            </div>
+          </div>
+          <div class="field">
+            <label>Clue (HTML allowed for bold/superscript)</label>
+            <textarea rows="3" oninput="updateQ(${idx},'clue',this.value)">${esc(q.clue||'')}</textarea>
+          </div>
+          <div class="field-row">
+            <div class="field grow">
+              <label>Primary answer</label>
+              <input type="text" value="${esc(q.answer||'')}" oninput="updateQ(${idx},'answer',this.value)">
+            </div>
+            <div class="field" style="min-width:140px;align-items:center;padding-top:18px;">
+              <label class="inline-check">
+                <input type="checkbox" ${q.exactMatch?'checked':''} onchange="updateQ(${idx},'exactMatch',this.checked)">
+                Exact match (numbers)
+              </label>
+            </div>
+          </div>
+          <div class="field">
+            <label>Also accept (comma-separated alternatives)</label>
+            <input type="text" value="${esc(acc)}" placeholder="e.g. taq, taq polymerase"
+              oninput="updateQAccepted(${idx},this.value)">
+            <div class="hint">Text answers use fuzzy matching (≤25% edit distance). Enable exact match for numeric answers.</div>
+          </div>
+          <div class="field">
+            <label>Explanation (shown after answer is revealed)</label>
+            <textarea rows="2" oninput="updateQ(${idx},'explain',this.value)">${esc(q.explain||'')}</textarea>
+          </div>
+        </div>
+      </div>`;
+  }).join('') || `<div style="color:var(--muted);font-size:0.84rem;padding:8px 0;">No questions in this category yet.</div>`;
+
+  p.innerHTML = `
+    <div id="catPills">${pills}</div>
+    <div class="section">
+      <div class="section-title" onclick="toggleSection(this)">
+        <div class="section-title-left">
+          <span>❓ ${esc(cat.name)} — ${qs.length} question${qs.length===1?'':'s'}</span>
+        </div>
+        <span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body">
+        ${qCards}
+        <button class="btn-small" onclick="addQuestion('${selectedCat}')">+ Add Question</button>
+      </div>
+    </div>`;
+}
+
+function pickCat(id) { selectedCat = id; renderQuestions(); }
+
+function updateQ(idx, field, val) {
+  db.questions[idx][field] = val; markDirty();
+  // Refresh card header preview without full re-render
+  const header = document.querySelector(`#qcard-${idx} .q-preview`);
+  if (header && field==='clue') header.textContent = val.replace(/<[^>]+>/g,'').slice(0,60);
+  const num = document.querySelector(`#qcard-${idx} .q-num`);
+  if (num && field==='value') num.textContent = (db.questions.filter(q=>q.category===selectedCat).indexOf(db.questions[idx])+1) + ' · ' + val + ' dNTPs';
+}
+
+function updateQAccepted(idx, val) {
+  db.questions[idx].acceptedAnswers = val.split(',').map(s=>s.trim()).filter(Boolean);
+  markDirty();
+}
+
+function addQuestion(catId) {
+  const val = (db.rowValues && db.rowValues[0]) || 100;
+  const id  = 'q_' + Date.now().toString(36);
+  db.questions.push({ id, category:catId, value:val, clue:'', answer:'', acceptedAnswers:[], exactMatch:false, explain:'' });
+  markDirty(); renderQuestions(); updateSideCounts();
+  // Open the new card
+  const newIdx = db.questions.length - 1;
+  const card = document.getElementById('qcard-'+newIdx);
+  if (card) { card.classList.add('open'); card.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+}
+
+function deleteQ(idx) {
+  if (!confirm('Delete this question?')) return;
+  db.questions.splice(idx, 1); markDirty(); renderQuestions(); updateSideCounts();
+}
+
+function toggleQ(idx) {
+  const card = document.getElementById('qcard-'+idx);
+  if (card) card.classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════
+//  ⚗️ FINAL PANEL
+// ═══════════════════════════════════════════════
+function renderFinal() {
+  const p = document.getElementById('panelFinal');
+  const fq = db.finalQuestion || {};
+  const acc = (fq.acceptedAnswers||[]).join(', ');
+  p.innerHTML = `
+    <div class="section">
+      <div class="section-title" onclick="toggleSection(this)">
+        <span>⚗️ The Reaction — Final Question</span><span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body">
+        <div style="font-size:0.82rem;color:var(--muted);line-height:1.6;padding:8px 10px;
+          background:rgba(200,169,81,0.07);border-radius:6px;border:1px solid var(--border);">
+          The Reaction is shown after all board cells are completed. Students place a wager, then have
+          <strong style="color:var(--text)">double the normal timer</strong> to answer.
+          Correct = add wager; wrong = subtract wager (subject to penalty setting).
+        </div>
+        <div class="field">
+          <label>Category label (displayed above the clue)</label>
+          <input type="text" id="fq-cat" value="${esc(fq.category||'The Reaction')}"
+            oninput="updateFQ('category',this.value)">
+        </div>
+        <div class="field">
+          <label>Clue (HTML allowed)</label>
+          <textarea id="fq-clue" rows="4" oninput="updateFQ('clue',this.value)">${esc(fq.clue||'')}</textarea>
+        </div>
+        <div class="field-row">
+          <div class="field grow">
+            <label>Primary answer</label>
+            <input type="text" id="fq-answer" value="${esc(fq.answer||'')}" oninput="updateFQ('answer',this.value)">
+          </div>
+          <div class="field" style="min-width:145px;align-items:center;padding-top:18px;">
+            <label class="inline-check">
+              <input type="checkbox" id="fq-exact" ${fq.exactMatch?'checked':''}
+                onchange="updateFQ('exactMatch',this.checked)">
+              Exact match (numbers)
+            </label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Also accept (comma-separated)</label>
+          <input type="text" id="fq-accepted" value="${esc(acc)}" placeholder="alternative answers…"
+            oninput="updateFQAccepted(this.value)">
+        </div>
+        <div class="field">
+          <label>Explanation</label>
+          <textarea id="fq-explain" rows="3" oninput="updateFQ('explain',this.value)">${esc(fq.explain||'')}</textarea>
+        </div>
+      </div>
+    </div>`;
+}
+
+function updateFQ(field, val) {
+  if (!db.finalQuestion) db.finalQuestion = {};
+  db.finalQuestion[field] = val; markDirty();
+}
+function updateFQAccepted(val) {
+  if (!db.finalQuestion) db.finalQuestion = {};
+  db.finalQuestion.acceptedAnswers = val.split(',').map(s=>s.trim()).filter(Boolean);
+  markDirty();
+}
+
+// ═══════════════════════════════════════════════
+//  SHARED UTILS
+// ═══════════════════════════════════════════════
+function toggleSection(titleEl) {
+  titleEl.closest('.section').classList.toggle('collapsed');
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

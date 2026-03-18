@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Jeopardy! – PCR Edition</title>
+  <style>
+    :root {
+      --bg:     #111c15;
+      --bg2:    #1a2e1f;
+      --bg3:    #243428;
+      --gold:   #C8A951;
+      --gold-l: #e0c870;
+      --green:  #2a7a4b;
+      --green-l:#4a9a6b;
+      --text:   #e8f5e9;
+      --muted:  #7aac88;
+      --danger: #ef5350;
+      --success:#66bb6a;
+      --warn:   #ffb300;
+      --blue:   #0D47A1;
+      --blue-m: #1565C0;
+      --blue-l: #42A5F5;
+      --radius: 8px;
+      --font:   'Segoe UI', system-ui, sans-serif;
+      --mono:   'Courier New', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+      font-family: var(--font); overflow: hidden; }
+
+    /* ---- Screens ---- */
+    .screen { display: none; position: fixed; inset: 0; z-index: 10; }
+    .screen.active { display: flex; }
+
+    /* ---- Inst Banner ---- */
+    #instBanner {
+      position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+      background: #f5f0e8; border: 2px solid #C8A951; border-radius: 9px;
+      padding: 10px 20px; display: flex; align-items: center; gap: 14px;
+      max-width: 442px; width: calc(100% - 32px);
+      box-shadow: 0 2px 16px rgba(0,0,0,0.4); z-index: 500;
+    }
+    #instBanner img { height: 51px; width: 51px; object-fit: contain; flex-shrink: 0; }
+    #instBanner .inst-dept { font-size: 0.72rem; font-weight: 700; color: #1E4D2B; line-height: 1.3; }
+    #instBanner .inst-univ { font-size: 0.68rem; color: #4a7a58; font-weight: 500; }
+
+    /* ========== NAME SCREEN ========== */
+    #nameScreen {
+      background: linear-gradient(160deg,#1E4D2B 0%,#163820 60%,#0f2516 100%);
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 22px; padding: 110px 24px 40px;
+    }
+    #nameScreen h1 {
+      font-size: 2.6rem; color: var(--gold); letter-spacing: 0.08em;
+      text-shadow: 0 2px 16px rgba(0,0,0,0.6); text-align: center;
+    }
+    #nameScreen .subtitle {
+      color: var(--muted); font-size: 0.95rem; text-align: center;
+      max-width: 480px; line-height: 1.6;
+    }
+    .name-card {
+      background: rgba(255,255,255,0.06); border: 2px solid rgba(200,169,81,0.4);
+      border-radius: 14px; padding: 30px 38px; width: 100%; max-width: 420px;
+      display: flex; flex-direction: column; gap: 18px;
+    }
+    .name-card label { font-size: 0.82rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em; }
+    .name-card input[type="text"] {
+      background: rgba(0,0,0,0.3); border: 1.5px solid rgba(200,169,81,0.4);
+      border-radius: 8px; color: var(--text); font-size: 1.2rem;
+      padding: 10px 14px; font-family: var(--font); width: 100%; outline: none;
+    }
+    .name-card input[type="text"]:focus { border-color: var(--gold); }
+    .name-info { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--muted); }
+    .name-info span { color: var(--gold); font-weight: 700; }
+    .btn-start {
+      background: var(--gold); color: #111; border: none; border-radius: 10px;
+      padding: 13px; font-size: 1rem; font-weight: 700; cursor: pointer;
+      letter-spacing: 0.05em; transition: background 0.15s, transform 0.1s;
+    }
+    .btn-start:hover { background: var(--gold-l); transform: translateY(-2px); }
+    .btn-start:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+    /* ========== BOARD SCREEN ========== */
+    #boardScreen { background: var(--bg); flex-direction: column; }
+    #gameHud {
+      background: var(--bg2); border-bottom: 1px solid rgba(200,169,81,0.2);
+      padding: 10px 20px; display: flex; align-items: center;
+      justify-content: space-between; flex-shrink: 0; height: 56px;
+    }
+    #gameHud .hud-title { font-size: 1rem; font-weight: 700; color: var(--gold); letter-spacing: 0.06em; }
+    #gameHud .hud-player { font-size: 0.8rem; color: var(--muted); }
+    #gameHud .hud-player span { color: var(--text); font-weight: 600; }
+    .hud-score { display: flex; align-items: center; gap: 22px; }
+    .hud-menu-btn {
+      background: none; border: 1px solid rgba(200,169,81,0.35); border-radius: 6px;
+      color: var(--muted); font-size: 0.78rem; padding: 5px 11px; cursor: pointer;
+      font-family: var(--font); transition: border-color 0.15s, color 0.15s;
+    }
+    .hud-menu-btn:hover { border-color: var(--danger); color: var(--danger); }
+    .hud-stat { text-align: center; }
+    .hud-stat .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+    .hud-stat .val { font-size: 1.2rem; font-weight: 700; font-family: var(--mono); color: var(--gold); }
+    .hud-stat .val.met { color: var(--success); }
+    #boardWrap { flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 10px 14px 14px; overflow: auto; }
+    #boardGrid { display: grid; gap: 6px; }
+    .cat-header {
+      background: var(--blue); border-radius: 6px 6px 4px 4px; color: #fff;
+      font-size: 0.76rem; font-weight: 700; text-align: center; padding: 8px 6px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 52px; line-height: 1.3;
+    }
+    .board-cell {
+      background: var(--blue-m); border-radius: 5px; color: var(--gold);
+      font-size: 1.1rem; font-weight: 700; font-family: var(--mono);
+      text-align: center; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background 0.15s, transform 0.12s;
+      min-height: 60px; position: relative; user-select: none;
+    }
+    .board-cell:hover:not(.played) { background: var(--blue-l); transform: scale(1.05); }
+    .board-cell.hs { background: linear-gradient(135deg,#6A1B9A,#AB47BC); color: #fff; }
+    .board-cell.hs:hover { background: linear-gradient(135deg,#8E24AA,#CE93D8); transform: scale(1.05); }
+    .board-cell.played { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.12); cursor: default; transform: none; }
+    .hs-badge {
+      position: absolute; top: 4px; right: 5px; font-size: 9px;
+      background: rgba(255,255,255,0.2); border-radius: 3px; padding: 1px 4px;
+      font-family: var(--font); font-weight: 600;
+    }
+
+    /* ========== QUESTION OVERLAY ========== */
+    #questionOverlay {
+      position: fixed; inset: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.88);
+    }
+    #questionOverlay.hidden { display: none; }
+    .q-wrap { width: min(680px,94vw); height: min(480px,88vh); perspective: 1200px; }
+    .q-card {
+      width: 100%; height: 100%; position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.65s cubic-bezier(0.4,0,0.2,1);
+    }
+    .q-card.flipped { transform: rotateY(180deg); }
+    .q-face {
+      position: absolute; inset: 0; backface-visibility: hidden;
+      -webkit-backface-visibility: hidden; border-radius: 14px;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 28px; gap: 10px;
+    }
+    /* Front */
+    .q-front {
+      background: linear-gradient(160deg,#0D47A1,#1565C0);
+      border: 3px solid rgba(200,169,81,0.5);
+    }
+    .q-front .fc-cat { font-size: 1.25rem; color: var(--gold); font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.1em; text-align: center; }
+    .q-front .fc-val { font-size: 2.6rem; color: #fff; font-weight: 700; font-family: var(--mono); }
+    .q-front .fc-hs { font-size: 1rem; color: #CE93D8; font-weight: 600;
+      letter-spacing: 0.06em; margin-top: 4px; display: none; }
+    /* Back */
+    .q-back {
+      background: linear-gradient(160deg,#0a1f0f,#0f2d16);
+      border: 3px solid rgba(200,169,81,0.4);
+      transform: rotateY(180deg);
+      align-items: stretch; justify-content: flex-start;
+      overflow-y: auto; gap: 0;
+    }
+    .q-topbar { display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px; flex-shrink: 0; }
+    .q-cat-tag { font-size: 0.74rem; color: var(--gold); text-transform: uppercase;
+      letter-spacing: 0.1em; font-weight: 700; }
+    .q-val-tag { font-size: 0.88rem; color: var(--muted); font-family: var(--mono); }
+    .timer-wrap { flex-shrink: 0; height: 6px; background: rgba(255,255,255,0.1);
+      border-radius: 3px; overflow: hidden; margin-bottom: 3px; }
+    .timer-bar { height: 100%; background: var(--gold); border-radius: 3px;
+      transition: width 1s linear, background 0.5s; }
+    .timer-bar.tw { background: var(--warn); }
+    .timer-bar.td { background: var(--danger); }
+    .timer-count { flex-shrink: 0; font-size: 0.76rem; color: var(--muted);
+      font-family: var(--mono); text-align: right; margin-bottom: 8px; }
+    .timer-count.tw { color: var(--warn); }
+    .timer-count.td { color: var(--danger); }
+    .q-clue { flex: 1; font-size: 1.05rem; line-height: 1.65; color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 4px 0; min-height: 60px; }
+    .q-ans-area { flex-shrink: 0; margin-top: 8px; }
+    .q-attempts { font-size: 0.74rem; color: var(--muted); text-align: right; margin-bottom: 5px; }
+    .q-attempts span { color: var(--gold); font-weight: 700; }
+    .q-row { display: flex; gap: 8px; }
+    .q-input {
+      flex: 1; background: rgba(0,0,0,0.4); border: 1.5px solid rgba(200,169,81,0.4);
+      border-radius: 8px; color: var(--text); font-size: 0.94rem;
+      padding: 9px 12px; font-family: var(--font); outline: none;
+    }
+    .q-input:focus { border-color: var(--gold); }
+    .q-input.ok  { border-color: var(--success); background: rgba(102,187,106,0.12); }
+    .q-input.err { border-color: var(--danger);  background: rgba(239,83,80,0.12); }
+    .q-submit {
+      background: var(--gold); color: #111; border: none; border-radius: 8px;
+      padding: 9px 16px; font-weight: 700; font-size: 0.88rem;
+      cursor: pointer; transition: background 0.15s; white-space: nowrap;
+    }
+    .q-submit:hover { background: var(--gold-l); }
+    .q-submit:disabled { opacity: 0.5; cursor: default; }
+    .q-feedback {
+      display: none; margin-top: 9px; border-radius: 8px;
+      padding: 9px 13px; font-size: 0.84rem; line-height: 1.55;
+    }
+    .q-feedback.ok  { background:rgba(102,187,106,0.12); border:1px solid var(--success); color:#a5d6a7; }
+    .q-feedback.err { background:rgba(239,83,80,0.10);   border:1px solid var(--danger);  color:#ef9a9a; }
+    .q-feedback.rev { background:rgba(255,179,0,0.10);   border:1px solid var(--warn);    color:#ffe082; }
+    .q-next { display: none; margin-top: 9px; width: 100%; background: var(--green);
+      color: #fff; border: none; border-radius: 8px; padding: 10px;
+      font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: background 0.15s; }
+    .q-next:hover { background: var(--green-l); }
+
+    /* ========== WAGER OVERLAY ========== */
+    #wagerOverlay {
+      position: fixed; inset: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.9);
+    }
+    #wagerOverlay.hidden { display: none; }
+    .wager-card {
+      background: linear-gradient(160deg,#1a0a2e,#2d1455);
+      border: 3px solid #AB47BC; border-radius: 16px;
+      padding: 36px 42px; width: min(460px,92vw);
+      display: flex; flex-direction: column; gap: 16px; text-align: center;
+    }
+    .wager-card h2 { font-size: 1.55rem; color: #CE93D8; letter-spacing: 0.08em; }
+    .wager-card p  { color: #c3a0d0; font-size: 0.88rem; line-height: 1.55; }
+    .wager-avail   { font-size: 1rem; color: var(--gold); }
+    .wager-avail span { font-size: 1.45rem; font-weight: 700; font-family: var(--mono); }
+    .wager-row { display: flex; align-items: center; gap: 10px; justify-content: center; }
+    .wager-row input[type="number"] {
+      background: rgba(0,0,0,0.4); border: 2px solid #AB47BC;
+      border-radius: 8px; color: var(--text); font-size: 1.25rem;
+      font-family: var(--mono); padding: 8px 14px; width: 150px;
+      text-align: center; outline: none;
+    }
+    .wager-row input[type="number"]:focus { border-color: #CE93D8; }
+    .wager-lock {
+      background: #AB47BC; color: #fff; border: none; border-radius: 8px;
+      padding: 11px 22px; font-size: 0.95rem; font-weight: 700;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .wager-lock:hover { background: #CE93D8; }
+    .wager-hint { font-size: 0.76rem; color: #9e7aaa; }
+
+    /* ========== FINAL SCREEN ========== */
+    #finalScreen {
+      background: linear-gradient(160deg,#071410,#0d2218);
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; padding: 40px 24px;
+    }
+    #finalScreen h2 { font-size: 2.1rem; color: var(--gold); letter-spacing: 0.1em;
+      text-align: center; text-shadow: 0 0 28px rgba(200,169,81,0.35); }
+    .final-sub { color: var(--muted); font-size: 0.92rem; text-align: center;
+      max-width: 440px; line-height: 1.6; }
+    .final-card {
+      background: rgba(255,255,255,0.05); border: 2px solid rgba(200,169,81,0.35);
+      border-radius: 14px; padding: 26px 34px; width: min(560px,92vw);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .final-phase { display: flex; flex-direction: column; gap: 12px; }
+    #finalAnswerPhase { display: none !important; }
+    #finalAnswerPhase.show { display: flex !important; }
+    .final-clue { font-size: 1.03rem; line-height: 1.65; color: var(--text); text-align: center; }
+    .ftimer-wrap { height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+    .ftimer-bar { height: 100%; background: var(--gold); border-radius: 3px; transition: width 1s linear, background 0.5s; }
+    .ftimer-bar.tw { background: var(--warn); }
+    .ftimer-bar.td { background: var(--danger); }
+
+    /* ========== END SCREEN ========== */
+    #endScreen {
+      background: linear-gradient(160deg,#1E4D2B 0%,#163820 60%,#0f2516 100%);
+      flex-direction: column; align-items: center; justify-content: center;
+      gap: 22px; padding: 110px 24px 40px;
+    }
+    #endScreen h2 { font-size: 2.2rem; color: var(--gold); letter-spacing: 0.08em; text-align: center; }
+    .end-card {
+      background: rgba(255,255,255,0.06); border: 2px solid rgba(200,169,81,0.4);
+      border-radius: 14px; padding: 26px 34px; width: min(460px,92vw);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .end-big { text-align: center; }
+    .end-big .num { font-size: 3rem; font-weight: 700; font-family: var(--mono); color: var(--gold); }
+    .end-big .unit { font-size: 0.88rem; color: var(--muted); margin-top: 2px; }
+    .end-big .res { font-size: 1.15rem; font-weight: 700; margin-top: 8px; }
+    .end-big .res.ok  { color: var(--success); }
+    .end-big .res.fail{ color: var(--danger); }
+    .end-bd { display: flex; flex-direction: column; gap: 5px; font-size: 0.82rem; }
+    .end-bd .row { display: flex; justify-content: space-between; padding: 3px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .end-bd .k { color: var(--muted); }
+    .end-bd .v { color: var(--text); font-family: var(--mono); }
+    .end-btns { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .end-btn {
+      border: 2px solid rgba(200,169,81,0.5); background: rgba(255,255,255,0.05);
+      color: var(--gold); border-radius: 8px; padding: 10px 20px;
+      font-size: 0.88rem; font-weight: 600; cursor: pointer;
+      transition: background 0.15s, border-color 0.15s; font-family: var(--font);
+    }
+    .end-btn:hover { background: rgba(200,169,81,0.12); border-color: var(--gold); }
+    .end-btn.pri { background: var(--gold); color: #111; border-color: var(--gold); }
+    .end-btn.pri:hover { background: var(--gold-l); }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+      background: var(--bg3); border: 1px solid rgba(200,169,81,0.4);
+      border-radius: 8px; padding: 9px 18px; font-size: 0.84rem; color: var(--text);
+      z-index: 999; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- Inst Banner -->
+<div id="instBanner">
+  <img src="MIP.png" alt="MIP Logo">
+  <div>
+    <div class="inst-dept">Department of Microbiology, Immunology &amp; Pathology</div>
+    <div class="inst-univ">Colorado State University · College of Veterinary Medicine &amp; Biomedical Sciences</div>
+  </div>
+</div>
+
+<!-- ===== NAME SCREEN ===== -->
+<div id="nameScreen" class="screen active">
+  <h1>Jeopardy! – PCR Edition</h1>
+  <p class="subtitle">Earn dNTPs by answering PCR questions correctly. Reach the target to start your reaction!</p>
+  <div class="name-card">
+    <label for="nameInput">Your Name</label>
+    <input type="text" id="nameInput" placeholder="Enter your name…" maxlength="40" autocomplete="off">
+    <div class="name-info">
+      <div>Target: <span id="targetDisp">1000</span> dNTPs</div>
+      <div>Timer: <span id="timerDisp">30</span>s / question</div>
+    </div>
+    <button class="btn-start" id="btnStart" disabled>Start Reaction</button>
+    <!-- DEBUG — remove before production -->
+    <button id="btnDebugFinal" style="margin-top:4px;background:none;border:1px dashed rgba(200,169,81,0.3);
+      border-radius:6px;color:rgba(200,169,81,0.5);font-size:0.72rem;padding:5px;cursor:pointer;font-family:var(--font);"
+      onclick="debugSkipToFinal()">⚗ skip to Reaction (debug)</button>
+  </div>
+</div>
+
+<!-- ===== BOARD SCREEN ===== -->
+<div id="boardScreen" class="screen">
+  <div id="gameHud">
+    <div>
+      <div class="hud-title">Jeopardy! – PCR Edition</div>
+      <div class="hud-player">Player: <span id="hudName">—</span></div>
+    </div>
+    <div class="hud-score">
+      <div class="hud-stat">
+        <div class="lbl">dNTPs</div>
+        <div class="val" id="hudDntps">0</div>
+      </div>
+      <div class="hud-stat">
+        <div class="lbl">Target</div>
+        <div class="val" id="hudTarget">—</div>
+      </div>
+      <button class="hud-menu-btn" id="hudMenuBtn">✕ Menu</button>
+    </div>
+  </div>
+  <div id="boardWrap">
+    <div id="boardGrid"></div>
+  </div>
+</div>
+
+<!-- ===== QUESTION OVERLAY ===== -->
+<div id="questionOverlay" class="hidden">
+  <div class="q-wrap">
+    <div class="q-card" id="qCard">
+      <div class="q-face q-front">
+        <div class="fc-cat" id="fcCat">Category</div>
+        <div class="fc-val" id="fcVal">100</div>
+        <div class="fc-hs" id="fcHs">🔥 HOT START</div>
+      </div>
+      <div class="q-face q-back">
+        <div class="q-topbar">
+          <div class="q-cat-tag" id="qCatTag">Category</div>
+          <div class="q-val-tag" id="qValTag">+100 dNTPs</div>
+        </div>
+        <div class="timer-wrap"><div class="timer-bar" id="timerBar"></div></div>
+        <div class="timer-count" id="timerCount">30s</div>
+        <div class="q-clue" id="qClue">…</div>
+        <div class="q-ans-area">
+          <div class="q-attempts">Attempts remaining: <span id="attLeft">2</span></div>
+          <div class="q-row">
+            <input type="text" class="q-input" id="qInput" placeholder="Type your answer…" autocomplete="off">
+            <button class="q-submit" id="qSubmit">Submit</button>
+          </div>
+          <div class="q-feedback" id="qFeedback"></div>
+          <button class="q-next" id="qNext">Continue →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== WAGER OVERLAY ===== -->
+<div id="wagerOverlay" class="hidden">
+  <div class="wager-card">
+    <h2>🔥 Hot Start!</h2>
+    <p>A Hot Start question. Wager dNTPs before the clue is revealed — a correct answer wins your wager, wrong loses it.</p>
+    <div class="wager-avail">Current dNTPs: <span id="wagerCurrent">0</span></div>
+    <div class="wager-row">
+      <input type="number" id="wagerInput" min="0" value="0">
+      <button class="wager-lock" id="wagerLock">Lock Wager</button>
+    </div>
+    <div class="wager-hint" id="wagerHint">Enter between 0 and 0 dNTPs</div>
+  </div>
+</div>
+
+<!-- ===== THE REACTION (Final) ===== -->
+<div id="finalScreen" class="screen">
+  <h2>⚗️ The Reaction</h2>
+  <p class="final-sub">Final question! Place your wager — then answer to complete your PCR run.</p>
+  <div class="final-card">
+    <div class="final-phase" id="finalWagerPhase">
+      <div style="text-align:center;font-size:0.84rem;color:var(--muted);">
+        Category: <span id="finalCatLbl" style="color:var(--gold);font-weight:700;">—</span>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:0.8rem;color:var(--muted);">Current dNTPs</div>
+        <div style="font-size:2rem;font-weight:700;font-family:var(--mono);color:var(--gold);" id="finalWagerDntps">0</div>
+      </div>
+      <div class="wager-row">
+        <input type="number" id="finalWagerInput" min="0" value="0">
+        <button class="wager-lock" id="finalWagerLock">Lock Wager</button>
+      </div>
+      <div class="wager-hint" id="finalWagerHint">Wager between 0 and 0 dNTPs</div>
+    </div>
+    <div class="final-phase" id="finalAnswerPhase">
+      <div class="ftimer-wrap"><div class="ftimer-bar" id="fTimerBar"></div></div>
+      <div style="font-size:0.76rem;color:var(--muted);text-align:right;font-family:var(--mono);" id="fTimerCount">—</div>
+      <div class="final-clue" id="finalClue">…</div>
+      <div class="q-row">
+        <input type="text" class="q-input" id="finalInput" placeholder="Type your answer…" autocomplete="off">
+        <button class="q-submit" id="finalSubmit">Submit</button>
+      </div>
+      <div class="q-feedback" id="finalFeedback"></div>
+      <button class="q-next" id="finalNext" style="display:none;">See Results →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== END SCREEN ===== -->
+<div id="endScreen" class="screen">
+  <h2 id="endHeading">Game Over</h2>
+  <div class="end-card">
+    <div class="end-big">
+      <div class="num" id="endNum">0</div>
+      <div class="unit">dNTPs collected</div>
+      <div class="res" id="endRes">—</div>
+    </div>
+    <div class="end-bd" id="endBd"></div>
+  </div>
+  <div id="submitStatus" style="font-size:0.8rem;text-align:center;color:var(--muted);min-height:1.2em;"></div>
+  <div class="end-btns">
+    <button class="end-btn" id="btnExport">⬇ Export Score</button>
+    <button class="end-btn" id="btnAgain">Play Again</button>
+    <button class="end-btn pri" onclick="location.href='index.html'">← Main Menu</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// DEFAULT CONFIG (used when JSON unavailable / empty)
+// ============================================================
+const GITHUB_RAW = 'https://raw.githubusercontent.com/bgeiss1/restriction-cloning-game/main/pcr_jeopardy.json';
+
+const DEFAULT_CFG = {
+  title: "PCR Jeopardy",
+  targetDNTPs: 1000,
+  penaltyMultiplier: 1.0,
+  hotStartCount: 1,
+  finalEnabled: true,
+  allowSkipFinal: false,
+  boardCols: 5,
+  boardRows: 5,
+  rowValues: [100, 200, 300, 400, 500],
+  timerSeconds: 30,
+  categories: [
+    { id:"cat_primers",   name:"Primers" },
+    { id:"cat_steps",     name:"PCR Steps" },
+    { id:"cat_reagents",  name:"Reagents" },
+    { id:"cat_calc",      name:"Calculations" },
+    { id:"cat_trouble",   name:"Troubleshoot" }
+  ],
+  questions: [
+    // Primers
+    { id:"q1",  category:"cat_primers",  value:100, clue:"Short single-stranded DNA sequences that define where DNA polymerase begins synthesis.", answer:"primers", acceptedAnswers:["primer"], exactMatch:false, explain:"Primers (~18–22 nt) anneal to template DNA and provide a 3'-OH for extension." },
+    { id:"q2",  category:"cat_primers",  value:200, clue:"In the basic Tm formula (4°C × G/C + 2°C × A/T), GC pairs contribute more because they form this many hydrogen bonds.", answer:"three", acceptedAnswers:["3","3 hydrogen bonds"], exactMatch:false, explain:"G-C pairs form 3 hydrogen bonds vs. 2 for A-T, making them more stable and raising Tm." },
+    { id:"q3",  category:"cat_primers",  value:300, clue:"A hairpin forms when a primer has complementary sequences at its 5' and 3' ends, folding back on itself into this structure.", answer:"stem loop", acceptedAnswers:["hairpin","stem-loop"], exactMatch:false, explain:"Stem-loop structures reduce primer availability and can inhibit PCR or cause mispriming." },
+    { id:"q4",  category:"cat_primers",  value:400, clue:"Primer pairs with Tm values differing by more than 5°C may cause this outcome at a shared annealing temperature.", answer:"unequal amplification", acceptedAnswers:["poor amplification","one primer anneals poorly","asymmetric amplification"], exactMatch:false, explain:"When Tm values differ >5°C, the lower-Tm primer may not bind well at the higher annealing temperature." },
+    { id:"q5",  category:"cat_primers",  value:500, clue:"This artifact occurs when primers anneal to each other rather than the template, consuming primer and reducing yield.", answer:"primer dimer", acceptedAnswers:["primer-dimer","dimer"], exactMatch:false, explain:"Primer dimers form via complementary 3' ends and are amplified by Taq, appearing as a small band near the bottom of a gel." },
+    // PCR Steps
+    { id:"q6",  category:"cat_steps",  value:100, clue:"The PCR step at ~95°C that separates double-stranded DNA into single strands.", answer:"denaturation", acceptedAnswers:["denaturing","melting"], exactMatch:false, explain:"Denaturation breaks hydrogen bonds between complementary bases, producing single-stranded templates." },
+    { id:"q7",  category:"cat_steps",  value:200, clue:"The PCR step where primers bind to their complementary sequences on single-stranded template.", answer:"annealing", acceptedAnswers:["primer annealing"], exactMatch:false, explain:"Annealing occurs 5°C below the primer Tm, typically 50–65°C, allowing specific primer binding." },
+    { id:"q8",  category:"cat_steps",  value:300, clue:"Extension time per kilobase of product for Taq polymerase (in minutes).", answer:"1", acceptedAnswers:["one","1 minute","~1 min"], exactMatch:true, explain:"Taq extends at ~1 min/kb at 72°C; High-fidelity polymerases are often slower (~2 min/kb)." },
+    { id:"q9",  category:"cat_steps",  value:400, clue:"Typical number of PCR cycles for routine amplification from genomic DNA.", answer:"30", acceptedAnswers:["30 cycles","25 to 35","25-35"], exactMatch:false, explain:"25–35 cycles amplify a single copy ~10⁷–10¹⁰ fold; exceeding 35 cycles increases non-specific bands." },
+    { id:"q10", category:"cat_steps",  value:500, clue:"The optional final step (5–10 min at 72°C) ensures all partial extension products are fully completed.", answer:"final extension", acceptedAnswers:["final elongation","extension"], exactMatch:false, explain:"The final extension fills in any incomplete strands before storage." },
+    // Reagents
+    { id:"q11", category:"cat_reagents", value:100, clue:"The four nucleotide building blocks incorporated by DNA polymerase during PCR extension.", answer:"dNTPs", acceptedAnswers:["dntp","deoxyribonucleotides","deoxynucleotide triphosphates"], exactMatch:false, explain:"dNTPs (dATP, dCTP, dGTP, dTTP) provide the nucleotides for new strand synthesis." },
+    { id:"q12", category:"cat_reagents", value:200, clue:"Thermostable DNA polymerase originally isolated from Thermus aquaticus, the workhorse of PCR.", answer:"Taq polymerase", acceptedAnswers:["taq","taq DNA polymerase"], exactMatch:false, explain:"Taq survives repeated 95°C denaturation; it lacks 3'→5' proofreading and adds A-overhangs." },
+    { id:"q13", category:"cat_reagents", value:300, clue:"The divalent cation cofactor required by all thermostable polymerases; typical concentration in PCR is 1.5–2.5 mM.", answer:"magnesium", acceptedAnswers:["mg2+","mg","magnesium ions","mgcl2","magnesium chloride"], exactMatch:false, explain:"Mg²⁺ is essential for polymerase catalysis and primer annealing; too much or too little reduces specificity." },
+    { id:"q14", category:"cat_reagents", value:400, clue:"Typical concentration of each dNTP in a standard PCR reaction.", answer:"200 micromolar", acceptedAnswers:["200 uM","200µM","0.2 mM","200 μM"], exactMatch:false, explain:"200 µM per dNTP is standard; higher concentrations can inhibit Taq by chelating Mg²⁺." },
+    { id:"q15", category:"cat_reagents", value:500, clue:"These reagents — antibodies, aptamers, or chemical modifications — block polymerase activity below ~60°C to improve specificity.", answer:"hot start reagents", acceptedAnswers:["hot start","hot start antibody","hot-start"], exactMatch:false, explain:"Hot-start strategies prevent extension at room temperature, reducing primer dimers and non-specific bands." },
+    // Calculations
+    { id:"q16", category:"cat_calc", value:100, clue:"After 10 PCR cycles starting from a single template copy, the theoretical number of copies produced.", answer:"1024", acceptedAnswers:["1,024","2^10"], exactMatch:true, explain:"PCR doubles copies each cycle: 2¹⁰ = 1024." },
+    { id:"q17", category:"cat_calc", value:200, clue:"If PCR efficiency is 95%, each cycle multiplies copies by this decimal value.", answer:"1.95", acceptedAnswers:["1.95x"], exactMatch:true, explain:"Efficiency E means each cycle multiplies by (1 + E/100); 95% → 1.95." },
+    { id:"q18", category:"cat_calc", value:300, clue:"Average molecular weight of one base pair in daltons, used in DNA copy number calculations.", answer:"660", acceptedAnswers:["660 g/mol","660 da","660 daltons"], exactMatch:true, explain:"Each bp ~660 Da; divide DNA mass (in g) by (bp count × 660) to get moles, then multiply by Avogadro's number." },
+    { id:"q19", category:"cat_calc", value:400, clue:"A standard curve slope of −3.32 in qPCR corresponds to this PCR efficiency (in %).", answer:"100", acceptedAnswers:["100%","~100%","approximately 100"], exactMatch:true, explain:"Efficiency = (10^(−1/slope) − 1) × 100; slope −3.322 = 100% efficiency." },
+    { id:"q20", category:"cat_calc", value:500, clue:"In a serial dilution standard curve, each 10-fold dilution step should shift the Ct by approximately this many cycles at 100% efficiency.", answer:"3.32", acceptedAnswers:["3.3","~3.32","3.32 cycles"], exactMatch:true, explain:"log₂(10) ≈ 3.32 cycles per decade; this is the mathematical basis for the −3.32 slope at perfect efficiency." },
+    // Troubleshoot
+    { id:"q21", category:"cat_trouble", value:100, clue:"Multiple non-specific bands on a gel suggest the annealing temperature should be adjusted in this direction.", answer:"higher", acceptedAnswers:["increase","raised","up","increase temperature"], exactMatch:false, explain:"Raising the annealing temperature increases primer specificity, eliminating non-target bands." },
+    { id:"q22", category:"cat_trouble", value:200, clue:"A smear on an agarose gel rather than a distinct band usually indicates too many of these.", answer:"cycles", acceptedAnswers:["too many cycles","pcr cycles"], exactMatch:false, explain:"Over-cycling causes re-amplification of non-specific products, creating a continuous smear." },
+    { id:"q23", category:"cat_trouble", value:300, clue:"Heme in whole blood inhibits Taq polymerase; a common fix is to add BSA or dilute the sample. The underlying problem is called PCR ____.", answer:"inhibition", acceptedAnswers:["pcr inhibition","taq inhibition"], exactMatch:false, explain:"Blood, soil, and clinical samples often contain PCR inhibitors; dilution, BSA, or specialized extraction kits help." },
+    { id:"q24", category:"cat_trouble", value:400, clue:"No band at all despite good template quality most often indicates a problem with this component of the master mix.", answer:"primers", acceptedAnswers:["primer","primer design"], exactMatch:false, explain:"Degraded, misprimed, or incorrectly designed primers are the most common cause of no-amplification failures." },
+    { id:"q25", category:"cat_trouble", value:500, clue:"Amplicon contamination producing false positives in subsequent runs is called this type of contamination.", answer:"carryover", acceptedAnswers:["carryover contamination","amplicon contamination","carry-over"], exactMatch:false, explain:"Carryover contamination is prevented by physical separation of pre/post-PCR areas, UV decontamination, and UNG treatment." }
+  ],
+  finalQuestion: {
+    category: "The Reaction",
+    clue: "In real-time PCR, this value — the cycle number at which fluorescence crosses the threshold — is used to quantify starting template amount.",
+    answer: "Ct",
+    acceptedAnswers:["Cq","cycle threshold","threshold cycle","crossing threshold","Ct value","Cq value"],
+    exactMatch: false,
+    explain: "Ct (or Cq) is inversely proportional to log₂(initial template); a Ct difference of ~3.32 represents a 10-fold difference in starting quantity."
+  }
+};
+
+// ============================================================
+// SCORE SUBMISSION — Cloudflare Worker proxy
+// Set SCORE_WORKER_URL to your deployed worker URL, e.g.:
+//   https://pcr-score-worker.YOUR-SUBDOMAIN.workers.dev
+// Leave blank to disable auto-submit (local export still works).
+// ============================================================
+const SCORE_WORKER_URL = '';
+
+// ============================================================
+// STATE
+// ============================================================
+let cfg = null;
+let S = {
+  playerName: '',
+  dntps: 0,
+  wager: 0,
+  board: [],        // [row][col] = { q, played, hotStart, r, c }
+  cur: null,        // current cell
+  attempts: 0,
+  timerSecs: 0,
+  timerHandle: null,
+  timerLocked: false,
+  lastRecord: null,   // detailed record of most recent completed run
+  stats: { correct:0, wrong:0, hsWon:false, finalWon:false, finalWager:0, start:null,
+           questionResults:[], currentAnswers:[], finalAnswer:'' }
+};
+
+// ============================================================
+// LEVENSHTEIN / ANSWER CHECK
+// ============================================================
+function lev(a, b) {
+  const m = a.length, n = b.length;
+  const d = Array.from({length:m+1},(_,i)=>Array.from({length:n+1},(_,j)=>i===0?j:j===0?i:0));
+  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+    d[i][j] = a[i-1]===b[j-1] ? d[i-1][j-1] : 1+Math.min(d[i-1][j],d[i][j-1],d[i-1][j-1]);
+  return d[m][n];
+}
+function norm(s){ return String(s).toLowerCase().replace(/[^a-z0-9\s]/g,'').replace(/\s+/g,' ').trim(); }
+function checkAns(raw, q) {
+  const t = raw.trim(); if (!t) return false;
+  const all = [q.answer,...(q.acceptedAnswers||[])];
+  if (q.exactMatch) {
+    const n = parseFloat(t);
+    for (const a of all) {
+      const an = parseFloat(a);
+      if (!isNaN(n)&&!isNaN(an)&&n===an) return true;
+      if (norm(t)===norm(a)) return true;
+    }
+    return false;
+  }
+  const nt = norm(t);
+  for (const a of all) {
+    const na = norm(a);
+    if (lev(nt,na) <= Math.max(1,Math.floor(na.length*0.25))) return true;
+  }
+  return false;
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function fmt(n){ return Math.round(n).toLocaleString(); }
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function toast(msg,ms=2600){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),ms);
+}
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+
+// ============================================================
+// DEBUG HELPERS — remove before production
+// ============================================================
+function debugSkipToFinal(){
+  const n = document.getElementById('nameInput').value.trim() || 'Debug';
+  S.playerName = n;
+  S.dntps = 1000;
+  S.stats = {correct:0,wrong:0,hsWon:false,finalWon:false,finalWager:0,
+             start:new Date().toISOString(),questionResults:[],currentAnswers:[],finalAnswer:''};
+  updateHud();
+  showFinal();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+async function init(){
+  try {
+    const res = await Promise.race([
+      fetch(GITHUB_RAW+'?t='+Date.now(),{cache:'no-store'}),
+      new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),4000))
+    ]);
+    if(res.ok){
+      const data = await res.json();
+      cfg = {...DEFAULT_CFG, ...data};
+      if(!data.questions||data.questions.length===0) cfg.questions = DEFAULT_CFG.questions;
+      if(!data.finalQuestion) cfg.finalQuestion = DEFAULT_CFG.finalQuestion;
+      if(!data.categories||data.categories.length===0) cfg.categories = DEFAULT_CFG.categories;
+    } else { cfg = DEFAULT_CFG; }
+  } catch { cfg = DEFAULT_CFG; }
+
+  cfg.boardCols = Math.min(6,Math.max(3,cfg.boardCols||5));
+  cfg.boardRows = Math.min(6,Math.max(3,cfg.boardRows||5));
+  while(cfg.rowValues.length<cfg.boardRows){
+    cfg.rowValues.push((cfg.rowValues[cfg.rowValues.length-1]||100)+100);
+  }
+  cfg.rowValues = cfg.rowValues.slice(0,cfg.boardRows);
+
+  document.getElementById('targetDisp').textContent = fmt(cfg.targetDNTPs);
+  document.getElementById('timerDisp').textContent = cfg.timerSeconds;
+}
+
+// ============================================================
+// NAME SCREEN
+// ============================================================
+document.getElementById('nameInput').addEventListener('input', function(){
+  document.getElementById('btnStart').disabled = !this.value.trim();
+});
+document.getElementById('nameInput').addEventListener('keydown', e=>{
+  if(e.key==='Enter' && !document.getElementById('btnStart').disabled) startGame();
+});
+document.getElementById('btnStart').addEventListener('click', startGame);
+
+function startGame(){
+  const n = document.getElementById('nameInput').value.trim();
+  if(!n) return;
+  S.playerName = n;
+  S.dntps = 0;
+  S.stats = {correct:0,wrong:0,hsWon:false,finalWon:false,finalWager:0,start:new Date().toISOString(),
+             questionResults:[],currentAnswers:[],finalAnswer:''};
+  buildBoard();
+  showScreen('boardScreen');
+  updateHud();
+}
+
+// ============================================================
+// BOARD
+// ============================================================
+function buildBoard(){
+  const grid = document.getElementById('boardGrid');
+  grid.innerHTML='';
+  const cols=cfg.boardCols, rows=cfg.boardRows;
+  grid.style.gridTemplateColumns=`repeat(${cols},minmax(88px,155px))`;
+
+  const cats = cfg.categories.slice(0,cols);
+  const qMap = {};
+  cats.forEach(c=>{ qMap[c.id]=[]; });
+  cfg.questions.forEach(q=>{ if(qMap[q.category]!==undefined) qMap[q.category].push(q); });
+
+  // Assign hot-start cells
+  const allPos=[];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) allPos.push({r,c});
+  const hsCount=Math.min(cfg.hotStartCount||0,allPos.length);
+  const hsSet=new Set(shuffle([...allPos]).slice(0,hsCount).map(({r,c})=>`${r}:${c}`));
+
+  // Build state
+  S.board=[];
+  for(let r=0;r<rows;r++){
+    const row=[];
+    const val=cfg.rowValues[r];
+    cats.forEach((cat,c)=>{
+      const pool=qMap[cat.id].filter(q=>q.value===val);
+      row.push({ q:pool[0]||null, played:false, hotStart:hsSet.has(`${r}:${c}`), r, c });
+    });
+    S.board.push(row);
+  }
+
+  // Headers
+  cats.forEach(cat=>{
+    const h=document.createElement('div');
+    h.className='cat-header';
+    h.textContent=cat.name;
+    if(cat.color) h.style.background=cat.color;
+    grid.appendChild(h);
+  });
+
+  // Cells — event delegation on grid
+  for(let r=0;r<rows;r++){
+    const val=cfg.rowValues[r];
+    for(let c=0;c<cols;c++){
+      const cell=S.board[r][c];
+      const el=document.createElement('div');
+      el.className='board-cell'+(cell.hotStart?' hs':'');
+      el.dataset.r=r; el.dataset.c=c;
+      if(!cell.q){ el.classList.add('played'); el.textContent='—'; }
+      else if(cell.hotStart){ el.innerHTML=`<span>${fmt(val)}</span><span class="hs-badge">HOT</span>`; }
+      else { el.textContent=fmt(val); }
+      grid.appendChild(el);
+    }
+  }
+}
+
+document.getElementById('boardGrid').addEventListener('click', e=>{
+  const el=e.target.closest('.board-cell');
+  if(!el||el.classList.contains('played')) return;
+  const r=+el.dataset.r, c=+el.dataset.c;
+  const cell=S.board[r][c];
+  if(cell.played||!cell.q) return;
+  S.cur=cell;
+  if(cell.hotStart) showWager();
+  else { S.wager=null; openQuestion(); }
+});
+
+function updateHud(){
+  document.getElementById('hudName').textContent=S.playerName;
+  const el=document.getElementById('hudDntps');
+  el.textContent=fmt(S.dntps);
+  el.className='val'+(S.dntps>=cfg.targetDNTPs?' met':'');
+  document.getElementById('hudTarget').textContent=fmt(cfg.targetDNTPs);
+}
+
+function markPlayed(r,c){
+  S.board[r][c].played=true;
+  const el=document.querySelector(`.board-cell[data-r="${r}"][data-c="${c}"]`);
+  if(el){ el.classList.add('played'); el.innerHTML=''; el.style.pointerEvents='none'; }
+}
+
+function allPlayed(){
+  return S.board.every(row=>row.every(cell=>cell.played||!cell.q));
+}
+
+// ============================================================
+// WAGER
+// ============================================================
+function showWager(){
+  const max=Math.max(S.dntps, cfg.rowValues[S.cur.r]);
+  document.getElementById('wagerCurrent').textContent=fmt(S.dntps);
+  const inp=document.getElementById('wagerInput');
+  inp.min=0; inp.max=max;
+  inp.value=Math.min(S.dntps, cfg.rowValues[S.cur.r]);
+  document.getElementById('wagerHint').textContent=`Enter between 0 and ${fmt(max)} dNTPs`;
+  document.getElementById('wagerOverlay').classList.remove('hidden');
+  setTimeout(()=>inp.focus(),60);
+}
+
+document.getElementById('wagerLock').addEventListener('click',()=>{
+  const inp=document.getElementById('wagerInput');
+  const max=Math.max(S.dntps,cfg.rowValues[S.cur.r]);
+  let v=parseInt(inp.value); if(isNaN(v)||v<0) v=0; if(v>max) v=max;
+  S.wager=v;
+  document.getElementById('wagerOverlay').classList.add('hidden');
+  openQuestion();
+});
+
+// ============================================================
+// QUESTION OVERLAY
+// ============================================================
+function openQuestion(){
+  const q=S.cur.q;
+  const cat=cfg.categories.find(c=>c.id===q.category)||{name:q.category};
+  const isHs=S.cur.hotStart;
+  const valStr=isHs?(S.wager!=null?`±${fmt(S.wager)}`:'±?'):fmt(q.value);
+
+  // Front face
+  document.getElementById('fcCat').textContent=cat.name;
+  document.getElementById('fcVal').textContent=valStr;
+  document.getElementById('fcHs').style.display=isHs?'block':'none';
+
+  // Back face
+  document.getElementById('qCatTag').textContent=cat.name;
+  document.getElementById('qValTag').textContent=isHs?(S.wager!=null?`±${fmt(S.wager)} dNTPs`:'Hot Start'):`+${fmt(q.value)} dNTPs`;
+  document.getElementById('qClue').innerHTML=q.clue;
+
+  // Reset
+  S.attempts=0;
+  const inp=document.getElementById('qInput');
+  inp.value=''; inp.className='q-input'; inp.disabled=false;
+  document.getElementById('qSubmit').disabled=false;
+  document.getElementById('qFeedback').style.display='none';
+  document.getElementById('qFeedback').className='q-feedback';
+  document.getElementById('qNext').style.display='none';
+  document.getElementById('attLeft').textContent='2';
+
+  S.stats.currentAnswers=[];
+
+  const card=document.getElementById('qCard');
+  card.classList.remove('flipped');
+  document.getElementById('questionOverlay').classList.remove('hidden');
+
+  setTimeout(()=>{ card.classList.add('flipped'); setTimeout(startQTimer,420); },700);
+}
+
+function startQTimer(){
+  const total=cfg.timerSeconds;
+  S.timerSecs=total; S.timerLocked=false;
+  setTimerUI(total,total);
+  clearInterval(S.timerHandle);
+  S.timerHandle=setInterval(()=>{
+    if(S.timerLocked) return;
+    S.timerSecs--;
+    setTimerUI(S.timerSecs,total);
+    if(S.timerSecs<=0){ clearInterval(S.timerHandle); timerExpired(); }
+  },1000);
+}
+
+function setTimerUI(rem,total){
+  const pct=total>0?rem/total*100:0;
+  const bar=document.getElementById('timerBar');
+  const cnt=document.getElementById('timerCount');
+  bar.style.width=pct+'%';
+  if(pct>50){ bar.className='timer-bar'; cnt.className='timer-count'; }
+  else if(pct>25){ bar.className='timer-bar tw'; cnt.className='timer-count tw'; }
+  else { bar.className='timer-bar td'; cnt.className='timer-count td'; }
+  cnt.textContent=rem+'s';
+}
+
+function timerExpired(){
+  const typed=document.getElementById('qInput').value.trim();
+  S.stats.currentAnswers.push(typed||'(timed out)');
+  S.attempts++;
+  if(S.attempts>=2){ revealAns(); return; }
+  document.getElementById('attLeft').textContent='1';
+  showFb('err','⏱ Time\'s up — one attempt remaining!');
+  setTimeout(()=>{ hideFb(); startQTimer(); },1800);
+}
+
+document.getElementById('qInput').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('qSubmit').click(); });
+
+document.getElementById('qSubmit').addEventListener('click',()=>{
+  const raw=document.getElementById('qInput').value.trim();
+  if(!raw) return;
+  clearInterval(S.timerHandle); S.timerLocked=true;
+  S.stats.currentAnswers.push(raw);
+  const q=S.cur.q;
+  if(checkAns(raw,q)){
+    document.getElementById('qInput').className='q-input ok';
+    document.getElementById('qSubmit').disabled=true;
+    const gain=S.cur.hotStart?(S.wager??q.value):q.value;
+    S.dntps+=gain; S.stats.correct++;
+    if(S.cur.hotStart) S.stats.hsWon=true;
+    recordQResult('correct');
+    showFb('ok',`✓ Correct! +${fmt(gain)} dNTPs`+(q.explain?`<br><small style="opacity:.85">${q.explain}</small>`:''));
+    document.getElementById('qNext').style.display='block';
+    updateHud();
+  } else {
+    S.attempts++;
+    if(S.attempts>=2){
+      document.getElementById('qInput').className='q-input err';
+      document.getElementById('qSubmit').disabled=true;
+      revealAns();
+    } else {
+      document.getElementById('qInput').value='';
+      document.getElementById('qInput').className='q-input err';
+      document.getElementById('attLeft').textContent='1';
+      showFb('err','✗ Not quite — one attempt remaining. Try again!');
+      setTimeout(()=>{ hideFb(); document.getElementById('qInput').className='q-input'; document.getElementById('qInput').focus(); startQTimer(); },1700);
+    }
+  }
+});
+
+function revealAns(){
+  const q=S.cur.q;
+  const pen=S.cur.hotStart?Math.round((S.wager??0)*cfg.penaltyMultiplier):Math.round(q.value*cfg.penaltyMultiplier);
+  S.dntps-=pen; S.stats.wrong++;
+  recordQResult('wrong');
+  const penStr=pen>0?` −${fmt(pen)} dNTPs`:'';
+  showFb('rev',`✗ The answer: <strong>${q.answer}</strong>${penStr}`+(q.explain?`<br><small style="opacity:.85">${q.explain}</small>`:''));
+  document.getElementById('qNext').style.display='block';
+  updateHud();
+}
+
+function recordQResult(result){
+  const q=S.cur.q;
+  const cat=cfg.categories.find(c=>c.id===q.category)||{name:q.category};
+  S.stats.questionResults.push({
+    questionId: q.id,
+    category:   cat.name,
+    value:      q.value,
+    clue:       q.clue,
+    correctAnswer: q.answer,
+    result,
+    attempts:   S.stats.currentAnswers.length,
+    playerAnswers: [...S.stats.currentAnswers],
+    hotStart:   !!S.cur.hotStart,
+    wager:      S.cur.hotStart ? (S.wager??null) : null
+  });
+}
+
+function showFb(cls,html){ const el=document.getElementById('qFeedback'); el.className='q-feedback '+cls; el.innerHTML=html; el.style.display='block'; }
+function hideFb(){ document.getElementById('qFeedback').style.display='none'; }
+
+document.getElementById('qNext').addEventListener('click', closeQuestion);
+
+function closeQuestion(){
+  clearInterval(S.timerHandle);
+  document.getElementById('questionOverlay').classList.add('hidden');
+  markPlayed(S.cur.r,S.cur.c);
+  if(allPlayed()) setTimeout(()=>{ cfg.finalEnabled?showFinal():showEnd(); },350);
+}
+
+// ============================================================
+// THE REACTION (Final Jeopardy)
+// ============================================================
+function showFinal(){
+  const fq=cfg.finalQuestion;
+  document.getElementById('finalCatLbl').textContent=fq.category||'The Reaction';
+  document.getElementById('finalWagerDntps').textContent=fmt(S.dntps);
+  const max=Math.max(0,S.dntps);
+  const inp=document.getElementById('finalWagerInput');
+  inp.min=0; inp.max=max;
+  inp.value=Math.min(S.dntps,cfg.rowValues[cfg.rowValues.length-1]||500);
+  document.getElementById('finalWagerHint').textContent=`Wager between 0 and ${fmt(max)} dNTPs`;
+  document.getElementById('finalWagerPhase').style.display='flex';
+  document.getElementById('finalAnswerPhase').classList.remove('show');
+  showScreen('finalScreen');
+}
+
+document.getElementById('finalWagerLock').addEventListener('click',()=>{
+  const inp=document.getElementById('finalWagerInput');
+  let v=parseInt(inp.value); if(isNaN(v)||v<0) v=0; if(v>S.dntps) v=S.dntps;
+  S.stats.finalWager=v;
+  document.getElementById('finalWagerPhase').style.display='none';
+  const fq=cfg.finalQuestion;
+  document.getElementById('finalClue').innerHTML=fq.clue;
+  const fi=document.getElementById('finalInput');
+  fi.value=''; fi.className='q-input'; fi.disabled=false;
+  document.getElementById('finalSubmit').disabled=false;
+  document.getElementById('finalFeedback').style.display='none';
+  document.getElementById('finalFeedback').className='q-feedback';
+  document.getElementById('finalNext').style.display='none';
+  document.getElementById('finalAnswerPhase').classList.add('show');
+  startFinalTimer();
+  setTimeout(()=>fi.focus(),80);
+});
+
+function startFinalTimer(){
+  const total=cfg.timerSeconds*2;
+  S.timerSecs=total; S.timerLocked=false;
+  setFinalTimerUI(total,total);
+  clearInterval(S.timerHandle);
+  S.timerHandle=setInterval(()=>{
+    if(S.timerLocked) return;
+    S.timerSecs--;
+    setFinalTimerUI(S.timerSecs,total);
+    if(S.timerSecs<=0){ clearInterval(S.timerHandle); document.getElementById('finalSubmit').click(); }
+  },1000);
+}
+
+function setFinalTimerUI(rem,total){
+  const pct=total>0?rem/total*100:0;
+  const bar=document.getElementById('fTimerBar');
+  bar.style.width=pct+'%';
+  if(pct>50) bar.className='ftimer-bar';
+  else if(pct>25) bar.className='ftimer-bar tw';
+  else bar.className='ftimer-bar td';
+  document.getElementById('fTimerCount').textContent=rem+'s';
+}
+
+document.getElementById('finalInput').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('finalSubmit').click(); });
+
+document.getElementById('finalSubmit').addEventListener('click',()=>{
+  clearInterval(S.timerHandle); S.timerLocked=true;
+  const raw=document.getElementById('finalInput').value.trim();
+  S.stats.finalAnswer=raw;
+  const fq=cfg.finalQuestion;
+  const ok=raw&&checkAns(raw,fq);
+  const wager=S.stats.finalWager;
+  document.getElementById('finalSubmit').disabled=true;
+  document.getElementById('finalInput').disabled=true;
+  if(ok){
+    S.dntps+=wager; S.stats.finalWon=true;
+    document.getElementById('finalInput').className='q-input ok';
+    const fb=document.getElementById('finalFeedback');
+    fb.className='q-feedback ok';
+    fb.innerHTML=`✓ Correct! +${fmt(wager)} dNTPs`+(fq.explain?`<br><small style="opacity:.85">${fq.explain}</small>`:'');
+    fb.style.display='block';
+  } else {
+    S.dntps-=wager;
+    document.getElementById('finalInput').className='q-input err';
+    const fb=document.getElementById('finalFeedback');
+    fb.className='q-feedback rev';
+    fb.innerHTML=`✗ The answer: <strong>${fq.answer}</strong> −${fmt(wager)} dNTPs`+(fq.explain?`<br><small style="opacity:.85">${fq.explain}</small>`:'');
+    fb.style.display='block';
+  }
+  document.getElementById('finalNext').style.display='block';
+});
+
+document.getElementById('finalNext').addEventListener('click', showEnd);
+
+// ============================================================
+// END SCREEN
+// ============================================================
+function showEnd(){
+  showScreen('endScreen');
+  const met=S.dntps>=cfg.targetDNTPs;
+  document.getElementById('endHeading').textContent=met?'🧬 PCR Ready!':'❌ Reaction Failed';
+  document.getElementById('endNum').textContent=fmt(S.dntps);
+  const res=document.getElementById('endRes');
+  if(met){ res.textContent=`Target of ${fmt(cfg.targetDNTPs)} dNTPs reached!`; res.className='res ok'; }
+  else { res.textContent=`${fmt(cfg.targetDNTPs-S.dntps)} dNTPs short of target.`; res.className='res fail'; }
+  const rows=[
+    ['Player', S.playerName],
+    ['Correct', S.stats.correct],
+    ['Wrong', S.stats.wrong],
+    ['Hot Start', cfg.hotStartCount>0?(S.stats.hsWon?'✓ Won':'✗ Lost'):'N/A'],
+    ['The Reaction', cfg.finalEnabled?(S.stats.finalWon?`✓ +${fmt(S.stats.finalWager)}`:`✗ −${fmt(S.stats.finalWager)}`):'Disabled'],
+    ['Target', fmt(cfg.targetDNTPs)+' dNTPs'],
+    ['Penalty', cfg.penaltyMultiplier===0?'None':(cfg.penaltyMultiplier*100)+'%']
+  ];
+  document.getElementById('endBd').innerHTML=rows.map(([k,v])=>
+    `<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`
+  ).join('');
+  saveScore();
+}
+
+// ============================================================
+// SCORE PERSISTENCE
+// ============================================================
+function saveScore(){
+  const rec={
+    playerName:   S.playerName,
+    date:         new Date().toISOString(),
+    finalDNTPs:   S.dntps,
+    targetDNTPs:  cfg.targetDNTPs,
+    targetMet:    S.dntps>=cfg.targetDNTPs,
+    correct:      S.stats.correct,
+    wrong:        S.stats.wrong,
+    hotStart:     { won: S.stats.hsWon },
+    finalReaction: cfg.finalEnabled ? {
+      wagered:     S.stats.finalWager,
+      won:         S.stats.finalWon,
+      playerAnswer:S.stats.finalAnswer
+    } : null,
+    questionResults: S.stats.questionResults
+  };
+  S.lastRecord = rec;
+  try {
+    const arr=JSON.parse(localStorage.getItem('pcr_jeopardy_scores')||'[]');
+    arr.push(rec);
+    localStorage.setItem('pcr_jeopardy_scores',JSON.stringify(arr));
+  } catch {}
+  autoSubmitScore(rec);
+}
+
+async function autoSubmitScore(rec){
+  const el=document.getElementById('submitStatus');
+  if(!SCORE_WORKER_URL){
+    if(el){ el.textContent='Auto-submit not configured — use Export Score below.'; el.style.color='var(--muted)'; }
+    return;
+  }
+  if(el){ el.textContent='Submitting score…'; el.style.color='var(--muted)'; }
+  try {
+    const r = await fetch(SCORE_WORKER_URL, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify(rec),
+    });
+    const json = await r.json().catch(()=>({ok:false}));
+    if(json.ok){
+      if(el){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
+    } else {
+      console.error('Score submission failed', json);
+      if(el){ el.textContent=`Score saved locally (HTTP ${json.status||r.status} — see console).`; el.style.color='var(--warn)'; }
+    }
+  } catch(e) {
+    console.error('Score submission error', e);
+    if(el){ el.textContent='Score saved locally (no network).'; el.style.color='var(--warn)'; }
+  }
+}
+
+document.getElementById('btnExport').addEventListener('click',()=>{
+  try {
+    if(!S.lastRecord){ toast('No score to export.'); return; }
+    const safeName = S.lastRecord.playerName.replace(/[^a-z0-9]/gi,'_');
+    const safeDate = S.lastRecord.date.slice(0,19).replace(/[:T]/g,'-');
+    const blob=new Blob([JSON.stringify(S.lastRecord,null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`jeopardy_${safeName}_${safeDate}.json`;
+    a.click();
+    toast('Score exported! Give this file to your instructor.');
+  } catch { toast('Export failed.'); }
+});
+
+document.getElementById('btnAgain').addEventListener('click',()=>{
+  document.getElementById('nameInput').value='';
+  document.getElementById('btnStart').disabled=true;
+  showScreen('nameScreen');
+});
+
+document.getElementById('hudMenuBtn').addEventListener('click',()=>{
+  if(!confirm('Leave the game? Your current score will not be saved.')) return;
+  clearInterval(S.timerHandle);
+  document.getElementById('questionOverlay').classList.add('hidden');
+  document.getElementById('wagerOverlay').classList.add('hidden');
+  document.getElementById('nameInput').value='';
+  document.getElementById('btnStart').disabled=true;
+  showScreen('nameScreen');
+});
+
+// ============================================================
+// GO
+// ============================================================
+init();
+</script>
+</body>
+</html>
