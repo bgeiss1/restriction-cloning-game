@@ -227,6 +227,7 @@ input[type=color] { background: none; border: 1px solid var(--border); border-ra
     <h1>🎙️ Jeopardy! PCR — Editor</h1>
     <div id="topbar-right">
       <span id="dirty" class="hidden">● Unsaved changes</span>
+      <button class="btn-secondary" onclick="loadBuiltins()">↩ Load built-ins</button>
       <button class="btn-secondary" onclick="downloadJSON()">⬇ Download</button>
       <button class="btn-secondary" onclick="openFile()">📂 Open JSON</button>
       <button class="btn-publish" id="publish-btn" onclick="publishToGitHub()">💾 Save to GitHub</button>
@@ -319,6 +320,63 @@ const DEFAULT_DB = {
   questions: [],
   finalQuestion: { category:"The Reaction", clue:"", answer:"", acceptedAnswers:[], exactMatch:false, explain:"" }
 };
+
+// Built-in question bank — mirrors DEFAULT_CFG in pcr_jeopardy.html
+const BUILTIN_CFG = {
+  categories: [
+    { id:"cat_primers",   name:"Primers" },
+    { id:"cat_steps",     name:"PCR Steps" },
+    { id:"cat_reagents",  name:"Reagents" },
+    { id:"cat_calc",      name:"Calculations" },
+    { id:"cat_trouble",   name:"Troubleshoot" }
+  ],
+  questions: [
+    { id:"q1",  category:"cat_primers",  value:100, clue:"Short single-stranded DNA sequences that define where DNA polymerase begins synthesis.", answer:"primers", acceptedAnswers:["primer"], exactMatch:false, explain:"Primers (~18–22 nt) anneal to template DNA and provide a 3'-OH for extension." },
+    { id:"q2",  category:"cat_primers",  value:200, clue:"In the basic Tm formula (4°C × G/C + 2°C × A/T), GC pairs contribute more because they form this many hydrogen bonds.", answer:"three", acceptedAnswers:["3","3 hydrogen bonds"], exactMatch:false, explain:"G-C pairs form 3 hydrogen bonds vs. 2 for A-T, making them more stable and raising Tm." },
+    { id:"q3",  category:"cat_primers",  value:300, clue:"A hairpin forms when a primer has complementary sequences at its 5' and 3' ends, folding back on itself into this structure.", answer:"stem loop", acceptedAnswers:["hairpin","stem-loop"], exactMatch:false, explain:"Stem-loop structures reduce primer availability and can inhibit PCR or cause mispriming." },
+    { id:"q4",  category:"cat_primers",  value:400, clue:"Primer pairs with Tm values differing by more than 5°C may cause this outcome at a shared annealing temperature.", answer:"unequal amplification", acceptedAnswers:["poor amplification","one primer anneals poorly","asymmetric amplification"], exactMatch:false, explain:"When Tm values differ >5°C, the lower-Tm primer may not bind well at the higher annealing temperature." },
+    { id:"q5",  category:"cat_primers",  value:500, clue:"This artifact occurs when primers anneal to each other rather than the template, consuming primer and reducing yield.", answer:"primer dimer", acceptedAnswers:["primer-dimer","dimer"], exactMatch:false, explain:"Primer dimers form via complementary 3' ends and are amplified by Taq, appearing as a small band near the bottom of a gel." },
+    { id:"q6",  category:"cat_steps",    value:100, clue:"The PCR step at ~95°C that separates double-stranded DNA into single strands.", answer:"denaturation", acceptedAnswers:["denaturing","melting"], exactMatch:false, explain:"Denaturation breaks hydrogen bonds between complementary bases, producing single-stranded templates." },
+    { id:"q7",  category:"cat_steps",    value:200, clue:"The PCR step where primers bind to their complementary sequences on single-stranded template.", answer:"annealing", acceptedAnswers:["primer annealing"], exactMatch:false, explain:"Annealing occurs 5°C below the primer Tm, typically 50–65°C, allowing specific primer binding." },
+    { id:"q8",  category:"cat_steps",    value:300, clue:"Extension time per kilobase of product for Taq polymerase (in minutes).", answer:"1", acceptedAnswers:["one","1 minute","~1 min"], exactMatch:true, explain:"Taq extends at ~1 min/kb at 72°C; High-fidelity polymerases are often slower (~2 min/kb)." },
+    { id:"q9",  category:"cat_steps",    value:400, clue:"Typical number of PCR cycles for routine amplification from genomic DNA.", answer:"30", acceptedAnswers:["30 cycles","25 to 35","25-35"], exactMatch:false, explain:"25–35 cycles amplify a single copy ~10⁷–10¹⁰ fold; exceeding 35 cycles increases non-specific bands." },
+    { id:"q10", category:"cat_steps",    value:500, clue:"The optional final step (5–10 min at 72°C) ensures all partial extension products are fully completed.", answer:"final extension", acceptedAnswers:["final elongation","extension"], exactMatch:false, explain:"The final extension fills in any incomplete strands before storage." },
+    { id:"q11", category:"cat_reagents", value:100, clue:"The four nucleotide building blocks incorporated by DNA polymerase during PCR extension.", answer:"dNTPs", acceptedAnswers:["dntp","deoxyribonucleotides","deoxynucleotide triphosphates"], exactMatch:false, explain:"dNTPs (dATP, dCTP, dGTP, dTTP) provide the nucleotides for new strand synthesis." },
+    { id:"q12", category:"cat_reagents", value:200, clue:"Thermostable DNA polymerase originally isolated from Thermus aquaticus, the workhorse of PCR.", answer:"Taq polymerase", acceptedAnswers:["taq","taq DNA polymerase"], exactMatch:false, explain:"Taq survives repeated 95°C denaturation; it lacks 3'→5' proofreading and adds A-overhangs." },
+    { id:"q13", category:"cat_reagents", value:300, clue:"The divalent cation cofactor required by all thermostable polymerases; typical concentration in PCR is 1.5–2.5 mM.", answer:"magnesium", acceptedAnswers:["mg2+","mg","magnesium ions","mgcl2","magnesium chloride"], exactMatch:false, explain:"Mg²⁺ is essential for polymerase catalysis and primer annealing; too much or too little reduces specificity." },
+    { id:"q14", category:"cat_reagents", value:400, clue:"Typical concentration of each dNTP in a standard PCR reaction.", answer:"200 micromolar", acceptedAnswers:["200 uM","200µM","0.2 mM","200 μM"], exactMatch:false, explain:"200 µM per dNTP is standard; higher concentrations can inhibit Taq by chelating Mg²⁺." },
+    { id:"q15", category:"cat_reagents", value:500, clue:"These reagents — antibodies, aptamers, or chemical modifications — block polymerase activity below ~60°C to improve specificity.", answer:"hot start reagents", acceptedAnswers:["hot start","hot start antibody","hot-start"], exactMatch:false, explain:"Hot-start strategies prevent extension at room temperature, reducing primer dimers and non-specific bands." },
+    { id:"q16", category:"cat_calc",     value:100, clue:"After 10 PCR cycles starting from a single template copy, the theoretical number of copies produced.", answer:"1024", acceptedAnswers:["1,024","2^10"], exactMatch:true, explain:"PCR doubles copies each cycle: 2¹⁰ = 1024." },
+    { id:"q17", category:"cat_calc",     value:200, clue:"If PCR efficiency is 95%, each cycle multiplies copies by this decimal value.", answer:"1.95", acceptedAnswers:["1.95x"], exactMatch:true, explain:"Efficiency E means each cycle multiplies by (1 + E/100); 95% → 1.95." },
+    { id:"q18", category:"cat_calc",     value:300, clue:"Average molecular weight of one base pair in daltons, used in DNA copy number calculations.", answer:"660", acceptedAnswers:["660 g/mol","660 da","660 daltons"], exactMatch:true, explain:"Each bp ~660 Da; divide DNA mass (in g) by (bp count × 660) to get moles, then multiply by Avogadro's number." },
+    { id:"q19", category:"cat_calc",     value:400, clue:"A standard curve slope of −3.32 in qPCR corresponds to this PCR efficiency (in %).", answer:"100", acceptedAnswers:["100%","~100%","approximately 100"], exactMatch:true, explain:"Efficiency = (10^(−1/slope) − 1) × 100; slope −3.322 = 100% efficiency." },
+    { id:"q20", category:"cat_calc",     value:500, clue:"In a serial dilution standard curve, each 10-fold dilution step should shift the Ct by approximately this many cycles at 100% efficiency.", answer:"3.32", acceptedAnswers:["3.3","~3.32","3.32 cycles"], exactMatch:true, explain:"log₂(10) ≈ 3.32 cycles per decade; this is the mathematical basis for the −3.32 slope at perfect efficiency." },
+    { id:"q21", category:"cat_trouble",  value:100, clue:"Multiple non-specific bands on a gel suggest the annealing temperature should be adjusted in this direction.", answer:"higher", acceptedAnswers:["increase","raised","up","increase temperature"], exactMatch:false, explain:"Raising the annealing temperature increases primer specificity, eliminating non-target bands." },
+    { id:"q22", category:"cat_trouble",  value:200, clue:"A smear on an agarose gel rather than a distinct band usually indicates too many of these.", answer:"cycles", acceptedAnswers:["too many cycles","pcr cycles"], exactMatch:false, explain:"Over-cycling causes re-amplification of non-specific products, creating a continuous smear." },
+    { id:"q23", category:"cat_trouble",  value:300, clue:"Heme in whole blood inhibits Taq polymerase; a common fix is to add BSA or dilute the sample. The underlying problem is called PCR ____.", answer:"inhibition", acceptedAnswers:["pcr inhibition","taq inhibition"], exactMatch:false, explain:"Blood, soil, and clinical samples often contain PCR inhibitors; dilution, BSA, or specialized extraction kits help." },
+    { id:"q24", category:"cat_trouble",  value:400, clue:"No band at all despite good template quality most often indicates a problem with this component of the master mix.", answer:"primers", acceptedAnswers:["primer","primer design"], exactMatch:false, explain:"Degraded, misprimed, or incorrectly designed primers are the most common cause of no-amplification failures." },
+    { id:"q25", category:"cat_trouble",  value:500, clue:"Amplicon contamination producing false positives in subsequent runs is called this type of contamination.", answer:"carryover", acceptedAnswers:["carryover contamination","amplicon contamination","carry-over"], exactMatch:false, explain:"Carryover contamination is prevented by physical separation of pre/post-PCR areas, UV decontamination, and UNG treatment." }
+  ],
+  finalQuestion: {
+    category: "The Reaction",
+    clue: "In real-time PCR, this value — the cycle number at which fluorescence crosses the threshold — is used to quantify starting template amount.",
+    answer: "Ct",
+    acceptedAnswers:["Cq","cycle threshold","threshold cycle","crossing threshold","Ct value","Cq value"],
+    exactMatch: false,
+    explain: "Ct (or Cq) is inversely proportional to log₂(initial template); a Ct difference of ~3.32 represents a 10-fold difference in starting quantity."
+  }
+};
+
+function loadBuiltins() {
+  if (db.questions.length > 0 || db.categories.length > 0) {
+    if (!confirm('This will replace all current categories and questions with the built-in defaults. Continue?')) return;
+  }
+  db.categories    = JSON.parse(JSON.stringify(BUILTIN_CFG.categories));
+  db.questions     = JSON.parse(JSON.stringify(BUILTIN_CFG.questions));
+  db.finalQuestion = JSON.parse(JSON.stringify(BUILTIN_CFG.finalQuestion));
+  markDirty();
+  selectTab(currentTab || 'questions');
+}
 
 function ensureStructure() {
   db = Object.assign({}, DEFAULT_DB, db);
