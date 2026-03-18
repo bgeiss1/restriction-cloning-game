@@ -1093,11 +1093,15 @@ async function autoSubmitScore(rec){
       },
       body: JSON.stringify({ message:`Score: ${rec.playerName} ${rec.date.slice(0,10)}`, content })
     });
-    if(el){
-      if(r.ok){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
-      else    { el.textContent='Score saved locally (submission failed).'; el.style.color='var(--warn)'; }
+    if(r.ok){
+      if(el){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
+    } else {
+      const errText = await r.text().catch(()=>'');
+      console.error('Score submission failed', r.status, errText);
+      if(el){ el.textContent=`Score saved locally (HTTP ${r.status} — see console for details).`; el.style.color='var(--warn)'; }
     }
-  } catch {
+  } catch(e) {
+    console.error('Score submission error', e);
     if(el){ el.textContent='Score saved locally (no network).'; el.style.color='var(--warn)'; }
   }
 }
