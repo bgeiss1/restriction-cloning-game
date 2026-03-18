@@ -1,0 +1,15 @@
+{
+  "title": "PCR Jeopardy",
+  "targetDNTPs": 1000,
+  "penaltyMultiplier": 1.0,
+  "hotStartCount": 1,
+  "finalEnabled": true,
+  "allowSkipFinal": false,
+  "boardCols": 5,
+  "boardRows": 5,
+  "rowValues": [100, 200, 300, 400, 500],
+  "timerSeconds": 30,
+  "categories": [],
+  "questions": [],
+  "finalQuestion": null
+}
