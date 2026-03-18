@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCR Part 3 — Question Editor</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #111c15;
+  --bg-mid:   #1a2e1e;
+  --bg-card:  #1f3525;
+  --bg-input: #0e1710;
+  --green:    #1E4D2B;
+  --gold:     #C8A951;
+  --gold-lt:  #e0c060;
+  --text:     #e8f5e9;
+  --muted:    #a8c5a0;
+  --success:  #66BB6A;
+  --warn:     #FFA726;
+  --danger:   #EF5350;
+  --border:   rgba(200,169,81,0.25);
+  --radius:   7px;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif; font-size: 14px; overflow: hidden; }
+
+/* ── TOP BAR ── */
+#topbar {
+  height: 48px; background: var(--bg-mid); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; flex-shrink: 0; gap: 12px;
+}
+#topbar h1 { font-size: 1.05rem; color: var(--gold); white-space: nowrap; }
+#topbar-right { display: flex; align-items: center; gap: 8px; }
+#dirty { color: var(--warn); font-size: 0.82rem; font-weight: 600; }
+#dirty.hidden { display: none; }
+
+/* ── LAYOUT ── */
+#app { display: flex; flex-direction: column; height: 100vh; }
+#body { display: flex; flex: 1; overflow: hidden; }
+
+/* ── SIDEBAR ── */
+#sidebar {
+  width: 210px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-right: 1px solid var(--border); background: var(--bg-mid); overflow: hidden;
+}
+.sidebar-section-label {
+  padding: 10px 12px 4px; font-size: 0.7rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+}
+.task-btn {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; cursor: pointer;
+  border-bottom: 1px solid rgba(200,169,81,0.08);
+  transition: background 0.12s;
+}
+.task-btn:hover { background: rgba(200,169,81,0.07); }
+.task-btn.active { background: rgba(200,169,81,0.14); }
+.task-btn-icon { font-size: 1.1rem; flex-shrink: 0; }
+.task-btn-info { flex: 1; min-width: 0; }
+.task-btn-name { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.task-btn-count { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
+.task-btn.active .task-btn-count { color: var(--gold); }
+.sidebar-footer {
+  margin-top: auto; padding: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── MAIN ── */
+#main { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 20px; }
+.empty-state { margin: auto; text-align: center; color: var(--muted); font-size: 0.95rem; line-height: 2; }
+
+/* ── SECTION (collapsible) ── */
+.section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.section-title {
+  padding: 10px 16px; background: var(--green); font-size: 0.8rem;
+  font-weight: 700; letter-spacing: 0.05em; color: var(--gold); text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between;
+  cursor: pointer; user-select: none;
+}
+.section-title:hover { background: #245c34; }
+.section-chevron { font-size: 0.75rem; color: var(--muted); transition: transform 0.15s;
+  margin-left: 6px; display: inline-block; }
+.section.collapsed .section-chevron { transform: rotate(-90deg); }
+.section.collapsed .section-body { display: none; }
+.section-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+
+/* ── TASK HEADER ── */
+.task-header { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; }
+.task-header h2 { font-size: 1rem; color: var(--gold); margin-bottom: 4px; }
+.task-header p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+
+/* ── BUILT-IN QUESTION CARDS (read-only) ── */
+.builtin-q {
+  background: rgba(0,0,0,0.2); border: 1px solid rgba(200,169,81,0.12);
+  border-radius: var(--radius); padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;
+}
+.builtin-q-label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--muted); }
+.builtin-q-text { font-size: 0.85rem; color: var(--text); line-height: 1.5; }
+.builtin-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 2px; }
+.builtin-choice { font-size: 0.8rem; color: var(--muted); padding: 4px 8px;
+  border-radius: 4px; border: 1px solid rgba(255,255,255,0.07); }
+.builtin-choice.correct { color: var(--success); border-color: rgba(102,187,106,0.3);
+  background: rgba(102,187,106,0.08); }
+.builtin-explain { font-size: 0.78rem; color: var(--muted); font-style: italic;
+  padding: 6px 8px; background: rgba(0,0,0,0.15); border-radius: 4px; line-height: 1.5; }
+
+/* ── CUSTOM QUESTION CARDS ── */
+.cq-card {
+  background: rgba(0,0,0,0.2); border: 1.5px solid var(--border);
+  border-radius: var(--radius); display: flex; flex-direction: column;
+}
+.cq-card-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  cursor: pointer; user-select: none;
+}
+.cq-card-header:hover { background: rgba(255,255,255,0.03); }
+.cq-num { font-size: 0.72rem; font-weight: 700; color: var(--gold);
+  background: rgba(200,169,81,0.12); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1px 8px; flex-shrink: 0; }
+.cq-preview { flex: 1; font-size: 0.85rem; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cq-toggle { display: flex; align-items: center; gap: 5px;
+  font-size: 0.78rem; color: var(--muted); cursor: pointer; flex-shrink: 0; }
+.cq-toggle input { accent-color: var(--gold); cursor: pointer; }
+.cq-chevron { font-size: 0.7rem; color: var(--muted); flex-shrink: 0;
+  transition: transform 0.15s; display: inline-block; }
+.cq-card.open .cq-chevron { transform: rotate(180deg); }
+.cq-body {
+  display: none; flex-direction: column; gap: 12px;
+  padding: 14px 16px; border-top: 1px solid var(--border);
+}
+.cq-card.open .cq-body { display: flex; }
+
+/* ── FORM ELEMENTS ── */
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field.grow { flex: 1; min-width: 120px; }
+.field.full { width: 100%; }
+.field-row { display: flex; gap: 10px; flex-wrap: wrap; }
+label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+input[type=text], select, textarea {
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.88rem; padding: 7px 10px; font-family: inherit; width: 100%;
+}
+input[type=text]:focus, select:focus, textarea:focus { outline: none; border-color: var(--gold); }
+textarea { resize: vertical; min-height: 68px; line-height: 1.5; }
+.hint-text { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+/* ── CHOICES GRID ── */
+.choices-grid { display: flex; flex-direction: column; gap: 6px; }
+.choice-row { display: flex; align-items: center; gap: 8px; }
+.choice-row input[type=radio] { accent-color: var(--success); cursor: pointer; flex-shrink: 0; width: 16px; height: 16px; }
+.choice-row input[type=text] { flex: 1; }
+.choice-label { font-size: 0.78rem; font-weight: 700; color: var(--gold); min-width: 16px; flex-shrink: 0; }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  padding: 7px 16px; border-radius: var(--radius);
+  background: var(--gold); color: #1a1a00; font-size: 0.88rem; font-weight: 700;
+  border: none; cursor: pointer; white-space: nowrap;
+}
+.btn-primary:hover { background: var(--gold-lt); }
+.btn-secondary {
+  padding: 7px 14px; border-radius: var(--radius);
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); font-size: 0.88rem; cursor: pointer; white-space: nowrap;
+}
+.btn-secondary:hover { border-color: var(--gold); color: var(--gold-lt); }
+.btn-publish {
+  padding: 7px 14px; border-radius: var(--radius);
+  background: rgba(102,187,106,0.18); border: 1.5px solid rgba(102,187,106,0.5);
+  color: var(--success); font-size: 0.88rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.btn-publish:hover { background: rgba(102,187,106,0.32); }
+.btn-publish:disabled { opacity: 0.45; cursor: default; }
+.btn-small {
+  padding: 4px 11px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: rgba(200,169,81,0.1);
+  color: var(--gold); font-size: 0.8rem; cursor: pointer; white-space: nowrap;
+}
+.btn-small:hover { background: rgba(200,169,81,0.22); }
+.btn-danger {
+  padding: 4px 10px; border-radius: var(--radius);
+  background: rgba(239,83,80,0.1); border: 1px solid rgba(239,83,80,0.28);
+  color: var(--danger); font-size: 0.8rem; cursor: pointer; white-space: nowrap;
+}
+.btn-danger:hover { background: rgba(239,83,80,0.25); }
+
+/* ── CONNECT OVERLAY ── */
+#connect-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: center; background: var(--bg);
+}
+#connect-overlay.hidden { display: none; }
+#connect-box {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 36px 40px; width: 400px; display: flex; flex-direction: column; gap: 16px;
+}
+#connect-box h1 { font-size: 1.4rem; color: var(--gold); }
+#connect-box p  { color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
+#connect-box input[type=password] {
+  width: 100%; padding: 9px 12px;
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius);
+  color: var(--text); font-size: 0.95rem;
+}
+#connect-box input[type=password]:focus { outline: none; border-color: var(--gold); }
+#connect-error { color: var(--danger); font-size: 0.85rem; min-height: 1.2em; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(200,169,81,0.25); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ── CONNECT OVERLAY ── -->
+<div id="connect-overlay" class="hidden">
+  <div id="connect-box">
+    <h1>📊 PCR Part 3 — Question Editor</h1>
+    <p>Enter your GitHub Personal Access Token to load and publish custom questions.<br>
+       The token needs <strong>repo</strong> (Contents read &amp; write) scope.</p>
+    <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
+    <div id="connect-error"></div>
+    <button class="btn-primary" id="connect-btn">Connect</button>
+  </div>
+</div>
+
+<div id="app">
+
+  <!-- ── TOP BAR ── -->
+  <div id="topbar">
+    <h1>📊 PCR Part 3 — Question Editor</h1>
+    <div id="topbar-right">
+      <span id="dirty" class="hidden">● Unsaved changes</span>
+      <button class="btn-secondary" onclick="downloadJSON()">⬇ Download</button>
+      <button class="btn-secondary" onclick="openFile()">📂 Open JSON</button>
+      <button class="btn-publish" id="publish-btn" onclick="publishToGitHub()">💾 Save to GitHub</button>
+      <a href="index.html" style="text-decoration:none;">
+        <button class="btn-secondary">← Menu</button>
+      </a>
+    </div>
+  </div>
+
+  <div id="body">
+
+    <!-- ── SIDEBAR ── -->
+    <div id="sidebar">
+      <div class="sidebar-section-label">Parts</div>
+      <div class="task-btn active" id="tab-task1" onclick="selectTask(1)">
+        <div class="task-btn-icon">📈</div>
+        <div class="task-btn-info">
+          <div class="task-btn-name">Task 1</div>
+          <div class="task-btn-count" id="count-task1">Amplification Simulator</div>
+        </div>
+      </div>
+      <div class="task-btn" id="tab-task2" onclick="selectTask(2)">
+        <div class="task-btn-icon">📉</div>
+        <div class="task-btn-info">
+          <div class="task-btn-name">Task 2</div>
+          <div class="task-btn-count" id="count-task2">Standard Curve</div>
+        </div>
+      </div>
+      <div class="task-btn" id="tab-task3" onclick="selectTask(3)">
+        <div class="task-btn-icon">🧮</div>
+        <div class="task-btn-info">
+          <div class="task-btn-name">Task 3</div>
+          <div class="task-btn-count" id="count-task3">Copy Number Calc</div>
+        </div>
+      </div>
+      <div class="sidebar-footer">
+        <div style="font-size:0.75rem;color:var(--muted);line-height:1.7;">
+          Custom questions are mixed with the built-in pool.<br>
+          The game randomly selects from all enabled questions.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MAIN PANEL ── -->
+    <div id="main">
+      <div class="empty-state" id="emptyState">
+        <p>📊</p>
+        <p>Select a task in the sidebar to view<br>and edit its custom questions.</p>
+      </div>
+      <div id="taskView" style="display:none;"></div>
+    </div>
+
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept=".json" style="display:none" onchange="handleFileLoad(event)">
+
+<script>
+// ══════════════════════════════════════════════════
+//  GITHUB CONFIG
+// ══════════════════════════════════════════════════
+const GITHUB_REPO = 'bgeiss1/restriction-cloning-game';
+const QS_FILE     = 'pcr_p3_questions.json';
+const GITHUB_API  = `https://api.github.com/repos/${GITHUB_REPO}/contents/${QS_FILE}`;
+
+// ══════════════════════════════════════════════════
+//  BUILT-IN QUESTION REFERENCE DATA
+// ══════════════════════════════════════════════════
+const BUILTIN = {
+  task1: [
+    { q: 'Set the simulator to <strong>100% efficiency</strong> and <strong>30 cycles</strong>. Starting from 10 copies, approximately how many copies are produced?',
+      choices: ['~10⁶ copies','~10⁸ copies','~10¹⁰ copies','~10¹² copies'], correct: 2,
+      explain: '10 × 2³⁰ ≈ 1.07 × 10¹⁰. At 100% efficiency every template is copied each cycle, so copy number doubles perfectly.' },
+    { q: 'Keep cycles at 30 and drop efficiency to <strong>80%</strong>. Compared to 100% efficiency, the final yield is approximately:',
+      choices: ['~80% as much','~50% as much','~4% as much','~0.04% as much'], correct: 2,
+      explain: '(1.8/2.0)³⁰ = 0.9³⁰ ≈ 0.042. Only ~4%! Small efficiency losses are amplified exponentially over many cycles.' }
+  ],
+  task2: [
+    { q: 'The standard curve has a slope of <strong>−3.46</strong>. Using the formula E = 10<sup>−1/slope</sup> − 1, what is the PCR efficiency?',
+      choices: ['~75%','~85%','~95%','~100%'], correct: 2,
+      explain: 'E = 10^(−1/−3.46) − 1 = 10^(0.289) − 1 ≈ 1.944 − 1 = 0.944, so ~94%.' },
+    { q: '<strong>Sample A</strong> gives Ct = 33.1. Using the standard curve (slope = −3.46, intercept = 40), approximately how many copies does it contain?',
+      choices: ['~10 copies','~100 copies','~1,000 copies','~10,000 copies'], correct: 1,
+      explain: 'log₁₀(N) = (40 − 33.1) / 3.46 ≈ 2.0, so N = 10² = 100 copies.' },
+    { q: '<strong>Sample B</strong> gives Ct = 26.2. How many copies does it contain?',
+      choices: ['~100 copies','~1,000 copies','~10,000 copies','~100,000 copies'], correct: 2,
+      explain: 'log₁₀(N) = (40 − 26.2) / 3.46 ≈ 4.0, so N = 10⁴ = 10,000 copies.' },
+    { q: 'A student repeats the experiment and obtains R² = 0.94. What does this most likely indicate?',
+      choices: ['PCR efficiency improved','Copy number estimates will be more precise','Significant data scatter — copy number estimates will be unreliable','The slope became steeper, meaning more copies'],
+      correct: 2,
+      explain: 'For reliable qPCR quantification, R² ≥ 0.99 is typically required. R² = 0.94 suggests pipetting errors, inhibitors, or poor dilutions.' }
+  ],
+  task3: [
+    { step: 'Step 1 — Copies in the PCR reaction', hint: 'log₁₀(N) = (intercept − Ct) / |slope|',
+      q: 'Using the standard curve (slope = −3.32, intercept = 40) and sample Ct of <strong>33.36</strong>, how many copies are in the PCR reaction?',
+      choices: ['10 copies','100 copies','1,000 copies','10,000 copies'], correct: 1,
+      explain: 'log₁₀(N) = (40 − 33.36) / 3.32 = 2.00 → N = 10² = 100 copies.' },
+    { step: 'Step 2 — Copies per µL of DNA extract', hint: 'copies in reaction ÷ template volume used',
+      q: 'The reaction contained <strong>2 µL</strong> of DNA extract. How many copies are there per µL of extract?',
+      choices: ['2 copies/µL','10 copies/µL','50 copies/µL','200 copies/µL'], correct: 2,
+      explain: '100 copies ÷ 2 µL = 50 copies/µL.' },
+    { step: 'Step 3 — Total copies in the DNA extract', hint: 'copies per µL × total extract volume',
+      q: 'The DNA was eluted into <strong>100 µL</strong> total. How many copies are in the entire extract?',
+      choices: ['500 copies','5,000 copies','50,000 copies','500,000 copies'], correct: 1,
+      explain: '50 copies/µL × 100 µL = 5,000 copies.' },
+    { step: 'Step 4 — Viral load per mL of plasma', hint: 'total copies ÷ original sample volume (convert µL → mL)',
+      q: 'The DNA was extracted from <strong>200 µL of plasma</strong>. What is the viral load in copies per mL?',
+      choices: ['1,000 copies/mL','5,000 copies/mL','25,000 copies/mL','250,000 copies/mL'], correct: 2,
+      explain: '200 µL = 0.2 mL. 5,000 copies ÷ 0.2 mL = 25,000 copies/mL.' }
+  ]
+};
+
+const TASK_META = {
+  1: { icon: '📈', title: 'Task 1 — PCR Amplification Simulator',
+       desc: 'Students use interactive sliders to explore how cycles and efficiency affect copy number, then answer 2 questions. The game randomly draws <strong>2 questions</strong> from the combined pool per session.',
+       key: 'task1', hasStep: false },
+  2: { icon: '📉', title: 'Task 2 — Standard Curve Analysis',
+       desc: 'Students analyze a fixed qPCR standard curve to calculate efficiency and quantify unknowns. The game randomly draws <strong>4 questions</strong> from the combined pool per session.',
+       key: 'task2', hasStep: false },
+  3: { icon: '🧮', title: 'Task 3 — Copy Number Calculation',
+       desc: 'Students work through a 4-step viral load calculation. The game randomly draws <strong>4 questions</strong> from the combined pool per session. <em>Step label</em> and <em>hint formula</em> are shown above each question in the game.',
+       key: 'task3', hasStep: true }
+};
+
+// ══════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════
+let db = { task1: [], task2: [], task3: [] };
+let dirty = false;
+let currentTask = 1;
+let currentSha = '';
+
+// ══════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  const onGHPages = location.hostname.endsWith('github.io');
+  const savedPat  = sessionStorage.getItem('pcr_p3_editor_pat');
+
+  if (onGHPages) {
+    if (savedPat) {
+      await connectWithPat(savedPat, true);
+    } else {
+      showConnectOverlay();
+    }
+  } else {
+    // local dev: try fetch, fall back to empty
+    try {
+      const resp = await fetch(QS_FILE + '?t=' + Date.now());
+      if (resp.ok) { db = await resp.json(); }
+    } catch {}
+    ensureStructure();
+    if (savedPat) {
+      document.getElementById('publish-btn').style.display = '';
+    }
+    selectTask(1);
+  }
+
+  document.getElementById('connect-btn').addEventListener('click', async () => {
+    const pat = document.getElementById('pat-input').value.trim();
+    if (!pat) { document.getElementById('connect-error').textContent = 'Please enter a PAT.'; return; }
+    const btn = document.getElementById('connect-btn');
+    btn.disabled = true; btn.textContent = 'Connecting…';
+    document.getElementById('connect-error').textContent = '';
+    await connectWithPat(pat, false);
+    btn.disabled = false; btn.textContent = 'Connect';
+  });
+  document.getElementById('pat-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('connect-btn').click();
+  });
+});
+
+function ensureStructure() {
+  if (!db.task1) db.task1 = [];
+  if (!db.task2) db.task2 = [];
+  if (!db.task3) db.task3 = [];
+}
+
+function showConnectOverlay() {
+  document.getElementById('connect-overlay').classList.remove('hidden');
+}
+
+async function connectWithPat(pat, silent) {
+  try {
+    const data = await githubGet(pat);
+    sessionStorage.setItem('pcr_p3_editor_pat', pat);
+    currentSha = data.sha;
+    db = JSON.parse(b64decode(data.content));
+    ensureStructure();
+    document.getElementById('connect-overlay').classList.add('hidden');
+    document.getElementById('publish-btn').style.display = '';
+    dirty = false;
+    updateDirty();
+    selectTask(currentTask);
+  } catch (err) {
+    if (silent) {
+      sessionStorage.removeItem('pcr_p3_editor_pat');
+      ensureStructure();
+      selectTask(1);
+      if (location.hostname.endsWith('github.io')) showConnectOverlay();
+    } else {
+      document.getElementById('connect-error').textContent = 'Error: ' + err.message;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  GITHUB API
+// ══════════════════════════════════════════════════
+function b64decode(str) { return decodeURIComponent(escape(atob(str.replace(/\n/g,'')))); }
+
+async function githubGet(pat) {
+  const resp = await fetch(GITHUB_API, {
+    cache: 'no-store',
+    headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json' }
+  });
+  if (!resp.ok) throw new Error(`GitHub ${resp.status}: ${(await resp.text()).slice(0,200)}`);
+  return resp.json();
+}
+
+async function githubPut(pat, contentStr, message) {
+  let sha = '';
+  try { const ex = await githubGet(pat); sha = ex.sha; } catch {}
+  const content = btoa(unescape(encodeURIComponent(contentStr)));
+  const body = { message, content };
+  if (sha) body.sha = sha;
+  const resp = await fetch(GITHUB_API, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `token ${pat}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) throw new Error(await resp.text());
+  return resp.json();
+}
+
+async function publishToGitHub() {
+  const pat = sessionStorage.getItem('pcr_p3_editor_pat');
+  if (!pat) { alert('Not connected to GitHub. Use the Connect overlay.'); return; }
+  const btn = document.getElementById('publish-btn');
+  btn.disabled = true; btn.textContent = 'Publishing…';
+  try {
+    const contentStr = JSON.stringify(db, null, 2);
+    const message = `Update ${QS_FILE} — ${new Date().toISOString().slice(0,16)} (PCR P3 Editor)`;
+    const data = await githubPut(pat, contentStr, message);
+    currentSha = data.content.sha;
+    dirty = false;
+    updateDirty();
+    btn.textContent = '✓ Published!';
+    setTimeout(() => { btn.textContent = '💾 Save to GitHub'; }, 2500);
+  } catch (err) {
+    alert('Publish failed: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    if (btn.textContent === 'Publishing…') btn.textContent = '💾 Save to GitHub';
+  }
+}
+
+// ══════════════════════════════════════════════════
+//  FILE I/O
+// ══════════════════════════════════════════════════
+function openFile() { document.getElementById('fileInput').click(); }
+
+function handleFileLoad(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      db = JSON.parse(ev.target.result);
+      ensureStructure();
+      currentSha = '';
+      dirty = false;
+      updateDirty();
+      selectTask(currentTask);
+    } catch { alert('Invalid JSON file.'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function downloadJSON() {
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = QS_FILE;
+  a.click();
+  dirty = false;
+  updateDirty();
+}
+
+// ══════════════════════════════════════════════════
+//  DIRTY STATE
+// ══════════════════════════════════════════════════
+function markDirty() { dirty = true; updateDirty(); }
+function updateDirty() {
+  document.getElementById('dirty').classList.toggle('hidden', !dirty);
+}
+
+// ══════════════════════════════════════════════════
+//  TASK SELECTION
+// ══════════════════════════════════════════════════
+function selectTask(n) {
+  currentTask = n;
+  [1,2,3].forEach(i => {
+    document.getElementById('tab-task'+i).classList.toggle('active', i === n);
+  });
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('taskView').style.display = '';
+  renderTaskView(n);
+  updateSidebarCounts();
+}
+
+function updateSidebarCounts() {
+  [1,2,3].forEach(i => {
+    const key = 'task' + i;
+    const n = (db[key] || []).length;
+    document.getElementById('count-task'+i).textContent =
+      n === 0 ? ['Amplification Simulator','Standard Curve','Copy Number Calc'][i-1]
+               : `${n} custom question${n !== 1 ? 's' : ''}`;
+  });
+}
+
+// ══════════════════════════════════════════════════
+//  RENDER TASK VIEW
+// ══════════════════════════════════════════════════
+function renderTaskView(n) {
+  const meta = TASK_META[n];
+  const key  = meta.key;
+  const builtinQs = BUILTIN[key];
+  const customQs  = db[key] || [];
+
+  // Built-in reference cards
+  const builtinHtml = builtinQs.map((q, i) => {
+    const choicesHtml = q.choices.map((c, ci) =>
+      `<div class="builtin-choice${ci === q.correct ? ' correct' : ''}">${String.fromCharCode(65+ci)}. ${esc(c)}</div>`
+    ).join('');
+    const stepHtml = q.step
+      ? `<div class="builtin-q-label">${esc(q.step)}</div>` : '';
+    const hintHtml = q.hint
+      ? `<div style="font-size:0.75rem;color:var(--muted);font-family:monospace;padding:3px 6px;background:rgba(0,0,0,0.2);border-radius:4px;">${esc(q.hint)}</div>` : '';
+    return `<div class="builtin-q">
+      ${stepHtml}
+      ${hintHtml}
+      <div class="builtin-q-text">Q${i+1}. ${q.q}</div>
+      <div class="builtin-choices">${choicesHtml}</div>
+      <div class="builtin-explain">💡 ${esc(q.explain)}</div>
+    </div>`;
+  }).join('');
+
+  // Custom question cards
+  const customHtml = customQs.length === 0
+    ? '<div style="color:var(--muted);font-size:0.85rem;padding:4px 0;">No custom questions yet. Click <strong style="color:var(--gold);">＋ Add Question</strong> to create one.</div>'
+    : customQs.map((q, i) => renderCqCard(n, i, q, meta.hasStep)).join('');
+
+  document.getElementById('taskView').innerHTML = `
+    <div class="task-header">
+      <h2>${meta.icon} ${meta.title}</h2>
+      <p style="margin-top:6px;">${meta.desc}</p>
+    </div>
+
+    <div class="section collapsed">
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+        <span>Built-in Questions (${builtinQs.length}) — Reference <span class="section-chevron">▼</span></span>
+      </div>
+      <div class="section-body">${builtinHtml}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title" onclick="toggleSection(this.closest('.section'))">
+        <span>Custom Questions (${customQs.length}) <span class="section-chevron">▼</span></span>
+        <button class="btn-small" onclick="event.stopPropagation();addQuestion(${n})">＋ Add Question</button>
+      </div>
+      <div class="section-body" id="cq-list-${n}">${customHtml}</div>
+    </div>`;
+}
+
+function renderCqCard(taskN, i, q, hasStep) {
+  const preview = q.q ? q.q.replace(/<[^>]+>/g,'').slice(0,60) + (q.q.length > 60 ? '…' : '') : '(no question text)';
+  const stepFields = hasStep ? `
+    <div class="field-row">
+      <div class="field grow">
+        <label>Step Label <span style="font-weight:400;color:var(--muted);">(e.g. "Step 1 — Copies in reaction")</span></label>
+        <input type="text" value="${esc(q.step||'')}" placeholder="Step N — description"
+               oninput="updateQ(${taskN},${i},'step',this.value)">
+      </div>
+      <div class="field grow">
+        <label>Hint Formula <span style="font-weight:400;color:var(--muted);">(shown above question in monospace)</span></label>
+        <input type="text" value="${esc(q.hint||'')}" placeholder="e.g. log₁₀(N) = (intercept − Ct) / |slope|"
+               oninput="updateQ(${taskN},${i},'hint',this.value)">
+      </div>
+    </div>` : '';
+
+  const choicesHtml = (q.choices || ['','','','']).map((c, ci) => `
+    <div class="choice-row">
+      <span class="choice-label">${String.fromCharCode(65+ci)}.</span>
+      <input type="radio" name="cq-correct-${taskN}-${i}" value="${ci}"
+             ${q.correct === ci ? 'checked' : ''}
+             onchange="updateQ(${taskN},${i},'correct',parseInt(this.value))"
+             title="Mark as correct answer">
+      <input type="text" value="${esc(c)}" placeholder="Choice ${String.fromCharCode(65+ci)}"
+             oninput="updateChoice(${taskN},${i},${ci},this.value)">
+    </div>`).join('');
+
+  return `<div class="cq-card" id="cq-${taskN}-${i}">
+    <div class="cq-card-header" onclick="toggleCq(${taskN},${i})">
+      <span class="cq-num">Q${i+1}</span>
+      <span class="cq-preview" id="cq-preview-${taskN}-${i}">${esc(preview)}</span>
+      <label class="cq-toggle" onclick="event.stopPropagation()">
+        <input type="checkbox" ${q.enabled !== false ? 'checked' : ''}
+               onchange="updateQ(${taskN},${i},'enabled',this.checked)"> On
+      </label>
+      <button class="btn-danger" onclick="event.stopPropagation();deleteQuestion(${taskN},${i})" title="Delete">✕</button>
+      <span class="cq-chevron">▼</span>
+    </div>
+    <div class="cq-body">
+      ${stepFields}
+      <div class="field full">
+        <label>Question Text <span style="font-weight:400;color:var(--muted);">— HTML supported: &lt;strong&gt;bold&lt;/strong&gt;, &lt;sup&gt;superscript&lt;/sup&gt;</span></label>
+        <textarea oninput="updateQ(${taskN},${i},'q',this.value)">${esc(q.q||'')}</textarea>
+      </div>
+      <div class="field full">
+        <label>Answer Choices — click the radio button to mark the correct answer</label>
+        <div class="choices-grid">${choicesHtml}</div>
+      </div>
+      <div class="field full">
+        <label>Explanation <span style="font-weight:400;color:var(--muted);">(shown after answering)</span></label>
+        <textarea oninput="updateQ(${taskN},${i},'explain',this.value)">${esc(q.explain||'')}</textarea>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleSection(sectionEl) {
+  if (sectionEl) sectionEl.classList.toggle('collapsed');
+}
+
+function toggleCq(taskN, i) {
+  const card = document.getElementById(`cq-${taskN}-${i}`);
+  if (card) card.classList.toggle('open');
+}
+
+// ══════════════════════════════════════════════════
+//  QUESTION CRUD
+// ══════════════════════════════════════════════════
+function addQuestion(taskN) {
+  const key = 'task' + taskN;
+  const hasStep = TASK_META[taskN].hasStep;
+  const q = {
+    id: `t${taskN}_${Date.now()}`,
+    enabled: true,
+    q: '',
+    choices: ['','','',''],
+    correct: 0,
+    explain: ''
+  };
+  if (hasStep) { q.step = ''; q.hint = ''; }
+  db[key].push(q);
+  markDirty();
+  renderTaskView(taskN);
+  updateSidebarCounts();
+  // open new card
+  const newIdx = db[key].length - 1;
+  setTimeout(() => {
+    const card = document.getElementById(`cq-${taskN}-${newIdx}`);
+    if (card) { card.classList.add('open'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+  }, 0);
+}
+
+function deleteQuestion(taskN, i) {
+  if (!confirm('Delete this question?')) return;
+  db['task'+taskN].splice(i, 1);
+  markDirty();
+  renderTaskView(taskN);
+  updateSidebarCounts();
+}
+
+function updateQ(taskN, i, field, value) {
+  const q = db['task'+taskN][i];
+  if (!q) return;
+  q[field] = value;
+  if (field === 'q') {
+    const preview = value.replace(/<[^>]+>/g,'').slice(0,60) + (value.length > 60 ? '…' : '');
+    const el = document.getElementById(`cq-preview-${taskN}-${i}`);
+    if (el) el.textContent = preview || '(no question text)';
+  }
+  markDirty();
+}
+
+function updateChoice(taskN, i, ci, value) {
+  const q = db['task'+taskN][i];
+  if (!q) return;
+  if (!q.choices) q.choices = ['','','',''];
+  q.choices[ci] = value;
+  markDirty();
+}
+
+// ══════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>

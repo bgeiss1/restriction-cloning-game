@@ -2073,10 +2073,20 @@ const p3State = {
   score: 0,
   task1: { cycles: 20, efficiency: 100, answers: [null, null], submitted: false },
   task2: { answers: [null, null, null, null], submitted: false },
-  task3: { answers: [null, null, null, null], submitted: false }
+  task3: { answers: [null, null, null, null], submitted: false },
+  // active question arrays for this session (built-in + custom, shuffled)
+  task1Qs: [],
+  task2Qs: [],
+  task3Qs: []
 };
 
-function startP3() {
+function buildP3Pool(builtin, custom, n) {
+  const pool = [...builtin, ...(custom || []).filter(q => q.enabled !== false)];
+  const shuffled = shuffleArray(pool);
+  return shuffled.slice(0, Math.max(n, shuffled.length));
+}
+
+async function startP3() {
   p3State.taskIdx = 0;
   p3State.score   = 0;
   p3State.task1   = { cycles: 20, efficiency: 100, answers: [null, null], submitted: false };
@@ -2088,6 +2098,28 @@ function startP3() {
   const btnN = document.getElementById('btnP3Next');
   btnN.style.display = 'none'; btnN.textContent = 'Next Task →';
   showScreen('p3Screen');
+  document.getElementById('p3Content').innerHTML =
+    '<div style="padding:48px;text-align:center;color:var(--muted);font-size:0.9rem;">Loading questions…</div>';
+
+  // Fetch custom questions; fall back silently on error/timeout
+  let custom = null;
+  try {
+    const resp = await Promise.race([
+      fetch('https://raw.githubusercontent.com/bgeiss1/restriction-cloning-game/main/pcr_p3_questions.json?t=' + Date.now(), { cache: 'no-store' }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 3000))
+    ]);
+    if (resp.ok) custom = await resp.json();
+  } catch {}
+
+  p3State.task1Qs = buildP3Pool(P3_TASK1_QUESTIONS, custom && custom.task1, 2);
+  p3State.task2Qs = buildP3Pool(P3_TASK2_QUESTIONS, custom && custom.task2, 4);
+  p3State.task3Qs = buildP3Pool(P3_TASK3_QUESTIONS, custom && custom.task3, 4);
+
+  // Resize answer arrays to match actual question counts
+  p3State.task1.answers = Array(p3State.task1Qs.length).fill(null);
+  p3State.task2.answers = Array(p3State.task2Qs.length).fill(null);
+  p3State.task3.answers = Array(p3State.task3Qs.length).fill(null);
+
   renderP3Task1();
 }
 
@@ -2111,7 +2143,7 @@ function nextP3Task() {
 }
 
 function renderP3Task1() {
-  const qsHtml = P3_TASK1_QUESTIONS.map((q, qi) => `
+  const qsHtml = p3State.task1Qs.map((q, qi) => `
     <div class="p3-question" id="p3Q${qi}">
       <div class="p3-label">Question ${qi + 1}</div>
       <div class="p3-question-text">${q.q}</div>
@@ -2240,7 +2272,7 @@ function renderP3Chart(n, E, N0) {
 function selectP3Answer(qi, ci) {
   if (p3State.task1.submitted) return;
   p3State.task1.answers[qi] = ci;
-  P3_TASK1_QUESTIONS[qi].choices.forEach((_, idx) => {
+  p3State.task1Qs[qi].choices.forEach((_, idx) => {
     document.getElementById(`p3Q${qi}C${idx}`).classList.toggle('p3-selected', idx === ci);
   });
   const allAnswered = p3State.task1.answers.every(a => a !== null);
@@ -2253,7 +2285,7 @@ function submitP3Task1() {
   p3State.task1.submitted = true;
   let pts = 0;
 
-  P3_TASK1_QUESTIONS.forEach((q, qi) => {
+  p3State.task1Qs.forEach((q, qi) => {
     const chosen  = p3State.task1.answers[qi];
     const correct = chosen === q.correct;
     if (correct) pts += 50;
@@ -2329,7 +2361,7 @@ const P3_TASK2_QUESTIONS = [
 ];
 
 function renderP3Task2() {
-  const qsHtml = P3_TASK2_QUESTIONS.map((q, qi) => `
+  const qsHtml = p3State.task2Qs.map((q, qi) => `
     <div class="p3-question" id="p3T2Q${qi}">
       <div class="p3-label">Question ${qi + 1}</div>
       <div class="p3-question-text">${q.q}</div>
@@ -2435,7 +2467,7 @@ function renderStandardCurve() {
 function selectP3T2Answer(qi, ci) {
   if (p3State.task2.submitted) return;
   p3State.task2.answers[qi] = ci;
-  P3_TASK2_QUESTIONS[qi].choices.forEach((_, idx) => {
+  p3State.task2Qs[qi].choices.forEach((_, idx) => {
     document.getElementById(`p3T2Q${qi}C${idx}`).classList.toggle('p3-selected', idx === ci);
   });
   const allAnswered = p3State.task2.answers.every(a => a !== null);
@@ -2448,7 +2480,7 @@ function submitP3Task2() {
   p3State.task2.submitted = true;
   let pts = 0;
 
-  P3_TASK2_QUESTIONS.forEach((q, qi) => {
+  p3State.task2Qs.forEach((q, qi) => {
     const chosen  = p3State.task2.answers[qi];
     const correct = chosen === q.correct;
     if (correct) pts += 25;
@@ -2557,7 +2589,7 @@ function renderP3Task3() {
       </div>
     </div>`;
 
-  const qsHtml = P3_TASK3_QUESTIONS.map((q, qi) => `
+  const qsHtml = p3State.task3Qs.map((q, qi) => `
     <div class="p3-question" id="p3T3Q${qi}">
       <div class="p3-label">${q.step}</div>
       <div style="font-size:0.75rem;color:var(--muted);font-family:'Courier New',monospace;
@@ -2595,7 +2627,7 @@ function renderP3Task3() {
 function selectP3T3Answer(qi, ci) {
   if (p3State.task3.submitted) return;
   p3State.task3.answers[qi] = ci;
-  P3_TASK3_QUESTIONS[qi].choices.forEach((_, idx) => {
+  p3State.task3Qs[qi].choices.forEach((_, idx) => {
     document.getElementById(`p3T3Q${qi}C${idx}`).classList.toggle('p3-selected', idx === ci);
   });
   const allAnswered = p3State.task3.answers.every(a => a !== null);
@@ -2608,7 +2640,7 @@ function submitP3Task3() {
   p3State.task3.submitted = true;
   let pts = 0;
 
-  P3_TASK3_QUESTIONS.forEach((q, qi) => {
+  p3State.task3Qs.forEach((q, qi) => {
     const chosen  = p3State.task3.answers[qi];
     const correct = chosen === q.correct;
     if (correct) pts += 25;
