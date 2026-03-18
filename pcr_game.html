@@ -2211,14 +2211,14 @@ function renderP3Chart(n, E, N0) {
   [1,3,5,7,9,11,13].forEach(exp => {
     const y = yp(exp).toFixed(1);
     yGrid += `<line x1="${PL}" y1="${y}" x2="${PL+pW}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
-    yGrid += `<text x="${PL-3}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="7.5" fill="rgba(168,197,160,0.65)">10^${exp}</text>`;
+    yGrid += `<text x="${PL-3}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="5" fill="rgba(168,197,160,0.65)">10^${exp}</text>`;
   });
 
   let xGrid = '';
   [0,10,20,30,40].forEach(c => {
     const x = xp(c).toFixed(1);
     xGrid += `<line x1="${x}" y1="${PT}" x2="${x}" y2="${PT+pH}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
-    xGrid += `<text x="${x}" y="${PT+pH+13}" text-anchor="middle" font-size="7.5" fill="rgba(168,197,160,0.65)">${c}</text>`;
+    xGrid += `<text x="${x}" y="${PT+pH+13}" text-anchor="middle" font-size="5" fill="rgba(168,197,160,0.65)">${c}</text>`;
   });
 
   const curLN = Math.log10(N0 * Math.pow(1 + E, n));
@@ -2232,8 +2232,8 @@ function renderP3Chart(n, E, N0) {
     <polyline points="${pts.trim()}" fill="none" stroke="#4FC3F7" stroke-width="2" stroke-linejoin="round"/>
     <line x1="${cx}" y1="${PT}" x2="${cx}" y2="${PT+pH}" stroke="rgba(79,195,247,0.35)" stroke-width="1" stroke-dasharray="3,2"/>
     <circle cx="${cx}" cy="${cy}" r="4" fill="#4FC3F7" stroke="var(--bg)" stroke-width="1.5"/>
-    <text x="${PL + pW/2}" y="${H-2}" text-anchor="middle" font-size="7.5" fill="rgba(168,197,160,0.45)">Cycle number</text>
-    <text x="${PL-16}" y="${PT + pH/2}" text-anchor="middle" font-size="7.5" fill="rgba(168,197,160,0.45)" transform="rotate(-90,${PL-16},${PT+pH/2})">Copies (log₁₀)</text>
+    <text x="${PL + pW/2}" y="${H-2}" text-anchor="middle" font-size="5" fill="rgba(168,197,160,0.45)">Cycle number</text>
+    <text x="${PL-16}" y="${PT + pH/2}" text-anchor="middle" font-size="5" fill="rgba(168,197,160,0.45)" transform="rotate(-90,${PL-16},${PT+pH/2})">Copies (log₁₀)</text>
   </svg>`;
 }
 
@@ -2401,13 +2401,13 @@ function renderStandardCurve() {
   [24,27,30,33,36].forEach(ct => {
     const y=yp(ct).toFixed(1);
     yGrid += `<line x1="${PL}" y1="${y}" x2="${PL+pW}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
-    yGrid += `<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="8" fill="rgba(168,197,160,0.65)">${ct}</text>`;
+    yGrid += `<text x="${PL-4}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="5.6" fill="rgba(168,197,160,0.65)">${ct}</text>`;
   });
   let xGrid = '';
   [[1,'10'],[2,'100'],[3,'1K'],[4,'10K'],[5,'100K']].forEach(([l,lbl]) => {
     const x=xp(l).toFixed(1);
     xGrid += `<line x1="${x}" y1="${PT}" x2="${x}" y2="${PT+pH}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
-    xGrid += `<text x="${x}" y="${PT+pH+13}" text-anchor="middle" font-size="8" fill="rgba(168,197,160,0.65)">${lbl}</text>`;
+    xGrid += `<text x="${x}" y="${PT+pH+13}" text-anchor="middle" font-size="5.6" fill="rgba(168,197,160,0.65)">${lbl}</text>`;
   });
 
   const ax=xp(ua.logN).toFixed(1), ay=yp(ua.ct).toFixed(1);
@@ -2424,11 +2424,11 @@ function renderStandardCurve() {
     ${guides(ub.logN, ub.ct, '#66BB6A')}
     ${diamond(ua.logN, ua.ct, '#CE93D8')}
     ${diamond(ub.logN, ub.ct, '#66BB6A')}
-    <text x="${ax}" y="${(parseFloat(ay)-10).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="#CE93D8">A</text>
-    <text x="${bx}" y="${(parseFloat(by_)-10).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="#66BB6A">B</text>
-    <text x="${(PL+pW/2).toFixed(1)}" y="${H-2}" text-anchor="middle" font-size="8" fill="rgba(168,197,160,0.45)">Copy number</text>
-    <text x="${(PL-14).toFixed(1)}" y="${(PT+pH/2).toFixed(1)}" text-anchor="middle" font-size="8" fill="rgba(168,197,160,0.45)" transform="rotate(-90,${(PL-14).toFixed(1)},${(PT+pH/2).toFixed(1)})">Ct value</text>
-    <text x="${(PL+pW-4).toFixed(1)}" y="${(yp(22.70)+16).toFixed(1)}" text-anchor="end" font-size="7.5" fill="rgba(79,195,247,0.75)">slope = −3.46  R² = 0.998</text>
+    <text x="${ax}" y="${(parseFloat(ay)-10).toFixed(1)}" text-anchor="middle" font-size="5.6" font-weight="700" fill="#CE93D8">A</text>
+    <text x="${bx}" y="${(parseFloat(by_)-10).toFixed(1)}" text-anchor="middle" font-size="5.6" font-weight="700" fill="#66BB6A">B</text>
+    <text x="${(PL+pW/2).toFixed(1)}" y="${H-2}" text-anchor="middle" font-size="5.6" fill="rgba(168,197,160,0.45)">Copy number</text>
+    <text x="${(PL-14).toFixed(1)}" y="${(PT+pH/2).toFixed(1)}" text-anchor="middle" font-size="5.6" fill="rgba(168,197,160,0.45)" transform="rotate(-90,${(PL-14).toFixed(1)},${(PT+pH/2).toFixed(1)})">Ct value</text>
+    <text x="${(PL+pW-4).toFixed(1)}" y="${(yp(22.70)+16).toFixed(1)}" text-anchor="end" font-size="5" fill="rgba(79,195,247,0.75)">slope = −3.46  R² = 0.998</text>
   </svg>`;
 }
 
