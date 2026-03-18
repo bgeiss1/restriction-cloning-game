@@ -319,6 +319,74 @@ input[type=range].p2-range { width: 100%; cursor: pointer; height: 24px; }
   background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px;
 }
 #p2CompleteOverlay.show { display: flex; }
+
+/* ── PART 3 SCREEN ── */
+#p3Screen { background: var(--bg); }
+#p3Header {
+  height: 54px; background: var(--green-dark);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 14px; flex-shrink: 0; gap: 10px;
+}
+#p3Header h1 { font-size: 1rem; font-weight: 700; color: var(--gold); }
+#p3Content { flex: 1; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 16px; }
+#p3ActionBar {
+  position: sticky; bottom: 0; background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 10px 14px; display: flex; gap: 10px; align-items: center;
+  flex-shrink: 0; justify-content: center;
+}
+.p3-section {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.p3-label { font-size: 0.72rem; font-weight: 700; color: var(--gold);
+  text-transform: uppercase; letter-spacing: 0.06em; }
+.p3-slider-row { display: flex; flex-direction: column; gap: 4px; }
+.p3-slider-meta { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted); }
+.p3-slider-meta span { color: var(--gold); font-weight: 700; }
+input[type=range].p3-range { width: 100%; cursor: pointer; height: 24px; accent-color: #4FC3F7; }
+.p3-equation {
+  font-size: 0.88rem; color: var(--text); text-align: center;
+  padding: 9px 12px; background: rgba(0,0,0,0.25);
+  border-radius: 6px; border: 1px solid var(--border); line-height: 1.7;
+}
+.p3-chart-wrap {
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 6px; overflow: hidden;
+}
+.p3-question {
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+}
+.p3-question-text { font-size: 0.88rem; line-height: 1.6; }
+.p3-question-text strong { color: var(--gold); }
+.p3-choices { display: flex; flex-direction: column; gap: 6px; }
+.p3-choice {
+  padding: 9px 12px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: rgba(255,255,255,0.04); cursor: pointer; font-size: 0.85rem;
+  transition: border-color 0.15s, background 0.15s; user-select: none;
+}
+.p3-choice:hover:not(.p3-disabled) { border-color: rgba(200,169,81,0.5); background: rgba(200,169,81,0.07); }
+.p3-choice.p3-selected { border-color: var(--gold); background: rgba(200,169,81,0.12); }
+.p3-choice.p3-correct  { border-color: var(--success); background: rgba(102,187,106,0.15); color: var(--success); }
+.p3-choice.p3-wrong    { border-color: var(--danger);  background: rgba(239,83,80,0.1);   color: var(--danger); }
+.p3-choice.p3-disabled { cursor: default; }
+.p3-explain {
+  font-size: 0.8rem; color: var(--muted); padding: 7px 10px;
+  background: rgba(102,187,106,0.07); border-radius: 6px;
+  border: 1px solid rgba(102,187,106,0.2); line-height: 1.55; display: none;
+}
+.p3-q-score { font-size: 0.78rem; font-weight: 700; text-align: right; }
+.p3-q-score.ok  { color: var(--success); }
+.p3-q-score.bad { color: var(--danger); }
+
+/* ── PART 3 COMPLETE OVERLAY ── */
+#p3CompleteOverlay {
+  display: none; position: fixed; inset: 0; z-index: 120;
+  background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px;
+}
+#p3CompleteOverlay.show { display: flex; }
 </style>
 </head>
 <body>
@@ -367,13 +435,13 @@ input[type=range].p2-range { width: 100%; cursor: pointer; height: 24px; }
         </div>
         <div class="part-badge">3 tasks</div>
       </div>
-      <div class="part-card locked">
+      <div class="part-card" onclick="startPart(3)">
         <div class="part-icon">📊</div>
         <div class="part-info">
           <div class="part-title">Part 3 · Efficiency &amp; Copy Number</div>
-          <div class="part-sub">Standard curves · Efficiency calculation · Copy number math</div>
+          <div class="part-sub">PCR amplification simulator · Exponential growth · Copy number math</div>
         </div>
-        <div class="part-lock">🔒</div>
+        <div class="part-badge">Task 1</div>
       </div>
     </div>
     <a href="index.html" class="btn-back" style="align-self:flex-start;">← Menu</a>
@@ -489,6 +557,39 @@ input[type=range].p2-range { width: 100%; cursor: pointer; height: 24px; }
     <div id="p2ScoreNeeded" style="font-size:0.82rem;color:var(--muted);margin-top:-6px;"></div>
     <button class="btn-result" onclick="finishP2()">Continue to Part Select</button>
     <button class="btn-result" id="btnP2Retry" style="display:none;background:var(--green-mid);border:1.5px solid var(--border);" onclick="retryP2()">Try Again</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PART 3 SCREEN
+══════════════════════════════════════════ -->
+<div class="screen" id="p3Screen">
+  <div id="p3Header">
+    <h1>Part 3 · Efficiency &amp; Copy Number</h1>
+    <div class="hud-cluster">
+      <span class="hud-score" id="p3ScoreDisplay">0 pts</span>
+      <button class="btn-back" onclick="showPartSelect()" style="padding:5px 10px;">← Back</button>
+    </div>
+  </div>
+  <div id="p3Content"></div>
+  <div id="p3ActionBar">
+    <button class="btn-submit" id="btnP3Submit" disabled onclick="submitP3Task1()">Check Answers</button>
+    <button class="btn-next"   id="btnP3Next"   style="display:none;" onclick="showP3Complete()">Finish →</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PART 3 COMPLETE OVERLAY
+══════════════════════════════════════════ -->
+<div id="p3CompleteOverlay">
+  <div class="mod-complete-box">
+    <div id="p3CompleteIcon" style="font-size:3rem;">📊</div>
+    <h2 id="p3CompleteTitle">Task Complete!</h2>
+    <p id="p3CompleteBody" style="font-size:0.9rem;color:var(--muted);line-height:1.65;"></p>
+    <div class="final-score-line">Score: <span id="p3FinalScore"></span></div>
+    <div id="p3ScoreNeeded" style="font-size:0.82rem;color:var(--muted);margin-top:-6px;"></div>
+    <button class="btn-result" onclick="finishP3()">Continue to Part Select</button>
+    <button class="btn-result" id="btnP3Retry" style="display:none;background:var(--green-mid);border:1.5px solid var(--border);" onclick="retryP3()">Try Again</button>
   </div>
 </div>
 
@@ -1033,6 +1134,8 @@ function startPart(n) {
     renderLevel();
   } else if (n === 2) {
     startP2();
+  } else if (n === 3) {
+    startP3();
   }
 }
 
@@ -1914,6 +2017,237 @@ function finishP2() {
 function retryP2() {
   document.getElementById('p2CompleteOverlay').classList.remove('show');
   startP2();
+}
+
+// ════════════════════════════════════════════════════
+//  PART 3 — EFFICIENCY & COPY NUMBER
+// ════════════════════════════════════════════════════
+const P3_TOTAL = 100;
+const P3_PASS  = 80;
+
+const P3_TASK1_QUESTIONS = [
+  {
+    q: 'Set the simulator to <strong>100% efficiency</strong> and <strong>30 cycles</strong>. Starting from 10 copies, approximately how many copies are produced?',
+    choices: ['~10⁶ copies', '~10⁸ copies', '~10¹⁰ copies', '~10¹² copies'],
+    correct: 2,
+    explain: '10 × 2³⁰ ≈ 1.07 × 10¹⁰. At 100% efficiency every template is copied each cycle, so copy number doubles perfectly.'
+  },
+  {
+    q: 'Keep cycles at 30 and drop efficiency to <strong>80%</strong>. Compared to 100% efficiency, the final yield is approximately:',
+    choices: ['~80% as much', '~50% as much', '~4% as much', '~0.04% as much'],
+    correct: 2,
+    explain: '(1.8/2.0)³⁰ = 0.9³⁰ ≈ 0.042. Only ~4%! Small efficiency losses are amplified exponentially over many cycles — this is why primer quality and PCR conditions matter so much.'
+  }
+];
+
+const p3State = {
+  score: 0,
+  task1: { cycles: 20, efficiency: 100, answers: [null, null], submitted: false }
+};
+
+function startP3() {
+  p3State.score = 0;
+  p3State.task1 = { cycles: 20, efficiency: 100, answers: [null, null], submitted: false };
+  document.getElementById('p3ScoreDisplay').textContent = '0 pts';
+  const btnS = document.getElementById('btnP3Submit');
+  btnS.disabled = true; btnS.style.display = ''; btnS.textContent = 'Check Answers';
+  document.getElementById('btnP3Next').style.display = 'none';
+  showScreen('p3Screen');
+  renderP3Task1();
+}
+
+function renderP3Task1() {
+  const qsHtml = P3_TASK1_QUESTIONS.map((q, qi) => `
+    <div class="p3-question" id="p3Q${qi}">
+      <div class="p3-label">Question ${qi + 1}</div>
+      <div class="p3-question-text">${q.q}</div>
+      <div class="p3-choices">
+        ${q.choices.map((c, ci) => `
+          <div class="p3-choice" id="p3Q${qi}C${ci}" onclick="selectP3Answer(${qi},${ci})">
+            <span style="font-weight:700;margin-right:8px;color:var(--gold);">${String.fromCharCode(65+ci)}.</span>${c}
+          </div>`).join('')}
+      </div>
+      <div class="p3-explain" id="p3Explain${qi}">${q.explain}</div>
+      <div class="p3-q-score" id="p3QScore${qi}" style="display:none;"></div>
+    </div>`).join('');
+
+  document.getElementById('p3Content').innerHTML = `
+    <div class="p3-section">
+      <div class="p3-label">Task 1 — PCR Amplification Simulator</div>
+      <div class="task-text" style="font-size:0.88rem;line-height:1.65;">
+        PCR amplifies DNA exponentially: N&nbsp;=&nbsp;N₀&nbsp;×&nbsp;(1+E)<sup>n</sup>.
+        Adjust the sliders to explore how <strong>cycle number</strong> (n) and
+        <strong>efficiency</strong> (E) affect copy number, then answer the questions below.
+      </div>
+      <div class="p3-equation" id="p3Equation"></div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="p3-slider-row">
+          <div class="p3-slider-meta">
+            <span>Cycles (n)</span>
+            <span id="p3CyclesVal">${p3State.task1.cycles}</span>
+          </div>
+          <input type="range" class="p3-range" id="p3SlCycles" min="1" max="40"
+            value="${p3State.task1.cycles}" oninput="onP3Slider()">
+          <div class="p3-slider-meta" style="font-size:0.72rem;color:var(--muted);">
+            <span>1</span><span>40</span>
+          </div>
+        </div>
+        <div class="p3-slider-row">
+          <div class="p3-slider-meta">
+            <span>Efficiency (E)</span>
+            <span id="p3EffVal">${p3State.task1.efficiency}%</span>
+          </div>
+          <input type="range" class="p3-range" id="p3SlEff" min="50" max="100"
+            value="${p3State.task1.efficiency}" oninput="onP3Slider()">
+          <div class="p3-slider-meta" style="font-size:0.72rem;color:var(--muted);">
+            <span>50%</span><span>100%</span>
+          </div>
+        </div>
+      </div>
+      <div class="p3-chart-wrap">
+        <div id="p3ChartArea"></div>
+      </div>
+    </div>
+    <div class="p3-section">
+      <div class="p3-label">Questions — use the simulator to find the answers</div>
+      ${qsHtml}
+    </div>`;
+
+  updateP3Display();
+}
+
+function updateP3Display() {
+  const n  = p3State.task1.cycles;
+  const E  = p3State.task1.efficiency / 100;
+  const N0 = 10;
+  const curN   = N0 * Math.pow(1 + E, n);
+  const expVal = Math.max(0, Math.floor(Math.log10(curN)));
+  const mant   = (curN / Math.pow(10, expVal)).toFixed(2);
+
+  document.getElementById('p3Equation').innerHTML =
+    `N = 10 &times; (${(1+E).toFixed(2)})<sup>${n}</sup>
+     &nbsp;&asymp;&nbsp; <strong style="color:var(--gold);">${mant} &times; 10<sup>${expVal}</sup></strong>`;
+
+  document.getElementById('p3ChartArea').innerHTML = renderP3Chart(n, E, N0);
+}
+
+function onP3Slider() {
+  if (p3State.task1.submitted) return;
+  p3State.task1.cycles     = parseInt(document.getElementById('p3SlCycles').value);
+  p3State.task1.efficiency = parseInt(document.getElementById('p3SlEff').value);
+  document.getElementById('p3CyclesVal').textContent = p3State.task1.cycles;
+  document.getElementById('p3EffVal').textContent    = p3State.task1.efficiency + '%';
+  updateP3Display();
+}
+
+function renderP3Chart(n, E, N0) {
+  const CMAX = 40, LMIN = 1, LMAX = 13;
+  const W = 280, H = 148, PL = 36, PR = 8, PT = 8, PB = 24;
+  const pW = W - PL - PR, pH = H - PT - PB;
+  function xp(c)  { return PL + (c / CMAX) * pW; }
+  function yp(lN) { return PT + pH * (1 - (Math.max(LMIN, Math.min(LMAX, lN)) - LMIN) / (LMAX - LMIN)); }
+
+  let pts = '';
+  for (let i = 0; i <= CMAX; i++) {
+    const lN = Math.log10(N0 * Math.pow(1 + E, i));
+    pts += xp(i).toFixed(1) + ',' + yp(lN).toFixed(1) + ' ';
+  }
+
+  let yGrid = '';
+  [1,3,5,7,9,11,13].forEach(exp => {
+    const y = yp(exp).toFixed(1);
+    yGrid += `<line x1="${PL}" y1="${y}" x2="${PL+pW}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>`;
+    yGrid += `<text x="${PL-3}" y="${y}" text-anchor="end" dominant-baseline="middle" font-size="7.5" fill="rgba(168,197,160,0.65)">10^${exp}</text>`;
+  });
+
+  let xGrid = '';
+  [0,10,20,30,40].forEach(c => {
+    const x = xp(c).toFixed(1);
+    xGrid += `<line x1="${x}" y1="${PT}" x2="${x}" y2="${PT+pH}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    xGrid += `<text x="${x}" y="${PT+pH+13}" text-anchor="middle" font-size="7.5" fill="rgba(168,197,160,0.65)">${c}</text>`;
+  });
+
+  const curLN = Math.log10(N0 * Math.pow(1 + E, n));
+  const cx = xp(n).toFixed(1), cy = yp(curLN).toFixed(1);
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block;">
+    ${yGrid}
+    ${xGrid}
+    <line x1="${PL}" y1="${PT}" x2="${PL}" y2="${PT+pH}" stroke="rgba(200,169,81,0.3)" stroke-width="1.5"/>
+    <line x1="${PL}" y1="${PT+pH}" x2="${PL+pW}" y2="${PT+pH}" stroke="rgba(200,169,81,0.3)" stroke-width="1.5"/>
+    <polyline points="${pts.trim()}" fill="none" stroke="#4FC3F7" stroke-width="2" stroke-linejoin="round"/>
+    <line x1="${cx}" y1="${PT}" x2="${cx}" y2="${PT+pH}" stroke="rgba(79,195,247,0.35)" stroke-width="1" stroke-dasharray="3,2"/>
+    <circle cx="${cx}" cy="${cy}" r="4" fill="#4FC3F7" stroke="var(--bg)" stroke-width="1.5"/>
+    <text x="${PL + pW/2}" y="${H-2}" text-anchor="middle" font-size="7.5" fill="rgba(168,197,160,0.45)">Cycle number</text>
+    <text x="${PL-16}" y="${PT + pH/2}" text-anchor="middle" font-size="7.5" fill="rgba(168,197,160,0.45)" transform="rotate(-90,${PL-16},${PT+pH/2})">Copies (log₁₀)</text>
+  </svg>`;
+}
+
+function selectP3Answer(qi, ci) {
+  if (p3State.task1.submitted) return;
+  p3State.task1.answers[qi] = ci;
+  P3_TASK1_QUESTIONS[qi].choices.forEach((_, idx) => {
+    document.getElementById(`p3Q${qi}C${idx}`).classList.toggle('p3-selected', idx === ci);
+  });
+  const allAnswered = p3State.task1.answers.every(a => a !== null);
+  document.getElementById('btnP3Submit').disabled = !allAnswered;
+}
+
+function submitP3Task1() {
+  if (p3State.task1.submitted) return;
+  if (!p3State.task1.answers.every(a => a !== null)) return;
+  p3State.task1.submitted = true;
+  let pts = 0;
+
+  P3_TASK1_QUESTIONS.forEach((q, qi) => {
+    const chosen  = p3State.task1.answers[qi];
+    const correct = chosen === q.correct;
+    if (correct) pts += 50;
+
+    q.choices.forEach((_, ci) => {
+      const el = document.getElementById(`p3Q${qi}C${ci}`);
+      el.classList.add('p3-disabled');
+      el.classList.remove('p3-selected');
+      if (ci === q.correct) el.classList.add('p3-correct');
+      else if (ci === chosen && !correct) el.classList.add('p3-wrong');
+    });
+
+    document.getElementById(`p3Explain${qi}`).style.display = '';
+    const scoreEl = document.getElementById(`p3QScore${qi}`);
+    scoreEl.style.display = '';
+    scoreEl.className = 'p3-q-score ' + (correct ? 'ok' : 'bad');
+    scoreEl.textContent = correct ? '+50 pts ✓' : '+0 pts ✗';
+  });
+
+  p3State.score = pts;
+  document.getElementById('p3ScoreDisplay').textContent = pts + ' pts';
+  document.getElementById('btnP3Submit').style.display = 'none';
+  document.getElementById('btnP3Next').style.display = 'block';
+}
+
+function showP3Complete() {
+  const passed = p3State.score >= P3_PASS;
+  document.getElementById('p3CompleteIcon').textContent  = passed ? '🎉' : '📊';
+  document.getElementById('p3CompleteTitle').textContent = passed ? 'Task Complete!' : 'Keep Practicing!';
+  document.getElementById('p3CompleteBody').innerHTML    = passed
+    ? 'You understand how cycle number and efficiency drive exponential amplification. ' +
+      'A small drop in efficiency has a massive effect on yield — that\'s why primer design and PCR conditions matter.'
+    : `You scored ${p3State.score}/100. You need at least ${P3_PASS} pts to pass. ` +
+      'Try using the simulator: set E = 100% then drop it to 80% at 30 cycles and compare the values shown.';
+  document.getElementById('p3FinalScore').textContent  = p3State.score + ' / ' + P3_TOTAL + ' pts';
+  document.getElementById('p3ScoreNeeded').textContent = P3_PASS + ' pts needed to pass';
+  document.getElementById('btnP3Retry').style.display  = passed ? 'none' : '';
+  document.getElementById('p3CompleteOverlay').classList.add('show');
+}
+
+function finishP3() {
+  document.getElementById('p3CompleteOverlay').classList.remove('show');
+  showPartSelect();
+}
+
+function retryP3() {
+  document.getElementById('p3CompleteOverlay').classList.remove('show');
+  startP3();
 }
 
 document.getElementById('startScreen').classList.add('active');
