@@ -93,6 +93,12 @@
     #gameHud .hud-player { font-size: 0.8rem; color: var(--muted); }
     #gameHud .hud-player span { color: var(--text); font-weight: 600; }
     .hud-score { display: flex; align-items: center; gap: 22px; }
+    .hud-menu-btn {
+      background: none; border: 1px solid rgba(200,169,81,0.35); border-radius: 6px;
+      color: var(--muted); font-size: 0.78rem; padding: 5px 11px; cursor: pointer;
+      font-family: var(--font); transition: border-color 0.15s, color 0.15s;
+    }
+    .hud-menu-btn:hover { border-color: var(--danger); color: var(--danger); }
     .hud-stat { text-align: center; }
     .hud-stat .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
     .hud-stat .val { font-size: 1.2rem; font-weight: 700; font-family: var(--mono); color: var(--gold); }
@@ -355,6 +361,7 @@
         <div class="lbl">Target</div>
         <div class="val" id="hudTarget">—</div>
       </div>
+      <button class="hud-menu-btn" id="hudMenuBtn">✕ Menu</button>
     </div>
   </div>
   <div id="boardWrap">
@@ -1021,6 +1028,16 @@ document.getElementById('btnExport').addEventListener('click',()=>{
 });
 
 document.getElementById('btnAgain').addEventListener('click',()=>{
+  document.getElementById('nameInput').value='';
+  document.getElementById('btnStart').disabled=true;
+  showScreen('nameScreen');
+});
+
+document.getElementById('hudMenuBtn').addEventListener('click',()=>{
+  if(!confirm('Leave the game? Your current score will not be saved.')) return;
+  clearInterval(S.timerHandle);
+  document.getElementById('questionOverlay').classList.add('hidden');
+  document.getElementById('wagerOverlay').classList.add('hidden');
   document.getElementById('nameInput').value='';
   document.getElementById('btnStart').disabled=true;
   showScreen('nameScreen');
