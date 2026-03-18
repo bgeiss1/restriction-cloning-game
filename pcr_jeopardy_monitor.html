@@ -254,7 +254,8 @@ input[type=text]:focus, input[type=date]:focus, select:focus { outline:none; bor
   <div id="topbar">
     <h1>📊 Jeopardy! PCR — Instructor Monitor</h1>
     <div id="topbar-right">
-      <button class="btn-secondary" onclick="importFiles()">📂 Import Player Files</button>
+      <button class="btn-secondary" onclick="importFiles()">📂 Import Files</button>
+      <button class="btn-secondary" id="syncBtn" onclick="syncScoresFromGitHub()" style="display:none">☁ Sync from GitHub</button>
       <button class="btn-publish" id="publish-btn" onclick="publishSession()" style="display:none">💾 Save Session</button>
       <button class="btn-secondary" onclick="downloadSession()" id="download-btn" style="display:none">⬇ Download Session</button>
       <a href="index.html" style="text-decoration:none;"><button class="btn-secondary">← Menu</button></a>
@@ -312,9 +313,10 @@ input[type=text]:focus, input[type=date]:focus, select:focus { outline:none; bor
 // ═══════════════════════════════════════════════
 // GITHUB CONFIG
 // ═══════════════════════════════════════════════
-const GITHUB_REPO   = 'bgeiss1/restriction-cloning-game';
-const GITHUB_API    = `https://api.github.com/repos/${GITHUB_REPO}/contents/`;
+const GITHUB_REPO    = 'bgeiss1/restriction-cloning-game';
+const GITHUB_API     = `https://api.github.com/repos/${GITHUB_REPO}/contents/`;
 const SESSION_PREFIX = 'pcr_jeopardy_s_';
+const SCORE_FOLDER   = 'pcr_jeopardy_scores';
 
 // ═══════════════════════════════════════════════
 // STATE
@@ -378,6 +380,7 @@ async function connectWithPat(p, silent) {
     await loadSessionsFromGitHub();
     document.getElementById('connect-overlay').classList.add('hidden');
     document.getElementById('publish-btn').style.display = '';
+    document.getElementById('syncBtn').style.display = '';
     selectTab('sessions');
   } catch(err) {
     if (silent) {
@@ -433,6 +436,36 @@ async function loadSessionsFromGitHub() {
   } catch(e) { console.warn('Could not load sessions:', e.message); }
 }
 
+async function syncScoresFromGitHub() {
+  if (!pat) { alert('Not connected to GitHub.'); return; }
+  const btn = document.getElementById('syncBtn');
+  if (btn) { btn.disabled=true; btn.textContent='Syncing…'; }
+  let imported=0, skipped=0;
+  try {
+    let files;
+    try { files = await ghGet(SCORE_FOLDER); }
+    catch { files = []; }  // folder doesn't exist yet
+
+    const scoreFiles = files.filter(f => f.name.endsWith('.json'));
+    for (const f of scoreFiles) {
+      try {
+        const data = await ghGet(`${SCORE_FOLDER}/${f.name}`);
+        const rec  = JSON.parse(b64d(data.content));
+        if (rec.playerName && rec.date && rec.questionResults) {
+          const added = mergePlayerRecord(rec);
+          added ? imported++ : skipped++;
+        }
+      } catch {}
+    }
+    updateSideCounts(); selectTab(currentTab);
+    alert(`Sync complete: ${imported} new record${imported===1?'':'s'} imported, ${skipped} already present.`);
+  } catch(e) {
+    alert('Sync failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled=false; btn.textContent='☁ Sync from GitHub'; }
+  }
+}
+
 // ═══════════════════════════════════════════════
 // IMPORT PLAYER FILES
 // ═══════════════════════════════════════════════
@@ -472,8 +505,8 @@ function mergePlayerRecord(rec) {
   // Dedup by playerName + date
   const key = rec.playerName + '|' + rec.date;
   const exists = s.players.some(p => p.playerName+'|'+p.date === key);
-  if (!exists) s.players.push(rec);
-  showDownloadBtn();
+  if (!exists) { s.players.push(rec); showDownloadBtn(); return true; }
+  return false;
 }
 
 function showDownloadBtn() {
@@ -526,12 +559,17 @@ function renderSessions() {
         <span>📂 Import &amp; Upload</span><span class="chevron">▾</span>
       </div>
       <div class="section-body">
-        <div class="callout info">
-          At game end, each student clicks <strong>Export Score</strong> and downloads a JSON file.
-          Collect those files and click <strong>Import Player Files</strong> in the toolbar above.
-          Files are added to the currently active session.
-        </div>
-        ${pat ? '<div class="callout info">GitHub connected. Use <strong>Save Session</strong> to publish to GitHub Pages so you can access this data from any device.</div>' : '<div class="callout warn">No GitHub connection. Data is only in this browser. Use Download Session to save a local backup.</div>'}
+        ${pat
+          ? `<div class="callout info">
+               ☁ <strong>Auto-sync enabled.</strong> Student scores are submitted to GitHub automatically at game end.
+               Click <strong>Sync from GitHub</strong> in the toolbar to pull them into the active session.
+               Then click <strong>Save Session</strong> to consolidate into a named session file.
+             </div>`
+          : `<div class="callout warn">
+               No GitHub connection. Students can still <strong>Export Score</strong> from the game end screen.
+               Collect those files and use <strong>Import Files</strong> in the toolbar above.
+             </div>`
+        }
       </div>
     </div>`;
 }

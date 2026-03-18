@@ -458,8 +458,9 @@
     </div>
     <div class="end-bd" id="endBd"></div>
   </div>
+  <div id="submitStatus" style="font-size:0.8rem;text-align:center;color:var(--muted);min-height:1.2em;"></div>
   <div class="end-btns">
-    <button class="end-btn" id="btnExport">Export Scores</button>
+    <button class="end-btn" id="btnExport">⬇ Export Score</button>
     <button class="end-btn" id="btnAgain">Play Again</button>
     <button class="end-btn pri" onclick="location.href='index.html'">← Main Menu</button>
   </div>
@@ -532,6 +533,14 @@ const DEFAULT_CFG = {
     explain: "Ct (or Cq) is inversely proportional to log₂(initial template); a Ct difference of ~3.32 represents a 10-fold difference in starting quantity."
   }
 };
+
+// ============================================================
+// SCORE SUBMISSION — replace with your fine-grained PAT
+// (repo: restriction-cloning-game, permission: Contents read+write)
+// ============================================================
+const SCORE_PAT    = 'REPLACE_WITH_YOUR_PAT';
+const SCORE_FOLDER = 'pcr_jeopardy_scores';
+const GITHUB_REPO  = 'bgeiss1/restriction-cloning-game';
 
 // ============================================================
 // STATE
@@ -1046,6 +1055,34 @@ function saveScore(){
     arr.push(rec);
     localStorage.setItem('pcr_jeopardy_scores',JSON.stringify(arr));
   } catch {}
+  autoSubmitScore(rec);
+}
+
+async function autoSubmitScore(rec){
+  if(!SCORE_PAT||SCORE_PAT.includes('REPLACE')) return;
+  const el=document.getElementById('submitStatus');
+  if(el){ el.textContent='Submitting score…'; el.style.color='var(--muted)'; }
+  try {
+    const safeName = rec.playerName.replace(/[^a-z0-9]/gi,'_');
+    const safeDate = rec.date.slice(0,19).replace(/[:T]/g,'-');
+    const filename = `${SCORE_FOLDER}/${safeName}_${safeDate}.json`;
+    const content  = btoa(unescape(encodeURIComponent(JSON.stringify(rec,null,2))));
+    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`,{
+      method:'PUT',
+      headers:{
+        'Authorization':`token ${SCORE_PAT}`,
+        'Accept':'application/vnd.github.v3+json',
+        'Content-Type':'application/json'
+      },
+      body: JSON.stringify({ message:`Score: ${rec.playerName} ${rec.date.slice(0,10)}`, content })
+    });
+    if(el){
+      if(r.ok){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
+      else    { el.textContent='Score saved locally (submission failed).'; el.style.color='var(--warn)'; }
+    }
+  } catch {
+    if(el){ el.textContent='Score saved locally (no network).'; el.style.color='var(--warn)'; }
+  }
 }
 
 document.getElementById('btnExport').addEventListener('click',()=>{
