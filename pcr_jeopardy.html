@@ -342,6 +342,10 @@
       <div>Timer: <span id="timerDisp">30</span>s / question</div>
     </div>
     <button class="btn-start" id="btnStart" disabled>Start Reaction</button>
+    <!-- DEBUG — remove before production -->
+    <button id="btnDebugFinal" style="margin-top:4px;background:none;border:1px dashed rgba(200,169,81,0.3);
+      border-radius:6px;color:rgba(200,169,81,0.5);font-size:0.72rem;padding:5px;cursor:pointer;font-family:var(--font);"
+      onclick="debugSkipToFinal()">⚗ skip to Reaction (debug)</button>
   </div>
 </div>
 
@@ -1118,6 +1122,19 @@ document.getElementById('hudMenuBtn').addEventListener('click',()=>{
   document.getElementById('btnStart').disabled=true;
   showScreen('nameScreen');
 });
+
+// ============================================================
+// DEBUG — remove before production
+// ============================================================
+function debugSkipToFinal(){
+  const n = document.getElementById('nameInput').value.trim() || 'Debug';
+  S.playerName = n;
+  S.dntps = 1000;
+  S.stats = {correct:0,wrong:0,hsWon:false,finalWon:false,finalWager:0,start:new Date().toISOString(),
+             questionResults:[],currentAnswers:[],finalAnswer:''};
+  updateHud();
+  showFinal();
+}
 
 // ============================================================
 // GO
