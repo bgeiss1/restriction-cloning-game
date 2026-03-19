@@ -35,6 +35,12 @@ html, body { height: 100%; background: var(--bg); color: var(--text);
 #topbar-right { display: flex; align-items: center; gap: 8px; }
 #dirty { color: var(--warn); font-size: 0.82rem; font-weight: 600; }
 #dirty.hidden { display: none; }
+#filename-input {
+  background: transparent; border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text-muted); font-size: 0.82rem; padding: 3px 8px;
+  min-width: 180px; max-width: 300px;
+}
+#filename-input:focus { outline: none; border-color: var(--gold); color: var(--text); }
 
 /* ── LAYOUT ── */
 #app  { display: flex; flex-direction: column; height: 100vh; }
@@ -225,6 +231,7 @@ input[type=color] { background: none; border: 1px solid var(--border); border-ra
   <!-- ── TOP BAR ── -->
   <div id="topbar">
     <h1>🎙️ Jeopardy! PCR — Editor</h1>
+    <input type="text" id="filename-input" value="Built-in-PCR-Questions" title="Download filename (editable)" spellcheck="false">
     <div id="topbar-right">
       <span id="dirty" class="hidden">● Unsaved changes</span>
       <button class="btn-secondary" onclick="loadBuiltins()">↩ Load built-ins</button>
@@ -374,6 +381,7 @@ function loadBuiltins() {
   db.categories    = JSON.parse(JSON.stringify(BUILTIN_CFG.categories));
   db.questions     = JSON.parse(JSON.stringify(BUILTIN_CFG.questions));
   db.finalQuestion = JSON.parse(JSON.stringify(BUILTIN_CFG.finalQuestion));
+  document.getElementById('filename-input').value = 'Built-in-PCR-Questions';
   markDirty();
   selectTab(currentTab || 'questions');
 }
@@ -506,8 +514,11 @@ function handleFileLoad(e) {
   const file = e.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
-    try { db = JSON.parse(ev.target.result); ensureStructure(); currentSha = ''; dirty = false; updateDirty(); selectTab(currentTab); }
-    catch { alert('Invalid JSON file.'); }
+    try {
+      db = JSON.parse(ev.target.result); ensureStructure(); currentSha = ''; dirty = false; updateDirty();
+      document.getElementById('filename-input').value = file.name.replace(/\.json$/i, '');
+      selectTab(currentTab);
+    } catch { alert('Invalid JSON file.'); }
   };
   reader.readAsText(file);
   e.target.value = '';
@@ -516,7 +527,8 @@ function handleFileLoad(e) {
 function downloadJSON() {
   const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = QS_FILE; a.click();
+  const dlName = (document.getElementById('filename-input').value.trim() || 'pcr-questions') + '.json';
+  a.href = URL.createObjectURL(blob); a.download = dlName; a.click();
   dirty = false; updateDirty();
 }
 
