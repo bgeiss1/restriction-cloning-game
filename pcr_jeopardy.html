@@ -97,6 +97,19 @@
     .hud-stat .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
     .hud-stat .val { font-size: 1.2rem; font-weight: 700; font-family: var(--mono); color: var(--gold); }
     .hud-stat .val.met { color: var(--success); }
+
+    @media (max-width: 600px) {
+      #gameHud { height: auto; min-height: 48px; padding: 6px 10px; }
+      #hudLogo .inst-dept, #hudLogo .inst-univ { display: none; }
+      #hudLogo { margin-right: 6px; }
+      #hudLogo img { height: 28px; width: 28px; }
+      #gameHud .hud-title { display: none; }
+      #gameHud .hud-player { font-size: 0.75rem; }
+      .hud-score { gap: 12px; }
+      .hud-stat .val { font-size: 1rem; }
+      .hud-menu-btn { padding: 5px 8px; font-size: 0.72rem; }
+    }
+
     #boardWrap { flex: 1; display: flex; align-items: center; justify-content: center;
       padding: 10px 14px 14px; overflow: auto; }
     #boardGrid { display: grid; gap: 6px; }
