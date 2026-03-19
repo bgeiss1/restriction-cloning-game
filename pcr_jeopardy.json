@@ -1,6 +1,6 @@
 {
   "title": "PCR Jeopardy",
-  "targetDNTPs": 1000,
+  "targetDNTPs": 3000,
   "penaltyMultiplier": 1,
   "hotStartCount": 1,
   "finalEnabled": true,
