@@ -48,7 +48,7 @@
     {
       "id": "q_mmxmu43d",
       "category": "cat_test1_mmxmspg1",
-      "value": 100,
+      "value": 200,
       "clue": "Test question 2",
       "answer": "answers",
       "acceptedAnswers": [
@@ -60,7 +60,7 @@
     {
       "id": "q_mmxmumrk",
       "category": "cat_test1_mmxmspg1",
-      "value": 100,
+      "value": 300,
       "clue": "test question #3",
       "answer": "answers",
       "acceptedAnswers": [
@@ -72,7 +72,7 @@
     {
       "id": "q_mmxmvfg9",
       "category": "cat_test1_mmxmspg1",
-      "value": 100,
+      "value": 400,
       "clue": "test question #4",
       "answer": "Answers ",
       "acceptedAnswers": [
@@ -84,7 +84,7 @@
     {
       "id": "q_mmxmvwok",
       "category": "cat_test1_mmxmspg1",
-      "value": 100,
+      "value": 500,
       "clue": "",
       "answer": "",
       "acceptedAnswers": [],
@@ -106,7 +106,7 @@
     {
       "id": "q_mmxmznxt",
       "category": "cat_test2_mmxmz46n",
-      "value": 100,
+      "value": 200,
       "clue": "question 2",
       "answer": "answer",
       "acceptedAnswers": [
@@ -118,7 +118,7 @@
     {
       "id": "q_mmxmzv0w",
       "category": "cat_test2_mmxmz46n",
-      "value": 100,
+      "value": 300,
       "clue": "question 3",
       "answer": "answer",
       "acceptedAnswers": [
@@ -130,7 +130,7 @@
     {
       "id": "q_mmxn01g1",
       "category": "cat_test2_mmxmz46n",
-      "value": 100,
+      "value": 400,
       "clue": "question 1",
       "answer": "answer",
       "acceptedAnswers": [
@@ -142,7 +142,7 @@
     {
       "id": "q_mmxn0igf",
       "category": "cat_test2_mmxmz46n",
-      "value": 100,
+      "value": 500,
       "clue": "question 3",
       "answer": "answer",
       "acceptedAnswers": [
@@ -166,7 +166,7 @@
     {
       "id": "q_mmxn1sl4",
       "category": "cat_test3_mmxn1i74",
-      "value": 100,
+      "value": 200,
       "clue": "question 2",
       "answer": "answer",
       "acceptedAnswers": [
@@ -178,7 +178,7 @@
     {
       "id": "q_mmxn1yy9",
       "category": "cat_test3_mmxn1i74",
-      "value": 100,
+      "value": 300,
       "clue": "question 3",
       "answer": "answer",
       "acceptedAnswers": [
@@ -190,7 +190,7 @@
     {
       "id": "q_mmxn24tr",
       "category": "cat_test3_mmxn1i74",
-      "value": 100,
+      "value": 400,
       "clue": "question 4",
       "answer": "answer",
       "acceptedAnswers": [
@@ -202,7 +202,7 @@
     {
       "id": "q_mmxn2b40",
       "category": "cat_test3_mmxn1i74",
-      "value": 100,
+      "value": 500,
       "clue": "question 5",
       "answer": "answer",
       "acceptedAnswers": [
