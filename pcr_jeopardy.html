@@ -113,6 +113,12 @@
     #boardWrap { flex: 1; display: flex; align-items: center; justify-content: center;
       padding: 10px 14px 14px; overflow: auto; }
     #boardGrid { display: grid; gap: 6px; }
+    @media (max-width: 600px) {
+      #boardWrap { padding: 6px; align-items: flex-start; }
+      #boardGrid { gap: 4px; }
+      .cat-header { font-size: 0.6rem; padding: 5px 3px; min-height: 36px; letter-spacing: 0; }
+      .board-cell { font-size: 0.82rem; min-height: 40px; }
+    }
     .cat-header {
       background: var(--blue); border-radius: 6px 6px 4px 4px; color: #fff;
       font-size: 0.76rem; font-weight: 700; text-align: center; padding: 8px 6px;
@@ -721,7 +727,11 @@ function buildBoard(){
   const grid = document.getElementById('boardGrid');
   grid.innerHTML='';
   const cols=cfg.boardCols, rows=cfg.boardRows;
-  grid.style.gridTemplateColumns=`repeat(${cols},minmax(88px,155px))`;
+  const vw = window.innerWidth;
+  const colW = vw <= 600
+    ? `${Math.floor((vw - 12 - (cols - 1) * 4) / cols)}px`
+    : 'minmax(88px,155px)';
+  grid.style.gridTemplateColumns = `repeat(${cols},${colW})`;
 
   const cats = cfg.categories.slice(0,cols);
   const qMap = {};
