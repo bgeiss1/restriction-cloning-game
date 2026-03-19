@@ -5,7 +5,7 @@
   "hotStartCount": 1,
   "finalEnabled": true,
   "allowSkipFinal": false,
-  "boardCols": 5,
+  "boardCols": 3,
   "boardRows": 5,
   "rowValues": [
     100,
