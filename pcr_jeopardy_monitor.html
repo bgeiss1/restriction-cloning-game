@@ -957,7 +957,7 @@ function openDrawer(key) {
     ${finalBlock}
     <div class="section">
       <div class="section-title" onclick="toggleSec(this)"><span>❓ Question Results</span><span class="chevron">▾</span></div>
-      <div class="section-body">${qCards || '<div style="color:var(--muted)">No question data recorded.</div>'}</div>
+      <div class="section-body" style="max-height:420px;overflow-y:auto;">${qCards || '<div style="color:var(--muted)">No question data recorded.</div>'}</div>
     </div>`;
 
   document.getElementById('playerDrawer').classList.add('open');
