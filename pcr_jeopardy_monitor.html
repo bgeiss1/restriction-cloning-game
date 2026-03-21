@@ -416,6 +416,8 @@ function parseCSV(text) {
 function csvRowToRec(headers, values) {
   const row = {};
   headers.forEach((h, i) => row[h.trim()] = (values[i] || '').trim());
+  // Google Sheets exports booleans as TRUE/FALSE (uppercase) — compare case-insensitively
+  const bool = s => s?.toLowerCase() === 'true';
   let qr = [];
   try { qr = JSON.parse(row.questionResults || '[]'); } catch {}
   return {
@@ -423,13 +425,13 @@ function csvRowToRec(headers, values) {
     date:          row.date,
     finalDNTPs:    Number(row.finalDNTPs)   || 0,
     targetDNTPs:   Number(row.targetDNTPs)  || 0,
-    targetMet:     row.targetMet  === 'true',
+    targetMet:     bool(row.targetMet),
     correct:       Number(row.correct) || 0,
     wrong:         Number(row.wrong)   || 0,
-    hotStart:      { won: row.hotStartWon === 'true' },
+    hotStart:      { won: bool(row.hotStartWon) },
     finalReaction: row.finalWagered !== '' ? {
       wagered:      Number(row.finalWagered) || 0,
-      won:          row.finalWon === 'true',
+      won:          bool(row.finalWon),
       playerAnswer: row.finalPlayerAnswer || ''
     } : null,
     questionResults: qr
@@ -884,11 +886,15 @@ function openDrawer(key) {
     <div class="callout warn" style="margin-top:12px;">
       <strong>Questions missed (${wrong.length}):</strong>
       <ul style="margin:6px 0 0;padding-left:18px;line-height:1.8;">
-        ${wrong.map(q=>`<li>
-          <strong>${esc(q.category)} — ${q.value} dNTPs</strong>
-          ${q.clue ? `<br><span style="color:var(--text);font-size:0.83rem;">${esc(q.clue)}</span>` : ''}
-          ${q.correctAnswer ? `<br><span style="color:var(--success);font-size:0.78rem;">Answer: ${esc(q.correctAnswer)}</span>` : ''}
-        </li>`).join('')}
+        ${wrong.map(q=>{
+          const typed = (q.playerAnswers||[]).filter(a=>a&&a!=='(timed out)');
+          return `<li>
+            <strong>${esc(q.category)} — ${q.value} dNTPs</strong>
+            ${q.clue ? `<br><span style="color:var(--text);font-size:0.83rem;">${esc(q.clue)}</span>` : ''}
+            ${q.correctAnswer ? `<br><span style="color:var(--success);font-size:0.78rem;">Correct answer: ${esc(q.correctAnswer)}</span>` : ''}
+            ${typed.length ? `<br><span style="color:var(--danger);font-size:0.78rem;">Player typed: ${typed.map(a=>`"${esc(a)}"`).join(', ')}</span>` : ''}
+          </li>`;
+        }).join('')}
       </ul>
     </div>` : (qs.length ? `<div class="callout info" style="margin-top:12px;">✓ No questions missed.</div>` : '');
 
