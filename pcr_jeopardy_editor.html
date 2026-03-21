@@ -206,6 +206,20 @@ input[type=color] { background: none; border: 1px solid var(--border); border-ra
 #connect-box input[type=password]:focus { outline: none; border-color: var(--gold); }
 #connect-error { color: var(--danger); font-size: 0.85rem; min-height: 1.2em; }
 
+/* ── UNSAVED CHANGES MODAL ── */
+#unsaved-modal {
+  position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+}
+#unsaved-modal.hidden { display: none; }
+#unsaved-box {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 28px 32px; width: 380px; display: flex; flex-direction: column; gap: 16px;
+}
+#unsaved-box h2 { font-size: 1rem; color: var(--gold); }
+#unsaved-box p  { font-size: 0.87rem; color: var(--muted); line-height: 1.6; }
+#unsaved-box .modal-btns { display: flex; flex-direction: column; gap: 8px; }
+
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -213,6 +227,19 @@ input[type=color] { background: none; border: 1px solid var(--border); border-ra
 </style>
 </head>
 <body>
+
+<!-- ── UNSAVED CHANGES MODAL ── -->
+<div id="unsaved-modal" class="hidden">
+  <div id="unsaved-box">
+    <h2>⚠ Unsaved Changes</h2>
+    <p>You have unsaved changes. Save them to GitHub before leaving, or discard and leave anyway?</p>
+    <div class="modal-btns">
+      <button class="btn-publish" id="modal-save-btn">💾 Save to GitHub &amp; Return to Hub</button>
+      <button class="btn-secondary" id="modal-discard-btn">Discard Changes &amp; Return to Hub</button>
+      <button class="btn-secondary" id="modal-cancel-btn">Cancel — Stay in Editor</button>
+    </div>
+  </div>
+</div>
 
 <!-- ── CONNECT OVERLAY ── -->
 <div id="connect-overlay" class="hidden">
@@ -239,9 +266,7 @@ input[type=color] { background: none; border: 1px solid var(--border); border-ra
       <button class="btn-secondary" onclick="downloadJSON()">⬇ Download</button>
       <button class="btn-secondary" onclick="openFile()">📂 Open JSON</button>
       <button class="btn-publish" id="publish-btn" onclick="publishToGitHub()">💾 Load Current Questions to Game</button>
-      <a href="jeopardy_instructor.html" style="text-decoration:none;">
-        <button class="btn-secondary">← Hub</button>
-      </a>
+      <button class="btn-secondary" onclick="goToHub()">← Hub</button>
     </div>
   </div>
 
@@ -547,6 +572,33 @@ function downloadJSON() {
 // ═══════════════════════════════════════════════
 function markDirty() { dirty = true; updateDirty(); }
 function updateDirty() { document.getElementById('dirty').classList.toggle('hidden', !dirty); }
+
+// ── HUB NAVIGATION ────────────────────────────────────────────────────────
+function goToHub() {
+  if (!dirty) { window.location.href = 'jeopardy_instructor.html'; return; }
+  document.getElementById('modal-error').textContent = '';
+  document.getElementById('unsaved-modal').classList.remove('hidden');
+}
+
+document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+  document.getElementById('unsaved-modal').classList.add('hidden');
+});
+
+document.getElementById('modal-discard-btn').addEventListener('click', () => {
+  window.location.href = 'jeopardy_instructor.html';
+});
+
+document.getElementById('modal-save-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('modal-save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  await publishToGitHub();
+  if (!dirty) {
+    window.location.href = 'jeopardy_instructor.html';
+  } else {
+    // publishToGitHub already showed an error alert
+    btn.disabled = false; btn.textContent = '💾 Save to GitHub & Return to Hub';
+  }
+});
 
 function updateSideCounts() {
   document.getElementById('cat-count-sub').textContent = db.categories.length + ' categor' + (db.categories.length===1?'y':'ies');
