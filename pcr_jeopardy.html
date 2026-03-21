@@ -748,6 +748,17 @@ function buildBoard(){
     grid.appendChild(h);
   });
 
+  // Shrink font on any header that overflows its fixed height
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.cat-header').forEach(el => {
+      let size = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollHeight > el.clientHeight && size > 7) {
+        size -= 0.5;
+        el.style.fontSize = size + 'px';
+      }
+    });
+  });
+
   // Cells — event delegation on grid
   for(let r=0;r<rows;r++){
     const val=cfg.rowValues[r];
