@@ -69,8 +69,45 @@ function doPost(e) {
   }
 }
 
-// ── RESET SHEET (called by monitor Reset button) ─────────────
+// ── RECEIVE SCORE FROM GAME (GET fallback — no questionResults) ──
 function doGet(e) {
+  if (e.parameter.action === 'score') {
+    try {
+      const p     = e.parameter;
+      const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+
+      if (sheet.getLastRow() === 0) {
+        sheet.appendRow(HEADERS);
+        sheet.getRange(1, 1, 1, HEADERS.length).setFontWeight('bold');
+      }
+
+      sheet.appendRow([
+        p.date              || new Date().toISOString(),
+        p.playerName        || '',
+        Number(p.finalDNTPs)  || 0,
+        Number(p.targetDNTPs) || 0,
+        p.targetMet         || 'false',
+        Number(p.correct)   || 0,
+        Number(p.wrong)     || 0,
+        p.hotStartWon       || 'false',
+        Number(p.finalWagered) || 0,
+        p.finalWon          || 'false',
+        p.finalPlayerAnswer || '',
+        '[]'   // questionResults not available via GET
+      ]);
+
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: true }))
+        .setMimeType(ContentService.MimeType.JSON);
+
+    } catch (err) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: false, error: err.message }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  // ── RESET SHEET (called by monitor Reset button) ──────────────
   if (e.parameter.action === 'reset') {
     if (RESET_SECRET && e.parameter.secret !== RESET_SECRET) {
       return ContentService

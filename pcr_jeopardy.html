@@ -1116,12 +1116,25 @@ async function autoSubmitScore(rec){
   }
   if(el){ el.textContent='Submitting score…'; el.style.color='var(--muted)'; }
   try {
-    // No Content-Type header → browser sends text/plain → simple request, no CORS preflight.
-    // Do NOT use mode:'no-cors' — Apps Script redirects POST requests and no-cors drops the body.
-    const r = await fetch(APPS_SCRIPT_URL, {
-      method : 'POST',
-      body   : JSON.stringify(rec),
+    // Use GET with URL params — Apps Script GET works cross-origin without CORS issues.
+    // POST causes a redirect (script.google.com → script.googleusercontent.com) whose 302
+    // response lacks CORS headers, blocking the request. questionResults is omitted (too
+    // large for a URL); full detail is still available via the Export Score JSON download.
+    const params = new URLSearchParams({
+      action:            'score',
+      playerName:        rec.playerName,
+      date:              rec.date,
+      finalDNTPs:        rec.finalDNTPs,
+      targetDNTPs:       rec.targetDNTPs,
+      targetMet:         rec.targetMet ? 'true' : 'false',
+      correct:           rec.correct,
+      wrong:             rec.wrong,
+      hotStartWon:       rec.hotStart?.won ? 'true' : 'false',
+      finalWagered:      rec.finalReaction ? (rec.finalReaction.wagered ?? 0) : 0,
+      finalWon:          rec.finalReaction ? (rec.finalReaction.won ? 'true' : 'false') : 'false',
+      finalPlayerAnswer: rec.finalReaction?.playerAnswer || '',
     });
+    const r = await fetch(APPS_SCRIPT_URL + '?' + params.toString());
     const json = await r.json().catch(()=>({ok:false}));
     if(json.ok){
       if(el){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
@@ -1131,7 +1144,7 @@ async function autoSubmitScore(rec){
     }
   } catch(e) {
     console.error('Score submission error', e);
-    if(el){ el.textContent='Score saved locally (no network).'; el.style.color='var(--warn)'; }
+    if(el){ el.textContent='Submission failed — use Export Score below.'; el.style.color='var(--warn)'; }
   }
 }
 
