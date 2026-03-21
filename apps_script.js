@@ -93,7 +93,7 @@ function doGet(e) {
         Number(p.finalWagered) || 0,
         p.finalWon          || 'false',
         p.finalPlayerAnswer || '',
-        '[]'   // questionResults not available via GET
+        p.qResults || '[]'
       ]);
 
       return ContentService

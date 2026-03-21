@@ -1120,6 +1120,15 @@ async function autoSubmitScore(rec){
     // POST causes a redirect (script.google.com → script.googleusercontent.com) whose 302
     // response lacks CORS headers, blocking the request. questionResults is omitted (too
     // large for a URL); full detail is still available via the Export Score JSON download.
+    // Compact question results — omit playerAnswers/attempts/hotStart to keep URL small
+    const compactQR = JSON.stringify((rec.questionResults||[]).map(qr => ({
+      questionId:    qr.questionId,
+      category:      qr.category,
+      value:         qr.value,
+      result:        qr.result,
+      clue:          qr.clue,
+      correctAnswer: qr.correctAnswer
+    })));
     const params = new URLSearchParams({
       action:            'score',
       playerName:        rec.playerName,
@@ -1133,6 +1142,7 @@ async function autoSubmitScore(rec){
       finalWagered:      rec.finalReaction ? (rec.finalReaction.wagered ?? 0) : 0,
       finalWon:          rec.finalReaction ? (rec.finalReaction.won ? 'true' : 'false') : 'false',
       finalPlayerAnswer: rec.finalReaction?.playerAnswer || '',
+      qResults:          compactQR,
     });
     const r = await fetch(APPS_SCRIPT_URL + '?' + params.toString());
     const json = await r.json().catch(()=>({ok:false}));

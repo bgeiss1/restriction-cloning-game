@@ -635,8 +635,8 @@ function renderClass() {
 
   const rows = players.map(pl => {
     const qs = pl.questionResults||[];
-    const correct = qs.filter(q=>q.result==='correct').length;
-    const wrong   = qs.filter(q=>q.result==='wrong').length;
+    const correct   = qs.length ? qs.filter(q=>q.result==='correct').length : (pl.correct||0);
+    const wrong     = qs.length ? qs.filter(q=>q.result==='wrong').length   : (pl.wrong||0);
     const struggled = qs.filter(q=>q.result==='correct'&&q.attempts>1).length;
     const hsInfo = pl.hotStart?.won ? '<span class="badge ok">✓</span>' : (pl.hotStart ? '<span class="badge fail">✗</span>' : '—');
     const fnInfo = pl.finalReaction ? (pl.finalReaction.won ? '<span class="badge ok">✓</span>' : '<span class="badge fail">✗</span>') : '—';
@@ -875,6 +875,22 @@ function openDrawer(key) {
   const correct   = qs.filter(q=>q.result==='correct');
   const wrong     = qs.filter(q=>q.result==='wrong');
   const struggled = qs.filter(q=>q.result==='correct'&&q.attempts>1);
+  // Fall back to stored summary counts when questionResults is unavailable
+  const nCorrect  = qs.length ? correct.length  : (pl.correct||0);
+  const nWrong    = qs.length ? wrong.length    : (pl.wrong||0);
+  const nStruggled = struggled.length;
+
+  const missedBlock = wrong.length ? `
+    <div class="callout warn" style="margin-top:12px;">
+      <strong>Questions missed (${wrong.length}):</strong>
+      <ul style="margin:6px 0 0;padding-left:18px;line-height:1.8;">
+        ${wrong.map(q=>`<li>
+          <strong>${esc(q.category)} — ${q.value} dNTPs</strong>
+          ${q.clue ? `<br><span style="color:var(--text);font-size:0.83rem;">${esc(q.clue)}</span>` : ''}
+          ${q.correctAnswer ? `<br><span style="color:var(--success);font-size:0.78rem;">Answer: ${esc(q.correctAnswer)}</span>` : ''}
+        </li>`).join('')}
+      </ul>
+    </div>` : (qs.length ? `<div class="callout info" style="margin-top:12px;">✓ No questions missed.</div>` : '');
 
   const qCards = qs.map(qr => {
     const isCorrect = qr.result==='correct';
@@ -920,17 +936,18 @@ function openDrawer(key) {
       </div>
       <div style="flex:1;min-width:80px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;">
         <div style="font-size:0.72rem;color:var(--muted)">Correct</div>
-        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--success)">${correct.length}</div>
+        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--success)">${nCorrect}</div>
       </div>
       <div style="flex:1;min-width:80px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;">
         <div style="font-size:0.72rem;color:var(--muted)">Failed</div>
-        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--danger)">${wrong.length}</div>
+        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--danger)">${nWrong}</div>
       </div>
       <div style="flex:1;min-width:80px;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;">
         <div style="font-size:0.72rem;color:var(--muted)">Struggled</div>
-        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--warn)">${struggled.length}</div>
+        <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:var(--warn)">${nStruggled}</div>
       </div>
     </div>
+    ${missedBlock}
     ${finalBlock}
     <div class="section">
       <div class="section-title" onclick="toggleSec(this)"><span>❓ Question Results</span><span class="chevron">▾</span></div>
