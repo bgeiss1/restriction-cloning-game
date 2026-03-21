@@ -952,7 +952,10 @@ function recordQResult(result){
 function showFb(cls,html){ const el=document.getElementById('qFeedback'); el.className='q-feedback '+cls; el.innerHTML=html; el.style.display='block'; }
 function hideFb(){ document.getElementById('qFeedback').style.display='none'; }
 
-document.getElementById('qNext').addEventListener('click', closeQuestion);
+document.getElementById('qNext').addEventListener('click', () => {
+  document.getElementById('qNext').style.display='none';
+  closeQuestion();
+});
 
 function closeQuestion(){
   clearInterval(S.timerHandle);
