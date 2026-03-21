@@ -257,7 +257,7 @@ input[type=text]:focus, input[type=date]:focus, select:focus { outline:none; bor
     <h1>📊 Jeopardy! PCR — Instructor Monitor</h1>
     <div id="topbar-right">
       <button class="btn-secondary" onclick="importFiles()">📂 Import Files</button>
-      <button class="btn-secondary" id="syncBtn" onclick="syncScoresFromSheets()" style="display:none">↻ Sync from Sheets</button>
+      <button class="btn-secondary" id="syncBtn" onclick="syncScoresFromSheets()" style="display:none">↻ Load Player Scores</button>
       <button class="btn-danger" id="resetBtn" onclick="resetSheet()" style="display:none">🗑 Reset Sheet</button>
       <button class="btn-secondary" onclick="downloadSession()" id="download-btn" style="display:none">⬇ Download Session</button>
       <a href="jeopardy_instructor.html" style="text-decoration:none;"><button class="btn-secondary">← Hub</button></a>
@@ -459,7 +459,7 @@ async function syncScoresFromSheets() {
   } catch(e) {
     alert('Sync failed: ' + e.message);
   } finally {
-    if (btn) { btn.disabled=false; btn.textContent='↻ Sync from Sheets'; }
+    if (btn) { btn.disabled=false; btn.textContent='↻ Load Player Scores'; }
   }
 }
 
@@ -574,7 +574,7 @@ function renderSessions() {
         ${sheetsCsvUrl
           ? `<div class="callout info">
                📊 <strong>Google Sheets connected.</strong> Student scores are submitted automatically at game end.
-               Click <strong>Sync from Sheets</strong> in the toolbar to pull them into the active session.
+               Click <strong>Load Player Scores</strong> in the toolbar to pull them into the active session.
              </div>`
           : `<div class="callout warn">
                No Google Sheet connected. Students can still <strong>Export Score</strong> from the game end screen.
