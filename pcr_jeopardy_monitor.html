@@ -208,12 +208,12 @@ input[type=text]:focus, input[type=date]:focus, select:focus { outline:none; bor
 }
 #connect-box h1 { font-size:1.35rem; color:var(--gold); }
 #connect-box p  { color:var(--muted); font-size:0.88rem; line-height:1.6; }
-#connect-box input[type=password] {
+#connect-box input[type=text] {
   width:100%; padding:9px 12px;
   background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius);
-  color:var(--text); font-size:0.95rem; font-family:inherit;
+  color:var(--text); font-size:0.88rem; font-family:inherit;
 }
-#connect-box input[type=password]:focus { outline:none; border-color:var(--gold); }
+#connect-box input[type=text]:focus { outline:none; border-color:var(--gold); }
 #connect-error { color:var(--danger); font-size:0.85rem; min-height:1.2em; }
 
 /* ── SCROLLBAR ── */
@@ -228,14 +228,16 @@ input[type=text]:focus, input[type=date]:focus, select:focus { outline:none; bor
 <div id="connect-overlay" class="hidden">
   <div id="connect-box">
     <h1>📊 Jeopardy! PCR — Monitor</h1>
-    <p>Enter your GitHub Personal Access Token to load and save session data.<br>
-       Needs <strong>repo</strong> (Contents read &amp; write) scope.</p>
-    <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
+    <p>Paste your <strong>Google Sheet CSV URL</strong> to sync student scores.<br>
+       In Google Sheets: <em>File → Share → Publish to web → Sheet → CSV → Publish</em></p>
+    <input type="text" id="csv-input" placeholder="https://docs.google.com/spreadsheets/d/…/pub?output=csv" autocomplete="off">
+    <p style="margin-top:12px;font-size:0.82rem;color:var(--muted);">Apps Script URL <span style="font-weight:400;">(optional — enables score auto-submit &amp; sheet reset)</span></p>
+    <input type="text" id="script-input" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off">
     <div id="connect-error"></div>
     <button class="btn-primary" id="connect-btn">Connect</button>
     <div style="text-align:center;">
       <button class="btn-secondary" id="offline-btn" style="font-size:0.8rem;">
-        Use offline (import files only, no GitHub save)
+        Use offline (import files only)
       </button>
     </div>
   </div>
@@ -255,8 +257,8 @@ input[type=text]:focus, input[type=date]:focus, select:focus { outline:none; bor
     <h1>📊 Jeopardy! PCR — Instructor Monitor</h1>
     <div id="topbar-right">
       <button class="btn-secondary" onclick="importFiles()">📂 Import Files</button>
-      <button class="btn-secondary" id="syncBtn" onclick="syncScoresFromGitHub()" style="display:none">☁ Sync from GitHub</button>
-      <button class="btn-publish" id="publish-btn" onclick="publishSession()" style="display:none">💾 Save Session</button>
+      <button class="btn-secondary" id="syncBtn" onclick="syncScoresFromSheets()" style="display:none">↻ Sync from Sheets</button>
+      <button class="btn-danger" id="resetBtn" onclick="resetSheet()" style="display:none">🗑 Reset Sheet</button>
       <button class="btn-secondary" onclick="downloadSession()" id="download-btn" style="display:none">⬇ Download Session</button>
       <a href="index.html" style="text-decoration:none;"><button class="btn-secondary">← Menu</button></a>
     </div>
@@ -311,18 +313,16 @@ input[type=text]:focus, input[type=date]:focus, select:focus { outline:none; bor
 
 <script>
 // ═══════════════════════════════════════════════
-// GITHUB CONFIG
+// CONFIG
 // ═══════════════════════════════════════════════
-const GITHUB_REPO    = 'bgeiss1/restriction-cloning-game';
-const GITHUB_API     = `https://api.github.com/repos/${GITHUB_REPO}/contents/`;
 const SESSION_PREFIX = 'pcr_jeopardy_s_';
-const SCORE_FOLDER   = 'pcr_jeopardy_scores';
 
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
-let pat = null;
-let sessions = {};      // id → session object
+let sheetsCsvUrl  = null;   // Google Sheet published CSV URL
+let appsScriptUrl = null;   // Apps Script Web App URL (optional)
+let sessions = {};          // id → session object
 let activeSessionId = null;
 let currentTab = 'sessions';
 let sortState = { col: null, dir: 'desc' };
@@ -332,28 +332,43 @@ function activeSession() { return sessions[activeSessionId] || null; }
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-window.addEventListener('DOMContentLoaded', async () => {
-  const saved = sessionStorage.getItem('pcr_jeopardy_monitor_pat');
-  const onGH  = location.hostname.endsWith('github.io');
+window.addEventListener('DOMContentLoaded', () => {
+  const savedCsv    = sessionStorage.getItem('pcr_jeopardy_monitor_csv');
+  const savedScript = sessionStorage.getItem('pcr_jeopardy_monitor_script');
 
-  if (onGH) {
-    if (saved) { await connectWithPat(saved, true); }
-    else { showConnect(); }
+  if (savedCsv) {
+    sheetsCsvUrl  = savedCsv;
+    appsScriptUrl = savedScript || null;
+    onConnected();
   } else {
-    // Local dev: try to load without PAT
-    selectTab('sessions');
+    showConnect();
   }
 
   document.getElementById('connect-btn').addEventListener('click', async () => {
-    const v = document.getElementById('pat-input').value.trim();
-    if (!v) { document.getElementById('connect-error').textContent='Please enter a PAT.'; return; }
+    const csv    = document.getElementById('csv-input').value.trim();
+    const script = document.getElementById('script-input').value.trim();
+    if (!csv) { document.getElementById('connect-error').textContent='Please enter a CSV URL.'; return; }
     const btn = document.getElementById('connect-btn');
     btn.disabled=true; btn.textContent='Connecting…';
     document.getElementById('connect-error').textContent='';
-    await connectWithPat(v, false);
-    btn.disabled=false; btn.textContent='Connect';
+    try {
+      const r = await fetch(csv, { cache:'no-store' });
+      if (!r.ok) throw new Error('HTTP ' + r.status + ' — check that the sheet is published.');
+      const text = await r.text();
+      if (!text.includes(',')) throw new Error('Does not look like a CSV — publish the sheet first.');
+      sheetsCsvUrl  = csv;
+      appsScriptUrl = script || null;
+      sessionStorage.setItem('pcr_jeopardy_monitor_csv', csv);
+      if (script) sessionStorage.setItem('pcr_jeopardy_monitor_script', script);
+      else sessionStorage.removeItem('pcr_jeopardy_monitor_script');
+      onConnected();
+    } catch(e) {
+      document.getElementById('connect-error').textContent = 'Error: ' + e.message;
+    } finally {
+      btn.disabled=false; btn.textContent='Connect';
+    }
   });
-  document.getElementById('pat-input').addEventListener('keydown', e => {
+  document.getElementById('csv-input').addEventListener('keydown', e => {
     if (e.key==='Enter') document.getElementById('connect-btn').click();
   });
   document.getElementById('offline-btn').addEventListener('click', () => {
@@ -367,102 +382,99 @@ function showConnect() {
   document.getElementById('connect-overlay').classList.remove('hidden');
 }
 
-async function connectWithPat(p, silent) {
-  try {
-    // Test auth and load existing session list
-    const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/`, {
-      cache:'no-store',
-      headers:{ 'Authorization':`token ${p}`, 'Accept':'application/vnd.github.v3+json' }
-    });
-    if (!r.ok) throw new Error(`GitHub ${r.status}`);
-    pat = p;
-    sessionStorage.setItem('pcr_jeopardy_monitor_pat', p);
-    await loadSessionsFromGitHub();
-    document.getElementById('connect-overlay').classList.add('hidden');
-    document.getElementById('publish-btn').style.display = '';
-    document.getElementById('syncBtn').style.display = '';
-    selectTab('sessions');
-  } catch(err) {
-    if (silent) {
-      sessionStorage.removeItem('pcr_jeopardy_monitor_pat');
-      pat = null;
-      if (location.hostname.endsWith('github.io')) showConnect();
-      else selectTab('sessions');
+function onConnected() {
+  document.getElementById('connect-overlay').classList.add('hidden');
+  document.getElementById('syncBtn').style.display = '';
+  if (appsScriptUrl) document.getElementById('resetBtn').style.display = '';
+  selectTab('sessions');
+}
+
+// ═══════════════════════════════════════════════
+// GOOGLE SHEETS SYNC
+// ═══════════════════════════════════════════════
+function parseCSV(text) {
+  const rows = [];
+  let field = '', fields = [], inQuote = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i], next = text[i+1];
+    if (inQuote) {
+      if (c === '"' && next === '"') { field += '"'; i++; }
+      else if (c === '"') inQuote = false;
+      else field += c;
     } else {
-      document.getElementById('connect-error').textContent = 'Error: ' + err.message;
+      if      (c === '"') inQuote = true;
+      else if (c === ',') { fields.push(field); field = ''; }
+      else if (c === '\n') {
+        fields.push(field);
+        if (fields.some(f => f.trim())) rows.push(fields);
+        fields = []; field = '';
+      } else if (c !== '\r') field += c;
     }
   }
+  if (field !== '' || fields.length) { fields.push(field); if (fields.some(f=>f.trim())) rows.push(fields); }
+  return rows;
 }
 
-// ═══════════════════════════════════════════════
-// GITHUB API
-// ═══════════════════════════════════════════════
-function b64d(s) { return decodeURIComponent(escape(atob(s.replace(/\n/g,'')))); }
-
-async function ghGet(path) {
-  const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
-    cache:'no-store',
-    headers:{ 'Authorization':`token ${pat}`, 'Accept':'application/vnd.github.v3+json' }
-  });
-  if (!r.ok) throw new Error(`GitHub ${r.status}: ${(await r.text()).slice(0,200)}`);
-  return r.json();
+function csvRowToRec(headers, values) {
+  const row = {};
+  headers.forEach((h, i) => row[h.trim()] = (values[i] || '').trim());
+  let qr = [];
+  try { qr = JSON.parse(row.questionResults || '[]'); } catch {}
+  return {
+    playerName:    row.playerName,
+    date:          row.date,
+    finalDNTPs:    Number(row.finalDNTPs)   || 0,
+    targetDNTPs:   Number(row.targetDNTPs)  || 0,
+    targetMet:     row.targetMet  === 'true',
+    correct:       Number(row.correct) || 0,
+    wrong:         Number(row.wrong)   || 0,
+    hotStart:      { won: row.hotStartWon === 'true' },
+    finalReaction: row.finalWagered !== '' ? {
+      wagered:      Number(row.finalWagered) || 0,
+      won:          row.finalWon === 'true',
+      playerAnswer: row.finalPlayerAnswer || ''
+    } : null,
+    questionResults: qr
+  };
 }
 
-async function ghPut(path, contentStr, message) {
-  let sha = '';
-  try { const ex = await ghGet(path); sha = ex.sha; } catch {}
-  const content = btoa(unescape(encodeURIComponent(contentStr)));
-  const body = { message, content };
-  if (sha) body.sha = sha;
-  const r = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${path}`, {
-    method:'PUT',
-    headers:{ 'Authorization':`token ${pat}`, 'Accept':'application/vnd.github.v3+json', 'Content-Type':'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
-
-async function loadSessionsFromGitHub() {
-  if (!pat) return;
-  try {
-    const listing = await ghGet('');
-    const sessionFiles = listing.filter(f => f.name.startsWith(SESSION_PREFIX) && f.name.endsWith('.json'));
-    for (const f of sessionFiles) {
-      const data = await ghGet(f.name);
-      const s = JSON.parse(b64d(data.content));
-      sessions[s.sessionId] = s;
-    }
-  } catch(e) { console.warn('Could not load sessions:', e.message); }
-}
-
-async function syncScoresFromGitHub() {
-  if (!pat) { alert('Not connected to GitHub.'); return; }
+async function syncScoresFromSheets() {
+  if (!sheetsCsvUrl) { alert('No Google Sheet configured.'); return; }
   const btn = document.getElementById('syncBtn');
   if (btn) { btn.disabled=true; btn.textContent='Syncing…'; }
   let imported=0, skipped=0;
   try {
-    let files;
-    try { files = await ghGet(SCORE_FOLDER); }
-    catch { files = []; }  // folder doesn't exist yet
-
-    const scoreFiles = files.filter(f => f.name.endsWith('.json'));
-    for (const f of scoreFiles) {
-      try {
-        const data = await ghGet(`${SCORE_FOLDER}/${f.name}`);
-        const rec  = JSON.parse(b64d(data.content));
-        if (rec.playerName && rec.date && rec.questionResults) {
-          const added = mergePlayerRecord(rec);
-          added ? imported++ : skipped++;
-        }
-      } catch {}
+    const sep = sheetsCsvUrl.includes('?') ? '&' : '?';
+    const r   = await fetch(sheetsCsvUrl + sep + 'cachebust=' + Date.now(), { cache:'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = parseCSV(await r.text());
+    if (rows.length < 2) { alert('Sheet appears empty — no scores yet.'); return; }
+    const headers = rows[0];
+    for (let i = 1; i < rows.length; i++) {
+      const rec = csvRowToRec(headers, rows[i]);
+      if (rec.playerName && rec.date) { mergePlayerRecord(rec) ? imported++ : skipped++; }
     }
     updateSideCounts(); selectTab(currentTab);
-    alert(`Sync complete: ${imported} new record${imported===1?'':'s'} imported, ${skipped} already present.`);
+    alert(`Sync complete: ${imported} new record${imported===1?'':'s'}, ${skipped} already present.`);
   } catch(e) {
     alert('Sync failed: ' + e.message);
   } finally {
-    if (btn) { btn.disabled=false; btn.textContent='☁ Sync from GitHub'; }
+    if (btn) { btn.disabled=false; btn.textContent='↻ Sync from Sheets'; }
+  }
+}
+
+async function resetSheet() {
+  if (!appsScriptUrl) { alert('Apps Script URL not configured.'); return; }
+  if (!confirm('Clear all scores from the Google Sheet? This cannot be undone.')) return;
+  const secret = prompt('Reset secret (leave blank if none was set in apps_script.js):') || '';
+  try {
+    const url = appsScriptUrl + '?action=reset' + (secret ? '&secret=' + encodeURIComponent(secret) : '');
+    const r   = await fetch(url);
+    const json = await r.json().catch(() => ({}));
+    if (json.ok) alert('Sheet cleared successfully.');
+    else alert('Reset failed: ' + (json.error || r.status));
+  } catch(e) {
+    alert('Reset failed: ' + e.message);
   }
 }
 
@@ -559,14 +571,13 @@ function renderSessions() {
         <span>📂 Import &amp; Upload</span><span class="chevron">▾</span>
       </div>
       <div class="section-body">
-        ${pat
+        ${sheetsCsvUrl
           ? `<div class="callout info">
-               ☁ <strong>Auto-sync enabled.</strong> Student scores are submitted to GitHub automatically at game end.
-               Click <strong>Sync from GitHub</strong> in the toolbar to pull them into the active session.
-               Then click <strong>Save Session</strong> to consolidate into a named session file.
+               📊 <strong>Google Sheets connected.</strong> Student scores are submitted automatically at game end.
+               Click <strong>Sync from Sheets</strong> in the toolbar to pull them into the active session.
              </div>`
           : `<div class="callout warn">
-               No GitHub connection. Students can still <strong>Export Score</strong> from the game end screen.
+               No Google Sheet connected. Students can still <strong>Export Score</strong> from the game end screen.
                Collect those files and use <strong>Import Files</strong> in the toolbar above.
              </div>`
         }
@@ -936,28 +947,8 @@ function closeDrawer() {
 }
 
 // ═══════════════════════════════════════════════
-// SAVE / DOWNLOAD SESSION
+// DOWNLOAD SESSION
 // ═══════════════════════════════════════════════
-async function publishSession() {
-  if (!pat) { alert('Not connected to GitHub.'); return; }
-  const s = activeSession(); if (!s) { alert('No active session.'); return; }
-  const btn = document.getElementById('publish-btn');
-  btn.disabled=true; btn.textContent='Saving…';
-  try {
-    const filename = SESSION_PREFIX + s.sessionId + '.json';
-    const str = JSON.stringify(s, null, 2);
-    const msg = `Update ${filename} — ${new Date().toISOString().slice(0,16)}`;
-    await ghPut(filename, str, msg);
-    btn.textContent='✓ Saved!';
-    setTimeout(()=>{ btn.textContent='💾 Save Session'; },2500);
-  } catch(err) {
-    alert('Save failed: '+err.message);
-  } finally {
-    btn.disabled=false;
-    if (btn.textContent==='Saving…') btn.textContent='💾 Save Session';
-  }
-}
-
 function downloadSession() {
   const s = activeSession(); if (!s) return;
   const blob = new Blob([JSON.stringify(s,null,2)],{type:'application/json'});

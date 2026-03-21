@@ -565,12 +565,12 @@ const DEFAULT_CFG = {
 };
 
 // ============================================================
-// SCORE SUBMISSION — Cloudflare Worker proxy
-// Set SCORE_WORKER_URL to your deployed worker URL, e.g.:
-//   https://pcr-score-worker.YOUR-SUBDOMAIN.workers.dev
+// SCORE SUBMISSION — Google Apps Script
+// Paste your deployed Apps Script Web App URL below.
+// See apps_script.js in this repo for setup instructions.
 // Leave blank to disable auto-submit (local export still works).
 // ============================================================
-const SCORE_WORKER_URL = '';
+const APPS_SCRIPT_URL = '';
 
 // ============================================================
 // STATE
@@ -1107,24 +1107,19 @@ function saveScore(){
 
 async function autoSubmitScore(rec){
   const el=document.getElementById('submitStatus');
-  if(!SCORE_WORKER_URL){
+  if(!APPS_SCRIPT_URL){
     if(el){ el.textContent='Auto-submit not configured — use Export Score below.'; el.style.color='var(--muted)'; }
     return;
   }
   if(el){ el.textContent='Submitting score…'; el.style.color='var(--muted)'; }
   try {
-    const r = await fetch(SCORE_WORKER_URL, {
+    // mode:'no-cors' avoids CORS preflight; Apps Script receives the body via e.postData.contents
+    await fetch(APPS_SCRIPT_URL, {
       method : 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      mode   : 'no-cors',
       body   : JSON.stringify(rec),
     });
-    const json = await r.json().catch(()=>({ok:false}));
-    if(json.ok){
-      if(el){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
-    } else {
-      console.error('Score submission failed', json);
-      if(el){ el.textContent=`Score saved locally (HTTP ${json.status||r.status} — see console).`; el.style.color='var(--warn)'; }
-    }
+    if(el){ el.textContent='✓ Score submitted to instructor.'; el.style.color='var(--success)'; }
   } catch(e) {
     console.error('Score submission error', e);
     if(el){ el.textContent='Score saved locally (no network).'; el.style.color='var(--warn)'; }
