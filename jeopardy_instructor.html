@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jeopardy! PCR — Instructor Hub</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #111c15;
+  --bg-mid:   #1a2e1e;
+  --bg-card:  #1f3525;
+  --bg-input: #0e1710;
+  --green:    #1E4D2B;
+  --gold:     #C8A951;
+  --gold-lt:  #e0c060;
+  --text:     #e8f5e9;
+  --muted:    #a8c5a0;
+  --success:  #66BB6A;
+  --warn:     #FFA726;
+  --danger:   #EF5350;
+  --border:   rgba(200,169,81,0.25);
+  --radius:   7px;
+}
+html, body { height:100%; background:var(--bg); color:var(--text);
+  font-family:system-ui,-apple-system,sans-serif; font-size:14px; }
+
+/* ── TOP BAR ── */
+#topbar {
+  height:48px; background:var(--bg-mid); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 20px; flex-shrink:0;
+}
+#topbar h1 { font-size:1.05rem; color:var(--gold); }
+#topbar-right { display:flex; align-items:center; gap:10px; }
+#connected-label { font-size:0.8rem; color:var(--success); }
+
+/* ── CONNECT OVERLAY ── */
+#connect-overlay {
+  position:fixed; inset:0; background:var(--bg);
+  display:flex; align-items:center; justify-content:center; z-index:50;
+}
+#connect-overlay.hidden { display:none; }
+#connect-box {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:14px;
+  padding:36px 40px; width:460px; display:flex; flex-direction:column; gap:18px;
+}
+#connect-box h1 { font-size:1.3rem; color:var(--gold); }
+#connect-box .subtitle { color:var(--muted); font-size:0.88rem; line-height:1.6; }
+.field { display:flex; flex-direction:column; gap:5px; }
+.field label { font-size:0.78rem; font-weight:700; color:var(--muted);
+  text-transform:uppercase; letter-spacing:0.05em; }
+.field input {
+  width:100%; padding:9px 12px;
+  background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius);
+  color:var(--text); font-size:0.9rem; font-family:inherit;
+}
+.field input:focus { outline:none; border-color:var(--gold); }
+.field small { font-size:0.76rem; color:var(--muted); }
+.field-divider { border:none; border-top:1px solid var(--border); margin:2px 0; }
+#connect-error { color:var(--danger); font-size:0.84rem; min-height:1.2em; }
+#connect-btn {
+  padding:10px 0; background:var(--gold); color:#111; font-weight:700;
+  border:none; border-radius:var(--radius); cursor:pointer; font-size:0.95rem;
+  transition:background 0.15s;
+}
+#connect-btn:hover:not(:disabled) { background:var(--gold-lt); }
+#connect-btn:disabled { opacity:0.6; cursor:not-allowed; }
+
+/* ── DASHBOARD ── */
+#dashboard {
+  max-width:860px; margin:40px auto; padding:0 24px;
+  display:flex; flex-direction:column; gap:28px;
+}
+.cards-row { display:flex; gap:20px; flex-wrap:wrap; }
+.launch-card {
+  flex:1; min-width:260px;
+  background:var(--bg-card); border:1px solid var(--border); border-radius:12px;
+  padding:28px 26px; display:flex; flex-direction:column; gap:14px;
+  transition:border-color 0.15s, box-shadow 0.15s;
+}
+.launch-card:hover { border-color:var(--gold); box-shadow:0 0 0 1px var(--gold); }
+.launch-card.disabled { opacity:0.5; pointer-events:none; }
+.card-icon { font-size:2.2rem; line-height:1; }
+.card-title { font-size:1.1rem; font-weight:700; color:var(--gold); }
+.card-desc { font-size:0.86rem; color:var(--muted); line-height:1.6; flex:1; }
+.card-status { font-size:0.76rem; }
+.card-status.ok  { color:var(--success); }
+.card-status.err { color:var(--warn); }
+.launch-btn {
+  padding:9px 0; background:var(--green); color:var(--gold);
+  border:1px solid var(--border); border-radius:var(--radius);
+  font-weight:700; font-size:0.88rem; cursor:pointer;
+  transition:background 0.15s;
+}
+.launch-btn:hover { background:#245c34; }
+
+/* ── CREDENTIALS PANEL ── */
+#creds-panel {
+  background:var(--bg-card); border:1px solid var(--border); border-radius:10px;
+  padding:20px 24px; display:flex; flex-direction:column; gap:14px;
+}
+#creds-panel h2 { font-size:0.9rem; color:var(--gold); font-weight:700; }
+.cred-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.cred-label { font-size:0.75rem; color:var(--muted); min-width:140px; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.04em; }
+.cred-value { font-size:0.82rem; color:var(--text); font-family:'Courier New',monospace;
+  flex:1; word-break:break-all; }
+.cred-value.missing { color:var(--warn); font-style:italic; font-family:inherit; }
+.btn-secondary {
+  padding:6px 14px; background:transparent; border:1px solid var(--border);
+  border-radius:var(--radius); color:var(--text); cursor:pointer; font-size:0.82rem;
+  transition:border-color 0.15s;
+}
+.btn-secondary:hover { border-color:var(--gold); color:var(--gold); }
+.btn-danger {
+  padding:6px 14px; background:transparent; border:1px solid rgba(239,83,80,0.4);
+  border-radius:var(--radius); color:var(--danger); cursor:pointer; font-size:0.82rem;
+}
+.btn-danger:hover { border-color:var(--danger); }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(200,169,81,0.25); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<!-- ── CONNECT OVERLAY ── -->
+<div id="connect-overlay">
+  <div id="connect-box">
+    <h1>🎙️ Jeopardy! PCR — Instructor Hub</h1>
+    <p class="subtitle">Enter your credentials below. All fields are saved locally in your browser
+       so you only need to do this once.</p>
+
+    <div class="field">
+      <label>GitHub Personal Access Token</label>
+      <input type="password" id="pat-input" placeholder="ghp_…" autocomplete="off">
+      <small>Required for the Question Editor — needs <strong>repo</strong> (Contents read &amp; write) scope</small>
+    </div>
+
+    <hr class="field-divider">
+
+    <div class="field">
+      <label>Google Sheets CSV URL</label>
+      <input type="text" id="csv-input" placeholder="https://docs.google.com/spreadsheets/…">
+      <small>Required for the Score Monitor — File → Share → Publish to web → CSV</small>
+    </div>
+
+    <div class="field">
+      <label>Apps Script URL <span style="font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+      <input type="text" id="script-input" placeholder="https://script.google.com/macros/…">
+      <small>Enables the Reset Sheet button in the Monitor</small>
+    </div>
+
+    <div id="connect-error"></div>
+    <button id="connect-btn">Connect</button>
+  </div>
+</div>
+
+<!-- ── APP SHELL ── -->
+<div id="app" style="display:flex;flex-direction:column;min-height:100vh;">
+
+  <div id="topbar">
+    <h1>🎙️ Jeopardy! PCR — Instructor Hub</h1>
+    <div id="topbar-right">
+      <span id="connected-label">● Connected</span>
+      <button class="btn-secondary" onclick="showEditCreds()">Edit Credentials</button>
+      <button class="btn-danger"    onclick="signOut()">Sign Out</button>
+    </div>
+  </div>
+
+  <div id="dashboard">
+
+    <div class="cards-row">
+
+      <!-- EDITOR CARD -->
+      <div class="launch-card" id="card-editor">
+        <div class="card-icon">✏️</div>
+        <div class="card-title">Question Editor</div>
+        <div class="card-desc">
+          Create and edit the Jeopardy! question bank — categories, clues, answers,
+          point values, and game settings. Publish changes directly to the live game.
+        </div>
+        <div class="card-status" id="editor-status"></div>
+        <button class="launch-btn" onclick="openEditor()">Open Editor →</button>
+      </div>
+
+      <!-- MONITOR CARD -->
+      <div class="launch-card" id="card-monitor">
+        <div class="card-icon">📊</div>
+        <div class="card-title">Score Monitor</div>
+        <div class="card-desc">
+          View real-time student scores, per-question performance, missed questions
+          with player answers, and session trends as students submit.
+        </div>
+        <div class="card-status" id="monitor-status"></div>
+        <button class="launch-btn" onclick="openMonitor()">Open Monitor →</button>
+      </div>
+
+    </div>
+
+    <!-- CREDENTIALS STATUS -->
+    <div id="creds-panel">
+      <h2>Stored Credentials</h2>
+      <div class="cred-row">
+        <span class="cred-label">GitHub PAT</span>
+        <span class="cred-value" id="cred-pat-display"></span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-label">Sheets CSV URL</span>
+        <span class="cred-value" id="cred-csv-display"></span>
+      </div>
+      <div class="cred-row">
+        <span class="cred-label">Apps Script URL</span>
+        <span class="cred-value" id="cred-script-display"></span>
+      </div>
+    </div>
+
+  </div><!-- /dashboard -->
+</div><!-- /app -->
+
+<script>
+// ── STORAGE KEYS ─────────────────────────────────────────────────────────
+const PAT_KEY    = 'pcr_instructor_pat';
+const CSV_KEY    = 'pcr_instructor_csv';
+const SCRIPT_KEY = 'pcr_instructor_script';
+
+const GITHUB_REPO = 'bgeiss1/restriction-cloning-game';
+const GITHUB_API  = `https://api.github.com/repos/${GITHUB_REPO}/contents/pcr_jeopardy.json`;
+
+// ── INIT ─────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const pat    = localStorage.getItem(PAT_KEY);
+  const csv    = localStorage.getItem(CSV_KEY);
+  const script = localStorage.getItem(SCRIPT_KEY);
+
+  if (pat || csv) {
+    showDashboard();
+  } else {
+    showConnect();
+  }
+});
+
+function showConnect(prefill) {
+  document.getElementById('connect-overlay').classList.remove('hidden');
+  if (prefill) {
+    const p = localStorage.getItem(PAT_KEY) || '';
+    const c = localStorage.getItem(CSV_KEY) || '';
+    const s = localStorage.getItem(SCRIPT_KEY) || '';
+    document.getElementById('pat-input').value    = p ? '••••••••' : '';
+    document.getElementById('csv-input').value    = c;
+    document.getElementById('script-input').value = s;
+  }
+}
+
+function showDashboard() {
+  document.getElementById('connect-overlay').classList.add('hidden');
+  renderDashboard();
+}
+
+function showEditCreds() {
+  document.getElementById('connect-error').textContent = '';
+  // Prefill with masked PAT and actual URLs
+  const p = localStorage.getItem(PAT_KEY) || '';
+  const c = localStorage.getItem(CSV_KEY) || '';
+  const s = localStorage.getItem(SCRIPT_KEY) || '';
+  document.getElementById('pat-input').value    = p ? '••••••••' : '';
+  document.getElementById('csv-input').value    = c;
+  document.getElementById('script-input').value = s;
+  document.getElementById('connect-overlay').classList.remove('hidden');
+}
+
+// ── RENDER DASHBOARD ─────────────────────────────────────────────────────
+function renderDashboard() {
+  const pat    = localStorage.getItem(PAT_KEY);
+  const csv    = localStorage.getItem(CSV_KEY);
+  const script = localStorage.getItem(SCRIPT_KEY);
+
+  // Editor card status
+  const editorCard = document.getElementById('card-editor');
+  const editorSt   = document.getElementById('editor-status');
+  if (pat) {
+    editorCard.classList.remove('disabled');
+    editorSt.className = 'card-status ok';
+    editorSt.textContent = '✓ GitHub PAT configured';
+  } else {
+    editorCard.classList.add('disabled');
+    editorSt.className = 'card-status err';
+    editorSt.textContent = '⚠ GitHub PAT required — enter it above';
+  }
+
+  // Monitor card status
+  const monitorCard = document.getElementById('card-monitor');
+  const monitorSt   = document.getElementById('monitor-status');
+  if (csv) {
+    monitorCard.classList.remove('disabled');
+    monitorSt.className = 'card-status ok';
+    monitorSt.textContent = script ? '✓ Sheets + Apps Script configured' : '✓ Sheets CSV configured';
+  } else {
+    monitorCard.classList.add('disabled');
+    monitorSt.className = 'card-status err';
+    monitorSt.textContent = '⚠ Sheets CSV URL required — enter it above';
+  }
+
+  // Credentials panel
+  document.getElementById('cred-pat-display').textContent    = pat    ? '••••' + pat.slice(-4) : '—';
+  document.getElementById('cred-pat-display').className      = 'cred-value' + (pat    ? '' : ' missing');
+  document.getElementById('cred-csv-display').textContent    = csv    || 'Not configured';
+  document.getElementById('cred-csv-display').className      = 'cred-value' + (csv    ? '' : ' missing');
+  document.getElementById('cred-script-display').textContent = script || 'Not configured (Reset button disabled)';
+  document.getElementById('cred-script-display').className   = 'cred-value' + (script ? '' : ' missing');
+}
+
+// ── CONNECT ──────────────────────────────────────────────────────────────
+document.getElementById('connect-btn').addEventListener('click', connect);
+['pat-input','csv-input','script-input'].forEach(id =>
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') connect();
+  })
+);
+
+async function connect() {
+  const patInput    = document.getElementById('pat-input').value.trim();
+  const csvInput    = document.getElementById('csv-input').value.trim();
+  const scriptInput = document.getElementById('script-input').value.trim();
+  const errEl       = document.getElementById('connect-error');
+  const btn         = document.getElementById('connect-btn');
+
+  errEl.textContent = '';
+
+  // Determine effective PAT (keep stored if user left it masked)
+  const existingPat = localStorage.getItem(PAT_KEY);
+  const pat = patInput === '••••••••' ? existingPat : (patInput || null);
+
+  if (!pat && !csvInput) {
+    errEl.textContent = 'Enter at least a GitHub PAT or a Sheets CSV URL.';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'Connecting…';
+
+  try {
+    // Validate PAT if provided and changed
+    if (pat && pat !== existingPat) {
+      const r = await fetch(GITHUB_API, {
+        headers: { Authorization: 'token ' + pat, Accept: 'application/vnd.github.v3+json' }
+      });
+      if (!r.ok) throw new Error('GitHub PAT invalid or lacks repo access (' + r.status + ')');
+    }
+
+    // Validate CSV URL if provided and changed
+    const existingCsv = localStorage.getItem(CSV_KEY);
+    if (csvInput && csvInput !== existingCsv) {
+      const r = await fetch(csvInput + (csvInput.includes('?') ? '&' : '?') + 'cachebust=' + Date.now(),
+                            { cache: 'no-store' });
+      if (!r.ok) throw new Error('Sheets CSV URL returned HTTP ' + r.status + ' — check it is published');
+    }
+
+    // Store credentials
+    if (pat)         localStorage.setItem(PAT_KEY, pat);
+    else             localStorage.removeItem(PAT_KEY);
+
+    if (csvInput)    localStorage.setItem(CSV_KEY, csvInput);
+    else             localStorage.removeItem(CSV_KEY);
+
+    if (scriptInput) localStorage.setItem(SCRIPT_KEY, scriptInput);
+    else             localStorage.removeItem(SCRIPT_KEY);
+
+    showDashboard();
+
+  } catch(e) {
+    errEl.textContent = 'Error: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Connect';
+  }
+}
+
+// ── LAUNCH ───────────────────────────────────────────────────────────────
+function openEditor()  { window.open('pcr_jeopardy_editor.html',  '_blank'); }
+function openMonitor() { window.open('pcr_jeopardy_monitor.html', '_blank'); }
+
+// ── SIGN OUT ─────────────────────────────────────────────────────────────
+function signOut() {
+  if (!confirm('Clear all stored credentials and sign out?')) return;
+  localStorage.removeItem(PAT_KEY);
+  localStorage.removeItem(CSV_KEY);
+  localStorage.removeItem(SCRIPT_KEY);
+  showConnect();
+}
+</script>
+</body>
+</html>

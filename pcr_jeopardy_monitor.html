@@ -333,8 +333,8 @@ function activeSession() { return sessions[activeSessionId] || null; }
 // INIT
 // ═══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
-  const savedCsv    = sessionStorage.getItem('pcr_jeopardy_monitor_csv');
-  const savedScript = sessionStorage.getItem('pcr_jeopardy_monitor_script');
+  const savedCsv    = sessionStorage.getItem('pcr_jeopardy_monitor_csv')    || localStorage.getItem('pcr_instructor_csv');
+  const savedScript = sessionStorage.getItem('pcr_jeopardy_monitor_script') || localStorage.getItem('pcr_instructor_script');
 
   if (savedCsv) {
     sheetsCsvUrl  = savedCsv;

@@ -409,7 +409,7 @@ function ensureStructure() {
 // ═══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', async () => {
   const onGH    = location.hostname.endsWith('github.io');
-  const savedPat = sessionStorage.getItem('pcr_jeopardy_editor_pat');
+  const savedPat = sessionStorage.getItem('pcr_jeopardy_editor_pat') || localStorage.getItem('pcr_instructor_pat');
 
   if (onGH) {
     if (savedPat) { await connectWithPat(savedPat, true); }
