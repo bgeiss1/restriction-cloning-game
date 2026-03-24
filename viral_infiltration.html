@@ -1,0 +1,4552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Viral Infiltration — A Stealth Replication Mission</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+/* ── Reset & Root ──────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Cell organelle colors */
+  --nucleus:   #9c27b0;
+  --er:        #00bcd4;
+  --golgi:     #ff8f00;
+  --ribosome:  #009688;
+  --lysosome:  #f44336;
+  --mito:      #4caf50;
+  --endosome:  #e040fb;
+  --membrane:  #00e676;
+
+  /* UI colors */
+  --bg:           #050a08;
+  --text:         #e0f7e0;
+  --text-muted:   #7aa87a;
+  --gold:         #C8A951;
+  --border:       rgba(100,200,100,0.22);
+  --border-gold:  rgba(200,169,81,0.35);
+
+  /* Alert tiers */
+  --alert-green:  #4caf50;
+  --alert-yellow: #ffeb3b;
+  --alert-orange: #ff9800;
+  --alert-red:    #f44336;
+
+  /* Player glow */
+  --player-glow: #ff6f00;
+
+  /* Font */
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  font-family: var(--font);
+  color: var(--text);
+}
+
+/* ── Canvas ────────────────────────────────────────────────────────────── */
+#viCanvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── HUD ───────────────────────────────────────────────────────────────── */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+#hud.hidden { display: none; }
+
+/* Top-left: Phase + Objective */
+#phaseHud {
+  position: absolute;
+  top: 12px; left: 12px;
+  background: rgba(5,10,8,0.78);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  max-width: 280px;
+}
+#phaseName {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--membrane);
+  margin-bottom: 3px;
+}
+#objective {
+  font-size: 0.8rem;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+/* Top-center: Alert meter */
+#alertHud {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 200px;
+}
+#alertLabel {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+#alertTrack {
+  width: 200px;
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+#alertFill {
+  height: 100%;
+  width: 0%;
+  border-radius: 5px;
+  background: var(--alert-green);
+  transition: width 0.25s, background 0.4s;
+}
+#alertFill.tier1 { background: var(--alert-yellow); }
+#alertFill.tier2 { background: var(--alert-orange); }
+#alertFill.tier3 { background: var(--alert-red); animation: alertPulse 0.7s infinite alternate; }
+
+@keyframes alertPulse {
+  from { box-shadow: 0 0 4px var(--alert-red); }
+  to   { box-shadow: 0 0 12px var(--alert-red), 0 0 24px var(--alert-red); }
+}
+
+/* Top-right: Timer + Health */
+#statusHud {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: rgba(5,10,8,0.78);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 110px;
+}
+#timerDisplay {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--membrane);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+#timerDisplay.danger { color: var(--alert-red); animation: alertPulse 0.6s infinite alternate; }
+#timerDisplay.hidden { visibility: hidden; }
+#healthLabel {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+#healthBar {
+  display: flex;
+  gap: 3px;
+}
+.hp-seg {
+  width: 16px; height: 8px;
+  border-radius: 2px;
+  background: var(--membrane);
+  border: 1px solid rgba(0,230,118,0.4);
+  transition: background 0.3s;
+}
+.hp-seg.empty { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); }
+
+/* Bottom-center: Inventory */
+#inventoryBar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+#inventoryBar.hidden { display: none; }
+.inv-slot {
+  width: 40px; height: 40px;
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  background: rgba(5,10,8,0.75);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem;
+}
+.inv-slot.filled {
+  border-color: var(--ribosome);
+  background: rgba(0,150,136,0.18);
+  box-shadow: 0 0 8px rgba(0,150,136,0.4);
+}
+
+/* Bottom-right: Minimap */
+#minimapWrap {
+  position: absolute;
+  bottom: 16px; right: 12px;
+  background: rgba(5,10,8,0.8);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  overflow: hidden;
+  padding: 0;
+}
+#minimapWrap.hidden { display: none; }
+#minimap {
+  display: block;
+  border-radius: 50%;
+}
+
+/* Bottom-left: Powerups */
+#powerupBar {
+  position: absolute;
+  bottom: 16px; left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  pointer-events: none;
+}
+#powerupBar.hidden { display: none; }
+.pu-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(5,10,8,0.75);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 0.72rem;
+}
+.pu-key {
+  color: var(--gold);
+  font-weight: 700;
+  min-width: 14px;
+}
+.pu-name { color: var(--text-muted); }
+.pu-count {
+  color: var(--text);
+  font-weight: 700;
+  margin-left: auto;
+  padding-left: 8px;
+}
+.pu-count.empty { color: rgba(255,255,255,0.2); }
+
+/* ── Toast area ─────────────────────────────────────────────────────────── */
+#toastArea {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.toast {
+  background: rgba(5,10,8,0.92);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  color: var(--text);
+  animation: toastIn 0.2s ease, toastOut 0.3s ease 2.5s forwards;
+}
+.toast.warn  { border-color: var(--alert-orange); color: var(--alert-orange); }
+.toast.good  { border-color: var(--membrane);     color: var(--membrane); }
+.toast.danger{ border-color: var(--alert-red);    color: var(--alert-red); }
+@keyframes toastIn  { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+@keyframes toastOut { from { opacity:1; } to   { opacity:0; } }
+
+/* ── Guard Tooltip ──────────────────────────────────────────────────────── */
+#guardTooltip {
+  position: fixed;
+  background: rgba(5,10,8,0.92);
+  border: 1px solid var(--border-gold);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  color: var(--text);
+  pointer-events: none;
+  z-index: 30;
+  max-width: 200px;
+  line-height: 1.4;
+}
+#guardTooltip.hidden { display: none; }
+#guardTooltip .tt-name { color: var(--gold); font-weight: 700; margin-bottom: 2px; }
+#guardTooltip .tt-desc { color: var(--text-muted); font-size: 0.7rem; }
+
+/* ── Screen flash ───────────────────────────────────────────────────────── */
+#screenFlash {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+/* ── Overlays (shared base) ─────────────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5,10,8,0.88);
+}
+.overlay.hidden { display: none; }
+
+.panel {
+  background: rgba(10,20,12,0.97);
+  border: 1px solid var(--border-gold);
+  border-radius: 14px;
+  padding: 32px 36px;
+  max-width: 480px;
+  width: 92%;
+  text-align: center;
+}
+
+/* ── Title Screen ───────────────────────────────────────────────────────── */
+#titleScreen {
+  background: linear-gradient(160deg, #0a1a0e 0%, #050a08 100%);
+}
+#titleScreen .panel {
+  border-color: var(--border-gold);
+  max-width: 520px;
+}
+#titleVirus { font-size: 2.8rem; margin-bottom: 4px; }
+#titleMain {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+#titleSub {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 24px;
+}
+.virus-select-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+#virusTypeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.vt-card {
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 10px 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font);
+}
+.vt-card:hover { border-color: var(--gold); background: rgba(200,169,81,0.06); }
+.vt-card.selected { border-color: var(--gold); background: rgba(200,169,81,0.12); }
+.vt-card.locked { opacity: 0.38; cursor: not-allowed; }
+.vt-icon { font-size: 1.4rem; margin-bottom: 4px; }
+.vt-name { font-size: 0.82rem; font-weight: 700; color: var(--gold); }
+.vt-desc { font-size: 0.68rem; color: var(--text-muted); margin-top: 2px; line-height: 1.3; }
+.vt-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-top: 4px;
+  background: rgba(200,169,81,0.15);
+  color: var(--gold);
+  border: 1px solid rgba(200,169,81,0.3);
+}
+.vt-badge.locked-badge { background: rgba(255,255,255,0.05); color: var(--text-muted); border-color: var(--border); }
+#startBtn {
+  width: 100%; max-width: 280px;
+  padding: 13px;
+  background: var(--gold);
+  color: #1a1200;
+  font-size: 1rem;
+  font-weight: 800;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.15s, transform 0.1s;
+}
+#startBtn:hover { background: #e0c060; transform: translateY(-1px); }
+#startBtn:active { transform: translateY(0); }
+.back-link {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 7px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-decoration: none;
+  transition: border-color 0.2s, color 0.2s;
+}
+.back-link:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Pause Screen ───────────────────────────────────────────────────────── */
+#pauseScreen .panel { text-align: left; }
+#pauseTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.pause-controls {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 2;
+  margin-bottom: 18px;
+}
+.pause-controls kbd {
+  display: inline-block;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.72rem;
+  color: var(--text);
+  margin: 0 2px;
+}
+.pause-btn {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, color 0.2s;
+}
+.pause-btn:hover { border-color: var(--gold); color: var(--gold); }
+.pause-btn.danger-btn { border-color: rgba(244,67,54,0.35); color: var(--alert-red); }
+.pause-btn.danger-btn:hover { border-color: var(--alert-red); }
+
+/* ── Intel Briefing (phase transition) ─────────────────────────────────── */
+#briefingScreen .panel {
+  text-align: left;
+  max-width: 500px;
+}
+.briefing-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.briefing-stamp {
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border: 1.5px solid var(--gold);
+  border-radius: 3px;
+  padding: 2px 6px;
+}
+.briefing-phase {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+#briefingTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+#briefingObjective {
+  font-size: 0.8rem;
+  color: var(--membrane);
+  margin-bottom: 14px;
+  font-style: italic;
+}
+.briefing-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+.briefing-intel-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+#briefingBio {
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.65;
+}
+#briefingContinue {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  background: var(--gold);
+  color: #1a1200;
+  font-size: 0.9rem;
+  font-weight: 800;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.15s;
+}
+#briefingContinue:hover { background: #e0c060; }
+
+/* ── Codex Panel ────────────────────────────────────────────────────────── */
+#codexPanel {
+  position: fixed;
+  top: 0; right: 0;
+  width: 320px; height: 100%;
+  background: rgba(8,16,10,0.97);
+  border-left: 1px solid var(--border-gold);
+  z-index: 35;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  overflow-y: auto;
+  padding: 20px 18px;
+}
+#codexPanel.open { transform: translateX(0); }
+#codexTitle {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.codex-entry {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.codex-phase-tag {
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--membrane);
+  margin-bottom: 4px;
+}
+.codex-fact { font-size: 0.78rem; color: var(--text); line-height: 1.55; }
+.codex-empty { font-size: 0.8rem; color: var(--text-muted); text-align: center; margin-top: 40px; }
+
+/* ── Game Over ──────────────────────────────────────────────────────────── */
+#gameOverScreen .panel { max-width: 440px; }
+#gameOverTitle {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--alert-red);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+#gameOverSub {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+#gameOverCause {
+  font-size: 0.85rem;
+  color: var(--text);
+  background: rgba(244,67,54,0.08);
+  border: 1px solid rgba(244,67,54,0.25);
+  border-radius: 7px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  text-align: left;
+  line-height: 1.55;
+}
+.go-btn {
+  display: inline-block;
+  padding: 11px 24px;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  font-family: var(--font);
+  transition: transform 0.1s, background 0.15s;
+  margin: 0 4px;
+}
+.go-btn:active { transform: scale(0.97); }
+.go-btn.primary { background: var(--gold); color: #1a1200; }
+.go-btn.primary:hover { background: #e0c060; }
+.go-btn.secondary { background: transparent; border: 1.5px solid var(--border); color: var(--text-muted); }
+.go-btn.secondary:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── Victory Screen ─────────────────────────────────────────────────────── */
+#victoryScreen .panel { max-width: 500px; }
+#victoryTitle {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--membrane);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+#victorySub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+}
+#victoryStats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 18px;
+  text-align: left;
+}
+.v-stat {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.v-stat-label { font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px; }
+.v-stat-value { font-size: 1rem; font-weight: 700; color: var(--text); }
+#cycleTimeline {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.ct-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 56px;
+}
+.ct-dot {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--membrane);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #050a08;
+  position: relative;
+}
+.ct-dot::after {
+  content: '';
+  position: absolute;
+  right: -100%;
+  top: 50%; transform: translateY(-50%);
+  width: 100%;
+  height: 2px;
+  background: var(--border);
+}
+.ct-step:last-child .ct-dot::after { display: none; }
+.ct-label { font-size: 0.6rem; color: var(--text-muted); text-align: center; }
+
+/* ── Minigame overlay ───────────────────────────────────────────────────── */
+#minigameScreen { z-index: 25; }
+#minigameScreen .panel { max-width: 520px; }
+#minigameTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+#miniCanvas {
+  display: block;
+  margin: 0 auto 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #020805;
+}
+#minigameHint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+  min-height: 1.4em;
+}
+
+/* ── Utility ────────────────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── 3D Canvas ──────────────────────────────────────────────────────── -->
+<canvas id="viCanvas"></canvas>
+
+<!-- ── HUD ───────────────────────────────────────────────────────────── -->
+<div id="hud" class="hidden">
+
+  <div id="phaseHud">
+    <div id="phaseName">Phase 1 · Attachment</div>
+    <div id="objective">Reach the ACE2 receptor on the membrane</div>
+  </div>
+
+  <div id="alertHud">
+    <div id="alertLabel">Immune Alert</div>
+    <div id="alertTrack"><div id="alertFill"></div></div>
+  </div>
+
+  <div id="statusHud">
+    <div id="timerDisplay" class="hidden">30s</div>
+    <div id="healthLabel">Integrity</div>
+    <div id="healthBar">
+      <div class="hp-seg" data-seg="0"></div>
+      <div class="hp-seg" data-seg="1"></div>
+      <div class="hp-seg" data-seg="2"></div>
+      <div class="hp-seg" data-seg="3"></div>
+      <div class="hp-seg" data-seg="4"></div>
+    </div>
+  </div>
+
+  <div id="inventoryBar" class="hidden">
+    <div class="inv-slot" data-slot="0">&#x1F9EC;</div>
+    <div class="inv-slot" data-slot="1">&#x1F9EC;</div>
+    <div class="inv-slot" data-slot="2">&#x1F9EC;</div>
+    <div class="inv-slot" data-slot="3">&#x1F9EC;</div>
+    <div class="inv-slot" data-slot="4">&#x1F9EC;</div>
+  </div>
+
+  <div id="powerupBar" class="hidden">
+    <div class="pu-row">
+      <span class="pu-key">1</span>
+      <span class="pu-name">Decoy</span>
+      <span class="pu-count" id="puDecoyCount">0</span>
+    </div>
+    <div class="pu-row">
+      <span class="pu-key">2</span>
+      <span class="pu-name">Cloak</span>
+      <span class="pu-count" id="puCloakCount">0</span>
+    </div>
+    <div class="pu-row">
+      <span class="pu-key">3</span>
+      <span class="pu-name">Boost</span>
+      <span class="pu-count" id="puBoostCount">0</span>
+    </div>
+  </div>
+
+  <div id="minimapWrap">
+    <canvas id="minimap" width="110" height="110"></canvas>
+  </div>
+
+</div><!-- /#hud -->
+
+<!-- ── Guard Tooltip ─────────────────────────────────────────────────── -->
+<div id="guardTooltip" class="hidden">
+  <div class="tt-name" id="ttName"></div>
+  <div class="tt-desc" id="ttDesc"></div>
+</div>
+
+<!-- ── Screen Flash ──────────────────────────────────────────────────── -->
+<div id="screenFlash"></div>
+
+<!-- ── Toast Area ────────────────────────────────────────────────────── -->
+<div id="toastArea"></div>
+
+<!-- ── Title Screen ──────────────────────────────────────────────────── -->
+<div id="titleScreen" class="overlay">
+  <div class="panel">
+    <div id="titleVirus">🦠</div>
+    <div id="titleMain">Viral Infiltration</div>
+    <div id="titleSub">A Stealth Replication Mission</div>
+    <div class="virus-select-label">Select your virus</div>
+    <div id="virusTypeGrid">
+      <!-- populated by JS from VIRUS_TYPES -->
+    </div>
+    <button id="startBtn">Begin Mission</button><br>
+    <a href="index.html" class="back-link">← Menu</a>
+  </div>
+</div>
+
+<!-- ── Pause Screen ───────────────────────────────────────────────────── -->
+<div id="pauseScreen" class="overlay hidden">
+  <div class="panel">
+    <div id="pauseTitle">⏸ Mission Paused</div>
+    <div class="pause-controls">
+      <kbd>W A S D</kbd> Move &nbsp;·&nbsp; <kbd>Shift</kbd> Sneak<br>
+      <kbd>1</kbd> Interferon Decoy &nbsp;·&nbsp; <kbd>2</kbd> Capsid Cloak &nbsp;·&nbsp; <kbd>3</kbd> Protease Boost<br>
+      <kbd>Esc</kbd> Pause / Resume &nbsp;·&nbsp; <kbd>C</kbd> Codex
+    </div>
+    <button class="pause-btn" id="resumeBtn">Resume Mission</button>
+    <button class="pause-btn" id="codexBtn">📖 View Codex</button>
+    <button class="pause-btn danger-btn" id="quitBtn">Quit to Menu</button>
+  </div>
+</div>
+
+<!-- ── Intel Briefing (phase transition) ─────────────────────────────── -->
+<div id="briefingScreen" class="overlay hidden">
+  <div class="panel">
+    <div class="briefing-header">
+      <span class="briefing-stamp">Intel Briefing</span>
+      <span class="briefing-phase" id="briefingPhaseLabel">Phase 1 of 7</span>
+    </div>
+    <div id="briefingTitle">Attachment</div>
+    <div id="briefingObjective">Reach the ACE2 receptor on the membrane</div>
+    <hr class="briefing-divider">
+    <div class="briefing-intel-label">Biology Intel</div>
+    <div id="briefingBio"></div>
+    <button id="briefingContinue">Proceed →</button>
+  </div>
+</div>
+
+<!-- ── Minigame Screen ────────────────────────────────────────────────── -->
+<div id="minigameScreen" class="overlay hidden">
+  <div class="panel">
+    <div id="minigameTitle">Endocytosis</div>
+    <canvas id="miniCanvas" width="440" height="220"></canvas>
+    <div id="minigameHint">Click the receptor to begin</div>
+  </div>
+</div>
+
+<!-- ── Codex Panel ────────────────────────────────────────────────────── -->
+<div id="codexPanel">
+  <div id="codexTitle">📖 Replication Codex</div>
+  <div id="codexEntries">
+    <div class="codex-empty">Complete phases to unlock biology intel.</div>
+  </div>
+  <br>
+  <button class="pause-btn" id="codexCloseBtn" style="pointer-events:auto;">Close</button>
+</div>
+
+<!-- ── Game Over Screen ───────────────────────────────────────────────── -->
+<div id="gameOverScreen" class="overlay hidden">
+  <div class="panel">
+    <div id="gameOverTitle">Immune Response Activated</div>
+    <div id="gameOverSub">The host cell has neutralized the infiltration</div>
+    <div id="gameOverCause"></div>
+    <button class="go-btn primary" id="goRetryBtn">Try Again</button>
+    <button class="go-btn secondary" id="goMenuBtn">Main Menu</button>
+  </div>
+</div>
+
+<!-- ── Victory Screen ────────────────────────────────────────────────── -->
+<div id="victoryScreen" class="overlay hidden">
+  <div class="panel">
+    <div id="victoryTitle">Replication Complete</div>
+    <div id="victorySub">New virions have escaped the host cell</div>
+    <div id="victoryStats"></div>
+    <div id="cycleTimeline"></div>
+    <button class="go-btn primary" id="vPlayAgainBtn">Play Again</button>
+    <button class="go-btn secondary" id="vMenuBtn">Main Menu</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Virus Type Definitions (extensible for future campaigns) ─────────────
+// Each virus type defines its own phases, mechanics modifiers, and guard sets.
+// Adding a new virus = adding a new entry here. No other code changes needed.
+const VIRUS_TYPES = {
+  influenza: {
+    id: 'influenza',
+    name: 'Influenza A',
+    icon: '🦠',
+    desc: 'Classic enveloped RNA virus. HA/NA surface proteins.',
+    unlocked: true,
+    // Per-type stat modifiers (multiplied against base values)
+    speedMult:     1.0,
+    stealthMult:   1.0,
+    coneReduceMult: 1.0,   // detection cone size modifier when sneaking
+    // Which receptor to target in phase 0
+    receptor: 'sialic acid (α-2,6)',
+    receptorColor: 0x00e676,
+    // Player mesh color
+    playerColor: 0xff6f00,
+    playerEmissive: 0x6f2000,
+    // Phase sequence (index into PHASE_DATA defined below)
+    phaseSequence: [0, 1, 2, 3, 4, 5, 6],
+    // Lytic (true) = cell explodes on phase 7; false = budding escape
+    lytic: false,
+  },
+  // Future campaigns — locked until implemented
+  hiv: {
+    id: 'hiv',
+    name: 'HIV-1',
+    icon: '🔴',
+    desc: 'Retrovirus. Reverse transcription. CD4 receptor.',
+    unlocked: false,
+    speedMult: 0.85, stealthMult: 1.2, coneReduceMult: 0.8,
+    receptor: 'CD4 / CCR5',
+    receptorColor: 0xff1744,
+    playerColor: 0xd50000,
+    playerEmissive: 0x5a0000,
+    phaseSequence: [0, 1, 2, 3, 4, 5, 6],
+    lytic: false,
+  },
+  coronavirus: {
+    id: 'coronavirus',
+    name: 'Coronavirus',
+    icon: '👑',
+    desc: 'Large enveloped RNA virus. Spike protein binds ACE2.',
+    unlocked: false,
+    speedMult: 0.9, stealthMult: 1.1, coneReduceMult: 0.9,
+    receptor: 'ACE2',
+    receptorColor: 0x29b6f6,
+    playerColor: 0x0288d1,
+    playerEmissive: 0x01579b,
+    phaseSequence: [0, 1, 2, 3, 4, 5, 6],
+    lytic: false,
+  },
+  flavivirus: {
+    id: 'flavivirus',
+    name: 'Flavivirus',
+    icon: '🟡',
+    desc: 'Dengue / Zika / WNV. Direct membrane fusion.',
+    unlocked: false,
+    speedMult: 1.15, stealthMult: 0.9, coneReduceMult: 1.1,
+    receptor: 'AXL / DC-SIGN',
+    receptorColor: 0xffd600,
+    playerColor: 0xf9a825,
+    playerEmissive: 0x7a4400,
+    phaseSequence: [0, 1, 2, 3, 4, 5, 6],
+    lytic: false,
+  },
+  alphavirus: {
+    id: 'alphavirus',
+    name: 'Alphavirus',
+    icon: '🟠',
+    desc: 'CHIKV / SINV. Low-pH triggered fusion. +ssRNA.',
+    unlocked: false,
+    speedMult: 1.2, stealthMult: 0.85, coneReduceMult: 1.15,
+    receptor: 'MXRA8 / heparan sulfate',
+    receptorColor: 0xff6d00,
+    playerColor: 0xe65100,
+    playerEmissive: 0x6e2700,
+    phaseSequence: [0, 1, 2, 3, 4, 5, 6],
+    lytic: true,
+  },
+  bacteriophage: {
+    id: 'bacteriophage',
+    name: 'Phage T4',
+    icon: '🔱',
+    desc: 'Giant dsDNA bacteriophage. Injects genome directly.',
+    unlocked: false,
+    speedMult: 0.75, stealthMult: 1.3, coneReduceMult: 0.7,
+    receptor: 'LPS / OmpC',
+    receptorColor: 0x76ff03,
+    playerColor: 0x33691e,
+    playerEmissive: 0x1b5e20,
+    phaseSequence: [0, 1, 2, 3, 4, 5, 6],
+    lytic: true,
+  },
+};
+
+// ── Phase Data (shared across virus types; future viruses may override phases) ──
+// Each entry maps to one stage of the replication cycle.
+const PHASE_DATA = [
+  {
+    index: 0,
+    name: 'Attachment',
+    shortName: 'Attach',
+    objective: 'Find the correct receptor and make contact',
+    bio: 'Viruses bind host cells via specific surface receptor proteins — a molecular lock-and-key. Influenza uses hemagglutinin (HA) to bind sialic acid residues on respiratory epithelial cells. This specificity determines which host species and cell types a virus can infect, a property called tropism.',
+  },
+  {
+    index: 1,
+    name: 'Penetration',
+    shortName: 'Enter',
+    objective: 'Trigger endocytosis and enter the cell',
+    bio: 'After binding its receptor, the virus is engulfed by the host cell membrane in a process called receptor-mediated endocytosis. The membrane wrinkles inward, forming a vesicle called an endosome that carries the virus into the cytoplasm. Toll-like receptors at the membrane detect pathogen-associated patterns — you must avoid triggering them.',
+  },
+  {
+    index: 2,
+    name: 'Uncoating',
+    shortName: 'Uncoat',
+    objective: 'Reach the endosome and shed your capsid before lysosome fusion',
+    bio: 'Inside the endosome, the acidic pH (≈5.0) triggers conformational changes in viral surface proteins. For influenza, acidification causes HA to refold, fusing the viral membrane with the endosomal membrane. The viral genome is released into the cytoplasm — if a lysosome fuses with the endosome first, degradative enzymes destroy the virus.',
+  },
+  {
+    index: 3,
+    name: 'Nuclear Import',
+    shortName: 'Navigate',
+    objective: 'Cross the cytoplasm and enter a nuclear pore',
+    bio: 'Viral genomes must navigate a crowded cytoplasm patrolled by innate immune sensors. PKR detects double-stranded RNA. RIG-I recognizes 5′-triphosphate RNA. cGAS detects cytoplasmic DNA. These sensors trigger antiviral signaling if they detect foreign nucleic acids. The viral genome must reach the nucleus via nuclear pore complexes — the cell\'s gatekeepers.',
+  },
+  {
+    index: 4,
+    name: 'Replication',
+    shortName: 'Replicate',
+    objective: 'Hijack the replication machinery and copy your genome',
+    bio: 'Inside the nucleus, the virus hijacks the host\'s transcriptional machinery — or, for RNA viruses, uses its own RNA-dependent RNA polymerase. APOBEC3 enzymes deaminate cytosines in viral DNA (innate defense). ADAR edits double-stranded RNA. The viral genome must be faithfully copied before these enzymes corrupt it.',
+  },
+  {
+    index: 5,
+    name: 'Assembly',
+    shortName: 'Assemble',
+    objective: 'Collect capsid proteins from ribosomes, then process at the Golgi',
+    bio: 'Host ribosomes translate viral mRNA into structural proteins. Glycoproteins (like HA and NA in influenza) are inserted into the ER membrane, then shuttled through the Golgi apparatus for post-translational modification — glycosylation, cleavage, and folding. These proteins will form the surface of new virions. Alert level rises as the cell detects abnormal protein synthesis.',
+  },
+  {
+    index: 6,
+    name: 'Release',
+    shortName: 'Escape',
+    objective: 'Reach a budding site on the plasma membrane and escape',
+    bio: 'Enveloped viruses like influenza bud from the plasma membrane: the viral genome and capsid proteins migrate to the membrane, and the cell membrane pinches off to release a new enveloped virion. Neuraminidase (NA) cleaves sialic acid to prevent aggregation. The host cell may survive (budding) or lyse (for non-enveloped viruses) — each releasing hundreds of new infectious particles.',
+  },
+];
+
+// ── Guard Type Data ──────────────────────────────────────────────────────
+const GUARD_DATA = {
+  antibody: {
+    label: 'Antibody (IgG)',
+    desc: 'Binds viral surface antigens. Opsonizes for phagocytosis or activates complement. Patrols the exterior membrane.',
+    color: 0xffd700,
+    speed: 6.0,
+    coneAngleDeg: 55,
+    coneRange: 14,
+    detectRate: 0.7,
+  },
+  tlr: {
+    label: 'Toll-like Receptor (TLR)',
+    desc: 'Stationary pattern recognition receptor. Detects PAMPs near the membrane. Narrow but long detection range.',
+    color: 0x2196f3,
+    speed: 0,
+    coneAngleDeg: 18,
+    coneRange: 20,
+    detectRate: 0.5,
+  },
+  pkr: {
+    label: 'PKR / RIG-I',
+    desc: 'Protein kinase R and RIG-I detect foreign RNA in the cytoplasm. Triggers interferon signaling. Medium patrol speed.',
+    color: 0xff5722,
+    speed: 4.0,
+    coneAngleDeg: 40,
+    coneRange: 10,
+    detectRate: 0.6,
+  },
+  cgas: {
+    label: 'cGAS-STING',
+    desc: 'cGAS detects cytoplasmic DNA, producing cGAMP which activates STING. Very wide detection radius but slow.',
+    color: 0xb0bec5,
+    speed: 2.0,
+    coneAngleDeg: 80,
+    coneRange: 12,
+    detectRate: 0.4,
+  },
+  apobec: {
+    label: 'APOBEC3 / ADAR',
+    desc: 'Cytidine deaminases that mutate viral genomes. Patrols the nucleus. Damages player genome on contact.',
+    color: 0xef5350,
+    speed: 2.5,
+    coneAngleDeg: 35,
+    coneRange: 8,
+    detectRate: 0.8,
+  },
+  nk: {
+    label: 'NK Cell Signal',
+    desc: 'Natural killer cell activation signals. Fast-moving. Appears during escape phase when alert is high.',
+    color: 0xe91e63,
+    speed: 8.0,
+    coneAngleDeg: 50,
+    coneRange: 13,
+    detectRate: 0.9,
+  },
+};
+
+// ── Central Game State ───────────────────────────────────────────────────
+const G = {
+  // State machine
+  state: 'TITLE',        // 'TITLE'|'PLAYING'|'PAUSED'|'PHASE_TRANSITION'|'MINIGAME'|'GAME_OVER'|'VICTORY'
+  phase: 0,              // 0-6
+  virusType: null,       // reference to current VIRUS_TYPES entry
+
+  // Gameplay state
+  alertMeter: 0,         // 0-100
+  alertTier: 0,          // 0=green, 1=yellow, 2=orange, 3=red (ratchets up)
+  alertDecayPaused: 0,   // seconds remaining where decay is suppressed
+  virusHP: 100,
+  maxHP: 100,
+
+  // Timers
+  clock: null,           // THREE.Clock
+  phaseTimer: 0,         // countdown timer (used in phase 2)
+  phaseTimerActive: false,
+  totalTime: 0,          // seconds elapsed across all phases
+
+  // Player
+  player: {
+    mesh: null,
+    envelope: null,      // outer sphere — removed on uncoating
+    pos: { x: 0, z: 0 },
+    vel: { x: 0, z: 0 },
+    facing: 0,
+    sneaking: false,
+    cloaked: false,
+    boosted: false,
+    cloakTimer: 0,
+    boostTimer: 0,
+    hasUncoated: false,  // envelope removed in phase 2
+  },
+
+  // Power-ups
+  powerUps: { decoy: 1, cloak: 1, protease: 1 },
+  activeDecoys: [],      // { mesh, timer }
+
+  // Inventory (phase 5 - assembly)
+  inventory: [],         // collected capsid protein items
+  inventoryTarget: 5,   // how many needed
+
+  // World objects (populated by world-building functions)
+  guards: [],
+  organelles: [],        // { type, mesh, center, radius, blocksLOS }
+  cytoskeleton: [],      // { mesh, points[] } for cover detection
+  particles: null,       // THREE.Points
+  particlePositions: null,
+  particleVelocities: null,
+
+  // Interaction targets (set per-phase by spawnGuardsForPhase)
+  phaseTarget: null,     // { mesh, pos:{x,z}, radius, label }
+  collectibles: [],      // ribosome collectibles in phase 5
+
+  // Codex
+  codex: [],             // { phaseIndex, phaseName, fact }
+
+  // Victory stats
+  stats: {
+    peakAlert: 0,
+    damagesTaken: 0,
+    powerUpsUsed: 0,
+    startTime: 0,
+  },
+
+  // Input
+  keys: new Set(),
+  mouse: { x: 0, y: 0 },
+
+  // Three.js core objects
+  scene: null,
+  camera: null,
+  renderer: null,
+  raycaster: null,
+  minimap: { canvas: null, ctx: null },
+
+  // Frame data
+  frameCount: 0,
+};
+
+// ── Three.js Initialization ──────────────────────────────────────────────
+(function initThree() {
+  const canvas = document.getElementById('viCanvas');
+
+  // Renderer
+  G.renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    alpha: false,
+    powerPreference: 'high-performance',
+  });
+  G.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  G.renderer.setSize(window.innerWidth, window.innerHeight);
+  G.renderer.shadowMap.enabled = true;
+  G.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  G.renderer.setClearColor(0x050a08, 1);
+
+  // Camera — top-down with slight front tilt (MGS1 perspective)
+  G.camera = new THREE.PerspectiveCamera(
+    52,                                  // FOV
+    window.innerWidth / window.innerHeight,
+    0.1,
+    500
+  );
+  G.camera.position.set(0, 90, 28);
+  G.camera.lookAt(0, 0, 0);
+  // Store camera follow target (lerped toward player each frame)
+  G.camera._target = new THREE.Vector3(0, 90, 28);
+
+  // Scene
+  G.scene = new THREE.Scene();
+  G.scene.fog = new THREE.FogExp2(0x050a08, 0.016);
+
+  // Lighting
+  // Very dim ambient so emissive materials glow in the dark
+  const ambient = new THREE.AmbientLight(0x112211, 0.4);
+  G.scene.add(ambient);
+
+  // Hemisphere light for subtle sky/ground gradient
+  const hemi = new THREE.HemisphereLight(0x0a1a0e, 0x050a08, 0.3);
+  G.scene.add(hemi);
+
+  // Organelle point lights (added now; positions set when organelles are built)
+  const makeOrgLight = (color, intensity, range) => {
+    const l = new THREE.PointLight(color, intensity, range);
+    l.castShadow = false; // perf: only player/guards cast shadows
+    G.scene.add(l);
+    return l;
+  };
+  G._lights = {
+    nucleus:  makeOrgLight(0x9c27b0, 1.8, 35),
+    er:       makeOrgLight(0x00bcd4, 1.2, 28),
+    golgi:    makeOrgLight(0xff8f00, 1.4, 22),
+    ribosome: makeOrgLight(0x009688, 0.8, 20),
+    membrane: makeOrgLight(0x00e676, 1.0, 18),
+  };
+  // These will be repositioned in Section 3 when organelles are placed.
+  // Default positions so the scene isn't completely dark before world loads.
+  G._lights.nucleus.position.set(0, 8, 0);
+  G._lights.er.position.set(-20, 5, 0);
+  G._lights.golgi.position.set(16, 5, 0);
+  G._lights.ribosome.position.set(-10, 4, 10);
+  G._lights.membrane.position.set(0, 4, 0);
+
+  // Raycaster for LOS checks
+  G.raycaster = new THREE.Raycaster();
+
+  // Clock
+  G.clock = new THREE.Clock(false); // don't auto-start; starts on game begin
+
+  // Minimap
+  G.minimap.canvas = document.getElementById('minimap');
+  G.minimap.ctx = G.minimap.canvas.getContext('2d');
+})();
+
+// ── Resize Handler ───────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  G.renderer.setSize(w, h);
+  G.camera.aspect = w / h;
+  G.camera.updateProjectionMatrix();
+});
+
+// ── Input ────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  G.keys.add(e.code);
+
+  if (e.code === 'Escape') {
+    if (G.state === 'PLAYING') pauseGame();
+    else if (G.state === 'PAUSED') resumeGame();
+  }
+  if (e.code === 'KeyC' && G.state === 'PAUSED') toggleCodex(true);
+  if (e.code === 'KeyP' && G.state === 'PLAYING') pauseGame();
+});
+document.addEventListener('keyup', e => G.keys.delete(e.code));
+
+document.addEventListener('mousemove', e => {
+  G.mouse.x = e.clientX;
+  G.mouse.y = e.clientY;
+});
+
+// ── Title Screen: populate virus type cards ──────────────────────────────
+(function buildTitleScreen() {
+  const grid = document.getElementById('virusTypeGrid');
+  let selectedId = 'influenza';
+
+  Object.values(VIRUS_TYPES).forEach(vt => {
+    const card = document.createElement('button');
+    card.className = 'vt-card' + (vt.unlocked ? '' : ' locked') + (vt.id === 'influenza' ? ' selected' : '');
+    card.innerHTML = `
+      <div class="vt-icon">${vt.icon}</div>
+      <div class="vt-name">${vt.name}</div>
+      <div class="vt-desc">${vt.desc}</div>
+      <span class="vt-badge ${vt.unlocked ? '' : 'locked-badge'}">${vt.unlocked ? 'Available' : 'Coming Soon'}</span>
+    `;
+    if (vt.unlocked) {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.vt-card').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedId = vt.id;
+      });
+    }
+    grid.appendChild(card);
+  });
+
+  document.getElementById('startBtn').addEventListener('click', () => {
+    G.virusType = VIRUS_TYPES[selectedId];
+    startGame();
+  });
+})();
+
+// ── UI Button Wiring ─────────────────────────────────────────────────────
+document.getElementById('resumeBtn').addEventListener('click', resumeGame);
+document.getElementById('codexBtn').addEventListener('click', () => toggleCodex(true));
+document.getElementById('codexCloseBtn').addEventListener('click', () => toggleCodex(false));
+document.getElementById('quitBtn').addEventListener('click', () => {
+  setOverlay('titleScreen');
+  G.state = 'TITLE';
+  G.clock.stop();
+});
+document.getElementById('briefingContinue').addEventListener('click', dismissBriefing);
+document.getElementById('goRetryBtn').addEventListener('click', () => {
+  setOverlay(null);
+  startGame();
+});
+document.getElementById('goMenuBtn').addEventListener('click', () => {
+  setOverlay('titleScreen');
+  G.state = 'TITLE';
+});
+document.getElementById('vPlayAgainBtn').addEventListener('click', () => {
+  setOverlay(null);
+  startGame();
+});
+document.getElementById('vMenuBtn').addEventListener('click', () => {
+  setOverlay('titleScreen');
+  G.state = 'TITLE';
+});
+
+// ── UI Helpers ────────────────────────────────────────────────────────────
+const OVERLAY_IDS = ['titleScreen','pauseScreen','briefingScreen','minigameScreen','gameOverScreen','victoryScreen'];
+
+function setOverlay(id) {
+  OVERLAY_IDS.forEach(oid => {
+    document.getElementById(oid).classList.toggle('hidden', oid !== id);
+  });
+  if (!id) {
+    OVERLAY_IDS.forEach(oid => document.getElementById(oid).classList.add('hidden'));
+  }
+}
+
+function showToast(msg, type = '', duration = 2800) {
+  const area = document.getElementById('toastArea');
+  const t = document.createElement('div');
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.textContent = msg;
+  area.appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+function flashScreen(color = 'rgba(244,67,54,0.4)', duration = 400) {
+  const el = document.getElementById('screenFlash');
+  el.style.background = color;
+  el.style.opacity = '1';
+  setTimeout(() => { el.style.opacity = '0'; }, duration);
+}
+
+function toggleCodex(open) {
+  document.getElementById('codexPanel').classList.toggle('open', open);
+}
+
+function renderCodex() {
+  const el = document.getElementById('codexEntries');
+  if (G.codex.length === 0) {
+    el.innerHTML = '<div class="codex-empty">Complete phases to unlock biology intel.</div>';
+    return;
+  }
+  el.innerHTML = G.codex.map(e => `
+    <div class="codex-entry">
+      <div class="codex-phase-tag">Phase ${e.phaseIndex + 1} · ${e.phaseName}</div>
+      <div class="codex-fact">${e.fact}</div>
+    </div>
+  `).join('');
+}
+
+// ── Game State Control ────────────────────────────────────────────────────
+function startGame() {
+  // Reset state
+  G.state = 'PLAYING';
+  G.phase = 0;
+  G.alertMeter = 0;
+  G.alertTier = 0;
+  G.virusHP = G.maxHP;
+  G.phaseTimer = 0;
+  G.phaseTimerActive = false;
+  G.totalTime = 0;
+  G.inventory = [];
+  G.codex = [];
+  G.guards = [];
+  G.activeDecoys = [];
+  G.collectibles = [];
+  G.powerUps = { decoy: 1, cloak: 1, protease: 1 };
+  G.player.hasUncoated = false;
+  G.player.cloaked = false;
+  G.player.boosted = false;
+  G.player.cloakTimer = 0;
+  G.player.boostTimer   = 0;
+  G.player.inCover      = false;
+  G._replicationStarted = false;
+  G._phase5GoToGolgi    = false;
+  G._buddingParticles   = [];
+  G._buddingSite        = null;
+  G._beaconGroup        = null;
+  G._beaconGroups       = [];
+  G._losBlockers        = [];
+  G.dt                  = 0;
+  // Clear any running minigame interval from a previous session
+  clearInterval(G._mgInterval);
+  G._mgInterval = null;
+  G.stats = { peakAlert: 0, damagesTaken: 0, powerUpsUsed: 0, startTime: Date.now() };
+
+  setOverlay(null);
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('inventoryBar').classList.add('hidden');
+  document.getElementById('timerDisplay').classList.add('hidden');
+
+  G.clock.start();
+
+  // Build (or rebuild) the 3D world
+  buildWorld();
+  initHUDExtras();
+
+  // Guards will be spawned in Section 5 (spawnGuardsForPhase(0))
+  // Show the first phase briefing
+  showBriefing(0);
+}
+
+function pauseGame() {
+  G.state = 'PAUSED';
+  G.clock.stop();
+  setOverlay('pauseScreen');
+  document.getElementById('hud').classList.add('hidden');
+}
+
+function resumeGame() {
+  toggleCodex(false);
+  G.state = 'PLAYING';
+  G.clock.start();
+  setOverlay(null);
+  document.getElementById('hud').classList.remove('hidden');
+}
+
+function triggerGameOver(cause) {
+  G.state = 'GAME_OVER';
+  G.clock.stop();
+  flashScreen('rgba(244,67,54,0.5)', 600);
+  document.getElementById('hud').classList.add('hidden');
+  const phaseInfo = PHASE_DATA[G.phase];
+  document.getElementById('gameOverCause').innerHTML =
+    `<strong>Failed at:</strong> Phase ${G.phase + 1} — ${phaseInfo.name}<br><br>${cause}`;
+  setOverlay('gameOverScreen');
+}
+
+function triggerVictory() {
+  G.state = 'VICTORY';
+  G.clock.stop();
+  document.getElementById('hud').classList.add('hidden');
+
+  const elapsed = Math.round((Date.now() - G.stats.startTime) / 1000);
+  const mins = Math.floor(elapsed / 60), secs = elapsed % 60;
+
+  document.getElementById('victoryStats').innerHTML = `
+    <div class="v-stat"><div class="v-stat-label">Time</div><div class="v-stat-value">${mins}:${String(secs).padStart(2,'0')}</div></div>
+    <div class="v-stat"><div class="v-stat-label">Peak Alert</div><div class="v-stat-value">${Math.round(G.stats.peakAlert)}%</div></div>
+    <div class="v-stat"><div class="v-stat-label">Damage Taken</div><div class="v-stat-value">${G.stats.damagesTaken}</div></div>
+    <div class="v-stat"><div class="v-stat-label">Power-ups Used</div><div class="v-stat-value">${G.stats.powerUpsUsed}</div></div>
+  `;
+
+  const timeline = document.getElementById('cycleTimeline');
+  timeline.innerHTML = PHASE_DATA.map(p => `
+    <div class="ct-step">
+      <div class="ct-dot">${p.index + 1}</div>
+      <div class="ct-label">${p.shortName}</div>
+    </div>
+  `).join('');
+
+  renderCodex();
+  setOverlay('victoryScreen');
+}
+
+// ── Briefing System ───────────────────────────────────────────────────────
+function showBriefing(phaseIndex) {
+  G.state = 'PHASE_TRANSITION';
+  const pd = PHASE_DATA[phaseIndex];
+  document.getElementById('briefingPhaseLabel').textContent = `Phase ${phaseIndex + 1} of ${PHASE_DATA.length}`;
+  document.getElementById('briefingTitle').textContent = pd.name;
+  document.getElementById('briefingObjective').textContent = pd.objective;
+  document.getElementById('briefingBio').textContent = pd.bio;
+  setOverlay('briefingScreen');
+  document.getElementById('hud').classList.add('hidden');
+}
+
+function dismissBriefing() {
+  G.state = 'PLAYING';
+  G.clock.getDelta(); // consume accumulated delta so first frame isn't huge
+  setOverlay(null);
+  document.getElementById('hud').classList.remove('hidden');
+
+  // Phase-specific setup happens here (guards + targets spawned in Section 5/6)
+  if (typeof spawnGuardsForPhase === 'function') spawnGuardsForPhase(G.phase);
+  if (typeof setupPhaseTarget === 'function') setupPhaseTarget(G.phase);
+
+  updateHUD();
+  showToast('Phase ' + (G.phase + 1) + ': ' + PHASE_DATA[G.phase].name, 'good');
+}
+
+// ── HUD Update ────────────────────────────────────────────────────────────
+function updateHUD() {
+  const pd = PHASE_DATA[G.phase];
+  document.getElementById('phaseName').textContent = `Phase ${G.phase + 1} · ${pd.name}`;
+  document.getElementById('objective').textContent = pd.objective;
+
+  // Alert meter
+  const fill = document.getElementById('alertFill');
+  fill.style.width = G.alertMeter + '%';
+  fill.className = ['', 'tier1', 'tier2', 'tier3'][G.alertTier];
+
+  // Health bar
+  document.querySelectorAll('.hp-seg').forEach((seg, i) => {
+    const threshold = (5 - i) * 20; // seg 0 = 80-100, seg 4 = 0-20
+    seg.classList.toggle('empty', G.virusHP < threshold);
+  });
+
+  // Timer
+  const timerEl = document.getElementById('timerDisplay');
+  if (G.phaseTimerActive) {
+    timerEl.classList.remove('hidden');
+    timerEl.textContent = Math.ceil(G.phaseTimer) + 's';
+    timerEl.classList.toggle('danger', G.phaseTimer < 10);
+  } else {
+    timerEl.classList.add('hidden');
+  }
+
+  // Power-up counts
+  const updateCount = (id, val) => {
+    const el = document.getElementById(id);
+    el.textContent = val;
+    el.classList.toggle('empty', val === 0);
+  };
+  updateCount('puDecoyCount', G.powerUps.decoy);
+  updateCount('puCloakCount', G.powerUps.cloak);
+  updateCount('puBoostCount', G.powerUps.protease);
+
+  // Inventory
+  if (G.phase === 5) {
+    document.getElementById('inventoryBar').classList.remove('hidden');
+    document.querySelectorAll('.inv-slot').forEach((slot, i) => {
+      slot.classList.toggle('filled', i < G.inventory.length);
+    });
+  }
+
+  // Power-up bar visibility
+  document.getElementById('powerupBar').classList.toggle('hidden', G.state !== 'PLAYING');
+  document.getElementById('minimapWrap').classList.toggle('hidden', G.state !== 'PLAYING');
+}
+
+// ── Section 2: World Construction ────────────────────────────────────────
+// Plasma membrane, cytoplasm floor, cytoskeleton filaments, particle system.
+// Called once per game start; clears any previous world geometry first.
+
+const CELL_RADIUS = 46; // navigable radius (membrane wall at 48)
+
+// Dispose helper — prevents GPU memory leaks on restart
+function disposeObject(obj) {
+  obj.traverse(child => {
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) {
+      if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+      else child.material.dispose();
+    }
+  });
+}
+
+function clearWorld() {
+  // Remove all world meshes tagged with userData.worldObject
+  const toRemove = [];
+  G.scene.traverse(obj => { if (obj.userData.worldObject) toRemove.push(obj); });
+  toRemove.forEach(obj => { disposeObject(obj); G.scene.remove(obj); });
+
+  // Clear organelles array (guard array cleared separately in Section 5)
+  G.organelles = [];
+  G.cytoskeleton = [];
+
+  // Remove old particles
+  if (G.particles) { disposeObject(G.particles); G.scene.remove(G.particles); G.particles = null; }
+}
+
+// Tag a Three.js object as belonging to the persistent world
+function tagWorld(obj) { obj.traverse(c => { c.userData.worldObject = true; }); return obj; }
+
+function buildWorld() {
+  clearWorld();
+  buildMembrane();
+  buildFloor();
+  buildCytoskeleton();
+  buildParticles();
+  if (typeof buildOrganelles === 'function') buildOrganelles();
+  buildPlayer();
+}
+
+// ── Plasma Membrane ───────────────────────────────────────────────────────
+function buildMembrane() {
+  // Outer glowing ring
+  const ringGeo = new THREE.TorusGeometry(48, 1.1, 10, 80);
+  const ringMat = new THREE.MeshPhongMaterial({
+    color: 0x00e676,
+    emissive: 0x004d28,
+    emissiveIntensity: 0.8,
+    shininess: 60,
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = 0.6;
+  ring.receiveShadow = false;
+  G.scene.add(tagWorld(ring));
+
+  // Thin inner wall (slightly taller solid wall the player bounces off)
+  // Rendered as a low-opacity cylinder so the edge is visible
+  const wallGeo = new THREE.CylinderGeometry(48.2, 48.2, 3, 80, 1, true);
+  const wallMat = new THREE.MeshPhongMaterial({
+    color: 0x00e676,
+    emissive: 0x001f10,
+    transparent: true,
+    opacity: 0.18,
+    side: THREE.BackSide,
+  });
+  const wall = new THREE.Mesh(wallGeo, wallMat);
+  wall.position.y = 1.5;
+  G.scene.add(tagWorld(wall));
+
+  // Receptor sites — 3 glowing spots around the membrane edge
+  // Phase 0: player must reach the CORRECT receptor (index 0); others are decoys
+  const receptorAngles = [0.3, 1.8, 4.4]; // radians around the ring
+  const receptorColors = [
+    G.virusType ? G.virusType.receptorColor : 0x00e676, // correct
+    0xff3d00,   // wrong type (decoy)
+    0xaa00ff,   // wrong type (decoy)
+  ];
+  G.receptors = [];
+  receptorAngles.forEach((angle, i) => {
+    const rx = Math.cos(angle) * 47.2;
+    const rz = Math.sin(angle) * 47.2;
+    const rGeo = new THREE.SphereGeometry(1.4, 12, 12);
+    const rMat = new THREE.MeshPhongMaterial({
+      color: receptorColors[i],
+      emissive: receptorColors[i],
+      emissiveIntensity: i === 0 ? 1.0 : 0.4,
+      transparent: true,
+      opacity: i === 0 ? 0.95 : 0.55,
+    });
+    const rMesh = new THREE.Mesh(rGeo, rMat);
+    rMesh.position.set(rx, 0.8, rz);
+    rMesh.userData.receptorIndex = i;
+    rMesh.userData.correct = (i === 0);
+    G.scene.add(tagWorld(rMesh));
+    G.receptors.push({ mesh: rMesh, pos: { x: rx, z: rz }, correct: i === 0 });
+  });
+
+  // Store membrane light position at the ring
+  G._lights.membrane.position.set(0, 6, 44);
+}
+
+// ── Cytoplasm Floor ───────────────────────────────────────────────────────
+// Animated CanvasTexture with slow drift gives the "flowing cytosol" feel
+const _floorCanvas = document.createElement('canvas');
+_floorCanvas.width = 512; _floorCanvas.height = 512;
+const _floorCtx = _floorCanvas.getContext('2d');
+let _floorTexture = null;
+let _floorOffsetX = 0, _floorOffsetY = 0;
+
+function buildFloorTexture() {
+  const c = _floorCtx, w = 512, h = 512;
+  c.fillStyle = '#040c06';
+  c.fillRect(0, 0, w, h);
+
+  // Subtle Voronoi-ish blobs — simulate organelle exclusion zones in cytoplasm
+  const rng = (n) => (Math.sin(n * 127.1 + 311.7) * 0.5 + 0.5);
+  for (let i = 0; i < 280; i++) {
+    const x = rng(i * 2.1) * w;
+    const y = rng(i * 3.7) * h;
+    const r = 2 + rng(i * 5.3) * 6;
+    const alpha = 0.04 + rng(i * 7.9) * 0.1;
+    const hue = 140 + rng(i * 11.3) * 40; // green family
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fillStyle = `hsla(${hue},60%,35%,${alpha})`;
+    c.fill();
+  }
+  // Faint radial gradient — brighter toward center (lighting source)
+  const grad = c.createRadialGradient(256, 256, 0, 256, 256, 256);
+  grad.addColorStop(0,   'rgba(0,200,100,0.06)');
+  grad.addColorStop(0.6, 'rgba(0,100,50,0.02)');
+  grad.addColorStop(1,   'rgba(0,0,0,0)');
+  c.fillStyle = grad;
+  c.fillRect(0, 0, w, h);
+}
+
+function buildFloor() {
+  buildFloorTexture();
+  _floorTexture = new THREE.CanvasTexture(_floorCanvas);
+  _floorTexture.wrapS = THREE.RepeatWrapping;
+  _floorTexture.wrapT = THREE.RepeatWrapping;
+  _floorTexture.repeat.set(3, 3);
+
+  const floorGeo = new THREE.CircleGeometry(48, 80);
+  const floorMat = new THREE.MeshStandardMaterial({
+    map: _floorTexture,
+    roughness: 0.95,
+    metalness: 0.0,
+    transparent: true,
+    opacity: 0.88,
+  });
+  const floor = new THREE.Mesh(floorGeo, floorMat);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.05;
+  floor.receiveShadow = true;
+  G.scene.add(tagWorld(floor));
+  G._floorMesh = floor; // keep ref for UV animation
+}
+
+// Animate floor UV offset each frame (called from updateParticles)
+function animateFloor(dt) {
+  if (!_floorTexture) return;
+  _floorOffsetX += dt * 0.004;
+  _floorOffsetY += dt * 0.0025;
+  _floorTexture.offset.set(_floorOffsetX, _floorOffsetY);
+  _floorTexture.needsUpdate = false; // CanvasTexture only needs needsUpdate when canvas changes
+}
+
+// ── Cytoskeleton Filaments ────────────────────────────────────────────────
+// 24 wavy tubes crossing the cell interior — act as cover for the player
+function buildCytoskeleton() {
+  const MAT = new THREE.MeshPhongMaterial({
+    color: 0x006064,
+    emissive: 0x002428,
+    emissiveIntensity: 0.7,
+    transparent: true,
+    opacity: 0.45,
+    shininess: 30,
+  });
+
+  // Deterministic pseudo-random so the layout is always the same
+  const rng = (seed) => {
+    let s = seed;
+    return () => { s = (s * 16807 + 0) % 2147483647; return (s - 1) / 2147483646; };
+  };
+  const rand = rng(42);
+
+  for (let i = 0; i < 24; i++) {
+    // Random start and end points within the cell
+    const angle1 = rand() * Math.PI * 2;
+    const angle2 = angle1 + Math.PI * (0.4 + rand() * 0.6) * (rand() > 0.5 ? 1 : -1);
+    const r1 = 8 + rand() * 34;
+    const r2 = 8 + rand() * 34;
+    const x1 = Math.cos(angle1) * r1, z1 = Math.sin(angle1) * r1;
+    const x2 = Math.cos(angle2) * r2, z2 = Math.sin(angle2) * r2;
+
+    // 4–6 control points with slight vertical wobble (filaments sag/rise)
+    const numPts = 4 + Math.floor(rand() * 3);
+    const pts = [];
+    for (let j = 0; j <= numPts; j++) {
+      const t = j / numPts;
+      const x = x1 + (x2 - x1) * t + (rand() - 0.5) * 8;
+      const z = z1 + (z2 - z1) * t + (rand() - 0.5) * 8;
+      const y = 0.3 + rand() * 2.5; // filaments hang slightly above floor
+      pts.push(new THREE.Vector3(x, y, z));
+    }
+
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const tubeGeo = new THREE.TubeGeometry(curve, 24, 0.13, 4, false);
+    const tube = new THREE.Mesh(tubeGeo, MAT);
+    G.scene.add(tagWorld(tube));
+
+    // Store curve points for player proximity/cover checks (Section 5)
+    const samplePts = [];
+    for (let k = 0; k <= 12; k++) {
+      samplePts.push(curve.getPoint(k / 12));
+    }
+    G.cytoskeleton.push({ mesh: tube, points: samplePts });
+  }
+}
+
+// ── Cytoplasm Particles ───────────────────────────────────────────────────
+// 900 floating points representing cytosolic proteins / ribosomes
+const PARTICLE_COUNT = 900;
+
+function buildParticles() {
+  const positions = new Float32Array(PARTICLE_COUNT * 3);
+  const velocities = new Float32Array(PARTICLE_COUNT * 3); // x,y,z velocity
+
+  const rng = (seed) => { let s = seed; return () => { s=(s*16807)%2147483647; return (s-1)/2147483646; }; };
+  const rand = rng(77);
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    // Random position inside the cell circle
+    const angle = rand() * Math.PI * 2;
+    const radius = rand() * 44;
+    positions[i*3    ] = Math.cos(angle) * radius;
+    positions[i*3 + 1] = 0.2 + rand() * 4.5;   // height above floor
+    positions[i*3 + 2] = Math.sin(angle) * radius;
+
+    // Slow drift velocity
+    velocities[i*3    ] = (rand() - 0.5) * 0.8;
+    velocities[i*3 + 1] = (rand() - 0.5) * 0.15;
+    velocities[i*3 + 2] = (rand() - 0.5) * 0.8;
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+  const mat = new THREE.PointsMaterial({
+    color: 0x80cbc4,
+    size: 0.22,
+    transparent: true,
+    opacity: 0.55,
+    sizeAttenuation: true,
+  });
+
+  G.particles = new THREE.Points(geo, mat);
+  G.particles.userData.worldObject = true;
+  G.particlePositions  = positions;
+  G.particleVelocities = velocities;
+  G.scene.add(G.particles);
+}
+
+function updateParticles(dt) {
+  if (!G.particles) return;
+  animateFloor(dt);
+
+  const pos = G.particlePositions;
+  const vel = G.particleVelocities;
+  const t = G.totalTime;
+
+  for (let i = 0; i < PARTICLE_COUNT; i++) {
+    const ix = i * 3, iy = ix + 1, iz = ix + 2;
+
+    // Drift with a slow sine curl (simulates cytoplasmic streaming)
+    pos[ix] += vel[ix] * dt + Math.sin(t * 0.3 + i * 0.7) * 0.003;
+    pos[iy] += vel[iy] * dt + Math.cos(t * 0.2 + i * 1.1) * 0.002;
+    pos[iz] += vel[iz] * dt + Math.sin(t * 0.25 + i * 0.9) * 0.003;
+
+    // Clamp height
+    if (pos[iy] < 0.1) { pos[iy] = 0.1; vel[iy] =  Math.abs(vel[iy]); }
+    if (pos[iy] > 5.0) { pos[iy] = 5.0; vel[iy] = -Math.abs(vel[iy]); }
+
+    // Wrap at cell boundary
+    const dx = pos[ix], dz = pos[iz];
+    if (dx*dx + dz*dz > 44*44) {
+      const ang = Math.atan2(dz, dx);
+      const r = 2 + Math.random() * 18;
+      pos[ix] = Math.cos(ang + Math.PI) * r;
+      pos[iz] = Math.sin(ang + Math.PI) * r;
+    }
+  }
+  G.particles.geometry.attributes.position.needsUpdate = true;
+}
+
+// ── Stub: functions defined in later sections ─────────────────────────────
+// ── Section 5: Guard System — AI, Detection Cones, LOS, Alert Meter ──────
+
+// Guard spawn configuration per phase
+// Each entry: { type, patrol, ...patrol-specific fields }
+// patrol types:
+//   'membrane' — circular patrol around the inner membrane edge
+//   'outer'    — small circle orbit around a fixed center
+//   'circuit'  — explicit waypoint list
+//   (no patrol field) — stationary (TLR)
+const PHASE_GUARD_TABLE = [
+  // Phase 0: Attachment — antibodies patrol the membrane interior edge
+  [
+    { type:'antibody', patrol:'membrane', offset:0.0 },
+    { type:'antibody', patrol:'membrane', offset:2.1 },
+    { type:'antibody', patrol:'membrane', offset:4.2 },
+  ],
+  // Phase 1: Penetration — TLRs near endosome + one orbiting antibody
+  [
+    { type:'tlr',      pos:[28,-23], facing:Math.PI * 0.9 },
+    { type:'tlr',      pos:[35,-15], facing:Math.PI * 1.25 },
+    { type:'antibody', patrol:'outer', center:[32,-18], radius:9 },
+  ],
+  // Phase 2: Uncoating — PKR/RIG-I enter the cytoplasm + stationary TLR
+  [
+    { type:'pkr', patrol:'circuit', waypoints:[[18,-8],[12,-16],[6,-10],[12,-2]] },
+    { type:'pkr', patrol:'circuit', waypoints:[[24,-6],[30,-13],[24,-20],[18,-12]] },
+    { type:'tlr', pos:[20,-21], facing:2.4 },
+  ],
+  // Phase 3: Nuclear Import — cytoplasm patrols, cGAS added
+  [
+    { type:'pkr',  patrol:'circuit', waypoints:[[-4,-14],[6,-18],[0,-8],[-8,-12]] },
+    { type:'pkr',  patrol:'circuit', waypoints:[[9,11],[13,19],[5,23],[0,14]] },
+    { type:'cgas', patrol:'circuit', waypoints:[[-8,0],[0,-8],[8,0],[0,8]] },
+    { type:'pkr',  patrol:'circuit', waypoints:[[-18,-4],[-12,-11],[-5,-7],[-12,1]] },
+  ],
+  // Phase 4: Replication — APOBEC inside nucleus, guards outside
+  [
+    { type:'apobec', patrol:'circuit', waypoints:[[4,4],[-4,4],[-4,-4],[4,-4]] },
+    { type:'apobec', patrol:'circuit', waypoints:[[6,0],[0,6],[-6,0],[0,-6]] },
+    { type:'pkr',    patrol:'circuit', waypoints:[[-15,5],[-9,13],[-4,6],[-10,0]] },
+    { type:'cgas',   patrol:'circuit', waypoints:[[13,-8],[19,0],[13,8],[6,0]] },
+  ],
+  // Phase 5: Assembly — high-density patrol, alert tier already elevated
+  [
+    { type:'pkr',    patrol:'circuit', waypoints:[[-20,11],[-12,17],[-5,11],[-12,4]] },
+    { type:'pkr',    patrol:'circuit', waypoints:[[5,18],[12,23],[18,15],[12,8]] },
+    { type:'cgas',   patrol:'circuit', waypoints:[[-4,-5],[6,-8],[11,-2],[5,6]] },
+    { type:'apobec', patrol:'circuit', waypoints:[[2,2],[-2,6],[-6,2],[0,-2]] },
+    { type:'pkr',    patrol:'circuit', waypoints:[[-10,-14],[-4,-20],[6,-16],[0,-9]] },
+  ],
+  // Phase 6: Release — NK signals appear, full chaos
+  [
+    { type:'nk',      patrol:'circuit', waypoints:[[30,5],[38,15],[30,25],[20,15]] },
+    { type:'nk',      patrol:'circuit', waypoints:[[-5,35],[10,40],[25,35],[15,25]] },
+    { type:'pkr',     patrol:'circuit', waypoints:[[20,-5],[30,0],[25,10],[15,5]] },
+    { type:'cgas',    patrol:'circuit', waypoints:[[0,0],[12,8],[-8,12],[-12,-5]] },
+    { type:'antibody',patrol:'membrane', offset:1.0 },
+    { type:'antibody',patrol:'membrane', offset:3.6 },
+  ],
+];
+
+// Cache LOS-blocking meshes so we don't re-filter every frame
+function cacheLOSBlockers() {
+  G._losBlockers = G.organelles.filter(o => o.blocksLOS).map(o => o.mesh);
+}
+
+function spawnGuardsForPhase(n) {
+  // Remove previous guard meshes from scene
+  G.guards.forEach(g => { disposeObject(g.mesh); G.scene.remove(g.mesh); });
+  G.guards = [];
+
+  cacheLOSBlockers();
+
+  const table = PHASE_GUARD_TABLE[Math.min(n, PHASE_GUARD_TABLE.length - 1)] || [];
+  table.forEach(def => {
+    const g = createGuard(def);
+    if (g) G.guards.push(g);
+  });
+}
+
+// ── Guard Factory ─────────────────────────────────────────────────────────
+function createGuard(def) {
+  const data = GUARD_DATA[def.type];
+  if (!data) return null;
+
+  const guard = {
+    type:           def.type,
+    mesh:           null,
+    coneMesh:       null,
+    ringMesh:       null,
+    pos:            { x: 0, z: 0 },
+    facing:         def.facing || 0,
+    patrolPath:     [],
+    patrolIdx:      0,
+    speed:          data.speed,
+    coneAngle:      (data.coneAngleDeg * Math.PI) / 180,
+    coneRange:      data.coneRange,
+    detectionAccum: 0,
+    alertState:     'patrol',   // patrol | alert | chase | return
+    alertTimer:     0,
+    lastKnownPos:   { x: 0, z: 0 },
+  };
+
+  // Build patrol path
+  if (def.patrol === 'membrane') {
+    const r = 43, steps = 14, off = def.offset || 0;
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * Math.PI * 2 + off;
+      guard.patrolPath.push({ x: Math.cos(a) * r, z: Math.sin(a) * r });
+    }
+    guard.pos    = { ...guard.patrolPath[0] };
+    guard.facing = (def.offset || 0) + Math.PI / 2;
+
+  } else if (def.patrol === 'outer') {
+    const [cx, cz] = def.center, r = def.radius || 8, steps = 10;
+    for (let i = 0; i < steps; i++) {
+      const a = (i / steps) * Math.PI * 2;
+      guard.patrolPath.push({ x: cx + Math.cos(a) * r, z: cz + Math.sin(a) * r });
+    }
+    guard.pos = { ...guard.patrolPath[0] };
+
+  } else if (def.patrol === 'circuit') {
+    guard.patrolPath = def.waypoints.map(([x, z]) => ({ x, z }));
+    guard.pos        = { ...guard.patrolPath[0] };
+
+  } else {
+    // Stationary
+    guard.pos        = { x: def.pos[0], z: def.pos[1] };
+    guard.patrolPath = [{ ...guard.pos }];
+    guard.facing     = def.facing || 0;
+  }
+
+  guard.mesh = buildGuardMesh(def.type, data, guard.coneAngle, guard.coneRange);
+  guard.mesh.position.set(guard.pos.x, 1.0, guard.pos.z);
+  guard.mesh.rotation.y = guard.facing;
+  guard.coneMesh = guard.mesh.userData.coneMesh;
+  guard.ringMesh = guard.mesh.userData.ringMesh;
+
+  G.scene.add(guard.mesh);
+  return guard;
+}
+
+// ── Build Guard Mesh ──────────────────────────────────────────────────────
+function buildGuardMesh(type, data, coneAngle, coneRange) {
+  const group = new THREE.Group();
+
+  // Body geometry — each guard type has a recognisable silhouette
+  switch (type) {
+
+    case 'antibody': {
+      // Y-shape: vertical stem + two angled arms
+      const mat = new THREE.MeshPhongMaterial({
+        color: data.color, emissive: data.color, emissiveIntensity: 0.5,
+      });
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 1.7, 6), mat);
+      const armL = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 6), mat.clone());
+      const armR = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.1, 6), mat.clone());
+      armL.rotation.z =  Math.PI / 4;
+      armR.rotation.z = -Math.PI / 4;
+      armL.position.set(-0.52, 1.2, 0);
+      armR.position.set( 0.52, 1.2, 0);
+      group.add(stem, armL, armR);
+      break;
+    }
+
+    case 'tlr': {
+      // Tall tapered stalk with bulbous sensor head
+      const mat = new THREE.MeshPhongMaterial({
+        color: data.color, emissive: data.color, emissiveIntensity: 0.45,
+      });
+      group.add(new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.36, 2.9, 7), mat));
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.44, 10, 10),
+        new THREE.MeshPhongMaterial({ color: data.color, emissive: data.color, emissiveIntensity: 0.85 }));
+      head.position.y = 1.8;
+      group.add(head);
+      break;
+    }
+
+    case 'pkr': {
+      // Diamond — OctahedronGeometry (PKR/RIG-I helicase shape)
+      const mesh = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.7, 0),
+        new THREE.MeshPhongMaterial({ color: data.color, emissive: data.color, emissiveIntensity: 0.55 })
+      );
+      mesh.position.y = 0.7;
+      group.add(mesh);
+      break;
+    }
+
+    case 'cgas': {
+      // Flat torus (ring-shaped sensor) with a central dot
+      const mat = new THREE.MeshPhongMaterial({
+        color: data.color, emissive: data.color, emissiveIntensity: 0.42,
+      });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.15, 0.27, 8, 18), mat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y  = 0.42;
+      group.add(ring);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), mat.clone());
+      dot.position.y = 0.42;
+      group.add(dot);
+      break;
+    }
+
+    case 'apobec': {
+      // Box body with a small catalytic-domain nub on top
+      const mat = new THREE.MeshPhongMaterial({
+        color: data.color, emissive: data.color, emissiveIntensity: 0.6,
+      });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.76, 1.1, 0.76), mat);
+      body.position.y = 0.55;
+      group.add(body);
+      const nub = new THREE.Mesh(new THREE.SphereGeometry(0.27, 8, 8), mat.clone());
+      nub.material.emissiveIntensity = 1.0;
+      nub.position.y = 1.25;
+      group.add(nub);
+      break;
+    }
+
+    case 'nk': {
+      // Upward cone (like a targeting arrow) with speed fins
+      const mat = new THREE.MeshPhongMaterial({
+        color: data.color, emissive: data.color, emissiveIntensity: 0.65,
+      });
+      const body = new THREE.Mesh(new THREE.ConeGeometry(0.47, 1.45, 8), mat);
+      body.position.y = 0.73;
+      group.add(body);
+      const finMat = mat.clone();
+      finMat.emissiveIntensity = 0.4;
+      [-0.36, 0.36].forEach(x => {
+        const fin = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.5, 0.52), finMat);
+        fin.position.set(x, 0.55, -0.26);
+        group.add(fin);
+      });
+      break;
+    }
+  }
+
+  // ── Detection cone — tip at guard origin, base opens in +Z (forward) ──
+  const baseRadius = coneRange * Math.tan(coneAngle);
+  const coneGeo    = new THREE.ConeGeometry(baseRadius, coneRange, 20, 1, true);
+  const coneMat    = new THREE.MeshBasicMaterial({
+    color: 0x00ff88, transparent: true, opacity: 0.09,
+    side: THREE.DoubleSide, depthWrite: false,
+  });
+  const coneMesh = new THREE.Mesh(coneGeo, coneMat);
+  // rotX = -π/2 → apex ends up at +coneRange/2 in Z, base at -coneRange/2
+  // Then position.z = coneRange/2 shifts apex to z=0, base to z=coneRange
+  coneMesh.rotation.x  = -Math.PI / 2;
+  coneMesh.position.set(0, 1.0, coneRange / 2);
+  group.add(coneMesh);
+  group.userData.coneMesh = coneMesh;
+
+  // ── Floor detection ring — grows and shifts color as accumulator fills ─
+  const ringMesh = new THREE.Mesh(
+    new THREE.RingGeometry(0.55, 0.88, 22),
+    new THREE.MeshBasicMaterial({
+      color: 0x00ff88, transparent: true, opacity: 0,
+      side: THREE.DoubleSide, depthWrite: false,
+    })
+  );
+  ringMesh.rotation.x = -Math.PI / 2;
+  ringMesh.position.y  = 0.06;
+  group.add(ringMesh);
+  group.userData.ringMesh = ringMesh;
+
+  return group;
+}
+
+// ── Update Guards ─────────────────────────────────────────────────────────
+function updateGuards(dt) {
+  if (!G.player.mesh) return;
+  const px = G.player.pos.x, pz = G.player.pos.z;
+
+  G.guards.forEach(g => {
+    updateGuardMovement(g, dt, px, pz);
+    updateGuardDetection(g, dt, px, pz);
+    updateGuardVisuals(g);
+  });
+}
+
+function updateGuardMovement(g, dt, px, pz) {
+  if (g.speed === 0) {
+    // Stationary guard (TLR) — slowly turns toward player when sensing
+    if (g.detectionAccum > 0.08) {
+      const target = Math.atan2(px - g.pos.x, pz - g.pos.z);
+      const delta  = ((target - g.facing) + Math.PI * 3) % (Math.PI * 2) - Math.PI;
+      g.facing    += delta * Math.min(1, dt * 1.8);
+    }
+    g.mesh.rotation.y = g.facing;
+    return;
+  }
+
+  // Determine target position based on AI state
+  let target, moveSpeed;
+
+  if (g.alertState === 'chase') {
+    target    = { x: px, z: pz };
+    moveSpeed = g.speed * 1.6;
+    g.alertTimer -= dt;
+    if (g.alertTimer <= 0 || G.alertMeter < 40) {
+      g.alertState = 'alert';
+      g.alertTimer = 4.5;
+    }
+
+  } else if (g.alertState === 'alert') {
+    target    = g.lastKnownPos;
+    moveSpeed = g.speed * 1.1;
+    g.alertTimer -= dt;
+    if (g.alertTimer <= 0) g.alertState = 'return';
+
+  } else if (g.alertState === 'return') {
+    target    = g.patrolPath[g.patrolIdx];
+    moveSpeed = g.speed * 0.75;
+    const dx = target.x - g.pos.x, dz = target.z - g.pos.z;
+    if (dx*dx + dz*dz < 1.0) g.alertState = 'patrol';
+
+  } else {
+    // Normal patrol: advance along waypoints
+    const next = g.patrolPath[g.patrolIdx];
+    target    = next;
+    moveSpeed = g.speed;
+    const dx = next.x - g.pos.x, dz = next.z - g.pos.z;
+    if (dx*dx + dz*dz < 0.64) {
+      g.patrolIdx = (g.patrolIdx + 1) % g.patrolPath.length;
+    }
+  }
+
+  // Advance toward target
+  const dx   = target.x - g.pos.x;
+  const dz   = target.z - g.pos.z;
+  const dist = Math.sqrt(dx*dx + dz*dz);
+  if (dist > 0.04) {
+    const step = Math.min(moveSpeed * dt, dist);
+    g.pos.x   += (dx / dist) * step;
+    g.pos.z   += (dz / dist) * step;
+    g.facing   = Math.atan2(dx, dz);
+  }
+
+  g.mesh.position.x = g.pos.x;
+  g.mesh.position.z = g.pos.z;
+  g.mesh.rotation.y = g.facing;
+}
+
+function updateGuardDetection(g, dt, px, pz) {
+  const dx   = px - g.pos.x;
+  const dz   = pz - g.pos.z;
+  const dist = Math.sqrt(dx*dx + dz*dz);
+
+  // Decoy override — if a decoy is in range, guard ignores the player
+  if (isDecoyAttracting(g)) {
+    g.detectionAccum = Math.max(0, g.detectionAccum - dt * 0.4);
+    return;
+  }
+
+  // Out of detection range entirely
+  if (dist < 0.01 || dist > g.coneRange) {
+    g.detectionAccum = Math.max(0, g.detectionAccum - dt * 0.35);
+    return;
+  }
+
+  // Angle check — is player inside the detection cone?
+  const angleToPlayer = Math.atan2(dx, dz);
+  const facingDiff    = Math.abs(
+    ((angleToPlayer - g.facing) + Math.PI * 3) % (Math.PI * 2) - Math.PI
+  );
+  // cGAS-STING detects in a full 360° field; others need cone angle
+  const inCone = (g.type === 'cgas') ? true : (facingDiff < g.coneAngle);
+
+  if (!inCone) {
+    g.detectionAccum = Math.max(0, g.detectionAccum - dt * 0.25);
+    return;
+  }
+
+  // Line-of-sight raycast through organelles
+  const dir3 = new THREE.Vector3(dx, 0, dz).normalize();
+  const origin3 = new THREE.Vector3(g.pos.x, 1.0, g.pos.z);
+  G.raycaster.set(origin3, dir3);
+  const hits = G.raycaster.intersectObjects(G._losBlockers || [], true);
+  const losBlocked = hits.length > 0 && hits[0].distance < dist - 0.5;
+
+  if (losBlocked) {
+    g.detectionAccum = Math.max(0, g.detectionAccum - dt * 0.22);
+    return;
+  }
+
+  // Detection rate modifiers
+  const sneakMod  = G.player.sneaking ? 0.44 : 1.0;
+  const coverMod  = G.player.inCover  ? 0.32 : 1.0;
+  const cloakMod  = G.player.cloaked  ? 0.0  : 1.0;
+  const distMod   = 1.0 - (dist / g.coneRange) * 0.45; // closer = faster detection
+  const phaseMod  = 1.0 + G.phase * 0.08;              // guards sharpen over phases
+
+  const rate = GUARD_DATA[g.type].detectRate
+    * sneakMod * coverMod * cloakMod * distMod * phaseMod;
+
+  g.detectionAccum    = Math.min(1.0, g.detectionAccum + dt * rate);
+  g.lastKnownPos      = { x: px, z: pz };
+
+  // Escalate AI state on thresholds
+  if (g.detectionAccum >= 1.0 && g.alertState === 'patrol') {
+    g.alertState = 'chase';
+    g.alertTimer = 6.5;
+  } else if (g.detectionAccum > 0.5 && g.alertState === 'patrol') {
+    g.alertState = 'alert';
+    g.alertTimer = 3.5;
+    showToast('Guard alerted!', 'warn');
+  }
+}
+
+function isDecoyAttracting(g) {
+  for (const d of G.activeDecoys) {
+    const dx = d.pos.x - g.pos.x, dz = d.pos.z - g.pos.z;
+    if (dx*dx + dz*dz < g.coneRange * g.coneRange) return true;
+  }
+  return false;
+}
+
+function updateGuardVisuals(g) {
+  const a = g.detectionAccum;
+
+  // Cone colour: green (0) → yellow (0.5) → red (1.0)
+  let cr, cg;
+  if (a < 0.5) { cr = a * 2; cg = 1.0; }
+  else          { cr = 1.0;  cg = 1.0 - (a - 0.5) * 2; }
+
+  if (g.coneMesh) {
+    g.coneMesh.material.color.setRGB(cr, cg, 0);
+    g.coneMesh.material.opacity = 0.07 + a * 0.20;
+  }
+
+  // Floor ring — invisible when cold, fills and pulses red at full detection
+  if (g.ringMesh) {
+    g.ringMesh.material.color.setRGB(cr, cg, 0);
+    g.ringMesh.material.opacity = a * 0.80;
+    const pulse = 1.0 + a * 0.35 * Math.sin(G.totalTime * 7);
+    g.ringMesh.scale.setScalar(pulse);
+  }
+
+  // Chase state: guard urgently bobs up and down
+  g.mesh.position.y = (g.alertState === 'chase')
+    ? 1.0 + Math.sin(G.totalTime * 9) * 0.2
+    : 1.0;
+}
+
+// ── Guard Tooltip (hover) ─────────────────────────────────────────────────
+// Called from main loop — raycasts against guard meshes using mouse position
+function updateGuardTooltip() {
+  if (G.state !== 'PLAYING') {
+    document.getElementById('guardTooltip').classList.add('hidden');
+    return;
+  }
+  const w = window.innerWidth, h = window.innerHeight;
+  const ndc = new THREE.Vector2(
+    (G.mouse.x / w) * 2 - 1,
+    -(G.mouse.y / h) * 2 + 1
+  );
+  G.raycaster.setFromCamera(ndc, G.camera);
+  const guardMeshes = G.guards.map(g => g.mesh);
+  const hits = G.raycaster.intersectObjects(guardMeshes, true);
+  const tooltip = document.getElementById('guardTooltip');
+  if (hits.length > 0) {
+    // Walk up to find the guard group
+    let obj = hits[0].object;
+    while (obj.parent && !G.guards.find(g => g.mesh === obj)) obj = obj.parent;
+    const guard = G.guards.find(g => g.mesh === obj);
+    if (guard) {
+      const gd = GUARD_DATA[guard.type];
+      document.getElementById('ttName').textContent = gd.label;
+      document.getElementById('ttDesc').textContent = gd.desc;
+      tooltip.style.left = (G.mouse.x + 14) + 'px';
+      tooltip.style.top  = (G.mouse.y - 10) + 'px';
+      tooltip.classList.remove('hidden');
+      return;
+    }
+  }
+  tooltip.classList.add('hidden');
+}
+
+// ── Alert Meter ───────────────────────────────────────────────────────────
+function updateAlertMeter(dt) {
+  if (!G.guards.length) return;
+
+  // Each guard contributes proportionally; 3 fully-detected guards = ~100%
+  const perGuard = 100 / Math.max(3, G.guards.length);
+  let raw = 0;
+  G.guards.forEach(g => { raw += g.detectionAccum * perGuard; });
+  raw = Math.min(100, raw);
+
+  // Decay toward raw (or ratchet floor), whichever is higher
+  const ratchetFloor = G.alertTier * 25;
+  if (raw < G.alertMeter) {
+    G.alertMeter = Math.max(ratchetFloor, G.alertMeter - 4.5 * dt);
+  } else {
+    G.alertMeter = Math.min(100, raw);
+  }
+
+  // Tier ratchet — only goes up, never down
+  const newTier = Math.min(3, Math.floor(G.alertMeter / 25));
+  if (newTier > G.alertTier) {
+    G.alertTier = newTier;
+    const msgs = [
+      '',
+      'Immune sensors heightened — stay hidden',
+      'Elevated immune response — more patrols active',
+      'CRITICAL — full immune activation imminent',
+    ];
+    if (msgs[G.alertTier]) showToast(msgs[G.alertTier], G.alertTier >= 3 ? 'danger' : 'warn');
+  }
+
+  if (G.alertMeter > G.stats.peakAlert) G.stats.peakAlert = G.alertMeter;
+
+  if (G.alertMeter >= 100) {
+    triggerGameOver(
+      'Immune alert reached 100%. All immune sensors have converged on your location. ' +
+      'The viral infiltration has been detected and neutralized.'
+    );
+  }
+}
+
+// ── Section 6: Phase State Machine + Minigames ───────────────────────────
+
+// ── Beacon / Waypoint Marker ──────────────────────────────────────────────
+function createBeacon(x, z, color, label) {
+  const group = new THREE.Group();
+
+  // Pulsing floor ring
+  const ringGeo = new THREE.RingGeometry(1.1, 1.75, 28);
+  const ringMat = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.75,
+    side: THREE.DoubleSide, depthWrite: false,
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y  = 0.08;
+  group.add(ring);
+
+  // Upward beam so it's visible from the top-down camera
+  const beamGeo = new THREE.CylinderGeometry(0.06, 0.5, 12, 8, 1, true);
+  const beamMat = new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: 0.10,
+    side: THREE.DoubleSide, depthWrite: false,
+  });
+  const beam = new THREE.Mesh(beamGeo, beamMat);
+  beam.position.y = 6;
+  group.add(beam);
+
+  group.position.set(x, 0, z);
+  group.userData.beamRing = ring;
+  group.userData.beamMat  = ringMat;
+  group.userData.beamBeamMat = beamMat;
+  G.scene.add(group);
+  return group;
+}
+
+function animateBeacon(beaconGroup) {
+  if (!beaconGroup) return;
+  const t = G.totalTime;
+  const s = 1.0 + 0.18 * Math.sin(t * 3.2);
+  beaconGroup.userData.beamRing.scale.setScalar(s);
+  beaconGroup.userData.beamMat.opacity      = 0.5 + 0.3 * Math.sin(t * 3.2);
+  beaconGroup.userData.beamBeamMat.opacity  = 0.07 + 0.05 * Math.sin(t * 2.0);
+}
+
+function clearBeacon() {
+  if (G._beaconGroup) {
+    disposeObject(G._beaconGroup);
+    G.scene.remove(G._beaconGroup);
+    G._beaconGroup = null;
+  }
+  // Clear secondary beacons (nuclear pores in phase 3)
+  if (G._beaconGroups) {
+    G._beaconGroups.forEach(b => { disposeObject(b); G.scene.remove(b); });
+    G._beaconGroups = [];
+  }
+}
+
+// ── setupPhaseTarget ──────────────────────────────────────────────────────
+// Called from dismissBriefing() after G.phase is set.
+// Creates the visual target and any phase-specific world state.
+function setupPhaseTarget(n) {
+  clearBeacon();
+  G._phase5GoToGolgi = false;
+
+  switch (n) {
+    case 0: {
+      // Phase 0: highlight the correct receptor
+      const rec = G.receptors && G.receptors[0];
+      if (rec) {
+        G._beaconGroup = createBeacon(rec.pos.x, rec.pos.z, 0x00e676);
+        rec.mesh.material.emissiveIntensity = 2.0;
+      }
+      break;
+    }
+    case 1: {
+      // Phase 1: guide player to the endosome for endocytosis
+      const p = ORG_POS.endosome;
+      G._beaconGroup = createBeacon(p.x, p.z, 0xe040fb);
+      break;
+    }
+    case 2: {
+      // Phase 2: player is inside the endosome; start lysosome-fusion timer
+      const p = ORG_POS.endosome;
+      G._beaconGroup = createBeacon(p.x, p.z, 0xff6f00);
+      G.phaseTimer       = 30;
+      G.phaseTimerActive = true;
+      showToast('Lysosome fusion in 30s — shed your capsid!', 'warn');
+      break;
+    }
+    case 3: {
+      // Phase 3: highlight all 8 nuclear pores — any will accept entry
+      G._beaconGroups = [];
+      if (G._nucleusPores) {
+        G._nucleusPores.forEach(p => {
+          const b = createBeacon(p.worldPos.x, p.worldPos.z, 0xce93d8);
+          G._beaconGroups.push(b);
+        });
+      }
+      break;
+    }
+    case 4: {
+      // Phase 4: player must reach the nucleus interior
+      G._beaconGroup = createBeacon(0, 0, 0x9c27b0);
+      break;
+    }
+    case 5: {
+      // Phase 5: collect 5 capsid proteins from ribosomes
+      // (ribosome collectibles already visible; no separate beacon needed until Golgi)
+      showToast('Collect 5 capsid proteins from ribosomes', 'good');
+      break;
+    }
+    case 6: {
+      // Phase 6: budding site on the membrane — opposite side from endosome
+      G._buddingSite = { x: -44, z: 4 };
+      G._beaconGroup = createBeacon(G._buddingSite.x, G._buddingSite.z, 0x00e676);
+      showToast('Reach the budding site — escape the cell!', 'good');
+      break;
+    }
+  }
+}
+
+// ── Phase Completion Checks ───────────────────────────────────────────────
+// Called every frame while state === 'PLAYING'.
+
+function checkPhaseCompletion() {
+  if (G.state !== 'PLAYING') return;
+  if (!G.player.mesh) return;
+  // Animate any active beacons
+  animateBeacon(G._beaconGroup);
+  if (G._beaconGroups) G._beaconGroups.forEach(animateBeacon);
+
+  const px = G.player.pos.x, pz = G.player.pos.z;
+
+  switch (G.phase) {
+    case 0: phaseCheck_Attachment(px, pz);    break;
+    case 1: phaseCheck_Penetration(px, pz);   break;
+    case 2: phaseCheck_Uncoating(px, pz);     break;
+    case 3: phaseCheck_NuclearImport(px, pz); break;
+    case 4: phaseCheck_Replication(px, pz);   break;
+    case 5: phaseCheck_Assembly(px, pz);      break;
+    case 6: phaseCheck_Release(px, pz);       break;
+  }
+}
+
+// -- Phase 0: Attachment ---------------------------------------------------
+function phaseCheck_Attachment(px, pz) {
+  const rec = G.receptors && G.receptors[0];
+  if (!rec) return;
+  const dx = px - rec.pos.x, dz = pz - rec.pos.z;
+  if (dx*dx + dz*dz < 9) { // radius 3
+    completePhase();
+  }
+  // Wrong receptor penalty
+  if (G.receptors) {
+    for (let i = 1; i < G.receptors.length; i++) {
+      const r = G.receptors[i];
+      const dx2 = px - r.pos.x, dz2 = pz - r.pos.z;
+      if (dx2*dx2 + dz2*dz2 < 6.25) {
+        G.alertMeter = Math.min(100, G.alertMeter + 12);
+        showToast('Wrong receptor! Immune sensors triggered.', 'danger');
+        // Push player away
+        G.player.pos.x += (px - r.pos.x) * 0.8;
+        G.player.pos.z += (pz - r.pos.z) * 0.8;
+      }
+    }
+  }
+}
+
+// -- Phase 1: Penetration --------------------------------------------------
+function phaseCheck_Penetration(px, pz) {
+  const ep = ORG_POS.endosome;
+  const dx = px - ep.x, dz = pz - ep.z;
+  if (dx*dx + dz*dz < 25) { // radius 5
+    startEndocytosisMinigame();
+  }
+}
+
+// -- Phase 2: Uncoating ----------------------------------------------------
+function phaseCheck_Uncoating(px, pz) {
+  // Count down the lysosome-fusion timer
+  if (G.phaseTimerActive) {
+    G.phaseTimer -= (G.dt || 0.016);
+    if (G.phaseTimer <= 0) {
+      G.phaseTimerActive = false;
+      G.phaseTimer = 0;
+      // Lysosome fused — heavy damage but still allow completion
+      G.virusHP = Math.max(1, G.virusHP - 40);
+      G.stats.damagesTaken += 40;
+      flashScreen('rgba(244,67,54,0.55)', 500);
+      showToast('Lysosome fused! Genome partially degraded.', 'danger');
+      performUncoating();
+      completePhase();
+      return;
+    }
+  }
+  // Player reaches endosome in time
+  const ep = ORG_POS.endosome;
+  const dx = px - ep.x, dz = pz - ep.z;
+  if (dx*dx + dz*dz < 20) {
+    G.phaseTimerActive = false;
+    performUncoating();
+    completePhase();
+  }
+}
+
+// -- Phase 3: Nuclear Import -----------------------------------------------
+function phaseCheck_NuclearImport(px, pz) {
+  if (!G._nucleusPores) return;
+  for (const pore of G._nucleusPores) {
+    const dx = px - pore.worldPos.x, dz = pz - pore.worldPos.z;
+    // Nuclear pores are on a sphere surface; check horizontal proximity
+    const horizDist = Math.sqrt(dx*dx + dz*dz);
+    // Also check the player is near the nucleus radius (12)
+    const toCenterDist = Math.sqrt(px*px + pz*pz);
+    if (horizDist < 3.5 && toCenterDist < 14) {
+      completePhase();
+      return;
+    }
+  }
+}
+
+// -- Phase 4: Replication --------------------------------------------------
+function phaseCheck_Replication(px, pz) {
+  // Player must be inside the nucleus
+  const d = Math.sqrt(px*px + pz*pz);
+  if (d < 10 && !G._replicationStarted) {
+    G._replicationStarted = true;
+    startReplicationMinigame();
+  }
+}
+
+// -- Phase 5: Assembly -----------------------------------------------------
+function phaseCheck_Assembly(px, pz) {
+  if (!G._phase5GoToGolgi) {
+    // Sub-phase A: collect ribosome collectibles
+    checkCollectibles(px, pz);
+    if (G.inventory.length >= G.inventoryTarget) {
+      G._phase5GoToGolgi = true;
+      clearBeacon();
+      const gp = ORG_POS.golgi;
+      G._beaconGroup = createBeacon(gp.x, gp.z, 0xff8f00);
+      showToast('Proteins collected! Bring them to the Golgi.', 'good');
+    }
+  } else {
+    // Sub-phase B: reach the Golgi
+    const gp = ORG_POS.golgi;
+    const dx = px - gp.x, dz = pz - gp.z;
+    if (dx*dx + dz*dz < 64) { // radius 8
+      completePhase();
+    }
+  }
+}
+
+function checkCollectibles(px, pz) {
+  if (!G._ribCollectibles) return;
+  G._ribCollectibles.forEach(c => {
+    if (c.userData.collected) return;
+    const dx = px - c.position.x, dz = pz - c.position.z;
+    if (dx*dx + dz*dz < 4) {
+      c.userData.collected = true;
+      c.visible = false;
+      G.inventory.push(c.userData.collectibleIndex);
+      showToast('Capsid protein collected (' + G.inventory.length + '/' + G.inventoryTarget + ')', 'good');
+    }
+  });
+}
+
+// -- Phase 6: Release ------------------------------------------------------
+function phaseCheck_Release(px, pz) {
+  if (!G._buddingSite) return;
+  const dx = px - G._buddingSite.x, dz = pz - G._buddingSite.z;
+  if (dx*dx + dz*dz < 16) {
+    startBuddingSequence();
+  }
+}
+
+// ── Phase Completion ──────────────────────────────────────────────────────
+function completePhase() {
+  if (G.state !== 'PLAYING') return; // guard against double-trigger
+  G.state = 'PHASE_TRANSITION';
+
+  // Add biology fact to codex
+  const pd = PHASE_DATA[G.phase];
+  G.codex.push({ phaseIndex: G.phase, phaseName: pd.name, fact: pd.bio });
+  renderCodex();
+
+  clearBeacon();
+  G.phaseTimerActive  = false;
+  G._replicationStarted = false;
+
+  const completedPhase = G.phase;
+  G.phase++;
+
+  if (G.phase >= PHASE_DATA.length) {
+    triggerVictory();
+  } else {
+    showBriefing(G.phase);
+  }
+}
+
+// ── Damage Zones ──────────────────────────────────────────────────────────
+function checkDamageZones(dt) {
+  if (!G.player.mesh) return;
+  const px = G.player.pos.x, pz = G.player.pos.z;
+
+  // Lysosome contact damage — player takes 15 HP/sec while touching
+  if (G._lysosomeMeshes) {
+    G._lysosomeMeshes.forEach(m => {
+      const dx = px - m.position.x, dz = pz - m.position.z;
+      if (dx*dx + dz*dz < 9) { // radius 3
+        const dmg = 15 * dt;
+        G.virusHP = Math.max(0, G.virusHP - dmg);
+        G.stats.damagesTaken += dmg;
+        flashScreen('rgba(244,67,54,0.25)', 150);
+        if (G.virusHP <= 0) {
+          triggerGameOver('Your viral genome was degraded by lysosomal acid hydrolases. ' +
+            'Lysosomes contain over 50 hydrolytic enzymes that function at pH 4.5–5.0.');
+        }
+      }
+    });
+  }
+
+  // APOBEC/ADAR contact damage (phase 4 only) — 20 HP instant hit per contact
+  if (G.phase === 4) {
+    G.guards.forEach(g => {
+      if (g.type !== 'apobec') return;
+      const dx = px - g.pos.x, dz = pz - g.pos.z;
+      if (dx*dx + dz*dz < 4) {
+        if (!g._contactCooldown || g._contactCooldown <= 0) {
+          G.virusHP = Math.max(0, G.virusHP - 20);
+          G.stats.damagesTaken += 20;
+          g._contactCooldown = 1.5; // 1.5s immunity after hit
+          flashScreen('rgba(244,67,54,0.4)', 250);
+          showToast('APOBEC3 edited your genome! −20 HP', 'danger');
+          if (G.virusHP <= 0) {
+            triggerGameOver('APOBEC3 cytidine deaminase hypermutated your viral genome, ' +
+              'converting cytosines to uracils until the genome was non-functional.');
+          }
+        }
+      }
+      if (g._contactCooldown) g._contactCooldown -= dt;
+    });
+  }
+}
+
+// ── Budding Sequence (Phase 6 completion) ────────────────────────────────
+function startBuddingSequence() {
+  if (G.state !== 'PLAYING') return;
+  G.state = 'PHASE_TRANSITION';
+  showToast('Budding initiated — membrane pinching off!', 'good');
+
+  // Camera pulls back dramatically
+  const startY  = G.camera.position.y;
+  const targetY = 160;
+  let elapsed   = 0;
+  const duration = 2.8;
+
+  // Burst of particles from player position
+  const px = G.player.pos.x, pz = G.player.pos.z;
+  for (let i = 0; i < 40; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 3 + Math.random() * 6;
+    const geo   = new THREE.SphereGeometry(0.2 + Math.random() * 0.3, 5, 5);
+    const mat   = new THREE.MeshPhongMaterial({
+      color: G.virusType ? G.virusType.playerColor : 0xff6f00,
+      emissive: G.virusType ? G.virusType.playerEmissive : 0x6f2000,
+      emissiveIntensity: 1.0,
+      transparent: true, opacity: 0.9,
+    });
+    const p = new THREE.Mesh(geo, mat);
+    p.position.set(px, 0.8, pz);
+    p.userData.vel = {
+      x: Math.cos(angle) * speed,
+      y: 1 + Math.random() * 3,
+      z: Math.sin(angle) * speed,
+    };
+    G.scene.add(p);
+    G._buddingParticles = G._buddingParticles || [];
+    G._buddingParticles.push({ mesh: p, life: 1.0 });
+  }
+
+  // Animate camera pullback then trigger victory
+  const pullback = () => {
+    elapsed += 0.016;
+    const t = Math.min(1, elapsed / duration);
+    G.camera.position.y = startY + (targetY - startY) * (1 - Math.pow(1 - t, 3));
+
+    // Animate budding particles
+    if (G._buddingParticles) {
+      G._buddingParticles.forEach((bp, i) => {
+        bp.life -= 0.016 / duration;
+        bp.mesh.position.x += bp.mesh.userData.vel.x * 0.016;
+        bp.mesh.position.y += bp.mesh.userData.vel.y * 0.016;
+        bp.mesh.position.z += bp.mesh.userData.vel.z * 0.016;
+        bp.mesh.material.opacity = Math.max(0, bp.life);
+      });
+    }
+
+    if (t < 1) {
+      requestAnimationFrame(pullback);
+    } else {
+      // Clean up budding particles
+      if (G._buddingParticles) {
+        G._buddingParticles.forEach(bp => { disposeObject(bp.mesh); G.scene.remove(bp.mesh); });
+        G._buddingParticles = [];
+      }
+      completePhase();
+    }
+  };
+  requestAnimationFrame(pullback);
+}
+
+// ── Endocytosis Minigame (Phase 1) ────────────────────────────────────────
+let _mgState = null; // minigame local state
+
+function startEndocytosisMinigame() {
+  if (G.state !== 'PLAYING') return;
+  G.state = 'MINIGAME';
+  G.clock.stop();
+
+  document.getElementById('minigameTitle').textContent = 'Endocytosis';
+  document.getElementById('minigameHint').textContent  = 'Click the glowing receptor pits as they activate';
+  setOverlay('minigameScreen');
+  document.getElementById('hud').classList.add('hidden');
+
+  _mgState = {
+    type:     'endocytosis',
+    step:     0,        // 0-2: which pit is active
+    timer:    3.5,      // seconds to click each pit
+    success:  [false, false, false],
+    tlrTimer: 2.0,      // next TLR flash
+    tlrActive:false,
+    done:     false,
+  };
+
+  const canvas = document.getElementById('miniCanvas');
+  canvas.onclick = endocytosisClick;
+
+  clearInterval(G._mgInterval);
+  G._mgInterval = setInterval(endocytosisUpdate, 50);
+  endocytosisDraw();
+}
+
+function endocytosisUpdate() {
+  if (!_mgState || _mgState.done) return;
+  _mgState.timer -= 0.05;
+  _mgState.tlrTimer -= 0.05;
+
+  if (_mgState.tlrTimer <= 0) {
+    _mgState.tlrActive = true;
+    _mgState.tlrTimer  = 2.5 + Math.random() * 2;
+    setTimeout(() => { if (_mgState) _mgState.tlrActive = false; }, 800);
+  }
+
+  if (_mgState.timer <= 0) {
+    // Missed this pit — add alert penalty and reset timer
+    G.alertMeter = Math.min(100, G.alertMeter + 15);
+    showToast('Missed receptor pit — TLR sensor triggered!', 'danger');
+    _mgState.timer = 3.5;
+  }
+  endocytosisDraw();
+}
+
+function endocytosisDraw() {
+  const canvas = document.getElementById('miniCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#020805';
+  ctx.fillRect(0, 0, W, H);
+
+  // Cell membrane as a wavy band across the top third
+  ctx.beginPath();
+  ctx.moveTo(0, 65);
+  for (let x = 0; x <= W; x += 4) {
+    ctx.lineTo(x, 65 + Math.sin((x / 40) + (_mgState ? _mgState.step * 0.3 : 0)) * 5);
+  }
+  ctx.lineTo(W, 0); ctx.lineTo(0, 0); ctx.closePath();
+  const memGrad = ctx.createLinearGradient(0, 0, 0, 70);
+  memGrad.addColorStop(0, '#0a2010');
+  memGrad.addColorStop(1, '#1a4428');
+  ctx.fillStyle = memGrad;
+  ctx.fill();
+  ctx.strokeStyle = '#00e676'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(0, 65);
+  for (let x = 0; x <= W; x += 4) {
+    ctx.lineTo(x, 65 + Math.sin((x / 40) + (_mgState ? _mgState.step * 0.3 : 0)) * 5);
+  }
+  ctx.stroke();
+
+  // Three receptor pits spaced along the membrane
+  const pitX  = [110, 220, 330];
+  const pitY  = 88;
+  const pitR  = 22;
+  const frac  = _mgState ? (_mgState.timer / 3.5) : 1;
+  const step  = _mgState ? _mgState.step : 0;
+
+  pitX.forEach((cx, i) => {
+    const isActive  = (i === step);
+    const isDone    = _mgState && _mgState.success[i];
+    ctx.beginPath();
+    ctx.arc(cx, pitY, pitR, 0, Math.PI * 2);
+
+    if (isDone) {
+      ctx.fillStyle   = '#00e676';
+      ctx.strokeStyle = '#69f0ae';
+    } else if (isActive) {
+      const g = ctx.createRadialGradient(cx, pitY, 2, cx, pitY, pitR);
+      g.addColorStop(0, `rgba(0,230,118,${0.6 + 0.4 * Math.sin(Date.now() / 200)})`);
+      g.addColorStop(1, `rgba(0,100,50,0.2)`);
+      ctx.fillStyle   = g;
+      ctx.strokeStyle = '#00e676';
+      // Timer arc
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, pitY, pitR + 5, -Math.PI/2, -Math.PI/2 + frac * Math.PI * 2);
+      ctx.strokeStyle = frac > 0.3 ? '#00e676' : '#ff5722';
+      ctx.stroke();
+    } else {
+      ctx.fillStyle   = 'rgba(0,80,40,0.3)';
+      ctx.strokeStyle = '#1a4428';
+    }
+    ctx.lineWidth = 2;
+    ctx.fill(); ctx.stroke();
+
+    // Receptor label
+    ctx.fillStyle  = isDone ? '#050a08' : '#a8c5a0';
+    ctx.font       = 'bold 11px monospace';
+    ctx.textAlign  = 'center';
+    ctx.fillText(i === 0 ? 'HA' : i === 1 ? 'HA' : 'SA', cx, pitY + 4);
+  });
+
+  // TLR warning flash
+  if (_mgState && _mgState.tlrActive) {
+    ctx.fillStyle   = 'rgba(33,150,243,0.18)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle   = '#2196f3';
+    ctx.font        = 'bold 13px monospace';
+    ctx.textAlign   = 'center';
+    ctx.fillText('⚠ TLR ACTIVE — DO NOT CLICK', W / 2, H - 14);
+  }
+
+  // Instruction
+  ctx.fillStyle  = '#7aa87a';
+  ctx.font       = '12px monospace';
+  ctx.textAlign  = 'left';
+  ctx.fillText('Receptor-mediated endocytosis: bind each HA site in sequence', 10, H - 10);
+}
+
+function endocytosisClick(e) {
+  if (!_mgState || _mgState.done) return;
+  const canvas = document.getElementById('miniCanvas');
+  const rect   = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width  / rect.width);
+  const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
+
+  const pitX = [110, 220, 330], pitY = 88, pitR = 22;
+  const step  = _mgState.step;
+
+  // TLR penalty — clicking anywhere when TLR is active
+  if (_mgState.tlrActive) {
+    G.alertMeter = Math.min(100, G.alertMeter + 20);
+    showToast('Clicked while TLR was active! +20% alert', 'danger');
+    return;
+  }
+
+  // Check if clicked the active pit
+  const dx = mx - pitX[step], dy = my - pitY;
+  if (dx*dx + dy*dy < pitR * pitR) {
+    _mgState.success[step] = true;
+    _mgState.step++;
+    _mgState.timer = 3.5;
+    if (_mgState.step >= 3) {
+      // All pits clicked — success
+      _mgState.done = true;
+      clearInterval(G._mgInterval);
+      endocytosisSuccess();
+    }
+  }
+  endocytosisDraw();
+}
+
+function endocytosisSuccess() {
+  const canvas = document.getElementById('miniCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // Draw success frame
+  ctx.fillStyle = 'rgba(0,230,118,0.12)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle  = '#00e676';
+  ctx.font       = 'bold 22px monospace';
+  ctx.textAlign  = 'center';
+  ctx.fillText('Endocytosis complete!', W/2, H/2 - 10);
+  ctx.fillStyle  = '#a8c5a0';
+  ctx.font       = '13px monospace';
+  ctx.fillText('Vesicle sealed — entering the cell', W/2, H/2 + 18);
+
+  setTimeout(() => {
+    document.getElementById('miniCanvas').onclick = null;
+    G.clock.start();
+    setOverlay(null);
+    document.getElementById('hud').classList.remove('hidden');
+    G.state = 'PLAYING';
+    completePhase();
+  }, 1200);
+}
+
+// ── Replication Minigame (Phase 4) ────────────────────────────────────────
+// Template RNA strand; player matches each base with its complement
+const REPLICATION_TEMPLATE = ['A', 'G', 'C', 'U', 'A', 'C']; // −ssRNA template
+const REPLICATION_ANSWERS  = ['U', 'C', 'G', 'A', 'U', 'G']; // correct complements
+
+function startReplicationMinigame() {
+  G.state = 'MINIGAME';
+  G.clock.stop();
+
+  document.getElementById('minigameTitle').textContent = 'Genome Replication';
+  document.getElementById('minigameHint').textContent  = 'Match each template base with its RNA complement';
+  setOverlay('minigameScreen');
+  document.getElementById('hud').classList.add('hidden');
+
+  _mgState = {
+    type:       'replication',
+    currentIdx: 0,
+    answers:    new Array(6).fill(null),
+    corrupted:  new Set(),
+    apobecTimer: 5.0,
+    done:       false,
+    alertAdded: 0,
+  };
+
+  const canvas = document.getElementById('miniCanvas');
+  canvas.onclick = replicationClick;
+
+  clearInterval(G._mgInterval);
+  G._mgInterval = setInterval(replicationUpdate, 50);
+  replicationDraw();
+}
+
+function replicationUpdate() {
+  if (!_mgState || _mgState.done) return;
+  _mgState.apobecTimer -= 0.05;
+  if (_mgState.apobecTimer <= 0 && _mgState.corrupted.size < 2) {
+    // APOBEC corrupts a random un-answered, un-corrupted base
+    let candidates = [];
+    for (let i = 0; i < 6; i++) {
+      if (_mgState.answers[i] === null && !_mgState.corrupted.has(i)) candidates.push(i);
+    }
+    if (candidates.length > 0) {
+      const target = candidates[Math.floor(Math.random() * candidates.length)];
+      _mgState.corrupted.add(target);
+      showToast('APOBEC3 corrupted a base — skip it!', 'danger');
+    }
+    _mgState.apobecTimer = 6.0 + Math.random() * 3;
+  }
+  replicationDraw();
+}
+
+function replicationDraw() {
+  const canvas = document.getElementById('miniCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#020805'; ctx.fillRect(0, 0, W, H);
+
+  const baseColors = { A:'#ef5350', G:'#ab47bc', C:'#42a5f5', U:'#66bb6a' };
+  const bX = (i) => 50 + i * 58;
+  const tY = 70, cY = 135;
+
+  // Template strand label
+  ctx.fillStyle = '#7aa87a'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+  ctx.fillText("5' Template (−ssRNA):", 10, 28);
+
+  // Template bases
+  REPLICATION_TEMPLATE.forEach((base, i) => {
+    const x = bX(i);
+    const corrupted = _mgState && _mgState.corrupted.has(i);
+    ctx.beginPath(); ctx.arc(x, tY, 20, 0, Math.PI*2);
+    ctx.fillStyle   = corrupted ? '#3a0000' : (baseColors[base] || '#888');
+    ctx.strokeStyle = corrupted ? '#ff1744' : '#ffffff22';
+    ctx.lineWidth   = 2; ctx.fill(); ctx.stroke();
+    ctx.fillStyle   = corrupted ? '#ff1744' : '#fff';
+    ctx.font        = `bold 15px monospace`; ctx.textAlign = 'center';
+    ctx.fillText(corrupted ? '✕' : base, x, tY + 5);
+
+    // Connector line to complement row
+    ctx.strokeStyle = '#ffffff10'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, tY+21); ctx.lineTo(x, cY-21); ctx.stroke();
+  });
+
+  // Complement strand — filled in as player answers
+  ctx.fillStyle = '#7aa87a'; ctx.font = '11px monospace'; ctx.textAlign = 'left';
+  ctx.fillText("3' Complement (+ssRNA):", 10, 112);
+
+  REPLICATION_TEMPLATE.forEach((base, i) => {
+    const x = bX(i);
+    const ans = _mgState && _mgState.answers[i];
+    const corrupted = _mgState && _mgState.corrupted.has(i);
+    const isCurrent = _mgState && i === _mgState.currentIdx && !corrupted;
+
+    ctx.beginPath(); ctx.arc(x, cY, 20, 0, Math.PI*2);
+    if (ans) {
+      ctx.fillStyle = baseColors[ans] || '#888';
+    } else if (corrupted) {
+      ctx.fillStyle = '#1a0000';
+    } else if (isCurrent) {
+      ctx.fillStyle = `rgba(255,255,255,${0.08 + 0.06 * Math.sin(Date.now()/200)})`;
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,0.04)';
+    }
+    ctx.strokeStyle = isCurrent ? '#ffffff66' : (corrupted ? '#ff174422' : '#ffffff11');
+    ctx.lineWidth   = isCurrent ? 2.5 : 1.5;
+    ctx.fill(); ctx.stroke();
+    if (ans) {
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 15px monospace'; ctx.textAlign = 'center';
+      ctx.fillText(ans, x, cY + 5);
+    } else if (corrupted) {
+      ctx.fillStyle = '#ff174455'; ctx.font = 'bold 15px monospace'; ctx.textAlign = 'center';
+      ctx.fillText('✕', x, cY + 5);
+    }
+  });
+
+  // Base choice buttons
+  const choices  = ['A', 'U', 'G', 'C'];
+  const btnY     = H - 42, btnW = 64, btnH = 30;
+  const btnStart = (W - choices.length * (btnW + 10)) / 2;
+  ctx.font = 'bold 14px monospace'; ctx.textAlign = 'center';
+  choices.forEach((ch, i) => {
+    const bx = btnStart + i * (btnW + 10);
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(bx, btnY, btnW, btnH, 6) : ctx.rect(bx, btnY, btnW, btnH);
+    ctx.fillStyle   = baseColors[ch] + '33';
+    ctx.strokeStyle = baseColors[ch];
+    ctx.lineWidth   = 1.5; ctx.fill(); ctx.stroke();
+    ctx.fillStyle   = baseColors[ch];
+    ctx.fillText(ch, bx + btnW/2, btnY + 20);
+  });
+
+  // Progress indicator
+  ctx.fillStyle = '#7aa87a'; ctx.font = '11px monospace'; ctx.textAlign = 'right';
+  const done = _mgState ? _mgState.answers.filter(a => a !== null).length + (_mgState.corrupted.size) : 0;
+  ctx.fillText(`${done}/6 bases processed`, W - 10, H - 10);
+}
+
+function replicationClick(e) {
+  if (!_mgState || _mgState.done) return;
+  const canvas = document.getElementById('miniCanvas');
+  const rect   = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (canvas.width  / rect.width);
+  const my = (e.clientY - rect.top)  * (canvas.height / rect.height);
+
+  const choices  = ['A', 'U', 'G', 'C'];
+  const btnY     = canvas.height - 42, btnW = 64, btnH = 30;
+  const btnStart = (canvas.width - choices.length * (btnW + 10)) / 2;
+
+  choices.forEach((ch, i) => {
+    const bx = btnStart + i * (btnW + 10);
+    if (mx >= bx && mx <= bx + btnW && my >= btnY && my <= btnY + btnH) {
+      const idx = _mgState.currentIdx;
+      // Skip corrupted bases automatically
+      let advIdx = idx;
+      while (advIdx < 6 && _mgState.corrupted.has(advIdx)) advIdx++;
+      if (advIdx >= 6) { replicationSuccess(); return; }
+
+      if (ch === REPLICATION_ANSWERS[advIdx]) {
+        _mgState.answers[advIdx] = ch;
+        // Advance to next non-corrupted base
+        let next = advIdx + 1;
+        while (next < 6 && _mgState.corrupted.has(next)) next++;
+        _mgState.currentIdx = next;
+        if (next >= 6) {
+          setTimeout(replicationSuccess, 400);
+        }
+      } else {
+        // Wrong base — alert penalty
+        G.alertMeter = Math.min(100, G.alertMeter + 8);
+        _mgState.alertAdded += 8;
+        showToast('Wrong complement! ADAR detected the mismatch.', 'danger');
+      }
+    }
+  });
+  replicationDraw();
+}
+
+function replicationSuccess() {
+  if (!_mgState || _mgState.done) return;
+  _mgState.done = true;
+  clearInterval(G._mgInterval);
+  const canvas = document.getElementById('miniCanvas');
+  const ctx    = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.fillStyle = 'rgba(156,39,176,0.15)'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#ce93d8'; ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('Genome replicated!', W/2, H/2 - 12);
+  ctx.fillStyle = '#a8c5a0'; ctx.font = '13px monospace';
+  ctx.fillText('New viral genomes ready for assembly', W/2, H/2 + 16);
+  setTimeout(() => {
+    document.getElementById('miniCanvas').onclick = null;
+    clearInterval(G._mgInterval);
+    G.clock.start();
+    setOverlay(null);
+    document.getElementById('hud').classList.remove('hidden');
+    G.state = 'PLAYING';
+    completePhase();
+  }, 1400);
+}
+// ── Section 4: Player + Input System ─────────────────────────────────────
+
+const PLAYER_RADIUS = 1.2;
+// Organelle types the player collides with (cannot walk through)
+const SOLID_TYPES = new Set(['nucleus', 'golgi', 'mito']);
+
+// ── Build Player Mesh ─────────────────────────────────────────────────────
+function buildPlayer() {
+  // Clean up old player objects if restarting
+  if (G.player.mesh)     { disposeObject(G.player.mesh);     G.scene.remove(G.player.mesh); }
+  if (G.player.envelope) { disposeObject(G.player.envelope); G.scene.remove(G.player.envelope); }
+
+  const vt = G.virusType || VIRUS_TYPES.influenza;
+  const group = new THREE.Group();
+
+  // Core body — IcosahedronGeometry reads as a spiky sphere
+  const bodyGeo = new THREE.IcosahedronGeometry(0.82, 1);
+  const bodyMat = new THREE.MeshPhongMaterial({
+    color:            vt.playerColor,
+    emissive:         vt.playerEmissive,
+    emissiveIntensity: 0.8,
+    shininess: 45,
+  });
+  const body = new THREE.Mesh(bodyGeo, bodyMat);
+  body.castShadow = true;
+  group.add(body);
+
+  // Surface spikes — 6 ConeGeometry along ±X, ±Y, ±Z axes
+  const spikeGeo = new THREE.ConeGeometry(0.09, 0.48, 4);
+  const spikeMat = new THREE.MeshPhongMaterial({
+    color: 0xff8f00, emissive: 0x8f4000, emissiveIntensity: 0.7,
+  });
+  [
+    [0,1,0], [0,-1,0], [1,0,0], [-1,0,0], [0,0,1], [0,0,-1],
+  ].forEach(([dx, dy, dz]) => {
+    const spike = new THREE.Mesh(spikeGeo, spikeMat);
+    // Place tip at surface, base toward center
+    spike.position.set(dx * 0.86, dy * 0.86, dz * 0.86);
+    // Cone default axis is +Y; rotate so it points outward
+    spike.quaternion.setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      new THREE.Vector3(dx, dy, dz)
+    );
+    group.add(spike);
+  });
+
+  // Outer viral envelope — transparent shell, removed on uncoating
+  const envGeo = new THREE.SphereGeometry(1.12, 18, 18);
+  const envMat = new THREE.MeshPhongMaterial({
+    color: vt.playerColor,
+    emissive: vt.playerEmissive,
+    emissiveIntensity: 0.25,
+    transparent: true, opacity: 0.28,
+    side: THREE.FrontSide,
+  });
+  const envelope = new THREE.Mesh(envGeo, envMat);
+  G.scene.add(envelope);   // separate from group so it can be removed independently
+  G.player.envelope = envelope;
+  G.player.envMat = envMat;
+
+  // Faint player point light — you glow, which means guards can see you
+  const pLight = new THREE.PointLight(vt.playerColor, 0.55, 7);
+  group.add(pLight);
+  G._playerLight = pLight;
+
+  // Starting position — inside the membrane, near the receptor
+  const startX = 40, startZ = 2;
+  group.position.set(startX, 0.8, startZ);
+  G.player.pos     = { x: startX, z: startZ };
+  G.player.vel     = { x: 0, z: 0 };
+  G.player.facing  = 0;
+  G.player.inCover = false;
+
+  G.scene.add(group);
+  G.player.mesh    = group;
+  G.player.body    = body;
+  G.player.bodyMat = bodyMat;
+
+  // Reset power-up hold flags
+  G._puKeyHeld1 = G._puKeyHeld2 = G._puKeyHeld3 = false;
+}
+
+// ── Update Player ─────────────────────────────────────────────────────────
+function updatePlayer(dt) {
+  if (!G.player.mesh) return;
+
+  const vt = G.virusType || VIRUS_TYPES.influenza;
+
+  // ── Power-up timers ──────────────────────────────────────────────────
+  if (G.player.cloakTimer > 0) {
+    G.player.cloakTimer -= dt;
+    if (G.player.cloakTimer <= 0) {
+      G.player.cloaked    = false;
+      G.player.cloakTimer = 0;
+      showToast('Capsid cloak expired', 'warn');
+    }
+  }
+  if (G.player.boostTimer > 0) {
+    G.player.boostTimer -= dt;
+    if (G.player.boostTimer <= 0) {
+      G.player.boosted    = false;
+      G.player.boostTimer = 0;
+      showToast('Protease boost expired', 'warn');
+    }
+  }
+
+  // ── Active decoy update ───────────────────────────────────────────────
+  updateDecoys(dt);
+
+  // ── Input & speed ─────────────────────────────────────────────────────
+  const sneaking = G.keys.has('ShiftLeft') || G.keys.has('ShiftRight');
+  G.player.sneaking = sneaking;
+
+  let speed = (sneaking ? 4.0 : 8.0) * vt.speedMult;
+  if (G.player.boosted) speed *= 1.5;
+
+  let vx = 0, vz = 0;
+  if (G.keys.has('KeyW') || G.keys.has('ArrowUp'))    vz -= 1;
+  if (G.keys.has('KeyS') || G.keys.has('ArrowDown'))  vz += 1;
+  if (G.keys.has('KeyA') || G.keys.has('ArrowLeft'))  vx -= 1;
+  if (G.keys.has('KeyD') || G.keys.has('ArrowRight')) vx += 1;
+
+  // Normalize diagonal movement
+  if (vx !== 0 && vz !== 0) { vx *= 0.7071; vz *= 0.7071; }
+
+  const moving = (vx !== 0 || vz !== 0);
+  if (moving) {
+    vx *= speed; vz *= speed;
+    G.player.facing = Math.atan2(vx, vz);
+  }
+  G.player.vel = { x: vx, z: vz };
+
+  // ── Proposed new position ─────────────────────────────────────────────
+  let nx = G.player.pos.x + vx * dt;
+  let nz = G.player.pos.z + vz * dt;
+
+  // ── Membrane boundary ─────────────────────────────────────────────────
+  const distFromCenter = Math.sqrt(nx * nx + nz * nz);
+  if (distFromCenter > CELL_RADIUS) {
+    const ang = Math.atan2(nz, nx);
+    nx = Math.cos(ang) * CELL_RADIUS;
+    nz = Math.sin(ang) * CELL_RADIUS;
+  }
+
+  // ── Organelle collision (solid blockers only) ─────────────────────────
+  G.organelles.forEach(org => {
+    if (!SOLID_TYPES.has(org.type)) return;
+    // Phase 4+: player must enter nucleus interior — skip nucleus collision
+    if (org.type === 'nucleus' && G.phase >= 4) return;
+    const dx = nx - org.center.x;
+    const dz = nz - org.center.z;
+    const d  = Math.sqrt(dx * dx + dz * dz);
+    const minD = org.radius + PLAYER_RADIUS;
+    if (d < minD && d > 0.001) {
+      const inv = minD / d;
+      nx = org.center.x + dx * inv;
+      nz = org.center.z + dz * inv;
+    }
+  });
+
+  // Nucleus phase gate:
+  //   Phase 0-2: hard wall at 13.0 (can't approach)
+  //   Phase 3:   wall at 12.8 (can touch pores on surface, checked by proximity)
+  //   Phase 4+:  no gate (player enters nucleus)
+  if (G.phase < 4) {
+    const gate = G.phase < 3 ? 13.0 : 12.8;
+    const dx = nx - ORG_POS.nucleus.x;
+    const dz = nz - ORG_POS.nucleus.z;
+    const d  = Math.sqrt(dx * dx + dz * dz);
+    if (d < gate && d > 0.001) {
+      nx = ORG_POS.nucleus.x + (dx / d) * gate;
+      nz = ORG_POS.nucleus.z + (dz / d) * gate;
+    }
+  }
+
+  // ── Commit position ───────────────────────────────────────────────────
+  G.player.pos.x = nx;
+  G.player.pos.z = nz;
+
+  // ── Mesh transforms ───────────────────────────────────────────────────
+  const meshY = 0.8;
+  G.player.mesh.position.set(nx, meshY, nz);
+
+  // Envelope follows player (until uncoated)
+  if (G.player.envelope) {
+    G.player.envelope.position.set(nx, meshY, nz);
+  }
+
+  // Face direction of travel; add locomotion wobble
+  G.player.mesh.rotation.y = G.player.facing;
+  if (moving) {
+    const t = G.totalTime;
+    G.player.mesh.rotation.x =  Math.sin(t * 9) * 0.07;
+    G.player.mesh.rotation.z =  Math.cos(t * 9) * 0.05;
+  } else {
+    G.player.mesh.rotation.x *= 0.85; // damp to zero when still
+    G.player.mesh.rotation.z *= 0.85;
+  }
+
+  // ── Visual states ─────────────────────────────────────────────────────
+  // Body emissive — pulses gently, dims to near-zero when cloaked
+  const t = G.totalTime;
+  const basePulse = 0.65 + 0.2 * Math.sin(t * 2.8);
+  G.player.bodyMat.emissiveIntensity = G.player.cloaked ? 0.05 : basePulse;
+
+  // Envelope opacity
+  if (G.player.envMat) {
+    if (G.player.hasUncoated) {
+      G.player.envMat.opacity = 0;
+    } else {
+      G.player.envMat.opacity = G.player.cloaked ? 0.04 : 0.28;
+    }
+  }
+
+  // Player light intensity
+  if (G._playerLight) {
+    G._playerLight.intensity = G.player.cloaked ? 0.05 : 0.55;
+  }
+
+  // ── Cytoskeleton cover check ──────────────────────────────────────────
+  // Player is "in cover" when within 2.5 units of any filament sample point
+  let inCover = false;
+  outer: for (const fil of G.cytoskeleton) {
+    for (const pt of fil.points) {
+      const dx = nx - pt.x, dz = nz - pt.z;
+      if (dx * dx + dz * dz < 6.25) { inCover = true; break outer; }
+    }
+  }
+  G.player.inCover = inCover;
+
+  // ── Camera follow ─────────────────────────────────────────────────────
+  // Smooth lerp — camera trails slightly behind player
+  const camY  = 90;
+  const camDZ = 28; // slight forward tilt offset
+  G.camera._target.set(nx, camY, nz + camDZ);
+  G.camera.position.lerp(G.camera._target, 0.055);
+  G.camera.lookAt(nx, 0, nz);
+
+  // ── Power-up key activation (edge-triggered, not held) ────────────────
+  if (G.keys.has('Digit1') && !G._puKeyHeld1) {
+    G._puKeyHeld1 = true; activatePowerUp('decoy');
+  }
+  if (!G.keys.has('Digit1')) G._puKeyHeld1 = false;
+
+  if (G.keys.has('Digit2') && !G._puKeyHeld2) {
+    G._puKeyHeld2 = true; activatePowerUp('cloak');
+  }
+  if (!G.keys.has('Digit2')) G._puKeyHeld2 = false;
+
+  if (G.keys.has('Digit3') && !G._puKeyHeld3) {
+    G._puKeyHeld3 = true; activatePowerUp('protease');
+  }
+  if (!G.keys.has('Digit3')) G._puKeyHeld3 = false;
+}
+
+// ── Power-up Activation ───────────────────────────────────────────────────
+function activatePowerUp(type) {
+  if (type === 'decoy') {
+    if (G.powerUps.decoy <= 0) { showToast('No decoys remaining', 'warn'); return; }
+    G.powerUps.decoy--;
+    G.stats.powerUpsUsed++;
+    spawnDecoy();
+    showToast('Interferon decoy deployed!', 'good');
+
+  } else if (type === 'cloak') {
+    if (G.powerUps.cloak <= 0) { showToast('No cloaks remaining', 'warn'); return; }
+    if (G.player.cloaked) { showToast('Cloak already active', 'warn'); return; }
+    G.powerUps.cloak--;
+    G.stats.powerUpsUsed++;
+    G.player.cloaked    = true;
+    G.player.cloakTimer = 8.0;
+    showToast('Capsid cloak active — 8s', 'good');
+
+  } else if (type === 'protease') {
+    if (G.powerUps.protease <= 0) { showToast('No boosts remaining', 'warn'); return; }
+    if (G.player.boosted) { showToast('Boost already active', 'warn'); return; }
+    G.powerUps.protease--;
+    G.stats.powerUpsUsed++;
+    G.player.boosted    = true;
+    G.player.boostTimer = 6.0;
+    showToast('Protease boost active — 6s', 'good');
+  }
+}
+
+// ── Decoy System ──────────────────────────────────────────────────────────
+function spawnDecoy() {
+  const geo = new THREE.SphereGeometry(0.55, 8, 8);
+  const mat = new THREE.MeshPhongMaterial({
+    color: 0x00e5ff, emissive: 0x0097a7, emissiveIntensity: 1.4,
+    transparent: true, opacity: 0.85,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(G.player.pos.x, 0.8, G.player.pos.z);
+
+  // Pulsing ring to draw guard attention
+  const ringGeo = new THREE.TorusGeometry(1.0, 0.08, 6, 20);
+  const ringMat = new THREE.MeshPhongMaterial({
+    color: 0x00e5ff, emissive: 0x00bcd4, emissiveIntensity: 0.8,
+    transparent: true, opacity: 0.5,
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2;
+  mesh.add(ring);
+
+  G.scene.add(mesh);
+  G.activeDecoys.push({
+    mesh,
+    timer: 5.5,
+    pos: { x: G.player.pos.x, z: G.player.pos.z },
+  });
+}
+
+function updateDecoys(dt) {
+  for (let i = G.activeDecoys.length - 1; i >= 0; i--) {
+    const d = G.activeDecoys[i];
+    d.timer -= dt;
+
+    // Fade out as timer expires
+    const frac = Math.max(0, d.timer / 5.5);
+    d.mesh.material.opacity = frac * 0.85;
+    d.mesh.children[0].material.opacity = frac * 0.5;
+    d.mesh.material.emissiveIntensity = frac * 1.4;
+
+    // Slow upward drift
+    d.mesh.position.y += dt * 0.3;
+    d.mesh.rotation.y += dt * 2.0;
+
+    if (d.timer <= 0) {
+      G.scene.remove(d.mesh);
+      disposeObject(d.mesh);
+      G.activeDecoys.splice(i, 1);
+    }
+  }
+}
+
+// ── Uncoating: shed the viral envelope (called from Section 6) ────────────
+function performUncoating() {
+  if (G.player.hasUncoated) return;
+  G.player.hasUncoated = true;
+
+  // Animate envelope shrinking off
+  let t = 0;
+  const envMesh = G.player.envelope;
+  const interval = setInterval(() => {
+    t += 0.05;
+    if (t >= 1 || !envMesh) { clearInterval(interval); return; }
+    envMesh.scale.setScalar(1 - t);
+    envMesh.material.opacity = (1 - t) * 0.28;
+  }, 30);
+
+  // Player becomes smaller/faster after uncoating (shed the bulk)
+  if (G.player.mesh) G.player.mesh.scale.setScalar(0.82);
+
+  showToast('Capsid uncoated — genome released!', 'good');
+}
+// updateGuards and updateAlertMeter defined in Section 5 above
+// ── Section 3: Organelle Construction ────────────────────────────────────
+// Each organelle is its own builder function.
+// All push an entry to G.organelles[] for collision / LOS use.
+// Key references are stored on G._ for animation and phase logic.
+
+// World-space organelle layout (fixed coordinates — same every game)
+const ORG_POS = {
+  nucleus:    new THREE.Vector3(  0,  0,   0),
+  endosome:   new THREE.Vector3( 30,  0, -20),
+  er:         new THREE.Vector3(-18,  0,  -2),
+  golgi:      new THREE.Vector3( 17,  0,   9),
+  ribCluster: [ // 3 cluster centers
+    new THREE.Vector3(-22,  0,  14),
+    new THREE.Vector3( -4,  0,  20),
+    new THREE.Vector3( 10,  0, -18),
+  ],
+  lysosomes: [ // 5 positions
+    new THREE.Vector3(-10,  0, -22),
+    new THREE.Vector3( 22,  0, -10),
+    new THREE.Vector3(-28,  0,  20),
+    new THREE.Vector3(  8,  0,  28),
+    new THREE.Vector3( 28,  0,  18),
+  ],
+  mito: [ // 4 positions
+    new THREE.Vector3(-32,  0,  -8),
+    new THREE.Vector3( 26,  0, -24),
+    new THREE.Vector3(-14,  0,  32),
+    new THREE.Vector3( 34,  0,  10),
+  ],
+};
+
+function buildOrganelles() {
+  buildNucleus();
+  buildEndosome();
+  buildER();
+  buildGolgi();
+  buildRibosomes();
+  buildLysosomes();
+  buildMitochondria();
+}
+
+// ── Nucleus ───────────────────────────────────────────────────────────────
+function buildNucleus() {
+  const pos = ORG_POS.nucleus;
+  const group = new THREE.Group();
+  group.position.copy(pos);
+
+  // Outer nuclear envelope — transparent double-membrane look
+  const outerGeo = new THREE.SphereGeometry(12, 32, 32);
+  const outerMat = new THREE.MeshPhongMaterial({
+    color: 0x7b1fa2, emissive: 0x3a006f, emissiveIntensity: 0.6,
+    transparent: true, opacity: 0.55, side: THREE.FrontSide, shininess: 40,
+  });
+  const outer = new THREE.Mesh(outerGeo, outerMat);
+  group.add(outer);
+
+  // Second membrane layer (slightly smaller, back-side)
+  const innerShellGeo = new THREE.SphereGeometry(11.2, 32, 32);
+  const innerShellMat = new THREE.MeshPhongMaterial({
+    color: 0x6a0094, emissive: 0x2d0055, emissiveIntensity: 0.4,
+    transparent: true, opacity: 0.4, side: THREE.BackSide,
+  });
+  group.add(new THREE.Mesh(innerShellGeo, innerShellMat));
+
+  // Nucleoplasm interior (solid, darker)
+  const coreGeo = new THREE.SphereGeometry(10.2, 24, 24);
+  const coreMat = new THREE.MeshPhongMaterial({
+    color: 0x4a0080, emissive: 0x1a0030, emissiveIntensity: 0.5,
+  });
+  group.add(new THREE.Mesh(coreGeo, coreMat));
+
+  // Chromatin wisps — small torus knots inside the nucleus for visual depth
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2;
+    const wGeo = new THREE.TorusGeometry(3 + i * 0.8, 0.18, 6, 24);
+    const wMat = new THREE.MeshPhongMaterial({
+      color: 0xce93d8, emissive: 0x7b1fa2, emissiveIntensity: 0.5,
+      transparent: true, opacity: 0.5,
+    });
+    const w = new THREE.Mesh(wGeo, wMat);
+    w.rotation.set(a * 0.4, a, a * 0.7);
+    w.position.set(Math.cos(a) * 2, Math.sin(a * 0.5) * 1.5, Math.sin(a) * 2);
+    group.add(w);
+  }
+
+  // Nuclear pores — 8 openings distributed on sphere surface (Fibonacci)
+  G._nucleusPores = [];
+  const poreGeo = new THREE.TorusGeometry(0.9, 0.3, 7, 14);
+  const poreMat = new THREE.MeshPhongMaterial({
+    color: 0xffffff, emissive: 0xb388ff, emissiveIntensity: 1.2, shininess: 80,
+  });
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  for (let i = 0; i < 8; i++) {
+    const y = 1 - (i / 7) * 2; // -1 to 1
+    const r = Math.sqrt(1 - y * y);
+    const theta = goldenAngle * i;
+    const px = r * Math.cos(theta) * 11.8;
+    const py = y * 11.8;
+    const pz = r * Math.sin(theta) * 11.8;
+    const pore = new THREE.Mesh(poreGeo, poreMat);
+    pore.position.set(px, py, pz);
+    // Orient pore to face outward from sphere surface
+    pore.lookAt(px * 2, py * 2, pz * 2);
+    pore.userData.poreIndex = i;
+    group.add(pore);
+    // Store world-space pore center for phase 3 proximity check
+    G._nucleusPores.push({
+      mesh: pore,
+      worldPos: new THREE.Vector3(pos.x + px, pos.y + py, pos.z + pz),
+    });
+  }
+
+  G.scene.add(tagWorld(group));
+  G._nucleusGroup = group;
+  G._nucleusOuterMesh = outer;
+
+  // Register in organelles — nucleus is a major LOS blocker
+  G.organelles.push({ type: 'nucleus', mesh: outer, center: pos.clone(), radius: 12, blocksLOS: true });
+
+  // Position nucleus light
+  G._lights.nucleus.position.set(pos.x, 10, pos.z);
+}
+
+// ── Endosome ──────────────────────────────────────────────────────────────
+function buildEndosome() {
+  const pos = ORG_POS.endosome;
+
+  const geo = new THREE.SphereGeometry(4, 18, 18);
+  const mat = new THREE.MeshPhongMaterial({
+    color: 0xce93d8, emissive: 0x7b1fa2, emissiveIntensity: 0.8,
+    transparent: true, opacity: 0.72, shininess: 60,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(pos);
+  mesh.position.y = 1;
+  G.scene.add(tagWorld(mesh));
+
+  // Faint halo ring around endosome
+  const haloGeo = new THREE.TorusGeometry(5.2, 0.2, 6, 32);
+  const haloMat = new THREE.MeshPhongMaterial({
+    color: 0xe040fb, emissive: 0x9c27b0, emissiveIntensity: 0.6,
+    transparent: true, opacity: 0.4,
+  });
+  const halo = new THREE.Mesh(haloGeo, haloMat);
+  halo.rotation.x = Math.PI / 2;
+  halo.position.set(pos.x, 0.3, pos.z);
+  G.scene.add(tagWorld(halo));
+
+  G._endosomeMesh = mesh;
+  G._endosome = { mesh, halo, baseScale: 1.0 };
+  // Endosome doesn't block LOS — player must enter it
+  G.organelles.push({ type: 'endosome', mesh, center: pos.clone(), radius: 4, blocksLOS: false });
+}
+
+// ── Endoplasmic Reticulum ──────────────────────────────────────────────────
+// 6 curved cisternae walls forming navigable channels
+function buildER() {
+  const cx = ORG_POS.er.x, cz = ORG_POS.er.z;
+
+  const mat = new THREE.MeshPhongMaterial({
+    color: 0x0097a7, emissive: 0x003d47, emissiveIntensity: 0.7,
+    transparent: true, opacity: 0.62, shininess: 50,
+  });
+
+  // Define 6 curved wall segments as arrays of control points
+  // Each segment is a TubeGeometry — the spaces between them form corridors
+  const segments = [
+    // Pair A — two parallel arcs creating a corridor on the left
+    [ new THREE.Vector3(cx-12, 1, cz-14), new THREE.Vector3(cx-16, 1, cz-6),
+      new THREE.Vector3(cx-18, 1, cz+4),  new THREE.Vector3(cx-14, 1, cz+12) ],
+    [ new THREE.Vector3(cx-6,  1, cz-14), new THREE.Vector3(cx-9,  1, cz-6),
+      new THREE.Vector3(cx-10, 1, cz+4),  new THREE.Vector3(cx-7,  1, cz+12) ],
+
+    // Pair B — S-curve pair creating an inner winding corridor
+    [ new THREE.Vector3(cx-4,  1, cz-10), new THREE.Vector3(cx-8,  1, cz-2),
+      new THREE.Vector3(cx-4,  1, cz+6),  new THREE.Vector3(cx-8,  1, cz+14) ],
+    [ new THREE.Vector3(cx+2,  1, cz-10), new THREE.Vector3(cx-2,  1, cz-2),
+      new THREE.Vector3(cx+2,  1, cz+6),  new THREE.Vector3(cx-2,  1, cz+14) ],
+
+    // Pair C — shorter cross-bars adding depth / visual complexity
+    [ new THREE.Vector3(cx-18, 1, cz-2),  new THREE.Vector3(cx-12, 1, cz-4),
+      new THREE.Vector3(cx-6,  1, cz-2),  new THREE.Vector3(cx+0,  1, cz-4) ],
+    [ new THREE.Vector3(cx-16, 1, cz+8),  new THREE.Vector3(cx-10, 1, cz+6),
+      new THREE.Vector3(cx-4,  1, cz+8),  new THREE.Vector3(cx+2,  1, cz+6) ],
+  ];
+
+  segments.forEach((pts, idx) => {
+    const curve = new THREE.CatmullRomCurve3(pts);
+    const geo = new THREE.TubeGeometry(curve, 28, 0.55, 7, false);
+    const mesh = new THREE.Mesh(geo, mat);
+    G.scene.add(tagWorld(mesh));
+
+    // ER walls block LOS — approximate bounding sphere from midpoint
+    const mid = curve.getPoint(0.5);
+    const span = pts[0].distanceTo(pts[pts.length - 1]);
+    G.organelles.push({ type: 'er', mesh, center: mid.clone(), radius: span * 0.55, blocksLOS: true });
+  });
+
+  // Rough cisternae end-caps — flat discs at key junctions
+  const capGeo = new THREE.CylinderGeometry(2.5, 2.5, 0.4, 14);
+  const capMat = new THREE.MeshPhongMaterial({
+    color: 0x00838f, emissive: 0x003740, emissiveIntensity: 0.6,
+    transparent: true, opacity: 0.5,
+  });
+  const capPositions = [
+    new THREE.Vector3(cx-14, 0.3, cz-14),
+    new THREE.Vector3(cx-14, 0.3, cz+12),
+    new THREE.Vector3(cx+0,  0.3, cz-10),
+    new THREE.Vector3(cx+0,  0.3, cz+14),
+  ];
+  capPositions.forEach(p => {
+    const cap = new THREE.Mesh(capGeo, capMat);
+    cap.position.copy(p);
+    G.scene.add(tagWorld(cap));
+  });
+
+  // Position ER light at the center of the ER zone
+  G._lights.er.position.set(cx - 8, 6, cz);
+}
+
+// ── Golgi Apparatus ────────────────────────────────────────────────────────
+function buildGolgi() {
+  const pos = ORG_POS.golgi;
+  const group = new THREE.Group();
+  group.position.copy(pos);
+  group.position.y = 0.2;
+  group.rotation.y = 0.3;
+
+  const colors   = [0xff8f00, 0xffa000, 0xffb300, 0xffc107, 0xffca28];
+  const emissives= [0x4a2800, 0x5a3200, 0x6a3c00, 0x7a4600, 0x8a5000];
+
+  for (let i = 0; i < 5; i++) {
+    const radius = 5.8 - i * 0.22;
+    const geo = new THREE.CylinderGeometry(radius, radius + 0.3, 0.55, 20);
+    const mat = new THREE.MeshPhongMaterial({
+      color: colors[i], emissive: emissives[i], emissiveIntensity: 0.7, shininess: 60,
+    });
+    const disc = new THREE.Mesh(geo, mat);
+    // Each disc is slightly offset in XZ to give the cis-to-trans curve look
+    disc.position.set(i * 0.25, i * 0.7, i * 0.15);
+    disc.rotation.z = 0.08 * i;
+    group.add(disc);
+  }
+
+  // Vesicle buds — small spheres budding off the edges
+  const budGeo = new THREE.SphereGeometry(0.55, 8, 8);
+  const budMat = new THREE.MeshPhongMaterial({
+    color: 0xffecb3, emissive: 0x7a5000, emissiveIntensity: 0.5,
+    transparent: true, opacity: 0.8,
+  });
+  const budOffsets = [
+    [6.2, 0.4, 0.8], [-6.0, 1.4, 0.5], [5.8, 2.1, -0.4], [-5.5, 2.8, 0.3],
+  ];
+  budOffsets.forEach(([x, y, z]) => {
+    const b = new THREE.Mesh(budGeo, budMat);
+    b.position.set(x, y, z);
+    group.add(b);
+  });
+
+  G.scene.add(tagWorld(group));
+  G._golgiGroup = group;
+
+  const worldCenter = pos.clone();
+  G.organelles.push({ type: 'golgi', mesh: group, center: worldCenter, radius: 7, blocksLOS: true });
+  G._lights.golgi.position.set(pos.x, 7, pos.z);
+}
+
+// ── Ribosomes ──────────────────────────────────────────────────────────────
+// 30 total in 3 clusters. Uses InstancedMesh for performance.
+// 5 "collectible" ribosomes highlighted brighter for phase 5.
+function buildRibosomes() {
+  const COUNT = 30;
+  const geo = new THREE.SphereGeometry(0.7, 8, 8);
+  const mat = new THREE.MeshPhongMaterial({
+    color: 0x009688, emissive: 0x004d44, emissiveIntensity: 0.8,
+  });
+  const iMesh = new THREE.InstancedMesh(geo, mat, COUNT);
+  iMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  const dummy = new THREE.Object3D();
+  const rng = (seed => { let s=seed; return()=>{ s=(s*16807)%2147483647; return(s-1)/2147483646; }; })(99);
+  const clusters = ORG_POS.ribCluster;
+
+  let idx = 0;
+  clusters.forEach(center => {
+    for (let i = 0; i < 10; i++) {
+      const angle = rng() * Math.PI * 2;
+      const r = 1 + rng() * 5;
+      dummy.position.set(
+        center.x + Math.cos(angle) * r,
+        0.4 + rng() * 1.5,
+        center.z + Math.sin(angle) * r,
+      );
+      dummy.scale.setScalar(0.8 + rng() * 0.5);
+      dummy.updateMatrix();
+      iMesh.setMatrixAt(idx++, dummy.matrix);
+    }
+  });
+  iMesh.instanceMatrix.needsUpdate = true;
+  G.scene.add(tagWorld(iMesh));
+  G._ribosomeMesh = iMesh;
+
+  // 5 highlighted collectible ribosomes (separate meshes so they can be removed)
+  const collectGeo = new THREE.SphereGeometry(0.85, 10, 10);
+  const collectMat = new THREE.MeshPhongMaterial({
+    color: 0x64ffda, emissive: 0x00bfa5, emissiveIntensity: 1.2,
+  });
+  G._ribCollectibles = [];
+  const collectPositions = [
+    new THREE.Vector3(-20, 0.7, 12),
+    new THREE.Vector3(-25, 0.7, 18),
+    new THREE.Vector3( -2, 0.7, 22),
+    new THREE.Vector3( 13, 0.7,-16),
+    new THREE.Vector3(  6, 0.7, 24),
+  ];
+  collectPositions.forEach((p, i) => {
+    const c = new THREE.Mesh(collectGeo, collectMat.clone());
+    c.position.copy(p);
+    c.userData.collectibleIndex = i;
+    c.userData.collected = false;
+    // Outer glow ring
+    const ringGeo = new THREE.TorusGeometry(1.3, 0.1, 6, 20);
+    const ringMat = new THREE.MeshPhongMaterial({
+      color: 0x64ffda, emissive: 0x00bfa5, emissiveIntensity: 1.0,
+      transparent: true, opacity: 0.6,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = Math.PI / 2;
+    c.add(ring);
+    G.scene.add(tagWorld(c));
+    G._ribCollectibles.push(c);
+  });
+
+  // Ribosome light — near middle cluster
+  G._lights.ribosome.position.set(clusters[0].x + 4, 5, clusters[0].z + 4);
+}
+
+// ── Lysosomes ──────────────────────────────────────────────────────────────
+function buildLysosomes() {
+  G._lysosomeMeshes = [];
+  const geo = new THREE.SphereGeometry(2.4, 14, 14);
+
+  ORG_POS.lysosomes.forEach(pos => {
+    const mat = new THREE.MeshPhongMaterial({
+      color: 0xc62828, emissive: 0x8b0000, emissiveIntensity: 0.9,
+      transparent: true, opacity: 0.8,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    mesh.position.y = 1.2;
+    G.scene.add(tagWorld(mesh));
+    G._lysosomeMeshes.push(mesh);
+
+    // Danger aura — subtle outer glow sphere
+    const auraGeo = new THREE.SphereGeometry(3.4, 10, 10);
+    const auraMat = new THREE.MeshPhongMaterial({
+      color: 0xff1744, emissive: 0xff1744, emissiveIntensity: 0.3,
+      transparent: true, opacity: 0.12, side: THREE.BackSide,
+    });
+    const aura = new THREE.Mesh(auraGeo, auraMat);
+    aura.position.copy(pos);
+    aura.position.y = 1.2;
+    G.scene.add(tagWorld(aura));
+    mesh.userData.aura = aura;
+
+    // Not in G.organelles for LOS (player passes near them on purpose)
+    // Damage check done separately in checkDamageZones()
+  });
+}
+
+// ── Mitochondria ────────────────────────────────────────────────────────────
+function buildMitochondria() {
+  const bodyMat = new THREE.MeshPhongMaterial({
+    color: 0x388e3c, emissive: 0x1b5e20, emissiveIntensity: 0.7,
+    transparent: true, opacity: 0.78,
+  });
+  const cristaMat = new THREE.MeshPhongMaterial({
+    color: 0x66bb6a, emissive: 0x2e7d32, emissiveIntensity: 0.5,
+    transparent: true, opacity: 0.5,
+  });
+
+  ORG_POS.mito.forEach((pos, i) => {
+    const group = new THREE.Group();
+
+    // Body: cylinder
+    const bodyGeo = new THREE.CylinderGeometry(1.1, 1.1, 4.5, 12);
+    const body = new THREE.Mesh(bodyGeo, bodyMat.clone());
+    group.add(body);
+
+    // End caps (simulate capsule)
+    const capGeo = new THREE.SphereGeometry(1.1, 12, 12);
+    const capTop = new THREE.Mesh(capGeo, bodyMat.clone());
+    capTop.position.y = 2.25;
+    const capBot = new THREE.Mesh(capGeo, bodyMat.clone());
+    capBot.position.y = -2.25;
+    group.add(capTop, capBot);
+
+    // Cristae — 3 thin inner discs
+    for (let j = 0; j < 3; j++) {
+      const crGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.2, 10);
+      const cr = new THREE.Mesh(crGeo, cristaMat);
+      cr.position.y = -1.4 + j * 1.4;
+      group.add(cr);
+    }
+
+    // Random orientation so they don't all point the same way
+    group.rotation.z = (i % 2 === 0 ? 1 : -1) * (Math.PI / 4 + i * 0.3);
+    group.rotation.y = i * 1.1;
+    group.position.copy(pos);
+    group.position.y = 2;
+    group.userData.mitoIndex = i;
+    G.scene.add(tagWorld(group));
+
+    G.organelles.push({ type: 'mito', mesh: group, center: pos.clone(), radius: 4.5, blocksLOS: true });
+  });
+}
+
+// ── Organelle Animation Update ─────────────────────────────────────────────
+function updateOrganelleAnimations(dt) {
+  const t = G.totalTime;
+
+  // Lysosome pulse — menacing scale oscillation
+  if (G._lysosomeMeshes) {
+    G._lysosomeMeshes.forEach((m, i) => {
+      const s = 1 + 0.12 * Math.sin(t * 2.8 + i * 1.4);
+      m.scale.setScalar(s);
+      if (m.userData.aura) m.userData.aura.scale.setScalar(s * 1.05);
+    });
+  }
+
+  // Endosome — phase 2 timer drives slow shrink; gentle float otherwise
+  if (G._endosomeMesh) {
+    if (G.phase === 2 && G.phaseTimerActive) {
+      // Scale from 1.0 → 0.3 as timer counts down from 30 → 0
+      const frac = Math.max(0, G.phaseTimer / 30);
+      const s = 0.3 + frac * 0.7;
+      G._endosomeMesh.scale.setScalar(s);
+      // Turn more red as it shrinks (lysosome fusion imminent)
+      const r = Math.round(0xce + (0xff - 0xce) * (1 - frac));
+      const gb = Math.round(0x93 * frac);
+      G._endosomeMesh.material.color.setRGB(r/255, gb/255, gb/255);
+      G._endosomeMesh.material.emissive.setRGB(0.5 * (1-frac), 0, 0);
+    } else {
+      // Idle gentle float
+      G._endosomeMesh.position.y = 1 + Math.sin(t * 1.2) * 0.25;
+    }
+  }
+
+  // Golgi — slow Y rotation + very gentle stack bob
+  if (G._golgiGroup) {
+    G._golgiGroup.rotation.y += dt * 0.08;
+    G._golgiGroup.position.y = 0.2 + Math.sin(t * 0.5) * 0.15;
+  }
+
+  // Nucleus — very slow rotation; pore world positions updated each frame
+  if (G._nucleusGroup) {
+    G._nucleusGroup.rotation.y += dt * 0.015;
+    if (G._nucleusPores) {
+      G._nucleusPores.forEach((p, i) => {
+        // Keep worldPos in sync as the nucleus rotates
+        p.mesh.getWorldPosition(p.worldPos);
+        p.mesh.material.emissiveIntensity = 0.8 + 0.5 * Math.sin(t * 1.8 + i * 0.9);
+      });
+    }
+  }
+
+  // Ribosome collectibles — spin + bob to draw attention
+  if (G._ribCollectibles) {
+    G._ribCollectibles.forEach((c, i) => {
+      if (!c.userData.collected) {
+        c.rotation.y += dt * 1.2;
+        c.position.y = 0.7 + Math.sin(t * 2.0 + i * 1.3) * 0.3;
+      }
+    });
+  }
+
+  // Receptor sites on membrane — pulse emissive
+  if (G.receptors) {
+    G.receptors.forEach((rec, i) => {
+      const base = i === 0 ? 1.0 : 0.4;
+      rec.mesh.material.emissiveIntensity = base + 0.3 * Math.sin(t * 2.2 + i * 2.1);
+      rec.mesh.position.y = 0.8 + Math.sin(t * 1.5 + i * 1.8) * 0.2;
+    });
+  }
+}
+// checkPhaseCompletion and checkDamageZones defined in Section 6 above
+// ── Section 7: Minimap, HUD Extras, Status Badges ────────────────────────
+
+// World → minimap pixel coordinate helpers
+// Minimap is 110×110px; world spans [-48, 48] on both X and Z axes.
+const MM_SIZE  = 110;
+const MM_WORLD = 96;   // diameter = 2 × 48
+const MM_SCALE = MM_SIZE / MM_WORLD;
+
+function mmX(worldX) { return (worldX + 48) * MM_SCALE; }
+function mmZ(worldZ) { return (worldZ + 48) * MM_SCALE; }
+
+// Convert world facing angle to canvas angle.
+// World: facing = atan2(dx, dz), 0 = +Z forward
+// Canvas: 0 = right (+X world), π/2 = down (+Z world)
+// Therefore: canvasAngle = π/2 − worldFacing
+function mmAngle(worldFacing) { return Math.PI / 2 - worldFacing; }
+
+// ── Minimap Render ────────────────────────────────────────────────────────
+function updateMinimap() {
+  if (!G.minimap.ctx || G.state === 'TITLE') return;
+
+  const ctx = G.minimap.ctx;
+  const S   = MM_SIZE;
+
+  ctx.clearRect(0, 0, S, S);
+
+  // Clip everything to the circular minimap shape
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(S / 2, S / 2, S / 2 - 1, 0, Math.PI * 2);
+  ctx.clip();
+
+  // ── Background ──────────────────────────────────────────────────────
+  ctx.fillStyle = 'rgba(5,10,8,0.94)';
+  ctx.fillRect(0, 0, S, S);
+
+  // ── Cell boundary ring ───────────────────────────────────────────────
+  ctx.beginPath();
+  ctx.arc(S / 2, S / 2, 48 * MM_SCALE, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,230,118,0.55)';
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+
+  // ── Cytoskeleton (faint lines give the minimap texture) ──────────────
+  ctx.strokeStyle = 'rgba(0,96,100,0.20)';
+  ctx.lineWidth   = 0.5;
+  G.cytoskeleton.forEach(fil => {
+    if (!fil.points || fil.points.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(mmX(fil.points[0].x), mmZ(fil.points[0].z));
+    for (let i = 1; i < fil.points.length; i++) {
+      ctx.lineTo(mmX(fil.points[i].x), mmZ(fil.points[i].z));
+    }
+    ctx.stroke();
+  });
+
+  // ── Organelles ───────────────────────────────────────────────────────
+  const ORG_MM_COLORS = {
+    nucleus:  '#9c27b0', er: '#00bcd4', golgi: '#ff8f00',
+    ribosome: '#009688', mito: '#4caf50', endosome: '#e040fb',
+  };
+  // Use a Set to avoid drawing the nucleus blob multiple times
+  // (it has one entry in G.organelles; ER and mito have multiple)
+  const drawn = new Set();
+  G.organelles.forEach(org => {
+    const color = ORG_MM_COLORS[org.type];
+    if (!color) return;
+    // For nucleus draw once; for multi-instance types draw each
+    if (org.type === 'nucleus' || org.type === 'golgi' || org.type === 'endosome') {
+      if (drawn.has(org.type)) return;
+      drawn.add(org.type);
+    }
+    const x = mmX(org.center.x), y = mmZ(org.center.z);
+    const r = Math.max(2.5, org.radius * MM_SCALE * 0.42);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle   = color + '44';
+    ctx.strokeStyle = color + 'aa';
+    ctx.lineWidth   = 1;
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  // ── Lysosomes — danger zones in red ──────────────────────────────────
+  if (G._lysosomeMeshes) {
+    G._lysosomeMeshes.forEach(m => {
+      const x = mmX(m.position.x), y = mmZ(m.position.z);
+      ctx.beginPath();
+      ctx.arc(x, y, 2.4 * MM_SCALE, 0, Math.PI * 2);
+      ctx.fillStyle   = 'rgba(244,67,54,0.28)';
+      ctx.strokeStyle = 'rgba(244,67,54,0.7)';
+      ctx.lineWidth   = 0.8;
+      ctx.fill();
+      ctx.stroke();
+    });
+  }
+
+  // ── Receptor sites (phase 0 only) ────────────────────────────────────
+  if (G.receptors && G.phase === 0) {
+    G.receptors.forEach((rec, i) => {
+      const x = mmX(rec.pos.x), y = mmZ(rec.pos.z);
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = i === 0 ? '#00e676cc' : 'rgba(255,61,0,0.4)';
+      ctx.fill();
+    });
+  }
+
+  // ── Phase target beacon ───────────────────────────────────────────────
+  if (G._beaconGroup) {
+    const bp = G._beaconGroup.position;
+    const bx = mmX(bp.x), by = mmZ(bp.z);
+    const pulse = 0.5 + 0.5 * Math.sin(G.totalTime * 4);
+    ctx.beginPath();
+    ctx.arc(bx, by, 4.5, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255,255,255,${0.4 + pulse * 0.5})`;
+    ctx.lineWidth   = 1.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(bx, by, 2, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${pulse * 0.7})`;
+    ctx.fill();
+  }
+  // Secondary beacons (nuclear pores, phase 3)
+  if (G._beaconGroups) {
+    G._beaconGroups.forEach(bg => {
+      const bx = mmX(bg.position.x), by = mmZ(bg.position.z);
+      ctx.beginPath();
+      ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(206,147,216,0.6)';
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+    });
+  }
+
+  // ── Guard detection fans ──────────────────────────────────────────────
+  G.guards.forEach(g => {
+    if (g.detectionAccum < 0.02) return;
+    const gx = mmX(g.pos.x), gz = mmZ(g.pos.z);
+
+    const a = g.detectionAccum;
+    let cr, cg;
+    if (a < 0.5) { cr = Math.round(a * 2 * 255); cg = 255; }
+    else          { cr = 255; cg = Math.round((1 - (a - 0.5) * 2) * 255); }
+    const alpha = 0.08 + a * 0.12;
+
+    if (g.type === 'cgas') {
+      // cGAS: radial field — draw a circle
+      const rr = Math.min(g.coneRange * MM_SCALE, S / 2);
+      ctx.beginPath();
+      ctx.arc(gx, gz, rr, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${cr},${cg},0,${alpha})`;
+      ctx.fill();
+    } else {
+      // Cone fan
+      const fa  = mmAngle(g.facing);
+      const rr  = Math.min(g.coneRange * MM_SCALE, S * 0.7);
+      ctx.beginPath();
+      ctx.moveTo(gx, gz);
+      ctx.arc(gx, gz, rr, fa - g.coneAngle, fa + g.coneAngle);
+      ctx.closePath();
+      ctx.fillStyle = `rgba(${cr},${cg},0,${alpha + 0.05})`;
+      ctx.fill();
+    }
+  });
+
+  // ── Guards — coloured triangles pointing in facing direction ─────────
+  G.guards.forEach(g => {
+    const gx  = mmX(g.pos.x), gz = mmZ(g.pos.z);
+    const col = '#' + new THREE.Color(GUARD_DATA[g.type].color).getHexString();
+    const fa  = mmAngle(g.facing);
+    const r   = 3.5;
+
+    ctx.save();
+    ctx.translate(gx, gz);
+    ctx.rotate(fa);
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.5);     // tip (forward)
+    ctx.lineTo(-r, r);
+    ctx.lineTo( r, r);
+    ctx.closePath();
+    ctx.fillStyle = col + (g.alertState === 'chase' ? 'ff' : '99');
+    ctx.fill();
+
+    // Chase: outer red ring
+    if (g.alertState === 'chase') {
+      ctx.beginPath();
+      ctx.arc(0, 0, r + 2.5, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,50,50,0.7)';
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+
+  // ── Player dot ────────────────────────────────────────────────────────
+  const ppx = mmX(G.player.pos.x), ppz = mmZ(G.player.pos.z);
+  const pHex = G.virusType
+    ? '#' + new THREE.Color(G.virusType.playerColor).getHexString()
+    : '#ff6f00';
+
+  // Glow ring
+  const grd = ctx.createRadialGradient(ppx, ppz, 0, ppx, ppz, 7);
+  grd.addColorStop(0,   pHex + 'bb');
+  grd.addColorStop(0.6, pHex + '44');
+  grd.addColorStop(1,   'transparent');
+  ctx.beginPath();
+  ctx.arc(ppx, ppz, 7, 0, Math.PI * 2);
+  ctx.fillStyle = grd;
+  ctx.fill();
+
+  // Core dot
+  ctx.beginPath();
+  ctx.arc(ppx, ppz, 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+
+  // Cover indicator — small cyan ring when in cytoskeleton cover
+  if (G.player.inCover) {
+    ctx.beginPath();
+    ctx.arc(ppx, ppz, 5.5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,229,255,0.6)';
+    ctx.lineWidth   = 1.2;
+    ctx.stroke();
+  }
+
+  ctx.restore(); // remove circular clip
+
+  // ── Border ────────────────────────────────────────────────────────────
+  ctx.beginPath();
+  ctx.arc(S / 2, S / 2, S / 2 - 0.5, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(100,200,100,0.25)';
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+}
+
+// ── HUD Extra: status badges (cover, sneak, active power-ups) ────────────
+// These are injected once into #hud, then updated each frame.
+
+function initHUDExtras() {
+  // Don't double-init
+  if (document.getElementById('statusBadges')) return;
+
+  const wrap = document.createElement('div');
+  wrap.id = 'statusBadges';
+  wrap.style.cssText = [
+    'position:absolute', 'bottom:70px', 'left:12px',
+    'display:flex', 'flex-direction:column', 'gap:4px',
+    'pointer-events:none', 'z-index:11',
+  ].join(';');
+  document.getElementById('hud').appendChild(wrap);
+
+  // Helper: create one badge div, hidden by default
+  const makeBadge = (id, text, color) => {
+    const b = document.createElement('div');
+    b.id = id;
+    b.textContent = text;
+    b.style.cssText = [
+      'font-size:0.65rem', 'font-weight:700', 'letter-spacing:0.12em',
+      'text-transform:uppercase', 'padding:3px 8px', 'border-radius:4px',
+      `background:${color}22`, `border:1px solid ${color}66`,
+      `color:${color}`, 'display:none',
+    ].join(';');
+    wrap.appendChild(b);
+    return b;
+  };
+
+  makeBadge('badgeCover',  '◆ Cover',   '#00e5ff');
+  makeBadge('badgeSneak',  '▼ Sneaking','#a5d6a7');
+  makeBadge('badgeCloak',  '◉ Cloaked', '#ce93d8');
+  makeBadge('badgeBoost',  '▶ Boosted', '#ffcc02');
+  makeBadge('badgeAlert',  '⚠ Alerted', '#ff9800');
+}
+
+function updateHUDExtras() {
+  const show = (id, visible) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = visible ? 'block' : 'none';
+  };
+  if (G.state !== 'PLAYING') {
+    ['badgeCover','badgeSneak','badgeCloak','badgeBoost','badgeAlert'].forEach(id => show(id, false));
+    return;
+  }
+  show('badgeCover',  G.player.inCover);
+  show('badgeSneak',  G.player.sneaking && !G.player.inCover);
+  show('badgeCloak',  G.player.cloaked);
+  show('badgeBoost',  G.player.boosted);
+  show('badgeAlert',  G.guards.some(g => g.alertState === 'chase'));
+
+  // Cloak badge: show remaining time
+  if (G.player.cloaked) {
+    const el = document.getElementById('badgeCloak');
+    if (el) el.textContent = `◉ Cloaked ${G.player.cloakTimer.toFixed(1)}s`;
+  }
+  // Boost badge: show remaining time
+  if (G.player.boosted) {
+    const el = document.getElementById('badgeBoost');
+    if (el) el.textContent = `▶ Boosted ${G.player.boostTimer.toFixed(1)}s`;
+  }
+}
+
+// ── Section 8: Game Loop Polish, World State, Guard Idle, Title Scene ────
+
+// ── World State (per-frame atmosphere + phase-specific scene changes) ─────
+function updateWorldState(dt) {
+  // Fog thickens as alert rises — creates tension
+  if (G.scene.fog) {
+    const baseDensity  = 0.016;
+    const alertBonus   = (G.alertMeter / 100) * 0.012;
+    const target       = baseDensity + alertBonus;
+    G.scene.fog.density += (target - G.scene.fog.density) * 0.04;
+  }
+
+  // Organelle lights breathe — intensity tied to phase proximity
+  const t = G.totalTime;
+  if (G._lights) {
+    // Nucleus light pulses more intensely during phases 3 & 4 (nucleus active)
+    const nucBase = (G.phase === 3 || G.phase === 4) ? 2.8 : 1.8;
+    G._lights.nucleus.intensity  = nucBase + 0.4 * Math.sin(t * 1.4);
+
+    // Golgi brightens during assembly (phase 5)
+    const golgiBase = G.phase === 5 ? 2.2 : 1.4;
+    G._lights.golgi.intensity    = golgiBase + 0.3 * Math.sin(t * 1.9 + 1.0);
+
+    // ER brightens during uncoating approach (phases 2-3)
+    const erBase = (G.phase >= 2 && G.phase <= 3) ? 1.8 : 1.2;
+    G._lights.er.intensity       = erBase + 0.25 * Math.sin(t * 1.6 + 0.5);
+
+    G._lights.ribosome.intensity = 0.8 + 0.2 * Math.sin(t * 2.1 + 2.0);
+    G._lights.membrane.intensity = 1.0 + 0.3 * Math.sin(t * 0.9);
+  }
+
+  // Inside nucleus (phase 4): tint ambient purple, dim outer fog
+  if (G.phase === 4 && G.player.pos) {
+    const d = Math.sqrt(G.player.pos.x ** 2 + G.player.pos.z ** 2);
+    if (d < 10) {
+      G.scene.fog.density = Math.max(0.005, G.scene.fog.density - 0.01);
+    }
+  }
+
+  // Phase 6 (escape): membrane light pulses urgently with alert colour
+  if (G.phase === 6 && G._lights) {
+    const alertFlash = 0.5 + 0.5 * Math.sin(t * (4 + G.alertMeter * 0.05));
+    G._lights.membrane.color.setRGB(1, alertFlash * 0.3, 0);
+    G._lights.membrane.intensity = 1.5 + alertFlash;
+  } else if (G._lights) {
+    G._lights.membrane.color.setRGB(0, 0.9, 0.41); // back to green
+  }
+}
+
+// ── Guard Idle Animations ─────────────────────────────────────────────────
+// Per-type subtle motion applied to the body mesh every frame.
+// Called at the end of updateGuards() after movement + detection.
+function updateGuardIdleAnimations(dt) {
+  const t = G.totalTime;
+  G.guards.forEach((g, gi) => {
+    if (!g.mesh) return;
+    const phase = gi * 1.37; // stagger each guard so they don't bob in sync
+
+    switch (g.type) {
+      case 'antibody':
+        // Y-arms slowly open/close (immune surveillance)
+        g.mesh.rotation.y += dt * 0.4;
+        g.mesh.children.forEach((c, ci) => {
+          if (ci > 0) c.rotation.z = (ci === 1 ? 1 : -1) * (Math.PI / 4 + Math.sin(t * 1.2 + phase) * 0.15);
+        });
+        break;
+
+      case 'tlr':
+        // Head rotates side to side (scanning)
+        if (g.alertState === 'patrol') {
+          const headChild = g.mesh.children[1]; // sphere head
+          if (headChild) headChild.rotation.y = Math.sin(t * 0.8 + phase) * 0.6;
+        }
+        break;
+
+      case 'pkr':
+        // Diamond spins slowly, pulses scale (helicase unwinding)
+        g.mesh.children[0].rotation.y  += dt * 0.9;
+        g.mesh.children[0].rotation.x  += dt * 0.5;
+        const pkrScale = 1.0 + 0.08 * Math.sin(t * 2.5 + phase);
+        g.mesh.children[0].scale.setScalar(pkrScale);
+        break;
+
+      case 'cgas':
+        // Ring spins flat, center dot bobs
+        g.mesh.children[0].rotation.z += dt * 0.6; // torus spin
+        g.mesh.children[1].position.y  = 0.42 + Math.sin(t * 2.0 + phase) * 0.12;
+        break;
+
+      case 'apobec':
+        // Boxy body tilts ominously; catalytic nub glows brighter during detection
+        g.mesh.children[0].rotation.z = Math.sin(t * 1.1 + phase) * 0.08;
+        if (g.mesh.children[1]) {
+          g.mesh.children[1].material.emissiveIntensity =
+            0.8 + g.detectionAccum * 1.2 + 0.4 * Math.sin(t * 3.0 + phase);
+        }
+        break;
+
+      case 'nk':
+        // Fast vertical bob (aggressive, mobile)
+        g.mesh.children[0].position.y = 0.73 + Math.sin(t * 4.0 + phase) * 0.22;
+        // Fins flare out slightly at speed
+        if (g.alertState === 'chase') {
+          g.mesh.children[1].rotation.z =  0.2 + Math.sin(t * 6) * 0.1;
+          g.mesh.children[2].rotation.z = -0.2 - Math.sin(t * 6) * 0.1;
+        }
+        break;
+    }
+  });
+}
+
+// ── Title Scene: animated virus background ────────────────────────────────
+// Builds a solo virus mesh visible only on the title/game-over screens.
+function buildTitleScene() {
+  const vt = VIRUS_TYPES.influenza;
+  const group = new THREE.Group();
+
+  const bodyGeo = new THREE.IcosahedronGeometry(5, 1);
+  const bodyMat = new THREE.MeshPhongMaterial({
+    color: vt.playerColor, emissive: vt.playerEmissive,
+    emissiveIntensity: 0.7, transparent: true, opacity: 0.85,
+  });
+  group.add(new THREE.Mesh(bodyGeo, bodyMat));
+
+  // Spikes
+  const spikeGeo = new THREE.ConeGeometry(0.55, 3, 4);
+  const spikeMat = new THREE.MeshPhongMaterial({
+    color: 0xff8f00, emissive: 0x8f4000, emissiveIntensity: 0.6,
+  });
+  [
+    [0,1,0],[0,-1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],
+    [0.7,0.7,0],[-0.7,0.7,0],[0.7,-0.7,0],[-0.7,-0.7,0],
+  ].forEach(([dx,dy,dz]) => {
+    const spike = new THREE.Mesh(spikeGeo, spikeMat);
+    const n = new THREE.Vector3(dx,dy,dz).normalize();
+    spike.position.copy(n.clone().multiplyScalar(5.3));
+    spike.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), n);
+    group.add(spike);
+  });
+
+  // Envelope
+  const envGeo = new THREE.SphereGeometry(6.2, 20, 20);
+  const envMat = new THREE.MeshPhongMaterial({
+    color: vt.playerColor, transparent: true, opacity: 0.12,
+  });
+  group.add(new THREE.Mesh(envGeo, envMat));
+
+  group.position.set(32, 5, -15);
+  group.userData.titleVirus = true;
+  G.scene.add(group);
+  G._titleVirus = group;
+
+  // Point light to illuminate it
+  const tl = new THREE.PointLight(vt.playerColor, 1.2, 35);
+  tl.position.set(32, 10, -15);
+  tl.userData.titleVirus = true;
+  G.scene.add(tl);
+}
+
+function updateTitleScene(dt) {
+  if (!G._titleVirus) return;
+  G._titleVirus.rotation.y += dt * 0.35;
+  G._titleVirus.rotation.x  = Math.sin(G.totalTime * 0.4) * 0.2;
+  G._titleVirus.position.y  = 5 + Math.sin(G.totalTime * 0.7) * 1.5;
+
+  // Hide during gameplay, show on title/game-over/victory
+  const visible = (G.state === 'TITLE' || G.state === 'GAME_OVER' || G.state === 'VICTORY');
+  G._titleVirus.visible = visible;
+}
+
+// ── Camera Reset Helper ───────────────────────────────────────────────────
+function resetCamera() {
+  G.camera.position.set(0, 90, 28);
+  G.camera._target = new THREE.Vector3(0, 90, 28);
+  G.camera.lookAt(0, 0, 0);
+}
+
+// ── Main Loop ─────────────────────────────────────────────────────────────
+function gameLoop() {
+  requestAnimationFrame(gameLoop);
+
+  const dt = Math.min(G.clock.getDelta(), 0.05); // cap at 50ms (20fps min)
+  G.dt = dt;
+
+  // Title / non-game screens: still animate the title virus
+  G.totalTime += dt;
+  updateTitleScene(dt);
+
+  if (G.state === 'PLAYING') {
+    updatePlayer(dt);
+    updateGuards(dt);
+    updateGuardIdleAnimations(dt);
+    updateAlertMeter(dt);
+    updateParticles(dt);
+    updateOrganelleAnimations(dt);
+    updateWorldState(dt);
+    checkPhaseCompletion();
+    checkDamageZones(dt);
+    updateHUD();
+    updateMinimap();
+    updateHUDExtras();
+    updateGuardTooltip();
+  }
+
+  G.renderer.render(G.scene, G.camera);
+  G.frameCount++;
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+// Show title screen; world is built on first startGame() call
+setOverlay('titleScreen');
+gameLoop();
+</script>
+</body>
+</html>
