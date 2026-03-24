@@ -2525,8 +2525,9 @@ function setupPhaseTarget(n) {
 
   switch (n) {
     case 0: {
-      // Phase 0: Antibody Gauntlet — spawn the extracellular antibody field
+      // Phase 0: Antibody Gauntlet — spawns field + receptor beacon internally
       buildPhase1AntibodyField();
+      showToast('Navigate to the glowing receptor on the cell surface!', 'info');
       break;
     }
     case 1: {
@@ -2765,8 +2766,9 @@ function buildPhase1AntibodyField() {
         y: (Math.random()-0.5) * 2.0,
         z: (Math.random()-0.5) * 2.0,
       },
-      boundSite: null,
-      bindTimer:  0,
+      boundSite:      null,
+      bindTimer:      0,
+      releaseCooldown: 0,  // prevents immediate rebind after IgM releases
     });
   };
 
@@ -2774,6 +2776,16 @@ function buildPhase1AntibodyField() {
   for (let i = 0; i < AB_IgG_COUNT; i++) spawnAb('IgG', i < nIgG);
   const nIgM = Math.round(AB_IgM_COUNT * AB_NEUTRAL_FRAC);
   for (let i = 0; i < AB_IgM_COUNT; i++) spawnAb('IgM', i < nIgM);
+
+  buildAntibodyCrowd();
+
+  // Highlight the target receptor so the player knows where to navigate
+  const rec = G.receptors && G.receptors[0];
+  if (rec) {
+    G._beaconGroup = createBeacon(rec.pos.x, rec.pos.z, 0x00e676);
+    rec.mesh.material.emissiveIntensity = 2.5;
+    rec.mesh.material.opacity = 1.0;
+  }
 
   buildPhase1HUD();
 }
@@ -2789,12 +2801,13 @@ function updatePhase1Antibodies(dt) {
       if (ab.type === 'IgM') {
         ab.bindTimer -= dt;
         if (ab.bindTimer <= 0) {
-          // IgM releases — free the site
+          // IgM releases — free the site, kick away, set cooldown
           G._abField.sites[ab.boundSite] = null;
           ab.boundSite = null;
+          ab.releaseCooldown = 7.0; // cannot rebind for 7 seconds
           const ang = Math.atan2(ab.pos.z - pz, ab.pos.x - px);
-          ab.vel.x = Math.cos(ang) * 3.5;
-          ab.vel.z = Math.sin(ang) * 3.5;
+          ab.vel.x = Math.cos(ang) * 10; // strong kick outward
+          ab.vel.z = Math.sin(ang) * 10;
           showToast('IgM released — binding site freed!', 'good');
           return;
         }
@@ -2832,8 +2845,11 @@ function updatePhase1Antibodies(dt) {
 
       ab.mesh.position.set(ab.pos.x, ab.pos.y, ab.pos.z);
 
-      // Binding check — neutralizing antibodies only
-      if (ab.neutralizing) {
+      // Cooldown tick (prevents IgM from immediately rebinding after release)
+      if (ab.releaseCooldown > 0) ab.releaseCooldown -= dt;
+
+      // Binding check — neutralizing antibodies only, not in cooldown
+      if (ab.neutralizing && ab.releaseCooldown <= 0) {
         const dx = ab.pos.x - px, dz = ab.pos.z - pz;
         if (dx*dx + dz*dz < AB_BIND_DIST * AB_BIND_DIST) {
           const freeSite = G._abField.sites.indexOf(null);
@@ -2890,7 +2906,7 @@ function buildPhase1HUD() {
   hud.innerHTML =
     '<div class="abg-label">Binding Sites</div>' +
     '<div id="abgSites"></div>' +
-    '<div class="abg-tip">Reach the membrane with \u22651 free site</div>';
+    '<div class="abg-tip">Reach the glowing receptor with \u22651 free site</div>';
   document.getElementById('hud').appendChild(hud);
   G._abField.hudEl = hud;
   updatePhase1HUD();
@@ -2912,10 +2928,81 @@ function clearPhase1HUD() {
   if (el) el.remove();
 }
 
+// ── Non-neutralizing antibody crowd (InstancedMesh for performance) ─────────
+// ~250 visually diverse antibodies that tumble through the field but cannot bind.
+// Uses 10 InstancedMesh draw calls total (5 colors × IgG proxy + IgM proxy).
+const AB_CROWD_PER_COLOR = 25; // instances per color per type → 5×2×25 = 250
+
+function buildAntibodyCrowd() {
+  const igGGeo = new THREE.OctahedronGeometry(0.38, 0);
+  // Flat ring proxy for IgM crowd
+  const igMGeo = new THREE.TorusGeometry(0.68, 0.09, 4, 8);
+
+  const crowd = { groups: [], dummy: new THREE.Object3D() };
+  G._abField.crowd = crowd;
+
+  AB_NON_COLORS.forEach(color => {
+    const mat = new THREE.MeshPhongMaterial({
+      color, emissive: color, emissiveIntensity: 0.35, transparent: true, opacity: 0.82,
+    });
+    [{ geo: igGGeo, label: 'IgG' }, { geo: igMGeo, label: 'IgM' }].forEach(({ geo, label }) => {
+      const n = AB_CROWD_PER_COLOR;
+      const inst = new THREE.InstancedMesh(geo, mat.clone(), n);
+      inst.userData.worldObject = true;
+      G.scene.add(inst);
+
+      const pos = [], vel = [], rot = [], rotV = [];
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 51 + Math.random() * (AB_FIELD_OUTER - 52);
+        pos.push({ x: Math.cos(a)*r, y: 0.5+Math.random()*3.5, z: Math.sin(a)*r });
+        vel.push({ x:(Math.random()-0.5)*3, y:(Math.random()-0.5)*0.4, z:(Math.random()-0.5)*3 });
+        rot.push({ x:Math.random()*Math.PI*2, y:Math.random()*Math.PI*2, z:Math.random()*Math.PI*2 });
+        rotV.push({ x:(Math.random()-0.5)*2.2, y:(Math.random()-0.5)*2.2, z:(Math.random()-0.5)*2.2 });
+        crowd.dummy.position.set(pos[i].x, pos[i].y, pos[i].z);
+        crowd.dummy.rotation.set(rot[i].x, rot[i].y, rot[i].z);
+        crowd.dummy.updateMatrix();
+        inst.setMatrixAt(i, crowd.dummy.matrix);
+      }
+      inst.instanceMatrix.needsUpdate = true;
+      crowd.groups.push({ inst, pos, vel, rot, rotV });
+    });
+  });
+}
+
+function updateCrowdAntibodies(dt) {
+  if (!G._abField || !G._abField.crowd) return;
+  const { groups, dummy } = G._abField.crowd;
+  groups.forEach(({ inst, pos, vel, rot, rotV }) => {
+    for (let i = 0; i < pos.length; i++) {
+      const p = pos[i], v = vel[i], r = rot[i], rv = rotV[i];
+      p.x += v.x*dt; p.y += v.y*dt; p.z += v.z*dt;
+      if (p.y < 0.3) { p.y = 0.3; v.y =  Math.abs(v.y)*0.6; }
+      if (p.y > 4.8) { p.y = 4.8; v.y = -Math.abs(v.y)*0.6; }
+      const rad = Math.sqrt(p.x*p.x + p.z*p.z);
+      const ang = Math.atan2(p.z, p.x);
+      if (rad < 49)             { v.x += Math.cos(ang)*4*dt; v.z += Math.sin(ang)*4*dt; }
+      if (rad > AB_FIELD_OUTER) { v.x -= Math.cos(ang)*4*dt; v.z -= Math.sin(ang)*4*dt; }
+      const spd = Math.sqrt(v.x*v.x + v.z*v.z);
+      if (spd > 5) { v.x = v.x/spd*5; v.z = v.z/spd*5; }
+      r.x += rv.x*dt; r.y += rv.y*dt; r.z += rv.z*dt;
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.rotation.set(r.x, r.y, r.z);
+      dummy.updateMatrix();
+      inst.setMatrixAt(i, dummy.matrix);
+    }
+    inst.instanceMatrix.needsUpdate = true;
+  });
+}
+
 function clearPhase1Field() {
   if (!G._abField) return;
   G._abField.antibodies.forEach(ab => { disposeObject(ab.mesh); G.scene.remove(ab.mesh); });
   G._abField.siteMeshes.forEach(s  => { disposeObject(s.mesh);  G.scene.remove(s.mesh); });
+  if (G._abField.crowd) {
+    G._abField.crowd.groups.forEach(cg => { disposeObject(cg.inst); G.scene.remove(cg.inst); });
+  }
+  clearBeacon();
   clearPhase1HUD();
   G._abField = null;
 }
@@ -2945,11 +3032,13 @@ function triggerPhase1Fail() {
   }, 2500);
 }
 
-// Phase 1 completion check: proximity to membrane + binding site tally
+// Phase 0 completion check: must reach the specific receptor on the membrane
 function phaseCheck_Penetration(px, pz) {
   if (!G._abField || !G._abField.active || G._abField.failPending) return;
-  const dist = Math.sqrt(px*px + pz*pz);
-  if (dist > 49) return; // not at membrane yet
+  const rec = G.receptors && G.receptors[0];
+  if (!rec) return;
+  const dx = px - rec.pos.x, dz = pz - rec.pos.z;
+  if (dx*dx + dz*dz > 9) return; // must be within 3 units of receptor
   const boundCount = G._abField.sites.filter(Boolean).length;
   if (boundCount >= AB_SITES) {
     triggerPhase1Fail();
@@ -4959,7 +5048,7 @@ function gameLoop() {
   updateTitleScene(dt);
 
   if (G.state === 'PLAYING') {
-    if (G.phase === 0) updatePhase1Antibodies(dt);
+    if (G.phase === 0) { updatePhase1Antibodies(dt); updateCrowdAntibodies(dt); }
     updatePlayer(dt);
     updateGuards(dt);
     updateGuardIdleAnimations(dt);
