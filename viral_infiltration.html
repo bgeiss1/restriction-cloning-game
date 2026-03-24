@@ -1061,17 +1061,17 @@ const VIRUS_TYPES = {
 const PHASE_DATA = [
   {
     index: 0,
-    name: 'Attachment',
-    shortName: 'Attach',
-    objective: 'Find the correct receptor and make contact',
-    bio: 'Viruses bind host cells via specific surface receptor proteins — a molecular lock-and-key. Influenza uses hemagglutinin (HA) to bind sialic acid residues on respiratory epithelial cells. This specificity determines which host species and cell types a virus can infect, a property called tropism.',
-  },
-  {
-    index: 1,
     name: 'Antibody Gauntlet',
     shortName: 'Evade',
     objective: 'Navigate the extracellular antibody cloud and reach the cell surface with ≥1 binding site free',
     bio: 'The humoral immune response deploys antibodies into extracellular fluids to intercept virions before they reach host cells. IgG antibodies bind tightly and permanently block receptor-binding sites — this is neutralization. Pentameric IgM antibodies also neutralize but bind transiently. Non-matching antibodies are non-neutralizing and pass harmlessly. A virion must reach the cell surface with at least one receptor-binding site unoccupied to initiate entry.',
+  },
+  {
+    index: 1,
+    name: 'Attachment',
+    shortName: 'Attach',
+    objective: 'Find the correct receptor and make contact',
+    bio: 'Viruses bind host cells via specific surface receptor proteins — a molecular lock-and-key. Influenza uses hemagglutinin (HA) to bind sialic acid residues on respiratory epithelial cells. This specificity determines which host species and cell types a virus can infect, a property called tropism.',
   },
   {
     index: 2,
@@ -1954,13 +1954,9 @@ function updateParticles(dt) {
 //   'circuit'  — explicit waypoint list
 //   (no patrol field) — stationary (TLR)
 const PHASE_GUARD_TABLE = [
-  // Phase 0: Attachment — antibodies patrol outside the membrane
-  [
-    { type:'antibody', patrol:'membrane', offset:0.0, radius:52 },
-    { type:'antibody', patrol:'membrane', offset:2.1, radius:52 },
-    { type:'antibody', patrol:'membrane', offset:4.2, radius:52 },
-  ],
-  // Phase 1: Antibody Gauntlet — handled by buildPhase1AntibodyField(), no guard system
+  // Phase 0: Antibody Gauntlet — handled by buildPhase1AntibodyField(), no guard system
+  [],
+  // Phase 1: Attachment — no detection-cone guards
   [],
   // Phase 2: Uncoating — PKR/RIG-I enter the cytoplasm + stationary TLR
   [
@@ -2529,17 +2525,17 @@ function setupPhaseTarget(n) {
 
   switch (n) {
     case 0: {
-      // Phase 0: highlight the correct receptor
+      // Phase 0: Antibody Gauntlet — spawn the extracellular antibody field
+      buildPhase1AntibodyField();
+      break;
+    }
+    case 1: {
+      // Phase 1: Attachment — highlight the correct receptor
       const rec = G.receptors && G.receptors[0];
       if (rec) {
         G._beaconGroup = createBeacon(rec.pos.x, rec.pos.z, 0x00e676);
         rec.mesh.material.emissiveIntensity = 2.0;
       }
-      break;
-    }
-    case 1: {
-      // Phase 1: Antibody Gauntlet — spawn the extracellular antibody field
-      buildPhase1AntibodyField();
       break;
     }
     case 2: {
@@ -2596,8 +2592,8 @@ function checkPhaseCompletion() {
   const px = G.player.pos.x, pz = G.player.pos.z;
 
   switch (G.phase) {
-    case 0: phaseCheck_Attachment(px, pz);    break;
-    case 1: phaseCheck_Penetration(px, pz);   break;
+    case 0: phaseCheck_Penetration(px, pz);   break;  // Antibody Gauntlet
+    case 1: phaseCheck_Attachment(px, pz);    break;  // Attachment
     case 2: phaseCheck_Uncoating(px, pz);     break;
     case 3: phaseCheck_NuclearImport(px, pz); break;
     case 4: phaseCheck_Replication(px, pz);   break;
@@ -2637,8 +2633,8 @@ const AB_BIND_DIST    = 2.4;   // proximity (units) that triggers antibody bindi
 const AB_IgM_DURATION = 5.0;   // seconds an IgM remains bound before releasing
 const AB_SITES        = 8;     // virion binding sites
 const AB_NON_COLORS   = [0x2196f3, 0xaaaaaa, 0xe91e63, 0x00bcd4, 0x8bc34a];
-const AB_IgG_COUNT    = 12;    // total IgG antibodies in field
-const AB_IgM_COUNT    = 8;     // total IgM antibodies in field
+const AB_IgG_COUNT    = 18;    // total IgG antibodies in field
+const AB_IgM_COUNT    = 12;    // total IgM antibodies in field
 const AB_NEUTRAL_FRAC = 0.42;  // fraction of each type that are neutralizing
 
 // Build a single IgG Y-shape mesh
@@ -2660,15 +2656,58 @@ function _abIgGMesh(color, s) {
   return g;
 }
 
-// Build a pentameric IgM (5 IgG units in a ring)
+// Build a flat pentameric IgM — snowflake shape lying in the XZ plane.
+// Hub at center, 5 monomers radiating outward; each monomer has an Fc stem
+// and two Fab arms diverging at the tip (like a Y on its side).
 function _abIgMMesh(color) {
   const g = new THREE.Group();
+  const mat    = new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.5 });
+  const tipMat = new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 1.1 });
+
+  // Central J-chain hub (flat disc)
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.12, 10), mat.clone());
+  g.add(hub);
+
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2;
-    const unit = _abIgGMesh(color, 0.6);
-    unit.position.set(Math.cos(a) * 1.3, 0, Math.sin(a) * 1.3);
-    unit.rotation.y = a + Math.PI / 2;
-    g.add(unit);
+    // One group per monomer, rotated to point outward at angle a
+    const mono = new THREE.Group();
+    mono.rotation.y = a;
+
+    // Fc stem: horizontal cylinder from hub edge outward along local +X
+    const fcLen = 0.72;
+    const fc = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, fcLen, 6), mat.clone());
+    fc.rotation.z = Math.PI / 2;           // lay in XZ plane
+    fc.position.x = 0.24 + fcLen / 2;     // start at hub edge
+    mono.add(fc);
+
+    // Hinge: small sphere at the Fc/Fab junction
+    const hingeX = 0.24 + fcLen;
+    const hinge = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), mat.clone());
+    hinge.position.x = hingeX;
+    mono.add(hinge);
+
+    // Two Fab arms forking from hinge, diverging ±35° in the XZ plane
+    const fabLen  = 0.75;
+    const fabAng  = 0.61; // radians (~35°)
+    [-1, 1].forEach(sign => {
+      const fg = new THREE.Group();
+      fg.position.x = hingeX;
+      fg.rotation.y = sign * fabAng;
+
+      const fab = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, fabLen, 6), mat.clone());
+      fab.rotation.z = Math.PI / 2;
+      fab.position.x = fabLen / 2;
+      fg.add(fab);
+
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 6), tipMat.clone());
+      tip.position.x = fabLen;
+      fg.add(tip);
+
+      mono.add(fg);
+    });
+
+    g.add(mono);
   }
   return g;
 }
@@ -2895,7 +2934,7 @@ function triggerPhase1Fail() {
   if (G.player.envelope) G.player.envelope.position.set(G.player.pos.x, 0.8, G.player.pos.z);
   // Rebuild after 2.5 s
   setTimeout(() => {
-    if (G.state === 'PLAYING' && G.phase === 1) {
+    if (G.state === 'PLAYING' && G.phase === 0) {
       clearPhase1Field();
       G.player.pos.x = 65; G.player.pos.z = 0;
       if (G.player.mesh)     G.player.mesh.position.set(65, 0.8, 0);
@@ -3036,21 +3075,22 @@ function completePhase() {
   const completedPhase = G.phase;
   G.phase++;
 
-  // Phase 0 → 1: place virion back outside for the antibody gauntlet approach
+  // Phase 0 → 1: gauntlet cleared — place virion just outside membrane for attachment
   if (completedPhase === 0 && G.player.mesh) {
-    G.player.pos.x = 65; G.player.pos.z = 0;
-    G.player.mesh.position.set(65, 0.8, 0);
-    if (G.player.envelope) G.player.envelope.position.set(65, 0.8, 0);
-  }
-  // Phase 1 → 2: antibody gauntlet cleared — endocytosis pulls virion inside
-  if (completedPhase === 1 && G.player.mesh) {
     const freeCount = G._abField ? G._abField.sites.filter(s => s === null).length : AB_SITES;
     clearPhase1Field();
+    G.player.pos.x = 58; G.player.pos.z = 0;
+    G.player.mesh.position.set(58, 0.8, 0);
+    if (G.player.envelope) G.player.envelope.position.set(58, 0.8, 0);
+    const qual = freeCount === AB_SITES ? 'Perfect!' : freeCount >= 5 ? 'Good!' : 'Barely made it!';
+    showToast(`Gauntlet cleared — ${freeCount}/8 sites free. ${qual} Now find the receptor.`, freeCount >= 5 ? 'good' : 'warn');
+  }
+  // Phase 1 → 2: attachment complete — endocytosis pulls virion inside
+  if (completedPhase === 1 && G.player.mesh) {
     G.player.pos.x = 38; G.player.pos.z = 2;
     G.player.mesh.position.set(38, 0.8, 2);
     if (G.player.envelope) G.player.envelope.position.set(38, 0.8, 2);
-    const qual = freeCount === AB_SITES ? 'Perfect!' : freeCount >= 5 ? 'Good!' : 'Barely made it!';
-    showToast(`Endocytosis — ${freeCount}/8 sites free. ${qual}`, freeCount >= 5 ? 'good' : 'warn');
+    showToast('Receptor bound — endocytosis pulls you inside!', 'good');
   }
 
   if (G.phase >= PHASE_DATA.length) {
@@ -3634,8 +3674,8 @@ function buildPlayer() {
   group.add(pLight);
   G._playerLight = pLight;
 
-  // Starting position — outside the membrane; virus approaches from outside
-  const startX = 58, startZ = 0;
+  // Starting position — outer edge of antibody gauntlet field
+  const startX = 65, startZ = 0;
   group.position.set(startX, 0.8, startZ);
   G.player.pos     = { x: startX, z: startZ };
   G.player.vel     = { x: 0, z: 0 };
@@ -3708,19 +3748,19 @@ function updatePlayer(dt) {
   // ── Membrane boundary ─────────────────────────────────────────────────
   const distFromCenter = Math.sqrt(nx * nx + nz * nz);
   if (G.phase === 0) {
-    // Phase 0: outside — inner membrane wall blocks cell entry
-    if (distFromCenter < 47.5) {
-      const ang = Math.atan2(nz, nx);
-      nx = Math.cos(ang) * 47.5;
-      nz = Math.sin(ang) * 47.5;
-    }
-  } else if (G.phase === 1) {
-    // Phase 1: outside — outer field boundary only (no inner barrier; membrane
-    // check fires in phaseCheck_Penetration when player reaches it)
+    // Phase 0: Gauntlet — outside, outer field boundary only (no inner barrier;
+    // membrane check fires in phaseCheck_Penetration when player reaches it)
     if (distFromCenter > AB_FIELD_OUTER) {
       const ang = Math.atan2(nz, nx);
       nx = Math.cos(ang) * AB_FIELD_OUTER;
       nz = Math.sin(ang) * AB_FIELD_OUTER;
+    }
+  } else if (G.phase === 1) {
+    // Phase 1: Attachment — outside, inner membrane wall blocks cell entry
+    if (distFromCenter < 47.5) {
+      const ang = Math.atan2(nz, nx);
+      nx = Math.cos(ang) * 47.5;
+      nz = Math.sin(ang) * 47.5;
     }
   } else {
     // Phase 2+: inside — membrane wall blocks exit
@@ -4919,7 +4959,7 @@ function gameLoop() {
   updateTitleScene(dt);
 
   if (G.state === 'PLAYING') {
-    if (G.phase === 1) updatePhase1Antibodies(dt);
+    if (G.phase === 0) updatePhase1Antibodies(dt);
     updatePlayer(dt);
     updateGuards(dt);
     updateGuardIdleAnimations(dt);
