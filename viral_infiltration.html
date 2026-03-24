@@ -1922,14 +1922,14 @@ const PHASE_GUARD_TABLE = [
     { type:'antibody', patrol:'membrane', offset:2.1, radius:52 },
     { type:'antibody', patrol:'membrane', offset:4.2, radius:52 },
   ],
-  // Phase 1: Penetration — TLRs near endosome + four orbiting antibodies
+  // Phase 1: Penetration — TLRs near endosome + antibodies patrolling outside membrane
   [
     { type:'tlr',      pos:[28,-23], facing:Math.PI * 0.9 },
     { type:'tlr',      pos:[35,-15], facing:Math.PI * 1.25 },
-    { type:'antibody', patrol:'outer',   center:[32,-18], radius:9 },
-    { type:'antibody', patrol:'outer',   center:[24,-26], radius:7 },
-    { type:'antibody', patrol:'outer',   center:[38,-11], radius:6 },
-    { type:'antibody', patrol:'circuit', waypoints:[[20,-12],[36,-12],[36,-28],[20,-28]] },
+    { type:'antibody', patrol:'membrane', offset:0.5, radius:52 },
+    { type:'antibody', patrol:'membrane', offset:1.8, radius:52 },
+    { type:'antibody', patrol:'membrane', offset:3.2, radius:52 },
+    { type:'antibody', patrol:'membrane', offset:4.7, radius:52 },
   ],
   // Phase 2: Uncoating — PKR/RIG-I enter the cytoplasm + stationary TLR
   [
@@ -1965,8 +1965,8 @@ const PHASE_GUARD_TABLE = [
     { type:'nk',      patrol:'circuit', waypoints:[[-5,35],[10,40],[25,35],[15,25]] },
     { type:'pkr',     patrol:'circuit', waypoints:[[20,-5],[30,0],[25,10],[15,5]] },
     { type:'cgas',    patrol:'circuit', waypoints:[[0,0],[12,8],[-8,12],[-12,-5]] },
-    { type:'antibody',patrol:'membrane', offset:1.0 },
-    { type:'antibody',patrol:'membrane', offset:3.6 },
+    { type:'antibody', patrol:'membrane', offset:1.0, radius:52 },
+    { type:'antibody', patrol:'membrane', offset:3.6, radius:52 },
   ],
 ];
 
