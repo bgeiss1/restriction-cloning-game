@@ -1718,7 +1718,7 @@ function buildMembrane() {
 
   // Receptor sites — 3 glowing spots around the membrane edge
   // Phase 0: player must reach the CORRECT receptor (index 0); others are decoys
-  const receptorAngles = [0.3, 1.8, 4.4]; // radians around the ring
+  const receptorAngles = [Math.PI, 1.8, 4.4]; // radians around the ring; index 0 = left side (opposite virion start)
   const receptorColors = [
     G.virusType ? G.virusType.receptorColor : 0x00e676, // correct
     0xff3d00,   // wrong type (decoy)
@@ -2629,7 +2629,11 @@ function phaseCheck_Attachment(px, pz) {
 
 // ── Phase 1: Antibody Gauntlet ─────────────────────────────────────────────
 // Constants
-const AB_FIELD_OUTER  = 74;    // outer navigable radius while outside cell
+const AB_FIELD_OUTER  = 74;    // outer navigable radius while outside cell (circular, unused in rect mode)
+const AB_RECT_XMIN    = -80;   // rectangular extracellular space bounds
+const AB_RECT_XMAX    =  80;
+const AB_RECT_ZMIN    = -44;
+const AB_RECT_ZMAX    =  44;
 const AB_BIND_DIST    = 2.4;   // proximity (units) that triggers antibody binding
 const AB_IgM_DURATION = 5.0;   // seconds an IgM remains bound before releasing
 const AB_SITES        = 8;     // virion binding sites
@@ -2740,10 +2744,11 @@ function buildPhase1AntibodyField() {
 
   // ── Spawn antibodies randomly in the extracellular field ─────────────
   const spawnAb = (type, neutralizing) => {
-    const angle  = Math.random() * Math.PI * 2;
-    const radius = 51 + Math.random() * (AB_FIELD_OUTER - 52);
-    const x = Math.cos(angle) * radius;
-    const z = Math.sin(angle) * radius;
+    let x, z;
+    do {
+      x = AB_RECT_XMIN + Math.random() * (AB_RECT_XMAX - AB_RECT_XMIN);
+      z = AB_RECT_ZMIN + Math.random() * (AB_RECT_ZMAX - AB_RECT_ZMIN);
+    } while (Math.sqrt(x*x + z*z) < 52); // reject positions inside the plasma membrane
     const y = 0.5 + Math.random() * 3.0;
     const color = neutralizing
       ? neutColor
@@ -2836,8 +2841,12 @@ function updatePhase1Antibodies(dt) {
       // Soft radial push — keep antibodies in the extracellular zone
       const r   = Math.sqrt(ab.pos.x**2 + ab.pos.z**2);
       const ang = Math.atan2(ab.pos.z, ab.pos.x);
-      if (r < 49)              { ab.vel.x += Math.cos(ang)*4*dt; ab.vel.z += Math.sin(ang)*4*dt; }
-      if (r > AB_FIELD_OUTER)  { ab.vel.x -= Math.cos(ang)*4*dt; ab.vel.z -= Math.sin(ang)*4*dt; }
+      if (r < 49) { ab.vel.x += Math.cos(ang)*4*dt; ab.vel.z += Math.sin(ang)*4*dt; }
+      // Rectangular outer soft walls
+      if (ab.pos.x < AB_RECT_XMIN + 3) ab.vel.x += 4*dt;
+      if (ab.pos.x > AB_RECT_XMAX - 3) ab.vel.x -= 4*dt;
+      if (ab.pos.z < AB_RECT_ZMIN + 3) ab.vel.z += 4*dt;
+      if (ab.pos.z > AB_RECT_ZMAX - 3) ab.vel.z -= 4*dt;
 
       // Speed cap
       const spd = Math.sqrt(ab.vel.x**2 + ab.vel.z**2);
@@ -2953,9 +2962,12 @@ function buildAntibodyCrowd() {
 
       const pos = [], vel = [], rot = [], rotV = [];
       for (let i = 0; i < n; i++) {
-        const a = Math.random() * Math.PI * 2;
-        const r = 51 + Math.random() * (AB_FIELD_OUTER - 52);
-        pos.push({ x: Math.cos(a)*r, y: 0.5+Math.random()*3.5, z: Math.sin(a)*r });
+        let cx, cz;
+        do {
+          cx = AB_RECT_XMIN + Math.random() * (AB_RECT_XMAX - AB_RECT_XMIN);
+          cz = AB_RECT_ZMIN + Math.random() * (AB_RECT_ZMAX - AB_RECT_ZMIN);
+        } while (Math.sqrt(cx*cx + cz*cz) < 52);
+        pos.push({ x: cx, y: 0.5+Math.random()*3.5, z: cz });
         vel.push({ x:(Math.random()-0.5)*3, y:(Math.random()-0.5)*0.4, z:(Math.random()-0.5)*3 });
         rot.push({ x:Math.random()*Math.PI*2, y:Math.random()*Math.PI*2, z:Math.random()*Math.PI*2 });
         rotV.push({ x:(Math.random()-0.5)*2.2, y:(Math.random()-0.5)*2.2, z:(Math.random()-0.5)*2.2 });
@@ -2981,8 +2993,12 @@ function updateCrowdAntibodies(dt) {
       if (p.y > 4.8) { p.y = 4.8; v.y = -Math.abs(v.y)*0.6; }
       const rad = Math.sqrt(p.x*p.x + p.z*p.z);
       const ang = Math.atan2(p.z, p.x);
-      if (rad < 49)             { v.x += Math.cos(ang)*4*dt; v.z += Math.sin(ang)*4*dt; }
-      if (rad > AB_FIELD_OUTER) { v.x -= Math.cos(ang)*4*dt; v.z -= Math.sin(ang)*4*dt; }
+      if (rad < 49) { v.x += Math.cos(ang)*4*dt; v.z += Math.sin(ang)*4*dt; }
+      // Rectangular outer soft walls
+      if (p.x < AB_RECT_XMIN + 3) v.x += 4*dt;
+      if (p.x > AB_RECT_XMAX - 3) v.x -= 4*dt;
+      if (p.z < AB_RECT_ZMIN + 3) v.z += 4*dt;
+      if (p.z > AB_RECT_ZMAX - 3) v.z -= 4*dt;
       const spd = Math.sqrt(v.x*v.x + v.z*v.z);
       if (spd > 5) { v.x = v.x/spd*5; v.z = v.z/spd*5; }
       r.x += rv.x*dt; r.y += rv.y*dt; r.z += rv.z*dt;
@@ -3168,9 +3184,9 @@ function completePhase() {
   if (completedPhase === 0 && G.player.mesh) {
     const freeCount = G._abField ? G._abField.sites.filter(s => s === null).length : AB_SITES;
     clearPhase1Field();
-    G.player.pos.x = 58; G.player.pos.z = 0;
-    G.player.mesh.position.set(58, 0.8, 0);
-    if (G.player.envelope) G.player.envelope.position.set(58, 0.8, 0);
+    G.player.pos.x = -58; G.player.pos.z = 0;
+    G.player.mesh.position.set(-58, 0.8, 0);
+    if (G.player.envelope) G.player.envelope.position.set(-58, 0.8, 0);
     const qual = freeCount === AB_SITES ? 'Perfect!' : freeCount >= 5 ? 'Good!' : 'Barely made it!';
     showToast(`Gauntlet cleared — ${freeCount}/8 sites free. ${qual} Now find the receptor.`, freeCount >= 5 ? 'good' : 'warn');
   }
@@ -3763,8 +3779,8 @@ function buildPlayer() {
   group.add(pLight);
   G._playerLight = pLight;
 
-  // Starting position — outer edge of antibody gauntlet field
-  const startX = 65, startZ = 0;
+  // Starting position — far right of rectangular extracellular space
+  const startX = 76, startZ = 0;
   group.position.set(startX, 0.8, startZ);
   G.player.pos     = { x: startX, z: startZ };
   G.player.vel     = { x: 0, z: 0 };
@@ -3837,13 +3853,12 @@ function updatePlayer(dt) {
   // ── Membrane boundary ─────────────────────────────────────────────────
   const distFromCenter = Math.sqrt(nx * nx + nz * nz);
   if (G.phase === 0) {
-    // Phase 0: Gauntlet — outside, outer field boundary only (no inner barrier;
-    // membrane check fires in phaseCheck_Penetration when player reaches it)
-    if (distFromCenter > AB_FIELD_OUTER) {
-      const ang = Math.atan2(nz, nx);
-      nx = Math.cos(ang) * AB_FIELD_OUTER;
-      nz = Math.sin(ang) * AB_FIELD_OUTER;
-    }
+    // Phase 0: Gauntlet — rectangular extracellular space; membrane check fires
+    // in phaseCheck_Penetration when player reaches it
+    if (nx < AB_RECT_XMIN) nx = AB_RECT_XMIN;
+    if (nx > AB_RECT_XMAX) nx = AB_RECT_XMAX;
+    if (nz < AB_RECT_ZMIN) nz = AB_RECT_ZMIN;
+    if (nz > AB_RECT_ZMAX) nz = AB_RECT_ZMAX;
   } else if (G.phase === 1) {
     // Phase 1: Attachment — outside, inner membrane wall blocks cell entry
     if (distFromCenter < 47.5) {
