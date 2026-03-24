@@ -275,6 +275,7 @@ html, body {
 .toast.warn  { border-color: var(--alert-orange); color: var(--alert-orange); }
 .toast.good  { border-color: var(--membrane);     color: var(--membrane); }
 .toast.danger{ border-color: var(--alert-red);    color: var(--alert-red); }
+.toast.info  { border-color: var(--gold);         color: var(--gold); }
 @keyframes toastIn  { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
 @keyframes toastOut { from { opacity:1; } to   { opacity:0; } }
 
@@ -328,7 +329,35 @@ html, body {
 
 /* ── Title Screen ───────────────────────────────────────────────────────── */
 #titleScreen {
-  background: linear-gradient(160deg, #0a1a0e 0%, #050a08 100%);
+  background: linear-gradient(160deg, #0d2214 0%, #081408 100%);
+}
+#titleControls {
+  display: flex; flex-direction: column; gap: 5px;
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 16px 0 16px;
+  text-align: left;
+}
+.tc-row {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+.tc-row kbd {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.75rem;
+  color: var(--text);
+  font-family: monospace;
+}
+.tc-player {
+  font-size: 0.74rem;
+  color: var(--gold);
+  margin-top: 4px;
+  font-style: italic;
 }
 #titleScreen .panel {
   border-color: var(--border-gold);
@@ -804,7 +833,14 @@ html, body {
     <div id="virusTypeGrid">
       <!-- populated by JS from VIRUS_TYPES -->
     </div>
-    <button id="startBtn">Begin Mission</button><br>
+    <button id="startBtn">Begin Mission</button>
+    <div id="titleControls">
+      <span class="tc-row"><kbd>W A S D</kbd> or <kbd>↑ ↓ ← →</kbd> Move</span>
+      <span class="tc-row"><kbd>Shift</kbd> Sneak (lower detection)</span>
+      <span class="tc-row"><kbd>1</kbd> Decoy &nbsp; <kbd>2</kbd> Cloak &nbsp; <kbd>3</kbd> Boost</span>
+      <span class="tc-row"><kbd>Esc</kbd> Pause &nbsp; <kbd>C</kbd> Codex</span>
+      <span class="tc-player">Your virus: a spiked icosahedron — glowing in your chosen color</span>
+    </div>
     <a href="index.html" class="back-link">← Menu</a>
   </div>
 </div>
@@ -1191,7 +1227,7 @@ const G = {
   G.renderer.setSize(window.innerWidth, window.innerHeight);
   G.renderer.shadowMap.enabled = true;
   G.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  G.renderer.setClearColor(0x050a08, 1);
+  G.renderer.setClearColor(0x0c1f12, 1);
 
   // Camera — top-down with slight front tilt (MGS1 perspective)
   G.camera = new THREE.PerspectiveCamera(
@@ -1207,16 +1243,20 @@ const G = {
 
   // Scene
   G.scene = new THREE.Scene();
-  G.scene.fog = new THREE.FogExp2(0x050a08, 0.016);
+  G.scene.fog = new THREE.FogExp2(0x0c1f12, 0.008);
 
   // Lighting
-  // Very dim ambient so emissive materials glow in the dark
-  const ambient = new THREE.AmbientLight(0x112211, 0.4);
+  const ambient = new THREE.AmbientLight(0x2a4a2a, 1.4);
   G.scene.add(ambient);
 
-  // Hemisphere light for subtle sky/ground gradient
-  const hemi = new THREE.HemisphereLight(0x0a1a0e, 0x050a08, 0.3);
+  // Hemisphere light for sky/ground gradient
+  const hemi = new THREE.HemisphereLight(0x1e4a28, 0x0a1a0e, 1.1);
   G.scene.add(hemi);
+
+  // Overhead directional light for uniform visibility
+  const dirLight = new THREE.DirectionalLight(0x88ffaa, 0.6);
+  dirLight.position.set(0, 60, 20);
+  G.scene.add(dirLight);
 
   // Organelle point lights (added now; positions set when organelles are built)
   const makeOrgLight = (color, intensity, range) => {
@@ -1226,11 +1266,11 @@ const G = {
     return l;
   };
   G._lights = {
-    nucleus:  makeOrgLight(0x9c27b0, 1.8, 35),
-    er:       makeOrgLight(0x00bcd4, 1.2, 28),
-    golgi:    makeOrgLight(0xff8f00, 1.4, 22),
-    ribosome: makeOrgLight(0x009688, 0.8, 20),
-    membrane: makeOrgLight(0x00e676, 1.0, 18),
+    nucleus:  makeOrgLight(0x9c27b0, 3.0, 40),
+    er:       makeOrgLight(0x00bcd4, 2.2, 32),
+    golgi:    makeOrgLight(0xff8f00, 2.4, 28),
+    ribosome: makeOrgLight(0x009688, 1.6, 24),
+    membrane: makeOrgLight(0x00e676, 1.8, 22),
   };
   // These will be repositioned in Section 3 when organelles are placed.
   // Default positions so the scene isn't completely dark before world loads.
@@ -1509,6 +1549,9 @@ function dismissBriefing() {
 
   updateHUD();
   showToast('Phase ' + (G.phase + 1) + ': ' + PHASE_DATA[G.phase].name, 'good');
+  if (G.phase === 0) {
+    setTimeout(() => showToast('WASD / Arrow keys to move · Shift to sneak', 'info'), 1200);
+  }
 }
 
 // ── HUD Update ────────────────────────────────────────────────────────────
@@ -1677,26 +1720,26 @@ let _floorOffsetX = 0, _floorOffsetY = 0;
 
 function buildFloorTexture() {
   const c = _floorCtx, w = 512, h = 512;
-  c.fillStyle = '#040c06';
+  c.fillStyle = '#0d2a14';
   c.fillRect(0, 0, w, h);
 
-  // Subtle Voronoi-ish blobs — simulate organelle exclusion zones in cytoplasm
+  // Voronoi-ish blobs — simulate organelle exclusion zones in cytoplasm
   const rng = (n) => (Math.sin(n * 127.1 + 311.7) * 0.5 + 0.5);
   for (let i = 0; i < 280; i++) {
     const x = rng(i * 2.1) * w;
     const y = rng(i * 3.7) * h;
     const r = 2 + rng(i * 5.3) * 6;
-    const alpha = 0.04 + rng(i * 7.9) * 0.1;
+    const alpha = 0.12 + rng(i * 7.9) * 0.2;
     const hue = 140 + rng(i * 11.3) * 40; // green family
     c.beginPath();
     c.arc(x, y, r, 0, Math.PI * 2);
-    c.fillStyle = `hsla(${hue},60%,35%,${alpha})`;
+    c.fillStyle = `hsla(${hue},65%,52%,${alpha})`;
     c.fill();
   }
-  // Faint radial gradient — brighter toward center (lighting source)
+  // Radial gradient — brighter toward center
   const grad = c.createRadialGradient(256, 256, 0, 256, 256, 256);
-  grad.addColorStop(0,   'rgba(0,200,100,0.06)');
-  grad.addColorStop(0.6, 'rgba(0,100,50,0.02)');
+  grad.addColorStop(0,   'rgba(0,220,110,0.18)');
+  grad.addColorStop(0.6, 'rgba(0,150,70,0.08)');
   grad.addColorStop(1,   'rgba(0,0,0,0)');
   c.fillStyle = grad;
   c.fillRect(0, 0, w, h);
@@ -4341,8 +4384,8 @@ function updateHUDExtras() {
 function updateWorldState(dt) {
   // Fog thickens as alert rises — creates tension
   if (G.scene.fog) {
-    const baseDensity  = 0.016;
-    const alertBonus   = (G.alertMeter / 100) * 0.012;
+    const baseDensity  = 0.008;
+    const alertBonus   = (G.alertMeter / 100) * 0.010;
     const target       = baseDensity + alertBonus;
     G.scene.fog.density += (target - G.scene.fog.density) * 0.04;
   }
