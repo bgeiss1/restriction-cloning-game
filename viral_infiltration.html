@@ -1922,11 +1922,14 @@ const PHASE_GUARD_TABLE = [
     { type:'antibody', patrol:'membrane', offset:2.1, radius:52 },
     { type:'antibody', patrol:'membrane', offset:4.2, radius:52 },
   ],
-  // Phase 1: Penetration — TLRs near endosome + one orbiting antibody
+  // Phase 1: Penetration — TLRs near endosome + four orbiting antibodies
   [
     { type:'tlr',      pos:[28,-23], facing:Math.PI * 0.9 },
     { type:'tlr',      pos:[35,-15], facing:Math.PI * 1.25 },
-    { type:'antibody', patrol:'outer', center:[32,-18], radius:9 },
+    { type:'antibody', patrol:'outer',   center:[32,-18], radius:9 },
+    { type:'antibody', patrol:'outer',   center:[24,-26], radius:7 },
+    { type:'antibody', patrol:'outer',   center:[38,-11], radius:6 },
+    { type:'antibody', patrol:'circuit', waypoints:[[20,-12],[36,-12],[36,-28],[20,-28]] },
   ],
   // Phase 2: Uncoating — PKR/RIG-I enter the cytoplasm + stationary TLR
   [
@@ -2154,8 +2157,11 @@ function buildGuardMesh(type, data, coneAngle, coneRange) {
   const coneMesh = new THREE.Mesh(coneGeo, coneMat);
   // rotX = -π/2 → apex ends up at +coneRange/2 in Z, base at -coneRange/2
   // Then position.z = coneRange/2 shifts apex to z=0, base to z=coneRange
+  // Antibody: apex lifted to Fab-tip height (~1.6) so cone anchors to the
+  // antigen-binding paratope tips rather than the body centre.
+  const coneApexY = (type === 'antibody') ? 1.6 : 1.0;
   coneMesh.rotation.x  = -Math.PI / 2;
-  coneMesh.position.set(0, 1.0, coneRange / 2);
+  coneMesh.position.set(0, coneApexY, coneRange / 2);
   group.add(coneMesh);
   group.userData.coneMesh = coneMesh;
 
