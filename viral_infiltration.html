@@ -1689,6 +1689,9 @@ function buildWorld() {
   buildFloor();
   buildCytoskeleton();
   buildParticles();
+  // Organelle group — all organelle meshes live here so the group can spin
+  G._organelleGroup = new THREE.Group();
+  G.scene.add(tagWorld(G._organelleGroup));
   if (typeof buildOrganelles === 'function') buildOrganelles();
   initOrganelleSpin();
   buildPlayer();
@@ -1722,22 +1725,6 @@ function initOrganelleSpin() {
     });
   }
 
-  // Wrap ribosome InstancedMesh in a group so it spins as a unit
-  if (G._ribosomeMesh) {
-    const rg = new THREE.Group();
-    G.scene.remove(G._ribosomeMesh);
-    rg.add(G._ribosomeMesh);
-    G.scene.add(tagWorld(rg));
-    G._ribGroup = rg;
-  }
-
-  // Collectible ribosomes — spin individually
-  if (G._ribCollectibles) {
-    G._ribCollectibles.forEach(c => {
-      c.userData._spinR = Math.sqrt(c.position.x * c.position.x + c.position.z * c.position.z);
-      c.userData._spinA = Math.atan2(c.position.z, c.position.x);
-    });
-  }
 }
 
 function _polarBase(v) {
@@ -1747,16 +1734,17 @@ function _polarBase(v) {
 function updateOrganelleSpin() {
   const spin = G._cellSpinAngle || 0;
 
-  // G.organelles — update collision center + mesh position
+  // Rotate the entire organelle group — Three.js handles all mesh visuals correctly
+  if (G._organelleGroup) G._organelleGroup.rotation.y = spin;
+
+  // Update collision centers in G.organelles (physics / LOS)
   G.organelles.forEach(org => {
     if (org._spinR === undefined) return;
-    const nx = Math.cos(org._spinA + spin) * org._spinR;
-    const nz = Math.sin(org._spinA + spin) * org._spinR;
-    org.center.x = nx; org.center.z = nz;
-    if (org.mesh) { org.mesh.position.x = nx; org.mesh.position.z = nz; }
+    org.center.x = Math.cos(org._spinA + spin) * org._spinR;
+    org.center.z = Math.sin(org._spinA + spin) * org._spinR;
   });
 
-  // ORG_POS phase-check vectors
+  // Update ORG_POS vectors used in phase-completion checks
   if (G._orgPosBase) {
     const b = G._orgPosBase;
     _applyPolar(ORG_POS.endosome,   b.endosome,   spin);
@@ -1764,28 +1752,6 @@ function updateOrganelleSpin() {
     b.lysosomes.forEach((pb, i)  => _applyPolar(ORG_POS.lysosomes[i],  pb, spin));
     b.ribCluster.forEach((pb, i) => _applyPolar(ORG_POS.ribCluster[i], pb, spin));
     b.mito.forEach((pb, i)       => _applyPolar(ORG_POS.mito[i],       pb, spin));
-  }
-
-  // Lysosome meshes + auras
-  if (G._lysosomeMeshes) {
-    G._lysosomeMeshes.forEach(m => {
-      const nx = Math.cos(m.userData._spinA + spin) * m.userData._spinR;
-      const nz = Math.sin(m.userData._spinA + spin) * m.userData._spinR;
-      m.position.x = nx; m.position.z = nz;
-      if (m.userData.aura) { m.userData.aura.position.x = nx; m.userData.aura.position.z = nz; }
-    });
-  }
-
-  // Ribosome InstancedMesh group
-  if (G._ribGroup) G._ribGroup.rotation.y = spin;
-
-  // Collectible ribosomes
-  if (G._ribCollectibles) {
-    G._ribCollectibles.forEach(c => {
-      if (c.userData.collected) return;
-      c.position.x = Math.cos(c.userData._spinA + spin) * c.userData._spinR;
-      c.position.z = Math.sin(c.userData._spinA + spin) * c.userData._spinR;
-    });
   }
 }
 
@@ -3412,7 +3378,8 @@ function checkCollectibles(px, pz) {
   if (!G._ribCollectibles) return;
   G._ribCollectibles.forEach(c => {
     if (c.userData.collected) return;
-    const dx = px - c.position.x, dz = pz - c.position.z;
+    const _cwp = new THREE.Vector3(); c.getWorldPosition(_cwp);
+    const dx = px - _cwp.x, dz = pz - _cwp.z;
     if (dx*dx + dz*dz < 4) {
       c.userData.collected = true;
       c.visible = false;
@@ -3479,9 +3446,11 @@ function checkDamageZones(dt) {
   const px = G.player.pos.x, pz = G.player.pos.z;
 
   // Lysosome contact damage — player takes 15 HP/sec while touching
+  const _lysoWP = new THREE.Vector3();
   if (G._lysosomeMeshes) {
     G._lysosomeMeshes.forEach(m => {
-      const dx = px - m.position.x, dz = pz - m.position.z;
+      m.getWorldPosition(_lysoWP);
+      const dx = px - _lysoWP.x, dz = pz - _lysoWP.z;
       if (dx*dx + dz*dz < 9) { // radius 3
         const dmg = 15 * dt;
         G.virusHP = Math.max(0, G.virusHP - dmg);
@@ -4505,7 +4474,7 @@ function buildNucleus() {
     });
   }
 
-  G.scene.add(tagWorld(group));
+  G._organelleGroup.add(tagWorld(group));
   G._nucleusGroup = group;
   G._nucleusOuterMesh = outer;
 
@@ -4528,7 +4497,7 @@ function buildEndosome() {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.position.copy(pos);
   mesh.position.y = 1;
-  G.scene.add(tagWorld(mesh));
+  G._organelleGroup.add(tagWorld(mesh));
 
   // Faint halo ring around endosome
   const haloGeo = new THREE.TorusGeometry(5.2, 0.2, 6, 32);
@@ -4539,7 +4508,7 @@ function buildEndosome() {
   const halo = new THREE.Mesh(haloGeo, haloMat);
   halo.rotation.x = Math.PI / 2;
   halo.position.set(pos.x, 0.3, pos.z);
-  G.scene.add(tagWorld(halo));
+  G._organelleGroup.add(tagWorld(halo));
 
   G._endosomeMesh = mesh;
   G._endosome = { mesh, halo, baseScale: 1.0 };
@@ -4583,7 +4552,7 @@ function buildER() {
     const curve = new THREE.CatmullRomCurve3(pts);
     const geo = new THREE.TubeGeometry(curve, 28, 0.55, 7, false);
     const mesh = new THREE.Mesh(geo, mat);
-    G.scene.add(tagWorld(mesh));
+    G._organelleGroup.add(tagWorld(mesh));
 
     // ER walls block LOS — approximate bounding sphere from midpoint
     const mid = curve.getPoint(0.5);
@@ -4606,7 +4575,7 @@ function buildER() {
   capPositions.forEach(p => {
     const cap = new THREE.Mesh(capGeo, capMat);
     cap.position.copy(p);
-    G.scene.add(tagWorld(cap));
+    G._organelleGroup.add(tagWorld(cap));
   });
 
   // Position ER light at the center of the ER zone
@@ -4652,7 +4621,7 @@ function buildGolgi() {
     group.add(b);
   });
 
-  G.scene.add(tagWorld(group));
+  G._organelleGroup.add(tagWorld(group));
   G._golgiGroup = group;
 
   const worldCenter = pos.clone();
@@ -4692,7 +4661,7 @@ function buildRibosomes() {
     }
   });
   iMesh.instanceMatrix.needsUpdate = true;
-  G.scene.add(tagWorld(iMesh));
+  G._organelleGroup.add(tagWorld(iMesh));
   G._ribosomeMesh = iMesh;
 
   // 5 highlighted collectible ribosomes (separate meshes so they can be removed)
@@ -4722,7 +4691,7 @@ function buildRibosomes() {
     const ring = new THREE.Mesh(ringGeo, ringMat);
     ring.rotation.x = Math.PI / 2;
     c.add(ring);
-    G.scene.add(tagWorld(c));
+    G._organelleGroup.add(tagWorld(c));
     G._ribCollectibles.push(c);
   });
 
@@ -4743,7 +4712,7 @@ function buildLysosomes() {
     const mesh = new THREE.Mesh(geo, mat);
     mesh.position.copy(pos);
     mesh.position.y = 1.2;
-    G.scene.add(tagWorld(mesh));
+    G._organelleGroup.add(tagWorld(mesh));
     G._lysosomeMeshes.push(mesh);
 
     // Danger aura — subtle outer glow sphere
@@ -4755,7 +4724,7 @@ function buildLysosomes() {
     const aura = new THREE.Mesh(auraGeo, auraMat);
     aura.position.copy(pos);
     aura.position.y = 1.2;
-    G.scene.add(tagWorld(aura));
+    G._organelleGroup.add(tagWorld(aura));
     mesh.userData.aura = aura;
 
     // Not in G.organelles for LOS (player passes near them on purpose)
@@ -4804,7 +4773,7 @@ function buildMitochondria() {
     group.position.copy(pos);
     group.position.y = 2;
     group.userData.mitoIndex = i;
-    G.scene.add(tagWorld(group));
+    G._organelleGroup.add(tagWorld(group));
 
     G.organelles.push({ type: 'mito', mesh: group, center: pos.clone(), radius: 4.5, blocksLOS: true });
   });
