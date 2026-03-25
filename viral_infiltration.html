@@ -1811,8 +1811,12 @@ function buildFloor() {
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -0.05;
   floor.receiveShadow = true;
-  G.scene.add(tagWorld(floor));
-  G._floorMesh = floor; // keep ref for UV animation
+  // Wrap in a group so we can spin it around world-Y with the membrane
+  const floorGroup = new THREE.Group();
+  floorGroup.add(floor);
+  G.scene.add(tagWorld(floorGroup));
+  G._floorMesh = floor;      // keep ref for UV animation
+  G._floorGroup = floorGroup; // keep ref for spin
 }
 
 // Animate floor UV offset each frame (called from updateParticles)
@@ -1822,6 +1826,10 @@ function animateFloor(dt) {
   _floorOffsetY += dt * 0.0025;
   _floorTexture.offset.set(_floorOffsetX, _floorOffsetY);
   _floorTexture.needsUpdate = false; // CanvasTexture only needs needsUpdate when canvas changes
+  // Spin floor group with the membrane
+  if (G._floorGroup && G._cellSpinAngle !== undefined) {
+    G._floorGroup.rotation.y = G._cellSpinAngle;
+  }
 }
 
 // ── Cytoskeleton Filaments ────────────────────────────────────────────────
