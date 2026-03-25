@@ -1605,7 +1605,8 @@ function updateHUD() {
   document.getElementById('phaseName').textContent = `Phase ${G.phase + 1} · ${pd.name}`;
   document.getElementById('objective').textContent = pd.objective;
 
-  // Alert meter
+  // Alert meter — hidden during Phase 0 (not relevant to the gauntlet)
+  document.getElementById('alertHud').style.display = G.phase === 0 ? 'none' : '';
   const fill = document.getElementById('alertFill');
   fill.style.width = G.alertMeter + '%';
   fill.className = ['', 'tier1', 'tier2', 'tier3'][G.alertTier];
