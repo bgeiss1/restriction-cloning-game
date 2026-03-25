@@ -3959,24 +3959,33 @@ function updatePlayer(dt) {
   const sneaking = G.keys.has('ShiftLeft') || G.keys.has('ShiftRight');
   G.player.sneaking = sneaking;
 
-  let speed = (sneaking ? 4.0 : 8.0) * vt.speedMult;
+  let speed = (sneaking ? 4.4 : 8.8) * vt.speedMult;  // +10%
   if (G.player.boosted) speed *= 1.5;
 
-  let vx = 0, vz = 0;
-  if (G.keys.has('KeyW') || G.keys.has('ArrowUp'))    vz -= 1;
-  if (G.keys.has('KeyS') || G.keys.has('ArrowDown'))  vz += 1;
-  if (G.keys.has('KeyA') || G.keys.has('ArrowLeft'))  vx -= 1;
-  if (G.keys.has('KeyD') || G.keys.has('ArrowRight')) vx += 1;
+  let inputX = 0, inputZ = 0;
+  if (G.keys.has('KeyW') || G.keys.has('ArrowUp'))    inputZ -= 1;
+  if (G.keys.has('KeyS') || G.keys.has('ArrowDown'))  inputZ += 1;
+  if (G.keys.has('KeyA') || G.keys.has('ArrowLeft'))  inputX -= 1;
+  if (G.keys.has('KeyD') || G.keys.has('ArrowRight')) inputX += 1;
 
   // Normalize diagonal movement
-  if (vx !== 0 && vz !== 0) { vx *= 0.7071; vz *= 0.7071; }
+  if (inputX !== 0 && inputZ !== 0) { inputX *= 0.7071; inputZ *= 0.7071; }
 
-  const moving = (vx !== 0 || vz !== 0);
-  if (moving) {
-    vx *= speed; vz *= speed;
-    G.player.facing = Math.atan2(vx, vz);
-  }
-  G.player.vel = { x: vx, z: vz };
+  // Inertia: lerp velocity toward input target (tau = 0.2s — slippery feel)
+  const targetVx = inputX * speed;
+  const targetVz = inputZ * speed;
+  const lerpF = 1 - Math.exp(-dt / 0.2);
+  if (!G.player.vel) G.player.vel = { x: 0, z: 0 };
+  G.player.vel.x += (targetVx - G.player.vel.x) * lerpF;
+  G.player.vel.z += (targetVz - G.player.vel.z) * lerpF;
+
+  const vx = G.player.vel.x;
+  const vz = G.player.vel.z;
+  const velMag = Math.sqrt(vx * vx + vz * vz);
+
+  // Face direction of actual velocity (not raw input)
+  if (velMag > 0.5) G.player.facing = Math.atan2(vx, vz);
+  const moving = velMag > 0.5;
 
   // ── Proposed new position ─────────────────────────────────────────────
   let nx = G.player.pos.x + vx * dt;
