@@ -1732,9 +1732,11 @@ function buildMembrane() {
     0xaa00ff,   // wrong type (decoy)
   ];
   G.receptors = [];
+  G._cellSpinAngle = 0;
+  G._receptorCycle = { timer: 0, interval: 5, fadeT: 0, state: 'visible' };
   receptorAngles.forEach((angle, i) => {
-    const rx = Math.cos(angle) * 47.2;
-    const rz = Math.sin(angle) * 47.2;
+    const rx = Math.cos(angle) * 49.5;
+    const rz = Math.sin(angle) * 49.5;
     const rGeo = new THREE.SphereGeometry(1.4, 12, 12);
     const rMat = new THREE.MeshPhongMaterial({
       color: receptorColors[i],
@@ -1748,7 +1750,7 @@ function buildMembrane() {
     rMesh.userData.receptorIndex = i;
     rMesh.userData.correct = (i === 0);
     G.scene.add(tagWorld(rMesh));
-    G.receptors.push({ mesh: rMesh, pos: { x: rx, z: rz }, correct: i === 0 });
+    G.receptors.push({ mesh: rMesh, pos: { x: rx, z: rz }, correct: i === 0, baseAngle: angle });
   });
 
   // Store membrane light position at the ring
@@ -4758,13 +4760,58 @@ function updateOrganelleAnimations(dt) {
     });
   }
 
-  // Receptor sites on membrane — pulse emissive
-  if (G.receptors) {
+  // ── Receptor animation: spin + disappear/reappear cycle ─────────────────
+  if (G.receptors && G._receptorCycle !== undefined) {
+    // Slow cell spin
+    G._cellSpinAngle += dt * 0.12; // ~7°/s, full revolution ~52s
+
+    // Disappear / reappear cycle
+    const cyc = G._receptorCycle;
+    cyc.timer += dt;
+    const FADE_DUR = 0.4;
+    if (cyc.state === 'visible' && cyc.timer >= cyc.interval) {
+      cyc.state = 'fading_out'; cyc.fadeT = 0; cyc.timer = 0;
+    } else if (cyc.state === 'fading_out') {
+      cyc.fadeT += dt;
+      const p = Math.min(cyc.fadeT / FADE_DUR, 1);
+      G.receptors.forEach((rec, i) => {
+        rec.mesh.material.opacity = (1 - p) * (i === 0 ? 0.95 : 0.55);
+      });
+      if (p >= 1) {
+        // Reassign random base angles, keeping angular spacing ≥1.2 rad
+        const angles = [];
+        while (angles.length < G.receptors.length) {
+          const a = Math.random() * Math.PI * 2;
+          if (angles.every(b => Math.abs(((a - b + Math.PI) % (Math.PI*2)) - Math.PI) > 1.2)) angles.push(a);
+        }
+        G.receptors.forEach((rec, i) => { rec.baseAngle = angles[i]; });
+        cyc.state = 'fading_in'; cyc.fadeT = 0;
+      }
+    } else if (cyc.state === 'fading_in') {
+      cyc.fadeT += dt;
+      const p = Math.min(cyc.fadeT / FADE_DUR, 1);
+      G.receptors.forEach((rec, i) => {
+        rec.mesh.material.opacity = p * (i === 0 ? 0.95 : 0.55);
+      });
+      if (p >= 1) { cyc.state = 'visible'; cyc.timer = 0; }
+    }
+
+    // Update world positions from spin + base angle
     G.receptors.forEach((rec, i) => {
+      const angle = rec.baseAngle + G._cellSpinAngle;
+      const rx = Math.cos(angle) * 49.5;
+      const rz = Math.sin(angle) * 49.5;
+      rec.pos.x = rx; rec.pos.z = rz;
       const base = i === 0 ? 1.0 : 0.4;
       rec.mesh.material.emissiveIntensity = base + 0.3 * Math.sin(t * 2.2 + i * 2.1);
-      rec.mesh.position.y = 0.8 + Math.sin(t * 1.5 + i * 1.8) * 0.2;
+      rec.mesh.position.set(rx, 0.8 + Math.sin(t * 1.5 + i * 1.8) * 0.2, rz);
     });
+
+    // Keep beacon tracking the correct receptor
+    if (G._beaconGroup && G.receptors[0]) {
+      const r0 = G.receptors[0];
+      G._beaconGroup.position.set(r0.pos.x, 0, r0.pos.z);
+    }
   }
 }
 // checkPhaseCompletion and checkDamageZones defined in Section 6 above
