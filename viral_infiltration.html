@@ -3911,8 +3911,10 @@ function buildPlayer() {
   group.add(pLight);
   G._playerLight = pLight;
 
-  // Starting position — far right of rectangular extracellular space
-  const startX = 76, startZ = 0;
+  // Starting position — far right edge of visible screen
+  const _b0 = (G.camera && typeof computePhase0Bounds === 'function')
+    ? computePhase0Bounds(8) : { xmax: AB_RECT_XMAX };
+  const startX = _b0.xmax - 4, startZ = 0;
   group.position.set(startX, 0.8, startZ);
   G.player.pos     = { x: startX, z: startZ };
   G.player.vel     = { x: 0, z: 0 };
@@ -3959,7 +3961,7 @@ function updatePlayer(dt) {
   const sneaking = G.keys.has('ShiftLeft') || G.keys.has('ShiftRight');
   G.player.sneaking = sneaking;
 
-  let speed = (sneaking ? 4.4 : 8.8) * vt.speedMult;  // +10%
+  let speed = (sneaking ? 5.28 : 10.56) * vt.speedMult;  // +10% then +20%
   if (G.player.boosted) speed *= 1.5;
 
   let inputX = 0, inputZ = 0;
@@ -3974,7 +3976,7 @@ function updatePlayer(dt) {
   // Inertia: lerp velocity toward input target (tau = 0.2s — slippery feel)
   const targetVx = inputX * speed;
   const targetVz = inputZ * speed;
-  const lerpF = 1 - Math.exp(-dt / 0.24);
+  const lerpF = 1 - Math.exp(-dt / 0.288);  // τ +20% from 0.24s
   if (!G.player.vel) G.player.vel = { x: 0, z: 0 };
   G.player.vel.x += (targetVx - G.player.vel.x) * lerpF;
   G.player.vel.z += (targetVz - G.player.vel.z) * lerpF;
@@ -4013,6 +4015,13 @@ function updatePlayer(dt) {
         const ang0 = Math.atan2(nz, nx);
         nx = Math.cos(ang0) * 48;
         nz = Math.sin(ang0) * 48;
+        // Reflect velocity off membrane and double it (2× bounce)
+        const normX = Math.cos(ang0), normZ = Math.sin(ang0); // outward normal
+        const dot = G.player.vel.x * normX + G.player.vel.z * normZ;
+        if (dot < 0) { // moving inward — reflect and boost
+          G.player.vel.x = (G.player.vel.x - 2 * dot * normX) * 2;
+          G.player.vel.z = (G.player.vel.z - 2 * dot * normZ) * 2;
+        }
       }
     }
   } else if (G.phase === 1) {
