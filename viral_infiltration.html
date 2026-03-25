@@ -3911,10 +3911,10 @@ function buildPlayer() {
   group.add(pLight);
   G._playerLight = pLight;
 
-  // Starting position — far right edge of visible screen
+  // Starting position — right edge of visible screen, vertically centered
   const _b0 = (G.camera && typeof computePhase0Bounds === 'function')
-    ? computePhase0Bounds(8) : { xmax: AB_RECT_XMAX };
-  const startX = _b0.xmax - 4, startZ = 0;
+    ? computePhase0Bounds(0) : { xmax: AB_RECT_XMAX };
+  const startX = _b0.xmax - 6, startZ = 0;
   group.position.set(startX, 0.8, startZ);
   G.player.pos     = { x: startX, z: startZ };
   G.player.vel     = { x: 0, z: 0 };
