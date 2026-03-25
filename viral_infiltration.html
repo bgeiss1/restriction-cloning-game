@@ -1204,6 +1204,7 @@ const G = {
     cloakTimer: 0,
     boostTimer: 0,
     hasUncoated: false,  // envelope removed in phase 2
+    rbcBindCount: 0,     // number of RBCs currently bound via HA-sialic acid
   },
 
   // Power-ups
@@ -1481,12 +1482,14 @@ function startGame() {
   G.activeDecoys = [];
   G.collectibles = [];
   G.powerUps = { decoy: 1, cloak: 1, protease: 1 };
-  G.player.hasUncoated = false;
-  G.player.cloaked = false;
-  G.player.boosted = false;
-  G.player.cloakTimer = 0;
+  G.player.hasUncoated  = false;
+  G.player.cloaked      = false;
+  G.player.boosted      = false;
+  G.player.cloakTimer   = 0;
   G.player.boostTimer   = 0;
   G.player.inCover      = false;
+  G.player.rbcBindCount = 0;
+  G._rbcBindToastShown  = false;
   G._replicationStarted = false;
   G._phase5GoToGolgi    = false;
   G._abField            = null;
@@ -2722,6 +2725,12 @@ const AB_RECT_ZMAX    =  44;
 const AB_BIND_DIST    = 2.4;   // proximity (units) that triggers antibody binding
 const AB_IgM_DURATION = 5.0;   // seconds an IgM remains bound before releasing
 const AB_SITES        = 8;     // virion binding sites
+// Erythrocyte hemagglutination binding constants
+const RBC_BIND_DIST     = 4.5; // center-to-center distance to trigger HA→sialic acid bond
+const RBC_BIND_DURATION = 4.0; // seconds before neuraminidase cleaves the bond
+const RBC_BIND_COOLDOWN = 8.0; // per-RBC cooldown after release
+const RBC_SPEED_MULT    = 0.30; // speed fraction per bound RBC (strong drag)
+const RBC_MAX_BINDS     = 2;   // max simultaneous RBC attachments
 const AB_NON_COLORS   = [0x2196f3, 0xaaaaaa, 0xe91e63, 0x00bcd4, 0x8bc34a];
 const AB_IgG_COUNT    = 54;    // total IgG antibodies in field (3× original)
 const AB_IgM_COUNT    = 120;   // total IgM antibodies in field (10× original)
@@ -3161,11 +3170,29 @@ function updateCrowdAntibodies(dt) {
   });
 }
 
-// ── Erythrocytes (red blood cells) — decorative biconcave discs ──────────────
-// Drift slowly through the extracellular space, filling the screen around the cell.
+// ── Erythrocytes (red blood cells) — true biconcave discs with HA-binding ───
+// Drift through extracellular space; HA on virion surface binds sialic acid on
+// RBC glycoproteins (hemagglutination). Neuraminidase eventually cleaves the bond.
 function buildErythrocytes() {
-  const N   = 40;
-  const geo = new THREE.SphereGeometry(2.2, 10, 6);
+  const N = 40;
+
+  // True biconcave disc profile: LatheGeometry revolved around Y axis.
+  // Points are (radius, height) tracing the outer boundary from top-center → rim → bottom-center.
+  const profile = [
+    new THREE.Vector2(0.00,  0.28),  // center top — floor of dimple
+    new THREE.Vector2(0.60,  0.14),  // entering concavity
+    new THREE.Vector2(1.10,  0.04),  // deepest concavity
+    new THREE.Vector2(1.70,  0.42),  // rising toward rim
+    new THREE.Vector2(2.00,  0.50),  // rim peak
+    new THREE.Vector2(2.20,  0.30),  // outer edge top
+    new THREE.Vector2(2.20, -0.30),  // outer edge bottom
+    new THREE.Vector2(2.00, -0.50),  // rim peak bottom
+    new THREE.Vector2(1.70, -0.42),  // descending from bottom rim
+    new THREE.Vector2(1.10, -0.04),  // bottom concavity
+    new THREE.Vector2(0.60, -0.14),  // bottom concavity approaching center
+    new THREE.Vector2(0.00, -0.28),  // center bottom — floor of bottom dimple
+  ];
+  const geo = new THREE.LatheGeometry(profile, 18);
   const mat = new THREE.MeshPhongMaterial({
     color: 0xcc1a00, emissive: 0x5a0000, emissiveIntensity: 0.25,
     transparent: true, opacity: 0.80,
@@ -3176,6 +3203,7 @@ function buildErythrocytes() {
 
   const dummy = new THREE.Object3D();
   const pos = [], vel = [], rotY = [], tiltX = [], tiltZ = [];
+  const bound = [], bindTimer = [], rbcCooldown = [];
   const b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
 
   for (let i = 0; i < N; i++) {
@@ -3183,59 +3211,124 @@ function buildErythrocytes() {
     do {
       x = b.xmin + Math.random() * (b.xmax - b.xmin);
       z = b.zmin + Math.random() * (b.zmax - b.zmin);
-    } while (Math.sqrt(x*x + z*z) < 54); // stay outside the plasma membrane
+    } while (Math.sqrt(x*x + z*z) < 54); // stay outside plasma membrane
 
     const y = 0.5 + Math.random() * 2.8;
     pos.push({ x, y, z });
     vel.push({ x: (Math.random()-0.5) * 1.0, z: (Math.random()-0.5) * 1.0 });
     rotY.push(Math.random() * Math.PI * 2);
-    tiltX.push(Math.PI * (0.2 + Math.random() * 0.6)); // random face tilt
+    tiltX.push(Math.PI * (0.2 + Math.random() * 0.6));
     tiltZ.push((Math.random()-0.5) * 0.6);
+    bound.push(false);
+    bindTimer.push(0);
+    rbcCooldown.push(0);
 
     dummy.position.set(x, y, z);
     dummy.rotation.set(tiltX[i], rotY[i], tiltZ[i]);
-    dummy.scale.set(1, 0.28, 1); // flatten into biconcave disc
+    dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
     inst.setMatrixAt(i, dummy.matrix);
   }
   inst.instanceMatrix.needsUpdate = true;
-  G._erythrocytes = { inst, dummy: new THREE.Object3D(), pos, vel, rotY, tiltX, tiltZ };
+  G._erythrocytes = { inst, dummy: new THREE.Object3D(), pos, vel, rotY, tiltX, tiltZ, bound, bindTimer, rbcCooldown };
 }
 
 function updateErythrocytes(dt) {
   if (!G._erythrocytes) return;
-  const { inst, dummy, pos, vel, rotY, tiltX, tiltZ } = G._erythrocytes;
+  const { inst, dummy, pos, vel, rotY, tiltX, tiltZ, bound, bindTimer, rbcCooldown } = G._erythrocytes;
   const b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
+  const pp = G.player.pos;
+
+  // Count binds from last frame so we can gate new ones without double-binding in one pass
+  let totalBound = 0;
+  for (let i = 0; i < bound.length; i++) if (bound[i]) totalBound++;
+
+  let newBind = false, newRelease = false;
 
   for (let i = 0; i < pos.length; i++) {
     const p = pos[i], v = vel[i];
-    p.x += v.x * dt;
-    p.z += v.z * dt;
-    // Push away from cell membrane
-    const r = Math.sqrt(p.x*p.x + p.z*p.z);
-    if (r < 54) {
-      const a = Math.atan2(p.z, p.x);
-      v.x += Math.cos(a) * 2 * dt;
-      v.z += Math.sin(a) * 2 * dt;
-    }
-    // Soft outer wall bounce
-    if (p.x < b.xmin + 5) v.x += 2*dt;
-    if (p.x > b.xmax - 5) v.x -= 2*dt;
-    if (p.z < b.zmin + 5) v.z += 2*dt;
-    if (p.z > b.zmax - 5) v.z -= 2*dt;
-    // Speed cap (RBCs drift slowly)
-    const spd = Math.sqrt(v.x*v.x + v.z*v.z);
-    if (spd > 1.2) { v.x = v.x/spd*1.2; v.z = v.z/spd*1.2; }
 
-    rotY[i] += 0.25 * dt; // slow tumble
+    // Advance cooldown timer
+    if (rbcCooldown[i] > 0) rbcCooldown[i] = Math.max(0, rbcCooldown[i] - dt);
+
+    if (bound[i]) {
+      // ── Bound: pull RBC toward player (visual attachment) ──────────────
+      bindTimer[i] -= dt;
+      const dx = pp.x - p.x, dz = pp.z - p.z;
+      const d  = Math.sqrt(dx*dx + dz*dz);
+      if (d > 0.1) {
+        p.x += dx * Math.min(1, 5 * dt);
+        p.z += dz * Math.min(1, 5 * dt);
+      }
+      // Dampen own velocity — RBC is carried with the player cluster
+      v.x *= Math.max(0, 1 - 5 * dt);
+      v.z *= Math.max(0, 1 - 5 * dt);
+      rotY[i] += 0.08 * dt; // slower tumble while bound
+
+      if (bindTimer[i] <= 0) {
+        // Neuraminidase cleaved the sialic acid bond
+        bound[i] = false;
+        rbcCooldown[i] = RBC_BIND_COOLDOWN;
+        totalBound--;
+        // Give RBC a gentle push away from player
+        const ang = Math.atan2(p.z - pp.z, p.x - pp.x);
+        v.x = Math.cos(ang) * 1.2;
+        v.z = Math.sin(ang) * 1.2;
+        newRelease = true;
+      }
+    } else {
+      // ── Drifting: normal movement physics ──────────────────────────────
+      p.x += v.x * dt;
+      p.z += v.z * dt;
+      // Push away from cell membrane
+      const r = Math.sqrt(p.x*p.x + p.z*p.z);
+      if (r < 54) {
+        const a = Math.atan2(p.z, p.x);
+        v.x += Math.cos(a) * 2 * dt;
+        v.z += Math.sin(a) * 2 * dt;
+      }
+      // Soft outer wall bounce
+      if (p.x < b.xmin + 5) v.x += 2*dt;
+      if (p.x > b.xmax - 5) v.x -= 2*dt;
+      if (p.z < b.zmin + 5) v.z += 2*dt;
+      if (p.z > b.zmax - 5) v.z -= 2*dt;
+      // Speed cap
+      const spd = Math.sqrt(v.x*v.x + v.z*v.z);
+      if (spd > 1.2) { v.x = v.x/spd*1.2; v.z = v.z/spd*1.2; }
+      rotY[i] += 0.25 * dt;
+
+      // ── HA-sialic acid bind check ───────────────────────────────────────
+      if (rbcCooldown[i] <= 0 && totalBound < RBC_MAX_BINDS) {
+        const dx = pp.x - p.x, dz = pp.z - p.z;
+        if (dx*dx + dz*dz < RBC_BIND_DIST * RBC_BIND_DIST) {
+          bound[i]     = true;
+          bindTimer[i] = RBC_BIND_DURATION;
+          totalBound++;
+          newBind = true;
+        }
+      }
+    }
 
     dummy.position.set(p.x, p.y, p.z);
     dummy.rotation.set(tiltX[i], rotY[i], tiltZ[i]);
-    dummy.scale.set(1, 0.28, 1);
+    dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
     inst.setMatrixAt(i, dummy.matrix);
   }
   inst.instanceMatrix.needsUpdate = true;
+
+  // Sync bind count to player state
+  G.player.rbcBindCount = totalBound;
+
+  // Toast feedback (first bind only until fully released, then rearm)
+  if (newBind && !G._rbcBindToastShown) {
+    showToast('RBC captured by HA — neuraminidase cleaving…', 'warn', 3200);
+    G._rbcBindToastShown = true;
+  }
+  if (newRelease && totalBound === 0) {
+    showToast('NA cleaved sialic acid — released!', 'info', 2000);
+    G._rbcBindToastShown = false;
+  }
 }
 
 function clearErythrocytes() {
@@ -4067,6 +4160,9 @@ function updatePlayer(dt) {
 
   let speed = (sneaking ? 5.28 : 10.56) * vt.speedMult;  // +10% then +20%
   if (G.player.boosted) speed *= 1.5;
+  // RBC hemagglutination drag: each bound RBC multiplies speed by RBC_SPEED_MULT
+  const rbcBinds = (G.phase === 0 && G.player.rbcBindCount > 0) ? G.player.rbcBindCount : 0;
+  if (rbcBinds > 0) speed *= Math.pow(RBC_SPEED_MULT, rbcBinds);
 
   let inputX = 0, inputZ = 0;
   if (G.keys.has('KeyW') || G.keys.has('ArrowUp'))    inputZ -= 1;
@@ -5169,6 +5265,7 @@ function initHUDExtras() {
   makeBadge('badgeCloak',  '◉ Cloaked', '#ce93d8');
   makeBadge('badgeBoost',  '▶ Boosted', '#ffcc02');
   makeBadge('badgeAlert',  '⚠ Alerted', '#ff9800');
+  makeBadge('badgeRBC',    '⊕ HA Bound','#ff5555');
 }
 
 function updateHUDExtras() {
@@ -5177,7 +5274,7 @@ function updateHUDExtras() {
     if (el) el.style.display = visible ? 'block' : 'none';
   };
   if (G.state !== 'PLAYING') {
-    ['badgeCover','badgeSneak','badgeCloak','badgeBoost','badgeAlert'].forEach(id => show(id, false));
+    ['badgeCover','badgeSneak','badgeCloak','badgeBoost','badgeAlert','badgeRBC'].forEach(id => show(id, false));
     return;
   }
   show('badgeCover',  G.player.inCover);
@@ -5185,6 +5282,12 @@ function updateHUDExtras() {
   show('badgeCloak',  G.player.cloaked);
   show('badgeBoost',  G.player.boosted);
   show('badgeAlert',  G.guards.some(g => g.alertState === 'chase'));
+  const rbcN = (G.phase === 0 && G.player.rbcBindCount > 0) ? G.player.rbcBindCount : 0;
+  show('badgeRBC', rbcN > 0);
+  if (rbcN > 0) {
+    const el = document.getElementById('badgeRBC');
+    if (el) el.textContent = rbcN > 1 ? `⊕ HA Bound ×${rbcN}` : '⊕ HA Bound';
+  }
 
   // Cloak badge: show remaining time
   if (G.player.cloaked) {
