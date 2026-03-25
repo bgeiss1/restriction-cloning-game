@@ -789,7 +789,8 @@
       <div class="mode-label">Jeopardy! – PCR Edition</div>
       <div class="mode-desc">Earn dNTPs by answering PCR questions. Reach the target to start your reaction — Hot Start wagers included!</div>
     </a>
-    <a class="mode-btn" href="viral_infiltration.html" style="text-decoration:none;">
+    <button class="mode-btn" onclick="viralLock()" style="text-decoration:none;cursor:pointer;background:none;border:1px solid rgba(200,169,81,0.25);position:relative;">
+      <span style="position:absolute;top:8px;right:8px;background:#7c4dff;color:#fff;font-size:9px;font-weight:700;letter-spacing:0.05em;padding:2px 7px;border-radius:10px;text-transform:uppercase;">In Progress!</span>
       <div class="mode-icon">
         <svg viewBox="0 0 80 80" width="58" height="58" xmlns="http://www.w3.org/2000/svg" style="display:block;margin:0 auto;">
           <!-- Host cell outline -->
@@ -812,7 +813,26 @@
       </div>
       <div class="mode-label">Viral Infiltration</div>
       <div class="mode-desc">Sneak a virus through host cell defenses and complete the replication cycle — without triggering the immune alarm.</div>
-    </a>
+    </button>
+
+    <!-- Viral Infiltration password modal -->
+    <div id="viralModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:9999;align-items:center;justify-content:center;">
+      <div style="background:#111c15;border:1px solid rgba(200,169,81,0.35);border-radius:14px;padding:28px 28px 22px;width:min(320px,90vw);text-align:center;">
+        <div style="font-size:1.6rem;margin-bottom:6px;">🔒</div>
+        <div style="color:#C8A951;font-weight:700;font-size:1.1rem;margin-bottom:6px;">Viral Infiltration</div>
+        <div style="color:#a8c5a0;font-size:0.82rem;margin-bottom:16px;">This game is still in development.<br>Enter the access code to continue.</div>
+        <input id="viralPwInput" type="password" placeholder="Access code" autocomplete="off"
+          style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:8px;border:1px solid rgba(200,169,81,0.3);background:#1E4D2B;color:#e8f5e9;font-size:1rem;text-align:center;outline:none;margin-bottom:8px;"
+          onkeydown="if(event.key==='Enter')viralUnlock()">
+        <div id="viralPwErr" style="color:#EF5350;font-size:0.8rem;min-height:18px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:10px;">
+          <button onclick="document.getElementById('viralModal').style.display='none'"
+            style="flex:1;padding:10px;border-radius:8px;border:1.5px solid rgba(200,169,81,0.28);background:none;color:#a8c5a0;font-size:0.9rem;cursor:pointer;">Cancel</button>
+          <button onclick="viralUnlock()"
+            style="flex:1;padding:10px;border-radius:8px;border:none;background:#C8A951;color:#1a1a00;font-size:0.9rem;font-weight:700;cursor:pointer;">Enter</button>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2277,6 +2297,29 @@ const CHALLENGE_LEVELS = [{"id":"chal_01","title":"Speed Clone: GFP in 120s","de
 
 Game.init(TUTORIAL_LEVELS, CHALLENGE_LEVELS);
 UI.init();
+
+function viralLock() {
+  const modal = document.getElementById('viralModal');
+  document.getElementById('viralPwInput').value = '';
+  document.getElementById('viralPwErr').textContent = '';
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('viralPwInput').focus(), 50);
+}
+function viralUnlock() {
+  const val = document.getElementById('viralPwInput').value.trim();
+  if (val === 'MIP') {
+    document.getElementById('viralModal').style.display = 'none';
+    window.location.href = 'viral_infiltration.html';
+  } else {
+    document.getElementById('viralPwErr').textContent = 'Incorrect code.';
+    document.getElementById('viralPwInput').value = '';
+    document.getElementById('viralPwInput').focus();
+  }
+}
+// Close modal on backdrop click
+document.getElementById('viralModal').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
 </script>
 
 </body>
