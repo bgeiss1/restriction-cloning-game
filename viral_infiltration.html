@@ -2825,6 +2825,10 @@ function buildPhase1AntibodyField() {
   const nIgM = Math.round(AB_IgM_COUNT * AB_NEUTRAL_FRAC);
   for (let i = 0; i < AB_IgM_COUNT; i++) spawnAb('IgM', i < nIgM);
 
+  // Store spawn function so the update loop can add reinforcements over time
+  G._abField.spawnAb    = spawnAb;
+  G._abField.spawnTimer = 0;
+
   buildAntibodyCrowd();
   buildErythrocytes();
 
@@ -2843,6 +2847,18 @@ function updatePhase1Antibodies(dt) {
   if (!G._abField || !G._abField.active || G._abField.failPending) return;
   const px = G.player.pos.x, pz = G.player.pos.z;
   const t  = G.totalTime;
+
+  // ── Timed reinforcements: +3 neutralizing IgM and +1 neutralizing IgG per second ──
+  if (G._abField.spawnAb) {
+    G._abField.spawnTimer += dt;
+    while (G._abField.spawnTimer >= 1.0) {
+      G._abField.spawnTimer -= 1.0;
+      G._abField.spawnAb('IgM', true);
+      G._abField.spawnAb('IgM', true);
+      G._abField.spawnAb('IgM', true);
+      G._abField.spawnAb('IgG', true);
+    }
+  }
 
   G._abField.antibodies.forEach(ab => {
     if (ab.boundSite !== null) {
