@@ -2726,7 +2726,7 @@ const AB_BIND_DIST    = 2.4;   // proximity (units) that triggers antibody bindi
 const AB_IgM_DURATION = 5.0;   // seconds an IgM remains bound before releasing
 const AB_SITES        = 8;     // virion binding sites
 // Erythrocyte hemagglutination binding constants
-const RBC_BIND_DIST     = 4.5; // center-to-center distance to trigger HA→sialic acid bond
+const RBC_BIND_DIST     = 6.5; // center-to-center distance to trigger HA→sialic acid bond
 const RBC_BIND_DURATION = 4.0; // seconds before neuraminidase cleaves the bond
 const RBC_BIND_COOLDOWN = 8.0; // per-RBC cooldown after release
 const RBC_SPEED_MULT    = 0.30; // speed fraction per bound RBC (strong drag)
@@ -3179,18 +3179,18 @@ function buildErythrocytes() {
   // True biconcave disc profile: LatheGeometry revolved around Y axis.
   // Points are (radius, height) tracing the outer boundary from top-center → rim → bottom-center.
   const profile = [
-    new THREE.Vector2(0.00,  0.28),  // center top — floor of dimple
-    new THREE.Vector2(0.60,  0.14),  // entering concavity
-    new THREE.Vector2(1.10,  0.04),  // deepest concavity
-    new THREE.Vector2(1.70,  0.42),  // rising toward rim
-    new THREE.Vector2(2.00,  0.50),  // rim peak
-    new THREE.Vector2(2.20,  0.30),  // outer edge top
-    new THREE.Vector2(2.20, -0.30),  // outer edge bottom
-    new THREE.Vector2(2.00, -0.50),  // rim peak bottom
-    new THREE.Vector2(1.70, -0.42),  // descending from bottom rim
-    new THREE.Vector2(1.10, -0.04),  // bottom concavity
-    new THREE.Vector2(0.60, -0.14),  // bottom concavity approaching center
-    new THREE.Vector2(0.00, -0.28),  // center bottom — floor of bottom dimple
+    new THREE.Vector2(0.00,  0.56),  // center top — floor of dimple
+    new THREE.Vector2(1.20,  0.28),  // entering concavity
+    new THREE.Vector2(2.20,  0.08),  // deepest concavity
+    new THREE.Vector2(3.40,  0.84),  // rising toward rim
+    new THREE.Vector2(4.00,  1.00),  // rim peak
+    new THREE.Vector2(4.40,  0.60),  // outer edge top
+    new THREE.Vector2(4.40, -0.60),  // outer edge bottom
+    new THREE.Vector2(4.00, -1.00),  // rim peak bottom
+    new THREE.Vector2(3.40, -0.84),  // descending from bottom rim
+    new THREE.Vector2(2.20, -0.08),  // bottom concavity
+    new THREE.Vector2(1.20, -0.28),  // bottom concavity approaching center
+    new THREE.Vector2(0.00, -0.56),  // center bottom — floor of bottom dimple
   ];
   const geo = new THREE.LatheGeometry(profile, 18);
   const mat = new THREE.MeshPhongMaterial({
