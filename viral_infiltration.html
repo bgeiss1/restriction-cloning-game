@@ -2848,15 +2848,24 @@ function updatePhase1Antibodies(dt) {
   const px = G.player.pos.x, pz = G.player.pos.z;
   const t  = G.totalTime;
 
-  // ── Timed reinforcements: +3 neutralizing IgM and +1 neutralizing IgG per second ──
+  // ── Timed reinforcements ─────────────────────────────────────────────
+  // 0–15s:  +3 IgM + 1 IgG per second
+  // 15s+:   +0 IgM + 6 IgG per second (IgG wave)
   if (G._abField.spawnAb) {
+    if (!G._abField.elapsed) G._abField.elapsed = 0;
+    G._abField.elapsed   += dt;
     G._abField.spawnTimer += dt;
+    const late = G._abField.elapsed >= 15;
     while (G._abField.spawnTimer >= 1.0) {
       G._abField.spawnTimer -= 1.0;
-      G._abField.spawnAb('IgM', true);
-      G._abField.spawnAb('IgM', true);
-      G._abField.spawnAb('IgM', true);
-      G._abField.spawnAb('IgG', true);
+      if (!late) {
+        G._abField.spawnAb('IgM', true);
+        G._abField.spawnAb('IgM', true);
+        G._abField.spawnAb('IgM', true);
+        G._abField.spawnAb('IgG', true);
+      } else {
+        for (let i = 0; i < 6; i++) G._abField.spawnAb('IgG', true);
+      }
     }
   }
 
@@ -3928,7 +3937,7 @@ function buildPlayer() {
   G._playerLight = pLight;
 
   // Starting position — right side of screen, vertically centered
-  const startX = 72, startZ = 0;
+  const startX = 100, startZ = 0;
   group.position.set(startX, 0.8, startZ);
   G.player.pos     = { x: startX, z: startZ };
   G.player.vel     = { x: 0, z: 0 };
