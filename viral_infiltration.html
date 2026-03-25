@@ -1276,10 +1276,10 @@ const G = {
     0.1,
     500
   );
-  G.camera.position.set(0, 90, 28);
+  G.camera.position.set(0, 180, 56);
   G.camera.lookAt(0, 0, 0);
   // Store camera follow target (lerped toward player each frame)
-  G.camera._target = new THREE.Vector3(0, 90, 28);
+  G.camera._target = new THREE.Vector3(0, 180, 56);
 
   // Scene
   G.scene = new THREE.Scene();
@@ -2645,8 +2645,8 @@ const AB_BIND_DIST    = 2.4;   // proximity (units) that triggers antibody bindi
 const AB_IgM_DURATION = 5.0;   // seconds an IgM remains bound before releasing
 const AB_SITES        = 8;     // virion binding sites
 const AB_NON_COLORS   = [0x2196f3, 0xaaaaaa, 0xe91e63, 0x00bcd4, 0x8bc34a];
-const AB_IgG_COUNT    = 18;    // total IgG antibodies in field
-const AB_IgM_COUNT    = 12;    // total IgM antibodies in field
+const AB_IgG_COUNT    = 54;    // total IgG antibodies in field (3× original)
+const AB_IgM_COUNT    = 120;   // total IgM antibodies in field (10× original)
 const AB_NEUTRAL_FRAC = 0.42;  // fraction of each type that are neutralizing
 
 // ── Compute visible world-space bounds at y=0 for the fixed Phase 0 camera ──
@@ -3991,6 +3991,21 @@ function updatePlayer(dt) {
     if (nx > pl_b.xmax) nx = pl_b.xmax;
     if (nz < pl_b.zmin) nz = pl_b.zmin;
     if (nz > pl_b.zmax) nz = pl_b.zmax;
+    // Plasma membrane wall: block cell entry everywhere except near the target receptor
+    const dist0 = Math.sqrt(nx * nx + nz * nz);
+    if (dist0 < 48) {
+      const rec0 = G.receptors && G.receptors[0];
+      let nearReceptor = false;
+      if (rec0) {
+        const rdx = nx - rec0.pos.x, rdz = nz - rec0.pos.z;
+        nearReceptor = (rdx * rdx + rdz * rdz < 16); // within 4 units of receptor opening
+      }
+      if (!nearReceptor) {
+        const ang0 = Math.atan2(nz, nx);
+        nx = Math.cos(ang0) * 48;
+        nz = Math.sin(ang0) * 48;
+      }
+    }
   } else if (G.phase === 1) {
     // Phase 1: Attachment — outside, inner membrane wall blocks cell entry
     if (distFromCenter < 47.5) {
@@ -4096,13 +4111,13 @@ function updatePlayer(dt) {
   // ── Camera follow ─────────────────────────────────────────────────────
   if (G.phase === 0) {
     // Phase 0: static overview — cell stays centered, virion moves through field
-    G.camera.position.set(0, 90, 28);
-    G.camera._target.set(0, 90, 28);
+    G.camera.position.set(0, 180, 56);
+    G.camera._target.set(0, 180, 56);
     G.camera.lookAt(0, 0, 0);
   } else {
     // Smooth lerp — camera trails slightly behind player
-    const camY  = 90;
-    const camDZ = 28;
+    const camY  = 180;
+    const camDZ = 56;
     G.camera._target.set(nx, camY, nz + camDZ);
     G.camera.position.lerp(G.camera._target, 0.055);
     G.camera.lookAt(nx, 0, nz);
@@ -5186,8 +5201,8 @@ function updateTitleScene(dt) {
 
 // ── Camera Reset Helper ───────────────────────────────────────────────────
 function resetCamera() {
-  G.camera.position.set(0, 90, 28);
-  G.camera._target = new THREE.Vector3(0, 90, 28);
+  G.camera.position.set(0, 180, 56);
+  G.camera._target = new THREE.Vector3(0, 180, 56);
   G.camera.lookAt(0, 0, 0);
 }
 
