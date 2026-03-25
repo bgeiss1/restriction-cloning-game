@@ -1182,6 +1182,9 @@ const G = {
   virusHP: 100,
   maxHP: 100,
 
+  // Phase 0 extracellular bounds (computed dynamically from camera frustum)
+  abBounds: null,
+
   // Timers
   clock: null,           // THREE.Clock
   phaseTimer: 0,         // countdown timer (used in phase 2)
@@ -1334,6 +1337,10 @@ window.addEventListener('resize', () => {
   G.renderer.setSize(w, h);
   G.camera.aspect = w / h;
   G.camera.updateProjectionMatrix();
+  // Recompute extracellular bounds when viewport changes during phase 0
+  if (G.state === 'PLAYING' && G.phase === 0) {
+    G.abBounds = computePhase0Bounds(8);
+  }
 });
 
 // ── Input ────────────────────────────────────────────────────────────────
@@ -2630,7 +2637,7 @@ function phaseCheck_Attachment(px, pz) {
 // ── Phase 1: Antibody Gauntlet ─────────────────────────────────────────────
 // Constants
 const AB_FIELD_OUTER  = 74;    // outer navigable radius while outside cell (circular, unused in rect mode)
-const AB_RECT_XMIN    = -80;   // rectangular extracellular space bounds
+const AB_RECT_XMIN    = -80;   // fallback bounds (overridden by computePhase0Bounds at runtime)
 const AB_RECT_XMAX    =  80;
 const AB_RECT_ZMIN    = -44;
 const AB_RECT_ZMAX    =  44;
@@ -2641,6 +2648,38 @@ const AB_NON_COLORS   = [0x2196f3, 0xaaaaaa, 0xe91e63, 0x00bcd4, 0x8bc34a];
 const AB_IgG_COUNT    = 18;    // total IgG antibodies in field
 const AB_IgM_COUNT    = 12;    // total IgM antibodies in field
 const AB_NEUTRAL_FRAC = 0.42;  // fraction of each type that are neutralizing
+
+// ── Compute visible world-space bounds at y=0 for the fixed Phase 0 camera ──
+// Unprojects the four screen corners through the camera frustum to the ground
+// plane (y=0), then expands by `padding` world units on each side.
+function computePhase0Bounds(padding) {
+  padding = padding || 8;
+  const cam = G.camera;
+  cam.updateProjectionMatrix();
+  const camPos = cam.position;
+  const ndcCorners = [
+    new THREE.Vector3(-1, -1, 0.5),
+    new THREE.Vector3( 1, -1, 0.5),
+    new THREE.Vector3(-1,  1, 0.5),
+    new THREE.Vector3( 1,  1, 0.5),
+  ];
+  let xmin = Infinity, xmax = -Infinity, zmin = Infinity, zmax = -Infinity;
+  ndcCorners.forEach(ndc => {
+    const world = ndc.unproject(cam);
+    const dir   = world.sub(camPos).normalize();
+    if (dir.y >= 0) return; // ray pointing upward won't hit ground
+    const t  = -camPos.y / dir.y;
+    const wx = camPos.x + t * dir.x;
+    const wz = camPos.z + t * dir.z;
+    xmin = Math.min(xmin, wx);
+    xmax = Math.max(xmax, wx);
+    zmin = Math.min(zmin, wz);
+    zmax = Math.max(zmax, wz);
+  });
+  // Fallback if projection fails
+  if (!isFinite(xmin)) return { xmin: AB_RECT_XMIN - padding, xmax: AB_RECT_XMAX + padding, zmin: AB_RECT_ZMIN - padding, zmax: AB_RECT_ZMAX + padding };
+  return { xmin: xmin - padding, xmax: xmax + padding, zmin: zmin - padding, zmax: zmax + padding };
+}
 
 // Build a single IgG Y-shape mesh
 function _abIgGMesh(color, s) {
@@ -2742,12 +2781,16 @@ function buildPhase1AntibodyField() {
     G._abField.siteMeshes.push({ mesh: sm, baseAngle: (i / AB_SITES) * Math.PI * 2 });
   }
 
+  // ── Compute (or refresh) the viewport-filling extracellular bounds ────
+  G.abBounds = computePhase0Bounds(8);
+
   // ── Spawn antibodies randomly in the extracellular field ─────────────
   const spawnAb = (type, neutralizing) => {
+    const b = G.abBounds;
     let x, z;
     do {
-      x = AB_RECT_XMIN + Math.random() * (AB_RECT_XMAX - AB_RECT_XMIN);
-      z = AB_RECT_ZMIN + Math.random() * (AB_RECT_ZMAX - AB_RECT_ZMIN);
+      x = b.xmin + Math.random() * (b.xmax - b.xmin);
+      z = b.zmin + Math.random() * (b.zmax - b.zmin);
     } while (Math.sqrt(x*x + z*z) < 52); // reject positions inside the plasma membrane
     const y = 0.5 + Math.random() * 3.0;
     const color = neutralizing
@@ -2783,6 +2826,7 @@ function buildPhase1AntibodyField() {
   for (let i = 0; i < AB_IgM_COUNT; i++) spawnAb('IgM', i < nIgM);
 
   buildAntibodyCrowd();
+  buildErythrocytes();
 
   // Highlight the target receptor so the player knows where to navigate
   const rec = G.receptors && G.receptors[0];
@@ -2842,11 +2886,12 @@ function updatePhase1Antibodies(dt) {
       const r   = Math.sqrt(ab.pos.x**2 + ab.pos.z**2);
       const ang = Math.atan2(ab.pos.z, ab.pos.x);
       if (r < 49) { ab.vel.x += Math.cos(ang)*4*dt; ab.vel.z += Math.sin(ang)*4*dt; }
-      // Rectangular outer soft walls
-      if (ab.pos.x < AB_RECT_XMIN + 3) ab.vel.x += 4*dt;
-      if (ab.pos.x > AB_RECT_XMAX - 3) ab.vel.x -= 4*dt;
-      if (ab.pos.z < AB_RECT_ZMIN + 3) ab.vel.z += 4*dt;
-      if (ab.pos.z > AB_RECT_ZMAX - 3) ab.vel.z -= 4*dt;
+      // Rectangular outer soft walls (screen-filling bounds)
+      const ab_b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
+      if (ab.pos.x < ab_b.xmin + 3) ab.vel.x += 4*dt;
+      if (ab.pos.x > ab_b.xmax - 3) ab.vel.x -= 4*dt;
+      if (ab.pos.z < ab_b.zmin + 3) ab.vel.z += 4*dt;
+      if (ab.pos.z > ab_b.zmax - 3) ab.vel.z -= 4*dt;
 
       // Speed cap
       const spd = Math.sqrt(ab.vel.x**2 + ab.vel.z**2);
@@ -2961,11 +3006,12 @@ function buildAntibodyCrowd() {
       G.scene.add(inst);
 
       const pos = [], vel = [], rot = [], rotV = [];
+      const cb = G.abBounds;
       for (let i = 0; i < n; i++) {
         let cx, cz;
         do {
-          cx = AB_RECT_XMIN + Math.random() * (AB_RECT_XMAX - AB_RECT_XMIN);
-          cz = AB_RECT_ZMIN + Math.random() * (AB_RECT_ZMAX - AB_RECT_ZMIN);
+          cx = cb.xmin + Math.random() * (cb.xmax - cb.xmin);
+          cz = cb.zmin + Math.random() * (cb.zmax - cb.zmin);
         } while (Math.sqrt(cx*cx + cz*cz) < 52);
         pos.push({ x: cx, y: 0.5+Math.random()*3.5, z: cz });
         vel.push({ x:(Math.random()-0.5)*3, y:(Math.random()-0.5)*0.4, z:(Math.random()-0.5)*3 });
@@ -2994,11 +3040,12 @@ function updateCrowdAntibodies(dt) {
       const rad = Math.sqrt(p.x*p.x + p.z*p.z);
       const ang = Math.atan2(p.z, p.x);
       if (rad < 49) { v.x += Math.cos(ang)*4*dt; v.z += Math.sin(ang)*4*dt; }
-      // Rectangular outer soft walls
-      if (p.x < AB_RECT_XMIN + 3) v.x += 4*dt;
-      if (p.x > AB_RECT_XMAX - 3) v.x -= 4*dt;
-      if (p.z < AB_RECT_ZMIN + 3) v.z += 4*dt;
-      if (p.z > AB_RECT_ZMAX - 3) v.z -= 4*dt;
+      // Rectangular outer soft walls (screen-filling bounds)
+      const cw_b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
+      if (p.x < cw_b.xmin + 3) v.x += 4*dt;
+      if (p.x > cw_b.xmax - 3) v.x -= 4*dt;
+      if (p.z < cw_b.zmin + 3) v.z += 4*dt;
+      if (p.z > cw_b.zmax - 3) v.z -= 4*dt;
       const spd = Math.sqrt(v.x*v.x + v.z*v.z);
       if (spd > 5) { v.x = v.x/spd*5; v.z = v.z/spd*5; }
       r.x += rv.x*dt; r.y += rv.y*dt; r.z += rv.z*dt;
@@ -3011,6 +3058,90 @@ function updateCrowdAntibodies(dt) {
   });
 }
 
+// ── Erythrocytes (red blood cells) — decorative biconcave discs ──────────────
+// Drift slowly through the extracellular space, filling the screen around the cell.
+function buildErythrocytes() {
+  const N   = 40;
+  const geo = new THREE.SphereGeometry(2.2, 10, 6);
+  const mat = new THREE.MeshPhongMaterial({
+    color: 0xcc1a00, emissive: 0x5a0000, emissiveIntensity: 0.25,
+    transparent: true, opacity: 0.80,
+  });
+  const inst = new THREE.InstancedMesh(geo, mat, N);
+  inst.userData.worldObject = true;
+  G.scene.add(inst);
+
+  const dummy = new THREE.Object3D();
+  const pos = [], vel = [], rotY = [], tiltX = [], tiltZ = [];
+  const b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
+
+  for (let i = 0; i < N; i++) {
+    let x, z;
+    do {
+      x = b.xmin + Math.random() * (b.xmax - b.xmin);
+      z = b.zmin + Math.random() * (b.zmax - b.zmin);
+    } while (Math.sqrt(x*x + z*z) < 54); // stay outside the plasma membrane
+
+    const y = 0.5 + Math.random() * 2.8;
+    pos.push({ x, y, z });
+    vel.push({ x: (Math.random()-0.5) * 1.0, z: (Math.random()-0.5) * 1.0 });
+    rotY.push(Math.random() * Math.PI * 2);
+    tiltX.push(Math.PI * (0.2 + Math.random() * 0.6)); // random face tilt
+    tiltZ.push((Math.random()-0.5) * 0.6);
+
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(tiltX[i], rotY[i], tiltZ[i]);
+    dummy.scale.set(1, 0.28, 1); // flatten into biconcave disc
+    dummy.updateMatrix();
+    inst.setMatrixAt(i, dummy.matrix);
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  G._erythrocytes = { inst, dummy: new THREE.Object3D(), pos, vel, rotY, tiltX, tiltZ };
+}
+
+function updateErythrocytes(dt) {
+  if (!G._erythrocytes) return;
+  const { inst, dummy, pos, vel, rotY, tiltX, tiltZ } = G._erythrocytes;
+  const b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
+
+  for (let i = 0; i < pos.length; i++) {
+    const p = pos[i], v = vel[i];
+    p.x += v.x * dt;
+    p.z += v.z * dt;
+    // Push away from cell membrane
+    const r = Math.sqrt(p.x*p.x + p.z*p.z);
+    if (r < 54) {
+      const a = Math.atan2(p.z, p.x);
+      v.x += Math.cos(a) * 2 * dt;
+      v.z += Math.sin(a) * 2 * dt;
+    }
+    // Soft outer wall bounce
+    if (p.x < b.xmin + 5) v.x += 2*dt;
+    if (p.x > b.xmax - 5) v.x -= 2*dt;
+    if (p.z < b.zmin + 5) v.z += 2*dt;
+    if (p.z > b.zmax - 5) v.z -= 2*dt;
+    // Speed cap (RBCs drift slowly)
+    const spd = Math.sqrt(v.x*v.x + v.z*v.z);
+    if (spd > 1.2) { v.x = v.x/spd*1.2; v.z = v.z/spd*1.2; }
+
+    rotY[i] += 0.25 * dt; // slow tumble
+
+    dummy.position.set(p.x, p.y, p.z);
+    dummy.rotation.set(tiltX[i], rotY[i], tiltZ[i]);
+    dummy.scale.set(1, 0.28, 1);
+    dummy.updateMatrix();
+    inst.setMatrixAt(i, dummy.matrix);
+  }
+  inst.instanceMatrix.needsUpdate = true;
+}
+
+function clearErythrocytes() {
+  if (!G._erythrocytes) return;
+  disposeObject(G._erythrocytes.inst);
+  G.scene.remove(G._erythrocytes.inst);
+  G._erythrocytes = null;
+}
+
 function clearPhase1Field() {
   if (!G._abField) return;
   G._abField.antibodies.forEach(ab => { disposeObject(ab.mesh); G.scene.remove(ab.mesh); });
@@ -3020,6 +3151,7 @@ function clearPhase1Field() {
   }
   clearBeacon();
   clearPhase1HUD();
+  clearErythrocytes();
   G._abField = null;
 }
 
@@ -3853,12 +3985,12 @@ function updatePlayer(dt) {
   // ── Membrane boundary ─────────────────────────────────────────────────
   const distFromCenter = Math.sqrt(nx * nx + nz * nz);
   if (G.phase === 0) {
-    // Phase 0: Gauntlet — rectangular extracellular space; membrane check fires
-    // in phaseCheck_Penetration when player reaches it
-    if (nx < AB_RECT_XMIN) nx = AB_RECT_XMIN;
-    if (nx > AB_RECT_XMAX) nx = AB_RECT_XMAX;
-    if (nz < AB_RECT_ZMIN) nz = AB_RECT_ZMIN;
-    if (nz > AB_RECT_ZMAX) nz = AB_RECT_ZMAX;
+    // Phase 0: Gauntlet — player confined to screen-filling extracellular bounds
+    const pl_b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
+    if (nx < pl_b.xmin) nx = pl_b.xmin;
+    if (nx > pl_b.xmax) nx = pl_b.xmax;
+    if (nz < pl_b.zmin) nz = pl_b.zmin;
+    if (nz > pl_b.zmax) nz = pl_b.zmax;
   } else if (G.phase === 1) {
     // Phase 1: Attachment — outside, inner membrane wall blocks cell entry
     if (distFromCenter < 47.5) {
@@ -3962,12 +4094,19 @@ function updatePlayer(dt) {
   G.player.inCover = inCover;
 
   // ── Camera follow ─────────────────────────────────────────────────────
-  // Smooth lerp — camera trails slightly behind player
-  const camY  = 90;
-  const camDZ = 28; // slight forward tilt offset
-  G.camera._target.set(nx, camY, nz + camDZ);
-  G.camera.position.lerp(G.camera._target, 0.055);
-  G.camera.lookAt(nx, 0, nz);
+  if (G.phase === 0) {
+    // Phase 0: static overview — cell stays centered, virion moves through field
+    G.camera.position.set(0, 90, 28);
+    G.camera._target.set(0, 90, 28);
+    G.camera.lookAt(0, 0, 0);
+  } else {
+    // Smooth lerp — camera trails slightly behind player
+    const camY  = 90;
+    const camDZ = 28;
+    G.camera._target.set(nx, camY, nz + camDZ);
+    G.camera.position.lerp(G.camera._target, 0.055);
+    G.camera.lookAt(nx, 0, nz);
+  }
 
   // ── Power-up key activation (edge-triggered, not held) ────────────────
   if (G.keys.has('Digit1') && !G._puKeyHeld1) {
@@ -4880,8 +5019,9 @@ function updateHUDExtras() {
 function updateWorldState(dt) {
   // Fog thickens as alert rises — creates tension
   if (G.scene.fog) {
-    const baseDensity  = 0.008;
-    const alertBonus   = (G.alertMeter / 100) * 0.010;
+    // Phase 0: overhead static camera — use minimal fog so full extracellular space is visible
+    const baseDensity  = G.phase === 0 ? 0.0015 : 0.008;
+    const alertBonus   = G.phase === 0 ? 0 : (G.alertMeter / 100) * 0.010;
     const target       = baseDensity + alertBonus;
     G.scene.fog.density += (target - G.scene.fog.density) * 0.04;
   }
@@ -5063,7 +5203,7 @@ function gameLoop() {
   updateTitleScene(dt);
 
   if (G.state === 'PLAYING') {
-    if (G.phase === 0) { updatePhase1Antibodies(dt); updateCrowdAntibodies(dt); }
+    if (G.phase === 0) { updatePhase1Antibodies(dt); updateCrowdAntibodies(dt); updateErythrocytes(dt); }
     updatePlayer(dt);
     updateGuards(dt);
     updateGuardIdleAnimations(dt);
