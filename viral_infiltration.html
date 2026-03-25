@@ -3974,7 +3974,7 @@ function updatePlayer(dt) {
   // Inertia: lerp velocity toward input target (tau = 0.2s — slippery feel)
   const targetVx = inputX * speed;
   const targetVz = inputZ * speed;
-  const lerpF = 1 - Math.exp(-dt / 0.2);
+  const lerpF = 1 - Math.exp(-dt / 0.24);
   if (!G.player.vel) G.player.vel = { x: 0, z: 0 };
   G.player.vel.x += (targetVx - G.player.vel.x) * lerpF;
   G.player.vel.z += (targetVz - G.player.vel.z) * lerpF;
