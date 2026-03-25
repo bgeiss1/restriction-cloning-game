@@ -1690,7 +1690,108 @@ function buildWorld() {
   buildCytoskeleton();
   buildParticles();
   if (typeof buildOrganelles === 'function') buildOrganelles();
+  initOrganelleSpin();
   buildPlayer();
+}
+
+function initOrganelleSpin() {
+  // Store base polar coords on each G.organelles entry
+  G.organelles.forEach(org => {
+    org._spinR = Math.sqrt(org.center.x * org.center.x + org.center.z * org.center.z);
+    org._spinA = Math.atan2(org.center.z, org.center.x);
+  });
+
+  // Store base polar coords for ORG_POS entries used in phase checks
+  G._orgPosBase = {
+    endosome:   _polarBase(ORG_POS.endosome),
+    golgi:      _polarBase(ORG_POS.golgi),
+    lysosomes:  ORG_POS.lysosomes.map(_polarBase),
+    ribCluster: ORG_POS.ribCluster.map(_polarBase),
+    mito:       ORG_POS.mito.map(_polarBase),
+  };
+
+  // Lysosome meshes (not in G.organelles — tracked via G._lysosomeMeshes)
+  if (G._lysosomeMeshes) {
+    G._lysosomeMeshes.forEach(m => {
+      m.userData._spinR = Math.sqrt(m.position.x * m.position.x + m.position.z * m.position.z);
+      m.userData._spinA = Math.atan2(m.position.z, m.position.x);
+      if (m.userData.aura) {
+        m.userData.aura.userData._spinR = m.userData._spinR;
+        m.userData.aura.userData._spinA = m.userData._spinA;
+      }
+    });
+  }
+
+  // Wrap ribosome InstancedMesh in a group so it spins as a unit
+  if (G._ribosomeMesh) {
+    const rg = new THREE.Group();
+    G.scene.remove(G._ribosomeMesh);
+    rg.add(G._ribosomeMesh);
+    G.scene.add(tagWorld(rg));
+    G._ribGroup = rg;
+  }
+
+  // Collectible ribosomes — spin individually
+  if (G._ribCollectibles) {
+    G._ribCollectibles.forEach(c => {
+      c.userData._spinR = Math.sqrt(c.position.x * c.position.x + c.position.z * c.position.z);
+      c.userData._spinA = Math.atan2(c.position.z, c.position.x);
+    });
+  }
+}
+
+function _polarBase(v) {
+  return { r: Math.sqrt(v.x * v.x + v.z * v.z), a: Math.atan2(v.z, v.x) };
+}
+
+function updateOrganelleSpin() {
+  const spin = G._cellSpinAngle || 0;
+
+  // G.organelles — update collision center + mesh position
+  G.organelles.forEach(org => {
+    if (org._spinR === undefined) return;
+    const nx = Math.cos(org._spinA + spin) * org._spinR;
+    const nz = Math.sin(org._spinA + spin) * org._spinR;
+    org.center.x = nx; org.center.z = nz;
+    if (org.mesh) { org.mesh.position.x = nx; org.mesh.position.z = nz; }
+  });
+
+  // ORG_POS phase-check vectors
+  if (G._orgPosBase) {
+    const b = G._orgPosBase;
+    _applyPolar(ORG_POS.endosome,   b.endosome,   spin);
+    _applyPolar(ORG_POS.golgi,      b.golgi,       spin);
+    b.lysosomes.forEach((pb, i)  => _applyPolar(ORG_POS.lysosomes[i],  pb, spin));
+    b.ribCluster.forEach((pb, i) => _applyPolar(ORG_POS.ribCluster[i], pb, spin));
+    b.mito.forEach((pb, i)       => _applyPolar(ORG_POS.mito[i],       pb, spin));
+  }
+
+  // Lysosome meshes + auras
+  if (G._lysosomeMeshes) {
+    G._lysosomeMeshes.forEach(m => {
+      const nx = Math.cos(m.userData._spinA + spin) * m.userData._spinR;
+      const nz = Math.sin(m.userData._spinA + spin) * m.userData._spinR;
+      m.position.x = nx; m.position.z = nz;
+      if (m.userData.aura) { m.userData.aura.position.x = nx; m.userData.aura.position.z = nz; }
+    });
+  }
+
+  // Ribosome InstancedMesh group
+  if (G._ribGroup) G._ribGroup.rotation.y = spin;
+
+  // Collectible ribosomes
+  if (G._ribCollectibles) {
+    G._ribCollectibles.forEach(c => {
+      if (c.userData.collected) return;
+      c.position.x = Math.cos(c.userData._spinA + spin) * c.userData._spinR;
+      c.position.z = Math.sin(c.userData._spinA + spin) * c.userData._spinR;
+    });
+  }
+}
+
+function _applyPolar(vec, base, spin) {
+  vec.x = Math.cos(base.a + spin) * base.r;
+  vec.z = Math.sin(base.a + spin) * base.r;
 }
 
 // ── Plasma Membrane ───────────────────────────────────────────────────────
@@ -4052,8 +4153,8 @@ function updatePlayer(dt) {
         const normX = Math.cos(ang0), normZ = Math.sin(ang0); // outward normal
         const dot = G.player.vel.x * normX + G.player.vel.z * normZ;
         if (dot < 0) { // moving inward — reflect and boost
-          G.player.vel.x = (G.player.vel.x - 2 * dot * normX) * 2;
-          G.player.vel.z = (G.player.vel.z - 2 * dot * normZ) * 2;
+          G.player.vel.x = (G.player.vel.x - 2 * dot * normX) * 3;
+          G.player.vel.z = (G.player.vel.z - 2 * dot * normZ) * 3;
         }
       }
     }
@@ -4820,6 +4921,9 @@ function updateOrganelleAnimations(dt) {
       const r0 = G.receptors[0];
       G._beaconGroup.position.set(r0.pos.x, 0, r0.pos.z);
     }
+
+    // Spin organelles in sync with cell
+    updateOrganelleSpin();
   }
 }
 // checkPhaseCompletion and checkDamageZones defined in Section 6 above
