@@ -398,11 +398,13 @@ class PlayerVirus {
     const slide = keys['ShiftLeft'] || keys['ShiftRight'] || keys['KeyS'] || keys['ArrowDown'];
 
     // Lane left — rising edge only, no mid-air lane switch
+    // Camera right vector is -X (camera behind player looking +Z), so increasing
+    // lane index (higher X) moves the virion leftward on screen, and vice versa.
     if (left && !this._lastLeft && !this.isAirborne && !this.isSliding) {
-      this._switchLane(-1);
+      this._switchLane(1);
     }
     if (right && !this._lastRight && !this.isAirborne && !this.isSliding) {
-      this._switchLane(1);
+      this._switchLane(-1);
     }
 
     // Jump — rising edge, only from ground
