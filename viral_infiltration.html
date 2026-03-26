@@ -5,6 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Viral Infiltration — A Stealth Replication Mission</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="vi_p2_config.js"></script>
+<script src="vi_p2_main.js"></script>
+<script src="vi_p2_world.js"></script>
+<script src="vi_p2_gameplay.js"></script>
+<script src="vi_p2_fx.js"></script>
 <style>
 /* ── Reset & Root ──────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1502,7 +1507,12 @@ function startGame() {
   // Clear any running minigame interval from a previous session
   clearInterval(G._mgInterval);
   G._mgInterval = null;
-  G.stats = { peakAlert: 0, damagesTaken: 0, powerUpsUsed: 0, startTime: Date.now() };
+  // Tear down Phase 2 mini-game if the player restarts mid-run
+  if (typeof P2Attachment !== 'undefined' && P2Attachment._active) P2Attachment.destroy();
+  G.stats = {
+    peakAlert: 0, damagesTaken: 0, powerUpsUsed: 0, startTime: Date.now(),
+    p2Accuracy: null, p2Receptors: null, p2FactsLearned: null, p2Time: null,
+  };
 
   setOverlay(null);
   document.getElementById('hud').classList.remove('hidden');
@@ -1554,11 +1564,17 @@ function triggerVictory() {
   const elapsed = Math.round((Date.now() - G.stats.startTime) / 1000);
   const mins = Math.floor(elapsed / 60), secs = elapsed % 60;
 
+  const p2Rows = G.stats.p2Accuracy !== null ? `
+    <div class="v-stat"><div class="v-stat-label">P2 Receptor Accuracy</div><div class="v-stat-value">${G.stats.p2Accuracy}%</div></div>
+    <div class="v-stat"><div class="v-stat-label">Receptors Bound</div><div class="v-stat-value">${G.stats.p2Receptors}</div></div>
+    <div class="v-stat"><div class="v-stat-label">Biology Facts Learned</div><div class="v-stat-value">${G.stats.p2FactsLearned}</div></div>
+  ` : '';
   document.getElementById('victoryStats').innerHTML = `
     <div class="v-stat"><div class="v-stat-label">Time</div><div class="v-stat-value">${mins}:${String(secs).padStart(2,'0')}</div></div>
     <div class="v-stat"><div class="v-stat-label">Peak Alert</div><div class="v-stat-value">${Math.round(G.stats.peakAlert)}%</div></div>
     <div class="v-stat"><div class="v-stat-label">Damage Taken</div><div class="v-stat-value">${G.stats.damagesTaken}</div></div>
     <div class="v-stat"><div class="v-stat-label">Power-ups Used</div><div class="v-stat-value">${G.stats.powerUpsUsed}</div></div>
+    ${p2Rows}
   `;
 
   const timeline = document.getElementById('cycleTimeline');
@@ -2724,7 +2740,7 @@ const AB_RECT_ZMIN    = -44;
 const AB_RECT_ZMAX    =  44;
 const AB_BIND_DIST    = 2.4;   // proximity (units) that triggers antibody binding
 const AB_IgM_DURATION = 5.0;   // seconds an IgM remains bound before releasing
-const AB_SITES        = 8;     // virion binding sites
+const AB_SITES        = 4;     // virion binding sites
 // Erythrocyte hemagglutination binding constants
 const RBC_BIND_DIST     = 6.5; // center-to-center distance to trigger HA→sialic acid bond
 const RBC_BIND_DURATION = 8.0; // seconds before neuraminidase cleaves the bond
@@ -3355,7 +3371,7 @@ function triggerPhase1Fail() {
   if (!G._abField || G._abField.failPending) return;
   G._abField.failPending = true;
   flashScreen('rgba(244,67,54,0.55)', 500);
-  showToast('Neutralized! All 8 binding sites blocked — virion repelled.', 'danger');
+  showToast('Neutralized! All 4 binding sites blocked — virion repelled.', 'danger');
   // Bounce player outward
   const ang = Math.atan2(G.player.pos.z, G.player.pos.x);
   const bounce = 56;
@@ -3509,15 +3525,26 @@ function completePhase() {
   const completedPhase = G.phase;
   G.phase++;
 
-  // Phase 0 → 1: gauntlet cleared — place virion just outside membrane for attachment
+  // Phase 0 → 1: gauntlet cleared — launch Phase 2 Attachment lane runner
   if (completedPhase === 0 && G.player.mesh) {
-    const freeCount = G._abField ? G._abField.sites.filter(s => s === null).length : AB_SITES;
+    const freeCount  = G._abField ? G._abField.sites.filter(s => s === null).length : AB_SITES;
+    const boundSites = AB_SITES - freeCount;
     clearPhase1Field();
-    G.player.pos.x = -58; G.player.pos.z = 0;
-    G.player.mesh.position.set(-58, 0.8, 0);
-    if (G.player.envelope) G.player.envelope.position.set(-58, 0.8, 0);
-    const qual = freeCount === AB_SITES ? 'Perfect!' : freeCount >= 5 ? 'Good!' : 'Barely made it!';
-    showToast(`Gauntlet cleared — ${freeCount}/8 sites free. ${qual} Now find the receptor.`, freeCount >= 5 ? 'good' : 'warn');
+    const qual = freeCount === AB_SITES ? 'Perfect!' : freeCount >= 3 ? 'Good!' : 'Barely made it!';
+    showToast(`Gauntlet cleared — ${freeCount}/4 sites free. ${qual} Initiating attachment phase.`, freeCount >= 3 ? 'good' : 'warn');
+    setTimeout(() => {
+      if (typeof P2Attachment !== 'undefined') {
+        P2Attachment.launch(
+          { boundSites, totalSites: AB_SITES },
+          () => { G.state = 'PLAYING'; completePhase(); },  // onComplete → advance to Uncoating
+          null                                               // onFail: retry handled inside P2
+        );
+      } else {
+        // Fallback if Phase 2 files not loaded
+        showBriefing(G.phase);
+      }
+    }, 1200);
+    return; // skip showBriefing(G.phase) at bottom of completePhase()
   }
   // Phase 1 → 2: attachment complete — endocytosis pulls virion inside
   if (completedPhase === 1 && G.player.mesh) {
@@ -5490,7 +5517,8 @@ function gameLoop() {
   G.totalTime += dt;
   updateTitleScene(dt);
 
-  if (G.state === 'PLAYING') {
+  const p2Active = typeof P2Attachment !== 'undefined' && P2Attachment._active;
+  if (G.state === 'PLAYING' && !p2Active) {
     if (G.phase === 0) { updatePhase1Antibodies(dt); updateCrowdAntibodies(dt); updateErythrocytes(dt); }
     updatePlayer(dt);
     updateGuards(dt);
@@ -5507,7 +5535,13 @@ function gameLoop() {
     updateGuardTooltip();
   }
 
-  G.renderer.render(G.scene, G.camera);
+  // Phase 2 Attachment takes over rendering when active
+  if (p2Active) {
+    P2Attachment._tick(dt);
+    G.renderer.render(P2Attachment.scene, P2Attachment.camera);
+  } else {
+    G.renderer.render(G.scene, G.camera);
+  }
   G.frameCount++;
 }
 
