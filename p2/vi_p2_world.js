@@ -16,7 +16,7 @@ const P2World = {
 
   createTerrain(scene)       { return new MembraineTerrain(scene); },
   createPlayer(scene)        { return new PlayerVirus(scene); },
-  createBronchialWalls(scene){ return new BronchialWalls(scene); },
+  createBronchialWalls(scene){ return new BronchialTunnel(scene); },
   createRBCs(scene)          { return new RBCManager(scene); },
 
 };
@@ -704,9 +704,199 @@ class PlayerVirus {
 
 
 // ────────────────────────────────────────────────────────────────────────────
-// BronchialWalls — scrolling bronchial tube walls with cartilage rings and
-// blood vessels.  Gives the bronchial lumen context for an influenza scene.
-// Three 90-unit segments recycle just like terrain chunks.
+// BronchialTunnel — continuous curved bronchial tube built from InstancedMesh.
+//
+// Every frame each ring/fill segment is repositioned to:
+//   position.x  = curvature × worldZ² / 2   (same parabola as terrain)
+//   quaternion  = setFromUnitVectors(axis, tangent) — aligns fill cylinder or
+//                 cartilage ring to the LOCAL curve direction at that Z
+//
+// This means the tube geometry physically follows the same curve as the ground,
+// with no segments sliding across each other.  Narrowing is applied via
+// instance scale.x/z (radial) while scale.y (length) stays fixed.
+// ────────────────────────────────────────────────────────────────────────────
+class BronchialTunnel {
+
+  constructor(scene) {
+    this._scene   = scene;
+    this._N       = 130;                          // fill + ring instance count
+    this._SP      = 1.5;                          // world units between instances
+    this._C_STEP  = Math.round(14 / 1.5);         // cartilage every ~9 instances (14 wu)
+    this._V_STEP  = 3;                            // vessel dot every 3 instances
+    this._BR_N    = 10;                           // branch openings
+    this._BR_SP   = 28;                           // branch Z spacing
+    this._scroll  = 0;
+    this._dummy   = new THREE.Object3D();
+    this._yAxis   = new THREE.Vector3(0, 1, 0);  // default CylinderGeometry axis
+    this._zAxis   = new THREE.Vector3(0, 0, 1);  // default TorusGeometry normal
+    this._tangent = new THREE.Vector3();
+    this._build();
+  }
+
+  _build() {
+    const N = this._N;
+
+    // ── Tube fill: open-ended cylinder, BackSide, scaled to SP per instance ─
+    this._fillMesh = new THREE.InstancedMesh(
+      _geo('tnlFill', () => new THREE.CylinderGeometry(18, 18, 1, 36, 1, true)),
+      _mat('tnlFill', () => new THREE.MeshPhongMaterial({
+        color: 0x4a1820, emissive: new THREE.Color(0x120408),
+        emissiveIntensity: 0.5, side: THREE.BackSide, shininess: 4,
+      })),
+      N
+    );
+    this._fillMesh.matrixAutoUpdate = false;
+    this._scene.add(this._fillMesh);
+
+    // ── Cartilage rings: torus bracelets around the tube ─────────────────
+    const cartCount   = Math.ceil(N / this._C_STEP);
+    this._cartCount   = cartCount;
+    this._cartMesh    = new THREE.InstancedMesh(
+      _geo('tnlCart', () => new THREE.TorusGeometry(18.3, 0.65, 8, 36)),
+      _mat('tnlCart', () => new THREE.MeshPhongMaterial({
+        color: 0x8c6048, emissive: new THREE.Color(0x1c0c06),
+        emissiveIntensity: 0.3, shininess: 22,
+      })),
+      cartCount
+    );
+    this._cartMesh.matrixAutoUpdate = false;
+    this._scene.add(this._cartMesh);
+
+    // ── Blood vessel dots: 4 chains of spheres running along the wall ────
+    this._VES_ANGS  = [-0.55, -0.22, 0.52, 1.08];
+    const vesCount  = Math.ceil(N / this._V_STEP);
+    this._vesCount  = vesCount;
+    const dotGeo    = _geo('tnlDot', () => new THREE.SphereGeometry(0.13, 4, 4));
+    const dotMat    = _mat('tnlDot', () => new THREE.MeshPhongMaterial({
+      color: 0x881420, emissive: new THREE.Color(0x330008), emissiveIntensity: 0.5,
+    }));
+    this._vesMeshes = this._VES_ANGS.map(() => {
+      const m = new THREE.InstancedMesh(dotGeo, dotMat, vesCount);
+      m.matrixAutoUpdate = false;
+      this._scene.add(m);
+      return m;
+    });
+
+    // ── Branch openings: tapered sub-bronchus tunnels through the wall ───
+    // Directions pre-baked (alternating L/R, slight downward + forward lean)
+    this._brDirs = Array.from({ length: this._BR_N }, (_, j) => {
+      const side = (j % 2 === 0) ? 1 : -1;
+      return new THREE.Vector3(
+        side  * (0.84 + (j % 3) * 0.04),
+        -0.15 - (j % 4) * 0.05,
+         0.12 + (j % 3) * 0.08,
+      ).normalize();
+    });
+    this._branchMesh = new THREE.InstancedMesh(
+      _geo('tnlBranch', () => new THREE.CylinderGeometry(5.0, 3.5, 42, 12, 1, true)),
+      _mat('tnlBranch', () => new THREE.MeshPhongMaterial({
+        color: 0x30100f, emissive: new THREE.Color(0x080204),
+        emissiveIntensity: 0.4, side: THREE.BackSide,
+        transparent: true, opacity: 0.90, shininess: 2,
+      })),
+      this._BR_N
+    );
+    this._branchMesh.matrixAutoUpdate = false;
+    this._scene.add(this._branchMesh);
+  }
+
+  update(dt, speed, elapsed, curvature) {
+    curvature     = curvature || 0;
+    const dz      = dt * speed * 8;
+    this._scroll -= dz;
+
+    const N      = this._N;
+    const SP     = this._SP;
+    const TOTAL  = N * SP;   // full wrap period
+    const nScale = Math.max(0.42, 1 - (elapsed || 0) * 0.0038);
+
+    let cIdx = 0;
+    const vIdx = new Array(this._vesMeshes.length).fill(0);
+
+    for (let i = 0; i < N; i++) {
+      // Scroll with wrap — keeps instances distributed from ~-12 to TOTAL-12 ahead
+      let wz = this._scroll + i * SP;
+      if (wz < -12) wz += TOTAL;
+
+      // Curve centre X and tangent direction at this worldZ
+      const cx  = curvature * wz * wz * 0.5;
+      const tx  = curvature * wz;          // un-normalised tangent X component
+      const mag = Math.sqrt(tx * tx + 1);
+      this._tangent.set(tx / mag, 0, 1 / mag);
+
+      this._dummy.position.set(cx, 0, wz);
+
+      // Fill segment: cylinder axis (Y) → tangent; scale Y = SP (length), XZ = nScale (radius)
+      this._dummy.quaternion.setFromUnitVectors(this._yAxis, this._tangent);
+      this._dummy.scale.set(nScale, SP, nScale);
+      this._dummy.updateMatrix();
+      this._fillMesh.setMatrixAt(i, this._dummy.matrix);
+
+      // Cartilage ring: torus normal (Z) → tangent; uniform scale
+      if (i % this._C_STEP === 0 && cIdx < this._cartCount) {
+        this._dummy.quaternion.setFromUnitVectors(this._zAxis, this._tangent);
+        this._dummy.scale.setScalar(nScale);
+        this._dummy.updateMatrix();
+        this._cartMesh.setMatrixAt(cIdx++, this._dummy.matrix);
+      }
+
+      // Vessel dots — sphere on wall surface at pre-set angular positions
+      if (i % this._V_STEP === 0) {
+        const vr = 18 * nScale;
+        for (let v = 0; v < this._vesMeshes.length; v++) {
+          const ang = this._VES_ANGS[v];
+          this._dummy.position.set(cx + Math.sin(ang) * vr, Math.cos(ang) * vr, wz);
+          this._dummy.quaternion.identity();
+          this._dummy.scale.setScalar(0.9);
+          this._dummy.updateMatrix();
+          this._vesMeshes[v].setMatrixAt(vIdx[v]++, this._dummy.matrix);
+        }
+      }
+    }
+
+    // Branch openings — sub-bronchus tunnels exiting through the wall
+    const BR_TOTAL = this._BR_N * this._BR_SP;
+    const halfLen  = 21;  // CylinderGeometry half-height (height=42)
+    for (let j = 0; j < this._BR_N; j++) {
+      let wz = this._scroll + j * this._BR_SP + 15;
+      if (wz < -12) wz += BR_TOTAL;
+
+      const dir    = this._brDirs[j];
+      const cx     = curvature * wz * wz * 0.5;
+      const wallR  = 18 * nScale;
+
+      // Inner face of branch cylinder sits at the wall surface;
+      // centre is displaced by halfLen×dir beyond that point.
+      this._dummy.position.set(
+        cx + dir.x * wallR + dir.x * halfLen,
+        dir.y * halfLen,
+        wz  + dir.z * halfLen
+      );
+      this._dummy.quaternion.setFromUnitVectors(this._yAxis, dir);
+      this._dummy.scale.set(nScale, 1, nScale);
+      this._dummy.updateMatrix();
+      this._branchMesh.setMatrixAt(j, this._dummy.matrix);
+    }
+
+    this._fillMesh.instanceMatrix.needsUpdate   = true;
+    this._cartMesh.instanceMatrix.needsUpdate   = true;
+    this._branchMesh.instanceMatrix.needsUpdate = true;
+    this._vesMeshes.forEach(m => { m.instanceMatrix.needsUpdate = true; });
+  }
+
+  reset() { this._scroll = 0; }
+
+  destroy() {
+    this._scene.remove(this._fillMesh);
+    this._scene.remove(this._cartMesh);
+    this._scene.remove(this._branchMesh);
+    this._vesMeshes.forEach(m => this._scene.remove(m));
+  }
+}
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// BronchialWalls — kept as a stub; factory now returns BronchialTunnel above.
 // ────────────────────────────────────────────────────────────────────────────
 class BronchialWalls {
 
