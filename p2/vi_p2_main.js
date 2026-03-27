@@ -56,6 +56,11 @@ const P2 = {
   _camX:    0,   // lerped camera X
   _camShake:{ x: 0, y: 0, timer: 0 },
 
+  // Airway bend — periodic lookAt drift giving illusion of navigating curves
+  _bendX:      0,    // current lateral look-ahead offset
+  _bendTarget: 0,    // target to lerp toward
+  _bendTimer:  5,    // seconds until next retarget (starts at 5 for initial straight)
+
   // Input
   _keys: {},
   _evKD: null,
@@ -127,6 +132,9 @@ const P2 = {
     this.driftActive = this.naActive = this.raftActive = this.mucusSlow = false;
     this._camX             = 0;
     this._camShake         = { x: 0, y: 0, timer: 0 };
+    this._bendX            = 0;
+    this._bendTarget       = 0;
+    this._bendTimer        = 5;
     this._keys             = {};
   },
 
@@ -197,12 +205,20 @@ const P2 = {
     // Subtle lateral sway
     const sway = Math.sin(this.elapsed * (2 * Math.PI / 8)) * 0.05;
 
+    // Airway bend — periodically shift lookAt target to simulate curved airways
+    this._bendTimer -= dt;
+    if (this._bendTimer <= 0) {
+      this._bendTarget = (Math.random() - 0.5) * 12;   // ±6 units
+      this._bendTimer  = 9 + Math.random() * 8;         // retarget every 9–17 s
+    }
+    this._bendX += (this._bendTarget - this._bendX) * Math.min(1, dt * 0.3);
+
     this.camera.position.set(
       this._camX + this._camShake.x + sway,
       P2_CFG.CAMERA_Y_OFFSET + this._camShake.y,
       P2_CFG.CAMERA_Z_OFFSET
     );
-    this.camera.lookAt(this._camX, 0, 15);
+    this.camera.lookAt(this._camX + this._bendX, 0, 15);
 
     // Sync player point light to player position
     if (this._playerLight && this.player) {

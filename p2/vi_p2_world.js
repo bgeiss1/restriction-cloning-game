@@ -691,9 +691,10 @@ class PlayerVirus {
 class BronchialWalls {
 
   constructor(scene) {
-    this._scene = scene;
-    this._segs  = [];   // { group, zOffset }
-    this._SLEN  = 90;
+    this._scene      = scene;
+    this._segs       = [];   // { group, zOffset }
+    this._SLEN       = 90;
+    this._vesselGeos = [];   // unique TubeGeometry per vessel — must dispose on destroy
     this._buildSegments();
   }
 
@@ -745,25 +746,36 @@ class BronchialWalls {
       group.add(ring);
     }
 
-    // ── Blood vessel streaks ────────────────────────────────────────────
-    const vesselGeo = _geo('bronchVessel', () =>
-      new THREE.CylinderGeometry(0.12, 0.12, 1, 5)
-    );
+    // ── Blood vessel streaks — organic TubeGeometry with curved waypoints ──
     const vesselMat = _mat('bronchVessel', () => new THREE.MeshPhongMaterial({
       color:             0x881420,
       emissive:          new THREE.Color(0x330008),
       emissiveIntensity: 0.4,
-      shininess:         12,
+      shininess:         18,
     }));
     const vesselAngles = [-0.65, -0.35, 0.10, 0.40, 0.80, 1.15];
     for (const ang of vesselAngles) {
-      const R  = 17.6;
-      const vx = Math.sin(ang) * R;
-      const vy = Math.cos(ang) * R;
-      const v  = new THREE.Mesh(vesselGeo, vesselMat);
-      v.rotation.x = Math.PI / 2;
-      v.scale.y    = SLEN * (0.5 + Math.random() * 0.6);
-      v.position.set(vx, vy, (Math.random() - 0.5) * SLEN * 0.3);
+      const R    = 17.5;
+      const bx   = Math.sin(ang) * R;
+      const by   = Math.cos(ang) * R;
+      const len  = SLEN * (0.45 + Math.random() * 0.55);
+      const r    = 0.08 + Math.random() * 0.08;  // vary vessel calibre
+      // Build a wiggly CatmullRom curve in local Z space
+      const pts  = [];
+      const N    = 7;
+      for (let k = 0; k <= N; k++) {
+        const t = k / N;
+        pts.push(new THREE.Vector3(
+          (Math.random() - 0.5) * 1.0,   // lateral meander on wall surface
+          (Math.random() - 0.5) * 1.0,   // radial meander
+          (t - 0.5) * len
+        ));
+      }
+      const curve  = new THREE.CatmullRomCurve3(pts);
+      const geo    = new THREE.TubeGeometry(curve, 18, r, 6, false);
+      this._vesselGeos.push(geo);
+      const v = new THREE.Mesh(geo, vesselMat);
+      v.position.set(bx, by, (Math.random() - 0.5) * SLEN * 0.2);
       group.add(v);
     }
 
@@ -796,6 +808,8 @@ class BronchialWalls {
   destroy() {
     this._segs.forEach(seg => this._scene.remove(seg.group));
     this._segs = [];
+    this._vesselGeos.forEach(g => g.dispose());
+    this._vesselGeos = [];
   }
 }
 
