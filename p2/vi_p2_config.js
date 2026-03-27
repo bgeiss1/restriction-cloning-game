@@ -27,7 +27,7 @@ const P2_CFG = {
 
   // ── Health & meters ──────────────────────────────────────────────────────
   PLAYER_HP:           100,
-  BINDING_PER_RECEPTOR:[8, 12], // [min, max] % per sialic acid hit
+  BINDING_PER_RECEPTOR:[4, 6],  // [min, max] % per sialic acid hit
   BINDING_WIN:         100,     // % to trigger phase complete
   ALERT_DECAY:         1.0,     // % per second when not taking hits
 
