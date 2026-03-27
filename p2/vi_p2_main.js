@@ -426,14 +426,16 @@ const P2 = {
       this._keys[e.code] = true;
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
-        if (this._infoCardActive)      { this._dismissInfoCard(); return; }
+        // Space dismisses overlays only — NOT the info card (Space = jump key in gameplay)
+        if (this._infoCardActive && e.code === 'Enter') { this._dismissInfoCard(); return; }
+        if (this._infoCardActive) return;  // Space blocked while info card is open
         if (this.state === 'INTRO')    this._startPlaying();
         if (this.state === 'COMPLETE') this._completeAndAdvance();
         if (this.state === 'DEAD')     this._retryRun();
         if (this.state === 'PAUSED')   this.resume();
       }
       if (e.code === 'Escape' || e.code === 'KeyP') {
-        if (this._infoCardActive)         { this._dismissInfoCard(); return; }
+        if (this._infoCardActive) return;  // Esc/P blocked while info card is open
         if (this.state === 'PLAYING') this.pause();
         else if (this.state === 'PAUSED') this.resume();
       }
@@ -465,7 +467,7 @@ const P2 = {
 
       // Tap (< 250ms, < 20px movement) — same as Space/Enter
       if (Math.abs(dx) < 20 && Math.abs(dy) < 20 && dt < 250) {
-        if (this._infoCardActive)      { this._dismissInfoCard(); return; }
+        if (this._infoCardActive) return;  // taps blocked while info card is open — use button
         if (this.state === 'INTRO')    { this._startPlaying(); return; }
         if (this.state === 'COMPLETE') { this._completeAndAdvance(); return; }
         if (this.state === 'DEAD')     { this._retryRun(); return; }
@@ -720,7 +722,7 @@ const P2 = {
         <div id="p2InfoCardTitle"></div>
         <div id="p2InfoCardText"></div>
         <button id="p2InfoCardBtn">Got it!</button>
-        <div class="p2Prompt">Space or Enter to continue</div>
+        <div class="p2Prompt">Enter to continue</div>
       </div>
     `;
     document.body.appendChild(root);
