@@ -147,7 +147,7 @@ const P2 = {
   // ── Scene ─────────────────────────────────────────────────────────────
   _buildScene() {
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(P2_CFG.COL_FOG, 0.015);
+    this.scene.fog = new THREE.FogExp2(P2_CFG.COL_FOG, P2_CFG.FOG_DENSITY);
     this.scene.background = new THREE.Color(P2_CFG.COL_BG);
 
     const aspect = window.innerWidth / window.innerHeight;
@@ -222,14 +222,6 @@ const P2 = {
     }
     this._bendX += (this._bendTarget - this._bendX) * Math.min(1, dt * 0.3);
 
-    // Rotate worldGroup to physically bend the playfield:
-    //   Y rotation: lateral curve (far geometry swings sideways like a curved tube)
-    //   X rotation: slow sinusoidal dive/climb — going deeper into branching airways
-    if (this._worldGroup) {
-      this._worldGroup.rotation.y = -this._bendX / 50;
-      this._worldGroup.rotation.x =  0.035 * Math.sin(this.elapsed * 0.07);
-    }
-
     this.camera.position.set(
       this._camX + this._camShake.x + sway,
       P2_CFG.CAMERA_Y_OFFSET + this._camShake.y,
@@ -266,9 +258,11 @@ const P2 = {
     }
 
     // Sub-systems (guarded: files loaded in later chunks)
-    if (this.terrain)   this.terrain.update(dt, this.speed);
+    // curvature drives parabolic X displacement: at z=30 ahead, offset = bendX
+    const _curve = this._bendX / 450;
+    if (this.terrain)   this.terrain.update(dt, this.speed, _curve);
     if (this.player)    this.player.update(dt, this._keys, this.speed);
-    if (this.walls)     this.walls.update(dt, this.speed, this.elapsed);
+    if (this.walls)     this.walls.update(dt, this.speed, this.elapsed, _curve);
     if (this.rbcs)      this.rbcs.update(dt, this.speed);
     if (this.receptors) this.receptors.update(dt, this.speed);
     if (this.obstacles) this.obstacles.update(dt, this.speed);

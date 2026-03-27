@@ -113,6 +113,8 @@ const P2_CFG = {
   COLLISION_Z_RANGE:   20,     // only check objects within this many units of player
 
   // ── Colors (integer hex for Three.js) ───────────────────────────────────
+  FOG_DENSITY:   0.009,     // lower = more visible distance (shows curve better)
+
   COL_BG:        0x0a0404,  // bronchial lumen: dark warm near-black
   COL_FOG:       0x160808,  // warm respiratory haze
   COL_MEMBRANE:  0x7c2e38,  // respiratory epithelium: muted dusty rose

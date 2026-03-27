@@ -91,6 +91,11 @@ class MembraineTerrain {
       const geo = new THREE.PlaneGeometry(CW, CL, 60, 200);
       geo.rotateX(-Math.PI / 2);
 
+      // Store original X positions before any per-frame displacement
+      const pos0 = geo.attributes.position;
+      const origX = new Float32Array(pos0.count);
+      for (let v = 0; v < pos0.count; v++) origX[v] = pos0.getX(v);
+
       const mesh = new THREE.Mesh(geo, this._matMem);
       mesh.position.set(0, 0, i * CL);
       this._scene.add(mesh);
@@ -116,6 +121,7 @@ class MembraineTerrain {
       this._chunks.push({
         mesh, subMesh, dots, cilia, rafts,
         zOffset: i * CL,
+        origX,
       });
       this._raftZones[i] = this._computeRaftZones(i * CL, rafts);
     }
@@ -281,9 +287,12 @@ class MembraineTerrain {
   }
 
   // ── update — scroll chunks toward camera each frame ───────────────────
-  update(dt, speed) {
+  // curvature: signed value driving parabolic X displacement (xDisp = curvature * z² / 2)
+  // At curvature = bendX/450, terrain at z=30 is displaced by bendX — matching camera look-ahead.
+  update(dt, speed, curvature) {
+    curvature = curvature || 0;
     this._time    += dt;
-    const dz       = dt * speed * 8; // world units scrolled this frame
+    const dz       = dt * speed * 8;
     this._scrollZ += dz;
 
     const CL = P2_CFG.CHUNK_LENGTH;
@@ -292,56 +301,67 @@ class MembraineTerrain {
       const ch = this._chunks[i];
       ch.zOffset -= dz;
 
-      // Reposition chunk group
+      // Curve X offset at chunk center (used for decorative sub-objects)
+      const curveX = curvature * ch.zOffset * ch.zOffset * 0.5;
+
+      // Main mesh: X handled per-vertex in _waveChunk; only set Z here
       ch.mesh.position.z    = ch.zOffset;
-      ch.subMesh.position.z = ch.zOffset;
-      ch.dots.position.z    = ch.zOffset;
-      ch.cilia.position.z   = ch.zOffset;
-      ch.rafts.position.z   = ch.zOffset;
+      ch.mesh.position.x    = 0;
+      // Sub-objects shifted by chunk-center curve offset (good approximation)
+      ch.subMesh.position.set(curveX, -2, ch.zOffset);
+      ch.dots.position.set(curveX, -1.9, ch.zOffset);
+      ch.cilia.position.set(curveX, 0, ch.zOffset);
+      ch.rafts.position.set(curveX, 0, ch.zOffset);
 
       // Recycle chunk that has fully passed behind the camera
       if (ch.zOffset < -(CL * 1.5)) {
-        // Find the frontmost chunk Z and place this one ahead
         let maxZ = -Infinity;
         this._chunks.forEach(c => { if (c.zOffset > maxZ) maxZ = c.zOffset; });
         ch.zOffset = maxZ + CL;
-        ch.mesh.position.z    = ch.zOffset;
-        ch.subMesh.position.z = ch.zOffset;
-        ch.dots.position.z    = ch.zOffset;
-        ch.cilia.position.z   = ch.zOffset;
-        ch.rafts.position.z   = ch.zOffset;
-
-        // Randomise raft positions in recycled chunk
+        const newCurveX = curvature * ch.zOffset * ch.zOffset * 0.5;
+        ch.mesh.position.z = ch.zOffset;
+        ch.subMesh.position.set(newCurveX, -2, ch.zOffset);
+        ch.dots.position.set(newCurveX, -1.9, ch.zOffset);
+        ch.cilia.position.set(newCurveX, 0, ch.zOffset);
+        ch.rafts.position.set(newCurveX, 0, ch.zOffset);
         this._repositionRafts(i, ch);
         this._raftZones[i] = this._computeRaftZones(ch.zOffset, ch.rafts);
       }
 
-      // Wave displacement on membrane vertices
-      this._waveChunk(ch, this._time);
+      // Wave + curve displacement on membrane vertices
+      this._waveChunk(ch, this._time, curvature);
     }
 
-    // Scroll lipid segments independently (short 30-unit segments, 4 total)
+    // Lipid segments — follow the same curve
     const SLEN = 30;
     for (const seg of this._lipidSegs) {
       seg.zOffset -= dz;
       seg.mesh.position.z = seg.zOffset;
+      seg.mesh.position.x = curvature * seg.zOffset * seg.zOffset * 0.5;
       if (seg.zOffset < -(SLEN * 1.5)) {
         let maxZ = -Infinity;
         this._lipidSegs.forEach(s => { if (s.zOffset > maxZ) maxZ = s.zOffset; });
         seg.zOffset = maxZ + SLEN;
         seg.mesh.position.z = seg.zOffset;
+        seg.mesh.position.x = curvature * seg.zOffset * seg.zOffset * 0.5;
       }
     }
   }
 
-  _waveChunk(ch, t) {
-    const pos = ch.mesh.geometry.attributes.position;
+  // Wave + curve: use stored origX so X modifications don't accumulate across frames.
+  _waveChunk(ch, t, curvature) {
+    const pos   = ch.mesh.geometry.attributes.position;
     const count = pos.count;
     for (let v = 0; v < count; v++) {
-      const x = pos.getX(v);
-      const z = pos.getZ(v);
-      const y = Math.sin(x * 0.3 + t * 0.5) * 0.15 + Math.sin(z * 0.2 + t * 0.3) * 0.10;
-      pos.setY(v, y);
+      const origX  = ch.origX[v];
+      const z      = pos.getZ(v);
+      const worldZ = ch.zOffset + z;
+      // Parabolic lateral displacement — zero underfoot, increases with distance
+      const xCurve = curvature * worldZ * worldZ * 0.5;
+      pos.setX(v, origX + xCurve);
+      const yWave = Math.sin(origX * 0.3 + t * 0.5) * 0.15
+                  + Math.sin(z      * 0.2 + t * 0.3) * 0.10;
+      pos.setY(v, yWave);
     }
     pos.needsUpdate = true;
     ch.mesh.geometry.computeVertexNormals();
@@ -365,16 +385,16 @@ class MembraineTerrain {
     const CL = P2_CFG.CHUNK_LENGTH;
     this._chunks.forEach((ch, i) => {
       ch.zOffset = i * CL;
-      ch.mesh.position.z    = ch.zOffset;
-      ch.subMesh.position.z = ch.zOffset;
-      ch.dots.position.z    = ch.zOffset;
-      ch.cilia.position.z   = ch.zOffset;
-      ch.rafts.position.z   = ch.zOffset;
+      ch.mesh.position.set(0, 0, ch.zOffset);
+      ch.subMesh.position.set(0, -2, ch.zOffset);
+      ch.dots.position.set(0, -1.9, ch.zOffset);
+      ch.cilia.position.set(0, 0, ch.zOffset);
+      ch.rafts.position.set(0, 0, ch.zOffset);
     });
     const SLEN = 30;
     this._lipidSegs.forEach((seg, i) => {
       seg.zOffset = i * SLEN;
-      seg.mesh.position.z = seg.zOffset;
+      seg.mesh.position.set(0, 0, seg.zOffset);
     });
   }
 
@@ -805,8 +825,15 @@ class BronchialWalls {
         -0.18 - Math.random() * 0.18,
          0.10 + Math.random() * 0.25
       ).normalize();
+      // Position branch so its inner face sits at the tube wall (radius 18),
+      // with the rest of the cylinder extending outward beyond the wall.
+      const halfLen = 21; // CylinderGeometry height = 42, halfHeight = 21
       const branch = new THREE.Mesh(branchGeo, branchMat);
-      branch.position.set(side * 14, yPos, zPos);
+      branch.position.set(
+        side * 18 + dir.x * halfLen,
+        yPos      + dir.y * halfLen,
+        zPos      + dir.z * halfLen
+      );
       branch.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
       group.add(branch);
     }
@@ -814,20 +841,21 @@ class BronchialWalls {
     return group;
   }
 
-  update(dt, speed, elapsed) {
+  update(dt, speed, elapsed, curvature) {
+    curvature = curvature || 0;
     const dz   = dt * speed * 8;
     const SLEN = this._SLEN;
-    // Tube narrows as player goes deeper — scale X/Y of segments, not Z
     const narrowScale = Math.max(0.42, 1 - (elapsed || 0) * 0.0038);
     for (const seg of this._segs) {
       seg.zOffset -= dz;
-      seg.group.position.z = seg.zOffset;
+      const curveX = curvature * seg.zOffset * seg.zOffset * 0.5;
+      seg.group.position.set(curveX, 0, seg.zOffset);
       seg.group.scale.set(narrowScale, narrowScale, 1);
       if (seg.zOffset < -(SLEN * 1.5)) {
         let maxZ = -Infinity;
         this._segs.forEach(s => { if (s.zOffset > maxZ) maxZ = s.zOffset; });
         seg.zOffset = maxZ + SLEN;
-        seg.group.position.z = seg.zOffset;
+        seg.group.position.set(curvature * seg.zOffset * seg.zOffset * 0.5, 0, seg.zOffset);
       }
     }
   }
