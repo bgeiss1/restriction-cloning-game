@@ -52,8 +52,8 @@ const P2_CFG = {
   // ── Terrain ──────────────────────────────────────────────────────────────
   CHUNK_LENGTH:        200,    // world units along Z per chunk
   CHUNK_WIDTH:         40,     // world units along X
-  LIPID_SPACING:       2.0,   // grid pitch between lipid head centers (world units)
-  LIPID_RADIUS:        0.7,   // lipid head sphere radius
+  LIPID_SPACING:       0.14,  // grid pitch between lipid head centers (world units)
+  LIPID_RADIUS:        0.07,  // lipid head sphere radius
   NUM_CHUNKS:          3,
   PLAYER_Z:            0,      // player fixed world Z; terrain scrolls toward -Z
   CAMERA_Z_OFFSET:    -8,      // camera behind player
