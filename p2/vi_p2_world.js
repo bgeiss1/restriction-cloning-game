@@ -779,15 +779,50 @@ class BronchialWalls {
       group.add(v);
     }
 
+    // ── Branch openings — side passages into sub-bronchi ───────────────
+    // Each branch is an open-ended tapered cylinder pointing outward at an
+    // angle, giving the impression of a side passage going deeper into the lung.
+    const branchGeo = _geo('bronchBranch', () =>
+      new THREE.CylinderGeometry(5.0, 3.5, 42, 12, 1, true)
+    );
+    const branchMat = _mat('bronchBranch', () => new THREE.MeshPhongMaterial({
+      color:             0x3a1015,
+      emissive:          new THREE.Color(0x0c0204),
+      emissiveIntensity: 0.4,
+      side:              THREE.BackSide,
+      transparent:       true,
+      opacity:           0.88,
+      shininess:         4,
+    }));
+    const nBranches = 1 + (Math.random() > 0.35 ? 1 : 0); // 1 or 2 per segment
+    for (let b = 0; b < nBranches; b++) {
+      const side = Math.random() > 0.5 ? 1 : -1;
+      const zPos = -SLEN * 0.35 + Math.random() * SLEN * 0.7;
+      const yPos = (Math.random() - 0.5) * 5;
+      // Direction: mostly outward in X, slightly downward, slight forward lean
+      const dir = new THREE.Vector3(
+        side * (0.82 + Math.random() * 0.12),
+        -0.18 - Math.random() * 0.18,
+         0.10 + Math.random() * 0.25
+      ).normalize();
+      const branch = new THREE.Mesh(branchGeo, branchMat);
+      branch.position.set(side * 14, yPos, zPos);
+      branch.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      group.add(branch);
+    }
+
     return group;
   }
 
-  update(dt, speed) {
+  update(dt, speed, elapsed) {
     const dz   = dt * speed * 8;
     const SLEN = this._SLEN;
+    // Tube narrows as player goes deeper — scale X/Y of segments, not Z
+    const narrowScale = Math.max(0.42, 1 - (elapsed || 0) * 0.0038);
     for (const seg of this._segs) {
       seg.zOffset -= dz;
       seg.group.position.z = seg.zOffset;
+      seg.group.scale.set(narrowScale, narrowScale, 1);
       if (seg.zOffset < -(SLEN * 1.5)) {
         let maxZ = -Infinity;
         this._segs.forEach(s => { if (s.zOffset > maxZ) maxZ = s.zOffset; });
@@ -802,6 +837,7 @@ class BronchialWalls {
     this._segs.forEach((seg, i) => {
       seg.zOffset = i * SLEN;
       seg.group.position.z = seg.zOffset;
+      seg.group.scale.set(1, 1, 1);
     });
   }
 

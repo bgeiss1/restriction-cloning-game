@@ -57,6 +57,9 @@ const P2 = {
   _camX:    0,   // lerped camera X
   _camShake:{ x: 0, y: 0, timer: 0 },
 
+  // HP regen — resumes after a brief pause following a hit
+  _hpRegenDelay: 0,
+
   // Airway bend — periodic lookAt drift giving illusion of navigating curves
   _bendX:      0,    // current lateral look-ahead offset
   _bendTarget: 0,    // target to lerp toward
@@ -134,6 +137,7 @@ const P2 = {
     this.driftActive = this.naActive = this.raftActive = this.mucusSlow = false;
     this._camX             = 0;
     this._camShake         = { x: 0, y: 0, timer: 0 };
+    this._hpRegenDelay     = 0;
     this._bendX            = 0;
     this._bendTarget       = 0;
     this._bendTimer        = 5;
@@ -248,6 +252,13 @@ const P2 = {
     this.speed     = Math.min(P2_CFG.SPEED_CAP, P2_CFG.BASE_SPEED + this.elapsed * P2_CFG.SPEED_RAMP);
     this.alert     = Math.max(0, this.alert - P2_CFG.ALERT_DECAY * dt);
 
+    // HP regen — resumes HP_REGEN_DELAY seconds after the last hit
+    if (this._hpRegenDelay > 0) {
+      this._hpRegenDelay -= dt;
+    } else {
+      this.hp = Math.min(P2_CFG.PLAYER_HP, this.hp + P2_CFG.HP_REGEN_RATE * dt);
+    }
+
     // Power-up timer
     if (this.activePowerup) {
       this.activePowerup.timeLeft -= dt;
@@ -257,7 +268,7 @@ const P2 = {
     // Sub-systems (guarded: files loaded in later chunks)
     if (this.terrain)   this.terrain.update(dt, this.speed);
     if (this.player)    this.player.update(dt, this._keys, this.speed);
-    if (this.walls)     this.walls.update(dt, this.speed);
+    if (this.walls)     this.walls.update(dt, this.speed, this.elapsed);
     if (this.rbcs)      this.rbcs.update(dt, this.speed);
     if (this.receptors) this.receptors.update(dt, this.speed);
     if (this.obstacles) this.obstacles.update(dt, this.speed);
@@ -294,8 +305,9 @@ const P2 = {
 
   takeDamage(amount, alertGain, shake) {
     if (this.state !== 'PLAYING') return;
-    this.hp    = Math.max(0, this.hp - amount);
-    this.alert = Math.min(100, this.alert + alertGain);
+    this.hp             = Math.max(0, this.hp - amount);
+    this.alert          = Math.min(100, this.alert + alertGain);
+    this._hpRegenDelay  = P2_CFG.HP_REGEN_DELAY;
     if (shake) this._camShake.timer = 0.2;
     this._flashVignette('red');
     if (this.sounds)    this.sounds.play('hit');

@@ -30,6 +30,8 @@ const P2_CFG = {
   BINDING_PER_RECEPTOR:[2, 3],  // [min, max] % per sialic acid hit
   BINDING_WIN:         100,     // % to trigger phase complete
   ALERT_DECAY:         1.0,     // % per second when not taking hits
+  HP_REGEN_RATE:       4,       // HP per second recovered when not recently hit
+  HP_REGEN_DELAY:      2.5,     // seconds after last hit before regen resumes
 
   // ── Damage values ────────────────────────────────────────────────────────
   DMG_WRONG_RECEPTOR:  15,
