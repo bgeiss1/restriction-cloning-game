@@ -14,9 +14,10 @@ function _mat(key, fn) { if (!_P2MAT[key]) _P2MAT[key] = fn(); return _P2MAT[key
 // ────────────────────────────────────────────────────────────────────────────
 const P2World = {
 
-  createTerrain(scene) { return new MembraineTerrain(scene); },
-  createPlayer(scene)  { return new PlayerVirus(scene); },
-  createRBCs(scene)    { return new RBCManager(scene); },
+  createTerrain(scene)       { return new MembraineTerrain(scene); },
+  createPlayer(scene)        { return new PlayerVirus(scene); },
+  createBronchialWalls(scene){ return new BronchialWalls(scene); },
+  createRBCs(scene)          { return new RBCManager(scene); },
 
 };
 
@@ -678,6 +679,124 @@ class PlayerVirus {
   destroy() {
     this._scene.remove(this._group);
     // Geometries and materials are cached in _P2GEO/_P2MAT; do not dispose here.
+  }
+}
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// BronchialWalls — scrolling bronchial tube walls with cartilage rings and
+// blood vessels.  Gives the bronchial lumen context for an influenza scene.
+// Three 90-unit segments recycle just like terrain chunks.
+// ────────────────────────────────────────────────────────────────────────────
+class BronchialWalls {
+
+  constructor(scene) {
+    this._scene = scene;
+    this._segs  = [];   // { group, zOffset }
+    this._SLEN  = 90;
+    this._buildSegments();
+  }
+
+  _buildSegments() {
+    for (let i = 0; i < 3; i++) {
+      const group = this._buildOneSegment();
+      group.position.z = i * this._SLEN;
+      this._scene.add(group);
+      this._segs.push({ group, zOffset: i * this._SLEN });
+    }
+  }
+
+  _buildOneSegment() {
+    const group = new THREE.Group();
+    const SLEN  = this._SLEN;
+
+    // ── Bronchial tube wall (interior surface) ──────────────────────────
+    // Large open-ended cylinder; BackSide so it renders from inside.
+    const tubeGeo = _geo('bronchTube', () =>
+      new THREE.CylinderGeometry(18, 18, 1, 36, 1, true)
+    );
+    const tubeMat = _mat('bronchTube', () => new THREE.MeshPhongMaterial({
+      color:             0x5a1c22,
+      emissive:          new THREE.Color(0x1a0408),
+      emissiveIntensity: 0.5,
+      side:              THREE.BackSide,
+      shininess:         8,
+    }));
+    const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+    tubeMesh.rotation.x = Math.PI / 2;
+    tubeMesh.scale.y    = SLEN;
+    group.add(tubeMesh);
+
+    // ── Cartilage C-rings ───────────────────────────────────────────────
+    const ringGeo = _geo('cartilageRing', () =>
+      new THREE.TorusGeometry(18, 0.55, 8, 36)
+    );
+    const ringMat = _mat('cartilageRing', () => new THREE.MeshPhongMaterial({
+      color:             0x8c6048,
+      emissive:          new THREE.Color(0x1c0c06),
+      emissiveIntensity: 0.3,
+      shininess:         22,
+    }));
+    const RING_SPACING = 14;
+    const ringCount    = Math.floor(SLEN / RING_SPACING);
+    for (let r = 0; r < ringCount; r++) {
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.z = -SLEN / 2 + r * RING_SPACING + RING_SPACING * 0.5;
+      group.add(ring);
+    }
+
+    // ── Blood vessel streaks ────────────────────────────────────────────
+    const vesselGeo = _geo('bronchVessel', () =>
+      new THREE.CylinderGeometry(0.12, 0.12, 1, 5)
+    );
+    const vesselMat = _mat('bronchVessel', () => new THREE.MeshPhongMaterial({
+      color:             0x881420,
+      emissive:          new THREE.Color(0x330008),
+      emissiveIntensity: 0.4,
+      shininess:         12,
+    }));
+    const vesselAngles = [-0.65, -0.35, 0.10, 0.40, 0.80, 1.15];
+    for (const ang of vesselAngles) {
+      const R  = 17.6;
+      const vx = Math.sin(ang) * R;
+      const vy = Math.cos(ang) * R;
+      const v  = new THREE.Mesh(vesselGeo, vesselMat);
+      v.rotation.x = Math.PI / 2;
+      v.scale.y    = SLEN * (0.5 + Math.random() * 0.6);
+      v.position.set(vx, vy, (Math.random() - 0.5) * SLEN * 0.3);
+      group.add(v);
+    }
+
+    return group;
+  }
+
+  update(dt, speed) {
+    const dz   = dt * speed * 8;
+    const SLEN = this._SLEN;
+    for (const seg of this._segs) {
+      seg.zOffset -= dz;
+      seg.group.position.z = seg.zOffset;
+      if (seg.zOffset < -(SLEN * 1.5)) {
+        let maxZ = -Infinity;
+        this._segs.forEach(s => { if (s.zOffset > maxZ) maxZ = s.zOffset; });
+        seg.zOffset = maxZ + SLEN;
+        seg.group.position.z = seg.zOffset;
+      }
+    }
+  }
+
+  reset() {
+    const SLEN = this._SLEN;
+    this._segs.forEach((seg, i) => {
+      seg.zOffset = i * SLEN;
+      seg.group.position.z = seg.zOffset;
+    });
+  }
+
+  destroy() {
+    this._segs.forEach(seg => this._scene.remove(seg.group));
+    this._segs = [];
   }
 }
 

@@ -39,6 +39,7 @@ const P2 = {
   // Sub-system handles (populated by world/gameplay/fx files)
   terrain:   null,
   player:    null,
+  walls:     null,
   rbcs:      null,
   receptors: null,
   obstacles: null,
@@ -89,7 +90,7 @@ const P2 = {
     this._active = false;
     this._unbindInput();
     this._removeHUD();
-    const subs = ['terrain','player','rbcs','receptors','obstacles','powerups','particles','sounds','education'];
+    const subs = ['terrain','player','walls','rbcs','receptors','obstacles','powerups','particles','sounds','education'];
     subs.forEach(k => { if (this[k]) { this[k].destroy(); this[k] = null; } });
     if (this.scene) {
       while (this.scene.children.length) this.scene.remove(this.scene.children[0]);
@@ -157,6 +158,7 @@ const P2 = {
     if (typeof P2World !== 'undefined') {
       this.terrain = P2World.createTerrain(this.scene);
       this.player  = P2World.createPlayer(this.scene);
+      this.walls   = P2World.createBronchialWalls(this.scene);
       // RBCs disabled for influenza (bronchial context) — see memory/rbc_pattern.md
     }
 
@@ -226,6 +228,7 @@ const P2 = {
     // Sub-systems (guarded: files loaded in later chunks)
     if (this.terrain)   this.terrain.update(dt, this.speed);
     if (this.player)    this.player.update(dt, this._keys, this.speed);
+    if (this.walls)     this.walls.update(dt, this.speed);
     if (this.rbcs)      this.rbcs.update(dt, this.speed);
     if (this.receptors) this.receptors.update(dt, this.speed);
     if (this.obstacles) this.obstacles.update(dt, this.speed);
@@ -323,7 +326,7 @@ const P2 = {
   // ── Retry ─────────────────────────────────────────────────────────────
   _retryRun() {
     this._resetMeters();
-    const subs = ['terrain','player','rbcs','receptors','obstacles','powerups','particles','education'];
+    const subs = ['terrain','player','walls','rbcs','receptors','obstacles','powerups','particles','education'];
     subs.forEach(k => { if (this[k] && this[k].reset) this[k].reset(); });
     if (this.sounds) this.sounds.startBgDrone();
     this._setState('PLAYING');
@@ -369,7 +372,7 @@ const P2 = {
 
   _startPlaying() {
     if (this.state !== 'INTRO') return;
-    const subs = ['terrain','player','rbcs','receptors','obstacles','powerups','particles','education'];
+    const subs = ['terrain','player','walls','rbcs','receptors','obstacles','powerups','particles','education'];
     subs.forEach(k => { if (this[k] && this[k].reset) this[k].reset(); });
     if (this.sounds) this.sounds.startBgDrone();
     this._setState('PLAYING');
