@@ -741,7 +741,6 @@ class BronchialWalls {
     const ringCount    = Math.floor(SLEN / RING_SPACING);
     for (let r = 0; r < ringCount; r++) {
       const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.rotation.x = Math.PI / 2;
       ring.position.z = -SLEN / 2 + r * RING_SPACING + RING_SPACING * 0.5;
       group.add(ring);
     }
