@@ -1642,6 +1642,19 @@ function showBriefing(phaseIndex) {
 }
 
 function dismissBriefing() {
+  // Phase 1 (Attachment) is entirely the P2Attachment lane-runner mini-game —
+  // it is never entered via normal 3D dismissal, so launch it directly here.
+  if (G.phase === 1 && typeof P2Attachment !== 'undefined') {
+    setOverlay(null);
+    document.getElementById('hud').classList.add('hidden');
+    P2Attachment.launch(
+      { boundSites: 0, totalSites: AB_SITES },
+      () => { G.state = 'PLAYING'; completePhase(); },
+      null
+    );
+    return;
+  }
+
   G.state = 'PLAYING';
   G.clock.getDelta(); // consume accumulated delta so first frame isn't huge
   setOverlay(null);
