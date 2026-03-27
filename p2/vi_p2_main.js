@@ -62,6 +62,7 @@ const P2 = {
 
   // Info card — freezes update loop while showing first-obstacle educational card
   _infoCardActive: false,
+  _infoCardEl:     null,   // dynamically created DOM element, or null
 
   // Airway bend — periodic lookAt drift giving illusion of navigating curves
   _bendX:      0,    // current lateral look-ahead offset
@@ -146,6 +147,7 @@ const P2 = {
     this._bendTimer        = 5;
     this._keys             = {};
     this._infoCardActive   = false;
+    this._infoCardEl       = null;
   },
 
   // ── Scene ─────────────────────────────────────────────────────────────
@@ -364,9 +366,8 @@ const P2 = {
 
   // ── Retry ─────────────────────────────────────────────────────────────
   _retryRun() {
+    this._dismissInfoCard();
     this._resetMeters();
-    const icCard = document.getElementById('p2InfoCard');
-    if (icCard) icCard.style.display = 'none';
     const subs = ['terrain','player','walls','rbcs','receptors','obstacles','powerups','particles','education'];
     subs.forEach(k => { if (this[k] && this[k].reset) this[k].reset(); });
     if (this.sounds) this.sounds.startBgDrone();
@@ -536,19 +537,79 @@ const P2 = {
   },
 
   showInfoCard(title, text) {
+    if (this._infoCardEl) return;   // already showing
     this._infoCardActive = true;
-    const t = document.getElementById('p2InfoCardTitle');
-    const s = document.getElementById('p2InfoCardText');
-    const card = document.getElementById('p2InfoCard');
-    if (t) t.textContent = title;
-    if (s) s.textContent = text;
-    if (card) card.style.display = 'flex';
+
+    const card = document.createElement('div');
+    Object.assign(card.style, {
+      position:       'fixed',
+      inset:          '0',
+      zIndex:         '9999',
+      display:        'flex',
+      flexDirection:  'column',
+      alignItems:     'center',
+      justifyContent: 'center',
+      gap:            '18px',
+      padding:        '40px',
+      textAlign:      'center',
+      background:     'rgba(0,5,15,0.94)',
+      fontFamily:     "-apple-system,BlinkMacSystemFont,'Segoe UI',monospace",
+      boxSizing:      'border-box',
+    });
+
+    const titleEl = document.createElement('div');
+    Object.assign(titleEl.style, {
+      fontSize:      '1.15rem',
+      fontWeight:    '700',
+      letterSpacing: '.1em',
+      color:         '#ffcc44',
+      textTransform: 'uppercase',
+    });
+    titleEl.textContent = title;
+
+    const textEl = document.createElement('div');
+    Object.assign(textEl.style, {
+      fontSize:   '.95rem',
+      color:      '#cce8cc',
+      maxWidth:   '540px',
+      lineHeight: '1.9',
+    });
+    textEl.textContent = text;
+
+    const btn = document.createElement('button');
+    Object.assign(btn.style, {
+      padding:      '12px 40px',
+      background:   '#00cc44',
+      color:        '#001800',
+      fontSize:     '.95rem',
+      fontWeight:   '700',
+      border:       'none',
+      borderRadius: '8px',
+      cursor:       'pointer',
+      marginTop:    '4px',
+    });
+    btn.textContent = 'Got it!';
+    btn.addEventListener('click', () => this._dismissInfoCard());
+
+    const hint = document.createElement('div');
+    Object.assign(hint.style, {
+      fontSize:      '.75rem',
+      color:         '#4a7a5a',
+      letterSpacing: '.06em',
+    });
+    hint.textContent = 'or press Enter to continue';
+
+    card.appendChild(titleEl);
+    card.appendChild(textEl);
+    card.appendChild(btn);
+    card.appendChild(hint);
+    document.body.appendChild(card);
+    this._infoCardEl = card;
   },
 
   _dismissInfoCard() {
     this._infoCardActive = false;
-    const card = document.getElementById('p2InfoCard');
-    if (card) card.style.display = 'none';
+    if (this._infoCardEl) { this._infoCardEl.remove(); this._infoCardEl = null; }
   },
 
   // ── HUD build ─────────────────────────────────────────────────────────
@@ -634,13 +695,6 @@ const P2 = {
         .p2PenBox{background:rgba(255,100,50,0.1);border:1px solid rgba(255,100,50,0.3);
           border-radius:8px;padding:10px 20px;font-size:.8rem;color:#ff9966;max-width:440px;line-height:1.6;}
         .p2Prompt{font-size:.78rem;color:#5a8a6a;letter-spacing:.06em;}
-        #p2InfoCardTitle{font-size:1.1rem;font-weight:700;letter-spacing:.1em;
-          color:#ffcc44;text-transform:uppercase;margin-bottom:4px;}
-        #p2InfoCardText{font-size:.9rem;color:#cceecc;max-width:520px;line-height:1.85;}
-        #p2InfoCardBtn{padding:11px 36px;background:#00cc44;color:#001800;
-          font-size:.95rem;font-weight:700;border:none;border-radius:8px;
-          cursor:pointer;margin-top:4px;pointer-events:auto;}
-        #p2InfoCardBtn:hover{background:#44ff88;}
       `;
       document.head.appendChild(st);
     }
@@ -717,21 +771,10 @@ const P2 = {
         <div class="p2Prompt">Press Space or Enter to retry</div>
       </div>
 
-      <!-- INFO CARD overlay — pauses game on first obstacle hit -->
-      <div class="p2Ov" id="p2InfoCard">
-        <div id="p2InfoCardTitle"></div>
-        <div id="p2InfoCardText"></div>
-        <button id="p2InfoCardBtn">Got it!</button>
-        <div class="p2Prompt">Enter to continue</div>
-      </div>
     `;
     document.body.appendChild(root);
     this._hudRoot = root;
     this._refreshIntroPenalty();
-
-    // Wire info card dismiss button
-    const icBtn = document.getElementById('p2InfoCardBtn');
-    if (icBtn) icBtn.addEventListener('click', () => this._dismissInfoCard());
   },
 
   _removeHUD() {
