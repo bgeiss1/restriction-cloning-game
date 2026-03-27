@@ -16,6 +16,7 @@ const P2World = {
 
   createTerrain(scene) { return new MembraineTerrain(scene); },
   createPlayer(scene)  { return new PlayerVirus(scene); },
+  createRBCs(scene)    { return new RBCManager(scene); },
 
 };
 
@@ -630,5 +631,102 @@ class PlayerVirus {
   destroy() {
     this._scene.remove(this._group);
     // Geometries and materials are cached in _P2GEO/_P2MAT; do not dispose here.
+  }
+}
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// RBCManager — biconcave red blood cells drifting slowly through background
+// Gives depth cue that the virion is traversing a host vascular environment.
+// ────────────────────────────────────────────────────────────────────────────
+class RBCManager {
+
+  constructor(scene) {
+    this._scene = scene;
+    this._cells = [];
+    this._buildPool();
+  }
+
+  _buildPool() {
+    const geo = _geo('rbcDisc', () => {
+      // LatheGeometry with biconcave cross-section profile
+      // x = radial distance from axis (0→1), y = height at that radius
+      // Thickest near the rim, thin and concave at centre
+      const pts = [
+        new THREE.Vector2(0.00,  0.040),
+        new THREE.Vector2(0.30,  0.108),
+        new THREE.Vector2(0.60,  0.185),
+        new THREE.Vector2(0.82,  0.175),
+        new THREE.Vector2(1.00,  0.118),
+        new THREE.Vector2(1.00, -0.118),
+        new THREE.Vector2(0.82, -0.175),
+        new THREE.Vector2(0.60, -0.185),
+        new THREE.Vector2(0.30, -0.108),
+        new THREE.Vector2(0.00, -0.040),
+      ];
+      return new THREE.LatheGeometry(pts, 20);
+    });
+
+    const mat = _mat('rbcCell', () => new THREE.MeshPhongMaterial({
+      color:             0xcc2233,
+      emissive:          new THREE.Color(0x3a0008),
+      emissiveIntensity: 0.3,
+      transparent:       true,
+      opacity:           0.52,
+      side:              THREE.DoubleSide,
+    }));
+
+    for (let i = 0; i < 7; i++) {
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.visible = false;
+      this._scene.add(mesh);
+      this._cells.push({
+        mesh,
+        z: 0, x: 0, y: 0,
+        active:  false,
+        rotSpd:  (Math.random() - 0.5) * 0.35,
+        tiltX:   (Math.random() - 0.5) * 0.45,
+        tiltZ:   (Math.random() - 0.5) * 0.30,
+        scale:   1.8 + Math.random() * 1.2,
+      });
+    }
+
+    // Activate 4 cells spread across the initial Z range
+    for (let i = 0; i < 4; i++) this._spawnCell(this._cells[i], 30 + i * 22);
+  }
+
+  _spawnCell(cell, zOverride) {
+    const CW = P2_CFG.CHUNK_WIDTH;
+    cell.x = (Math.random() - 0.5) * (CW + 20);
+    cell.y = 5.0 + Math.random() * 3.5;           // Y 5–8.5 → appears near top of view
+    cell.z = zOverride !== undefined ? zOverride : (55 + Math.random() * 35);
+    cell.mesh.position.set(cell.x, cell.y, cell.z);
+    cell.mesh.rotation.set(cell.tiltX, 0, cell.tiltZ);
+    cell.mesh.scale.setScalar(cell.scale);
+    cell.mesh.visible = true;
+    cell.active = true;
+  }
+
+  update(dt, speed) {
+    const dz = dt * speed * 8 * 0.22; // 22% of terrain speed — languid drift
+    for (const cell of this._cells) {
+      if (!cell.active) continue;
+      cell.z -= dz;
+      cell.mesh.position.z  = cell.z;
+      cell.mesh.rotation.y += cell.rotSpd * dt;
+      if (cell.z < -20) this._spawnCell(cell);
+    }
+  }
+
+  reset() {
+    this._cells.forEach((cell, i) => {
+      if (i < 4) this._spawnCell(cell, 30 + i * 22);
+      else { cell.active = false; cell.mesh.visible = false; }
+    });
+  }
+
+  destroy() {
+    this._cells.forEach(cell => this._scene.remove(cell.mesh));
+    this._cells = [];
   }
 }

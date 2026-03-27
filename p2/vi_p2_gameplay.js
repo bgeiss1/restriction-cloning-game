@@ -445,36 +445,40 @@ class ObstacleManager {
   // ── Geometry builders ─────────────────────────────────────────────────
 
   _buildAntibody() {
-    const g   = new THREE.Group();
+    // outer: positioned in world space; inner: rotated π so Fab regions face DOWN
+    const outer = new THREE.Group();
+    const g     = new THREE.Group();
+    g.rotation.x = Math.PI; // antigen-binding sites (Fab) now point toward membrane
+    outer.add(g);
+
     const mat = new THREE.MeshPhongMaterial({
       color:    P2_CFG.COL_ANTIBODY,
       emissive: new THREE.Color(0xaa8800),
       emissiveIntensity: 0.6,
       shininess: 50,
     });
-    // Stalk
+    // Fc stalk (now points upward after flip)
     const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 1.4, 6), mat);
     stalk.position.y = 0.7;
     g.add(stalk);
-    // Left arm
+    // Fab arms
     const lArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.82, 5), mat);
     lArm.position.set(-0.30, 1.55, 0);
     lArm.rotation.z = 0.62;
     g.add(lArm);
-    // Right arm
     const rArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.82, 5), mat);
     rArm.position.set( 0.30, 1.55, 0);
     rArm.rotation.z = -0.62;
     g.add(rArm);
-    // Fab region spheres
+    // Fab tips (antigen-binding sites — face down toward membrane surface)
     const fL = new THREE.Mesh(new THREE.SphereGeometry(0.10, 6, 6), mat);
     fL.position.set(-0.57, 1.87, 0); g.add(fL);
     const fR = new THREE.Mesh(new THREE.SphereGeometry(0.10, 6, 6), mat);
     fR.position.set( 0.57, 1.87, 0); g.add(fR);
-    // Store mat ref for pulsing
-    g.userData.mat = mat;
-    g.position.y   = 1.8;
-    return g;
+
+    outer.userData.mat = mat;
+    outer.position.y   = 2.0;
+    return outer;
   }
 
   _buildComplement() {
@@ -621,7 +625,7 @@ class ObstacleManager {
     if (!item) return;
     const laneIdx = Math.floor(Math.random() * 5);
     this._activateObs(item, laneIdx, this._HORIZON_Z);
-    item.group.position.set(P2_CFG.LANES[laneIdx], 1.8, this._HORIZON_Z);
+    item.group.position.set(P2_CFG.LANES[laneIdx], 2.0, this._HORIZON_Z);
     item.oscT = Math.random() * Math.PI * 2;
     _edu('IGA_HINT', 'IgA antibody patrol — duck with ↓ or Shift to pass underneath!');
   }

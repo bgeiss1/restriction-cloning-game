@@ -39,6 +39,7 @@ const P2 = {
   // Sub-system handles (populated by world/gameplay/fx files)
   terrain:   null,
   player:    null,
+  rbcs:      null,
   receptors: null,
   obstacles: null,
   powerups:  null,
@@ -88,7 +89,7 @@ const P2 = {
     this._active = false;
     this._unbindInput();
     this._removeHUD();
-    const subs = ['terrain','player','receptors','obstacles','powerups','particles','sounds','education'];
+    const subs = ['terrain','player','rbcs','receptors','obstacles','powerups','particles','sounds','education'];
     subs.forEach(k => { if (this[k]) { this[k].destroy(); this[k] = null; } });
     if (this.scene) {
       while (this.scene.children.length) this.scene.remove(this.scene.children[0]);
@@ -156,6 +157,7 @@ const P2 = {
     if (typeof P2World !== 'undefined') {
       this.terrain = P2World.createTerrain(this.scene);
       this.player  = P2World.createPlayer(this.scene);
+      this.rbcs    = P2World.createRBCs(this.scene);
     }
 
     // Initialise gameplay sub-systems if vi_p2_gameplay.js is loaded
@@ -224,6 +226,7 @@ const P2 = {
     // Sub-systems (guarded: files loaded in later chunks)
     if (this.terrain)   this.terrain.update(dt, this.speed);
     if (this.player)    this.player.update(dt, this._keys, this.speed);
+    if (this.rbcs)      this.rbcs.update(dt, this.speed);
     if (this.receptors) this.receptors.update(dt, this.speed);
     if (this.obstacles) this.obstacles.update(dt, this.speed);
     if (this.powerups)  this.powerups.update(dt, this.speed);
@@ -320,7 +323,7 @@ const P2 = {
   // ── Retry ─────────────────────────────────────────────────────────────
   _retryRun() {
     this._resetMeters();
-    const subs = ['terrain','player','receptors','obstacles','powerups','particles','education'];
+    const subs = ['terrain','player','rbcs','receptors','obstacles','powerups','particles','education'];
     subs.forEach(k => { if (this[k] && this[k].reset) this[k].reset(); });
     if (this.sounds) this.sounds.startBgDrone();
     this._setState('PLAYING');
@@ -366,7 +369,7 @@ const P2 = {
 
   _startPlaying() {
     if (this.state !== 'INTRO') return;
-    const subs = ['terrain','player','receptors','obstacles','powerups','particles','education'];
+    const subs = ['terrain','player','rbcs','receptors','obstacles','powerups','particles','education'];
     subs.forEach(k => { if (this[k] && this[k].reset) this[k].reset(); });
     if (this.sounds) this.sounds.startBgDrone();
     this._setState('PLAYING');
@@ -532,6 +535,16 @@ const P2 = {
           text-align:center;opacity:0;transition:opacity .4s;
           white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
+        /* Bottom-left molecule legend */
+        #p2Legend{position:absolute;bottom:14px;left:14px;background:rgba(0,0,0,0.45);
+          border:1px solid rgba(100,200,180,0.12);border-radius:7px;padding:7px 11px;}
+        #p2LegTitle{font-size:.52rem;letter-spacing:.14em;color:#447766;
+          text-transform:uppercase;margin-bottom:5px;}
+        .p2LRow{display:flex;align-items:center;gap:6px;margin-top:3px;}
+        .p2LSwatch{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+        .p2LName{font-size:.58rem;color:#7a9988;}
+        .p2LRole{font-size:.54rem;color:#445544;}
+
         /* Bottom-right power-up */
         #p2PU{position:absolute;bottom:32px;right:14px;background:rgba(0,0,0,0.6);
           border:1px solid rgba(0,255,136,0.2);border-radius:8px;padding:8px 12px;
@@ -591,6 +604,15 @@ const P2 = {
           <div id="p2DistStat">Dist: 0 µm</div>
         </div>
         <div id="p2Ticker"></div>
+        <div id="p2Legend">
+          <div id="p2LegTitle">Cell Surface Molecules</div>
+          <div class="p2LRow"><div class="p2LSwatch" style="background:#00ff88"></div><span class="p2LName">Sialic acid</span><span class="p2LRole">&nbsp;— bind!</span></div>
+          <div class="p2LRow"><div class="p2LSwatch" style="background:#4488ff"></div><span class="p2LName">ACE2</span><span class="p2LRole">&nbsp;— wrong receptor</span></div>
+          <div class="p2LRow"><div class="p2LSwatch" style="background:#aa44ff"></div><span class="p2LName">CD4</span><span class="p2LRole">&nbsp;— wrong receptor</span></div>
+          <div class="p2LRow"><div class="p2LSwatch" style="background:#ff8844"></div><span class="p2LName">ICAM-1</span><span class="p2LRole">&nbsp;— wrong receptor</span></div>
+          <div class="p2LRow"><div class="p2LSwatch" style="background:#ffdd44"></div><span class="p2LName">IgA antibody</span><span class="p2LRole">&nbsp;— dodge</span></div>
+          <div class="p2LRow"><div class="p2LSwatch" style="background:#ff4444"></div><span class="p2LName">C3b complement</span><span class="p2LRole">&nbsp;— escape ring</span></div>
+        </div>
         <div id="p2PU">
           <div id="p2PULbl">Power-Up</div>
           <div id="p2PUName">—</div>

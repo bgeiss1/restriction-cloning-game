@@ -27,7 +27,7 @@ const P2_CFG = {
 
   // ── Health & meters ──────────────────────────────────────────────────────
   PLAYER_HP:           100,
-  BINDING_PER_RECEPTOR:[4, 6],  // [min, max] % per sialic acid hit
+  BINDING_PER_RECEPTOR:[2, 3],  // [min, max] % per sialic acid hit
   BINDING_WIN:         100,     // % to trigger phase complete
   ALERT_DECAY:         1.0,     // % per second when not taking hits
 
@@ -70,15 +70,15 @@ const P2_CFG = {
   STAGE_MAX_START:     90,
 
   // ── Receptor spawn weights (must sum ≤ 1.0; remainder = empty slot) ──────
-  SPAWN_W_SIALIC:      0.20,
+  SPAWN_W_SIALIC:      0.10,
   SPAWN_W_ACE2:        0.20,
   SPAWN_W_CD4:         0.15,
   SPAWN_W_ICAM1:       0.15,
   SPAWN_W_DECOY:       0.07,
   // In a lipid raft zone, sialic acid weight rises to:
-  SPAWN_W_SIALIC_RAFT: 0.35,
+  SPAWN_W_SIALIC_RAFT: 0.17,
   // Guarantee one sialic acid every N rows
-  SPAWN_GUARANTEE_ROWS:3,
+  SPAWN_GUARANTEE_ROWS:6,
   // Decoys only appear after this many correct collections
   DECOY_MIN_COLLECTED: 3,
 
