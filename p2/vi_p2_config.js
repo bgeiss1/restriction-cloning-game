@@ -111,12 +111,12 @@ const P2_CFG = {
   COLLISION_Z_RANGE:   20,     // only check objects within this many units of player
 
   // ── Colors (integer hex for Three.js) ───────────────────────────────────
-  COL_BG:        0x05050f,
-  COL_FOG:       0x0a0a18,
-  COL_MEMBRANE:  0x0a1628,
-  COL_MEM_EMI:   0x001133,
-  COL_SUBMEM:    0x060e1a,
-  COL_RAFT:      0x0d2040,
+  COL_BG:        0x0a0404,  // bronchial lumen: dark warm near-black
+  COL_FOG:       0x160808,  // warm respiratory haze
+  COL_MEMBRANE:  0x7c2e38,  // respiratory epithelium: muted dusty rose
+  COL_MEM_EMI:   0x250810,  // subtle warm mucosal glow
+  COL_SUBMEM:    0x280c12,  // submucosa: deeper reddish tissue
+  COL_RAFT:      0x4a1a22,  // lipid raft in tissue context
   COL_SIALIC:    0x00ff88,
   COL_ACE2:      0x4488ff,
   COL_CD4:       0xaa44ff,
@@ -133,6 +133,6 @@ const P2_CFG = {
   COL_PU_NA:     0xff8800,
   COL_PU_RAFT:   0x00ccff,
   COL_PLAYER_LIGHT: 0xff8866,
-  COL_LIPID_HEAD:   0x1a4a70,  // phospholipid head (outer leaflet)
-  COL_LIPID_EMI:    0x0a1a30,  // lipid head emissive
+  COL_LIPID_HEAD:   0x8c3c48,  // phospholipid head (outer leaflet) — warm pink
+  COL_LIPID_EMI:    0x1c0808,  // lipid head emissive
 };

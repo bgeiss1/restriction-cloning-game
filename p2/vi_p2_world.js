@@ -109,8 +109,11 @@ class MembraineTerrain {
       // Lipid raft overlay patches
       const rafts = this._buildRaftPatches(i);
 
+      // Cilia (respiratory epithelium — important influenza biology)
+      const cilia = this._buildCiliaInstances(i);
+
       this._chunks.push({
-        mesh, subMesh, dots, rafts,
+        mesh, subMesh, dots, cilia, rafts,
         zOffset: i * CL,
       });
       this._raftZones[i] = this._computeRaftZones(i * CL, rafts);
@@ -122,8 +125,8 @@ class MembraineTerrain {
     const count  = 40;
     const dotGeo = _geo('cytoDot', () => new THREE.SphereGeometry(0.08, 4, 4));
     const dotMat = _mat('cytoDot', () => new THREE.MeshPhongMaterial({
-      color:   0x1144aa,
-      emissive: new THREE.Color(0x0033cc),
+      color:    0x881828,
+      emissive: new THREE.Color(0x380010),
       emissiveIntensity: 1.0,
       transparent: true,
       opacity: 0.5,
@@ -164,6 +167,45 @@ class MembraineTerrain {
     }
     this._scene.add(group);
     return group;
+  }
+
+  // ── Cilia — epithelial surface hairs, hallmark of respiratory tract ───
+  _buildCiliaInstances(chunkIdx) {
+    const CL    = P2_CFG.CHUNK_LENGTH;
+    const CW    = P2_CFG.CHUNK_WIDTH;
+    const count = 200;
+    const geo   = _geo('cilia', () => new THREE.CylinderGeometry(0.015, 0.010, 0.40, 4));
+    const mat   = _mat('cilia', () => new THREE.MeshPhongMaterial({
+      color:             0x9c404c,
+      emissive:          new THREE.Color(0x280808),
+      emissiveIntensity: 0.35,
+      transparent:       true,
+      opacity:           0.70,
+    }));
+
+    const mesh  = new THREE.InstancedMesh(geo, mat, count);
+    mesh.matrixAutoUpdate = false;
+    const dummy = new THREE.Object3D();
+
+    for (let i = 0; i < count; i++) {
+      dummy.position.set(
+        (Math.random() - 0.5) * CW,
+        0.20,   // half-height above membrane surface
+        (Math.random() - 0.5) * CL
+      );
+      dummy.rotation.set(
+        (Math.random() - 0.5) * 0.35,
+        Math.random() * Math.PI * 2,
+        (Math.random() - 0.5) * 0.35
+      );
+      dummy.scale.setScalar(1);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.position.z = chunkIdx * CL;
+    this._scene.add(mesh);
+    return mesh;
   }
 
   // ── Lipid headgroup sheet — short independent segments that scroll and
@@ -253,6 +295,7 @@ class MembraineTerrain {
       ch.mesh.position.z    = ch.zOffset;
       ch.subMesh.position.z = ch.zOffset;
       ch.dots.position.z    = ch.zOffset;
+      ch.cilia.position.z   = ch.zOffset;
       ch.rafts.position.z   = ch.zOffset;
 
       // Recycle chunk that has fully passed behind the camera
@@ -264,6 +307,7 @@ class MembraineTerrain {
         ch.mesh.position.z    = ch.zOffset;
         ch.subMesh.position.z = ch.zOffset;
         ch.dots.position.z    = ch.zOffset;
+        ch.cilia.position.z   = ch.zOffset;
         ch.rafts.position.z   = ch.zOffset;
 
         // Randomise raft positions in recycled chunk
@@ -323,6 +367,7 @@ class MembraineTerrain {
       ch.mesh.position.z    = ch.zOffset;
       ch.subMesh.position.z = ch.zOffset;
       ch.dots.position.z    = ch.zOffset;
+      ch.cilia.position.z   = ch.zOffset;
       ch.rafts.position.z   = ch.zOffset;
     });
     const SLEN = 30;
@@ -338,6 +383,8 @@ class MembraineTerrain {
         this._scene.remove(obj);
         if (obj.geometry) obj.geometry.dispose();
       });
+      // Cilia geometry shared via cache; do not dispose
+      this._scene.remove(ch.cilia);
     });
     this._chunks = [];
     // Lipid segment geometry is shared via _P2GEO cache; do not dispose

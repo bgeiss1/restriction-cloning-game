@@ -140,11 +140,11 @@ const P2 = {
     this.camera.position.set(0, P2_CFG.CAMERA_Y_OFFSET, P2_CFG.CAMERA_Z_OFFSET);
     this.camera.lookAt(0, 0, 15);
 
-    // Ambient — very dim, cool blue
-    this.scene.add(new THREE.AmbientLight(0x111122, 0.6));
+    // Ambient — warm dim, bronchial tissue
+    this.scene.add(new THREE.AmbientLight(0x1a0906, 0.75));
 
-    // Directional — subtle top-forward
-    const dir = new THREE.DirectionalLight(0xaaccff, 0.4);
+    // Directional — warm tissue light from above-forward
+    const dir = new THREE.DirectionalLight(0xffaa88, 0.45);
     dir.position.set(0, 10, -5);
     this.scene.add(dir);
 
@@ -157,7 +157,7 @@ const P2 = {
     if (typeof P2World !== 'undefined') {
       this.terrain = P2World.createTerrain(this.scene);
       this.player  = P2World.createPlayer(this.scene);
-      this.rbcs    = P2World.createRBCs(this.scene);
+      // RBCs disabled for influenza (bronchial context) — see memory/rbc_pattern.md
     }
 
     // Initialise gameplay sub-systems if vi_p2_gameplay.js is loaded
