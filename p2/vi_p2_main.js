@@ -60,6 +60,9 @@ const P2 = {
   // HP regen — resumes after a brief pause following a hit
   _hpRegenDelay: 0,
 
+  // Info card — freezes update loop while showing first-obstacle educational card
+  _infoCardActive: false,
+
   // Airway bend — periodic lookAt drift giving illusion of navigating curves
   _bendX:      0,    // current lateral look-ahead offset
   _bendTarget: 0,    // target to lerp toward
@@ -118,7 +121,7 @@ const P2 = {
 
   // ── _tick — called from viral_infiltration.html's gameLoop ────────────
   _tick(dt) {
-    if (this.state === 'PLAYING') this._updateGame(dt);
+    if (this.state === 'PLAYING' && !this._infoCardActive) this._updateGame(dt);
     this._updateCamera(dt);
     if (this.activePowerup) this._updateHUDPowerup();
   },
@@ -142,6 +145,7 @@ const P2 = {
     this._bendTarget       = 0;
     this._bendTimer        = 5;
     this._keys             = {};
+    this._infoCardActive   = false;
   },
 
   // ── Scene ─────────────────────────────────────────────────────────────
@@ -361,6 +365,8 @@ const P2 = {
   // ── Retry ─────────────────────────────────────────────────────────────
   _retryRun() {
     this._resetMeters();
+    const icCard = document.getElementById('p2InfoCard');
+    if (icCard) icCard.style.display = 'none';
     const subs = ['terrain','player','walls','rbcs','receptors','obstacles','powerups','particles','education'];
     subs.forEach(k => { if (this[k] && this[k].reset) this[k].reset(); });
     if (this.sounds) this.sounds.startBgDrone();
@@ -420,12 +426,14 @@ const P2 = {
       this._keys[e.code] = true;
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
+        if (this._infoCardActive)      { this._dismissInfoCard(); return; }
         if (this.state === 'INTRO')    this._startPlaying();
         if (this.state === 'COMPLETE') this._completeAndAdvance();
         if (this.state === 'DEAD')     this._retryRun();
         if (this.state === 'PAUSED')   this.resume();
       }
       if (e.code === 'Escape' || e.code === 'KeyP') {
+        if (this._infoCardActive)         { this._dismissInfoCard(); return; }
         if (this.state === 'PLAYING') this.pause();
         else if (this.state === 'PAUSED') this.resume();
       }
@@ -457,6 +465,7 @@ const P2 = {
 
       // Tap (< 250ms, < 20px movement) — same as Space/Enter
       if (Math.abs(dx) < 20 && Math.abs(dy) < 20 && dt < 250) {
+        if (this._infoCardActive)      { this._dismissInfoCard(); return; }
         if (this.state === 'INTRO')    { this._startPlaying(); return; }
         if (this.state === 'COMPLETE') { this._completeAndAdvance(); return; }
         if (this.state === 'DEAD')     { this._retryRun(); return; }
@@ -522,6 +531,22 @@ const P2 = {
     el.style.opacity = '1';
     clearTimeout(el._t);
     if (duration < 900) el._t = setTimeout(() => { el.style.opacity = '0'; }, (duration || 3) * 1000);
+  },
+
+  showInfoCard(title, text) {
+    this._infoCardActive = true;
+    const t = document.getElementById('p2InfoCardTitle');
+    const s = document.getElementById('p2InfoCardText');
+    const card = document.getElementById('p2InfoCard');
+    if (t) t.textContent = title;
+    if (s) s.textContent = text;
+    if (card) card.style.display = 'flex';
+  },
+
+  _dismissInfoCard() {
+    this._infoCardActive = false;
+    const card = document.getElementById('p2InfoCard');
+    if (card) card.style.display = 'none';
   },
 
   // ── HUD build ─────────────────────────────────────────────────────────
@@ -607,6 +632,13 @@ const P2 = {
         .p2PenBox{background:rgba(255,100,50,0.1);border:1px solid rgba(255,100,50,0.3);
           border-radius:8px;padding:10px 20px;font-size:.8rem;color:#ff9966;max-width:440px;line-height:1.6;}
         .p2Prompt{font-size:.78rem;color:#5a8a6a;letter-spacing:.06em;}
+        #p2InfoCardTitle{font-size:1.1rem;font-weight:700;letter-spacing:.1em;
+          color:#ffcc44;text-transform:uppercase;margin-bottom:4px;}
+        #p2InfoCardText{font-size:.9rem;color:#cceecc;max-width:520px;line-height:1.85;}
+        #p2InfoCardBtn{padding:11px 36px;background:#00cc44;color:#001800;
+          font-size:.95rem;font-weight:700;border:none;border-radius:8px;
+          cursor:pointer;margin-top:4px;pointer-events:auto;}
+        #p2InfoCardBtn:hover{background:#44ff88;}
       `;
       document.head.appendChild(st);
     }
@@ -682,10 +714,22 @@ const P2 = {
         <div class="p2OvStats" id="p2DeadStats"></div>
         <div class="p2Prompt">Press Space or Enter to retry</div>
       </div>
+
+      <!-- INFO CARD overlay — pauses game on first obstacle hit -->
+      <div class="p2Ov" id="p2InfoCard">
+        <div id="p2InfoCardTitle"></div>
+        <div id="p2InfoCardText"></div>
+        <button id="p2InfoCardBtn">Got it!</button>
+        <div class="p2Prompt">Space or Enter to continue</div>
+      </div>
     `;
     document.body.appendChild(root);
     this._hudRoot = root;
     this._refreshIntroPenalty();
+
+    // Wire info card dismiss button
+    const icBtn = document.getElementById('p2InfoCardBtn');
+    if (icBtn) icBtn.addEventListener('click', () => this._dismissInfoCard());
   },
 
   _removeHUD() {

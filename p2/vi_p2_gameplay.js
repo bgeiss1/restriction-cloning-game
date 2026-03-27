@@ -403,11 +403,12 @@ class ObstacleManager {
     this._mucus       = [];
 
     // Scroll trackers (negative start = grace period before first spawn)
-    this._totalScrolled = 0;
-    this._lastAbAt      = -28;
-    this._lastCompAt    = -50;
-    this._lastMucusAt   = -55;
-    this._HORIZON_Z     = 42;
+    this._totalScrolled   = 0;
+    this._lastAbAt        = -28;
+    this._lastCompAt      = -50;
+    this._lastMucusAt     = -55;
+    this._HORIZON_Z       = 42;
+    this._firstObstacleHit = false;  // true after first info-card pause shown
 
     this._buildPools();
   }
@@ -682,6 +683,10 @@ class ObstacleManager {
       if (dx * dx + dy * dy + dz2 * dz2 < rr) {
         ab.hit = true;
         P2Attachment.takeDamage(P2_CFG.DMG_ANTIBODY, P2_CFG.ALERT_ANTIBODY, true);
+        if (!this._firstObstacleHit) {
+          this._firstObstacleHit = true;
+          P2Attachment.showInfoCard('IgA Antibody', 'IgA — secretory antibodies patrol mucosal surfaces and block receptor binding. This is neutralization. Slide (↓ / Shift) to duck underneath!');
+        }
         _edu('IGA_HIT', 'IgA — secretory antibodies patrol mucosal surfaces and block receptor binding. This is neutralization.');
         setTimeout(() => this._retireObs(this._antibodies, ab), 280);
       }
@@ -728,6 +733,10 @@ class ObstacleManager {
           if (!comp.hit) {
             comp.hit = true;
             P2Attachment.takeDamage(P2_CFG.DMG_COMPLEMENT, P2_CFG.ALERT_COMPLEMENT, true);
+            if (!this._firstObstacleHit) {
+              this._firstObstacleHit = true;
+              P2Attachment.showInfoCard('Complement C3b', 'Complement C3b tags pathogens for destruction and can trigger the membrane attack complex. Escape the glowing ring before it detonates!');
+            }
             _edu('C3B_HIT', 'Complement C3b tags pathogens for destruction and can trigger the membrane attack complex.');
             if (window.P2Attachment && P2Attachment.emitBurst) {
               P2Attachment.emitBurst(comp.group.position.x, 0.3, comp.z,
@@ -770,9 +779,10 @@ class ObstacleManager {
       );
     });
     this._totalScrolled = 0;
-    this._lastAbAt      = -28;
-    this._lastCompAt    = -50;
-    this._lastMucusAt   = -55;
+    this._lastAbAt         = -28;
+    this._lastCompAt       = -50;
+    this._lastMucusAt      = -55;
+    this._firstObstacleHit = false;
   }
 
   destroy() {

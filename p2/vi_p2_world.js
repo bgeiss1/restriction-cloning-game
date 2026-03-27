@@ -469,7 +469,7 @@ class PlayerVirus {
     const bodyGeo = _geo('virusBody', () => new THREE.SphereGeometry(0.5, 16, 16));
     const bodyMat = _mat('virusBody', () => new THREE.MeshPhongMaterial({
       color:    P2_CFG.COL_PLAYER,
-      emissive: new THREE.Color(0x661100),
+      emissive: new THREE.Color(0x003311),
       emissiveIntensity: 0.5,
       shininess: 40,
     }));
@@ -479,7 +479,7 @@ class PlayerVirus {
     // Envelope (translucent outer sphere)
     const envGeo = _geo('virusEnv', () => new THREE.SphereGeometry(0.58, 12, 12));
     const envMat = _mat('virusEnv', () => new THREE.MeshPhongMaterial({
-      color:       0xff9944,
+      color:       0x44ff88,
       transparent: true,
       opacity:     0.18,
       side:        THREE.BackSide,
@@ -489,13 +489,13 @@ class PlayerVirus {
     // HA spikes (slightly redder)
     const haMat = _mat('virusHA', () => new THREE.MeshPhongMaterial({
       color:    P2_CFG.COL_SPIKE_HA,
-      emissive: new THREE.Color(0x440800),
+      emissive: new THREE.Color(0x002200),
       emissiveIntensity: 0.4,
     }));
-    // NA spikes (slightly more orange)
+    // NA spikes (slightly lighter green)
     const naMat = _mat('virusNA', () => new THREE.MeshPhongMaterial({
       color:    P2_CFG.COL_SPIKE_NA,
-      emissive: new THREE.Color(0x442200),
+      emissive: new THREE.Color(0x003300),
       emissiveIntensity: 0.4,
     }));
     const spikeGeo = _geo('virusSpike', () => new THREE.ConeGeometry(0.08, 0.3, 6));

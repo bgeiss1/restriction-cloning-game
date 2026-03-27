@@ -128,15 +128,15 @@ const P2_CFG = {
   COL_DECOY:     0x88ff44,
   COL_ANTIBODY:  0xffdd44,
   COL_COMPLEMENT:0xff4444,
-  COL_PLAYER:    0xff6644,
-  COL_SPIKE_HA:  0xff4422,
-  COL_SPIKE_NA:  0xff8833,
+  COL_PLAYER:    0x00cc44,
+  COL_SPIKE_HA:  0x00aa33,
+  COL_SPIKE_NA:  0x44dd55,
   COL_MUCUS:     0xaaffcc,
   COL_GLYCO:     0x88ddff,
   COL_PU_DRIFT:  0xff88ff,
   COL_PU_NA:     0xff8800,
   COL_PU_RAFT:   0x00ccff,
-  COL_PLAYER_LIGHT: 0xff8866,
+  COL_PLAYER_LIGHT: 0x44ff88,
   COL_LIPID_HEAD:   0x8c3c48,  // phospholipid head (outer leaflet) — warm pink
   COL_LIPID_EMI:    0x1c0808,  // lipid head emissive
 };
