@@ -51,6 +51,7 @@ const P2 = {
   // Internal Three.js objects
   _playerLight: null,
   _hudRoot:     null,
+  _worldGroup:  null,   // parent group for all 3D objects; rotated for airway bends
 
   // Camera follow state
   _camX:    0,   // lerped camera X
@@ -102,6 +103,7 @@ const P2 = {
       this.scene = null;
     }
     this._playerLight = null;
+    this._worldGroup  = null;
     this.camera = null;
     this.state  = 'IDLE';
     const mainHud = document.getElementById('hud');
@@ -149,37 +151,40 @@ const P2 = {
     this.camera.position.set(0, P2_CFG.CAMERA_Y_OFFSET, P2_CFG.CAMERA_Z_OFFSET);
     this.camera.lookAt(0, 0, 15);
 
-    // Ambient — warm dim, bronchial tissue
+    // Lights stay in scene space (not worldGroup) — they illuminate globally
     this.scene.add(new THREE.AmbientLight(0x1a0906, 0.75));
-
-    // Directional — warm tissue light from above-forward
     const dir = new THREE.DirectionalLight(0xffaa88, 0.45);
     dir.position.set(0, 10, -5);
     this.scene.add(dir);
 
-    // Player point light (warm glow)
+    // World group — all 3D game objects live here so we can rotate the group
+    // to simulate airway bends without touching individual object transforms.
+    this._worldGroup = new THREE.Group();
+    this.scene.add(this._worldGroup);
+
+    // Player point light inside worldGroup so it rotates with the world
     this._playerLight = new THREE.PointLight(P2_CFG.COL_PLAYER_LIGHT, 1.2, 8);
     this._playerLight.position.set(0, 1.5, 0);
-    this.scene.add(this._playerLight);
+    this._worldGroup.add(this._playerLight);
 
     // Initialise world sub-systems if vi_p2_world.js is loaded
     if (typeof P2World !== 'undefined') {
-      this.terrain = P2World.createTerrain(this.scene);
-      this.player  = P2World.createPlayer(this.scene);
-      this.walls   = P2World.createBronchialWalls(this.scene);
+      this.terrain = P2World.createTerrain(this._worldGroup);
+      this.player  = P2World.createPlayer(this._worldGroup);
+      this.walls   = P2World.createBronchialWalls(this._worldGroup);
       // RBCs disabled for influenza (bronchial context) — see memory/rbc_pattern.md
     }
 
     // Initialise gameplay sub-systems if vi_p2_gameplay.js is loaded
     if (typeof P2Gameplay !== 'undefined') {
-      this.receptors = P2Gameplay.createReceptors(this.scene, this.terrain);
-      this.obstacles = P2Gameplay.createObstacles(this.scene);
-      this.powerups  = P2Gameplay.createPowerups(this.scene, this.terrain);
+      this.receptors = P2Gameplay.createReceptors(this._worldGroup, this.terrain);
+      this.obstacles = P2Gameplay.createObstacles(this._worldGroup);
+      this.powerups  = P2Gameplay.createPowerups(this._worldGroup, this.terrain);
     }
 
     // Initialise FX sub-systems if vi_p2_fx.js is loaded
     if (typeof P2FX !== 'undefined') {
-      this.particles = P2FX.createParticles(this.scene);
+      this.particles = P2FX.createParticles(this._worldGroup);
       this.sounds    = P2FX.createSounds();
       this.education = P2FX.createEducation();
     }
@@ -208,10 +213,18 @@ const P2 = {
     // Airway bend — periodically shift lookAt target to simulate curved airways
     this._bendTimer -= dt;
     if (this._bendTimer <= 0) {
-      this._bendTarget = (Math.random() - 0.5) * 12;   // ±6 units
+      this._bendTarget = (Math.random() - 0.5) * 12;   // ±6 units lateral
       this._bendTimer  = 9 + Math.random() * 8;         // retarget every 9–17 s
     }
     this._bendX += (this._bendTarget - this._bendX) * Math.min(1, dt * 0.3);
+
+    // Rotate worldGroup to physically bend the playfield:
+    //   Y rotation: lateral curve (far geometry swings sideways like a curved tube)
+    //   X rotation: slow sinusoidal dive/climb — going deeper into branching airways
+    if (this._worldGroup) {
+      this._worldGroup.rotation.y = -this._bendX / 50;
+      this._worldGroup.rotation.x =  0.035 * Math.sin(this.elapsed * 0.07);
+    }
 
     this.camera.position.set(
       this._camX + this._camShake.x + sway,
