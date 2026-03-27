@@ -36,6 +36,8 @@ class MembraineTerrain {
     // Raft zone definitions per chunk (recomputed on recycle)
     this._raftZones = [[], [], []];  // array of { xMin, xMax, zMin, zMax }
 
+    this._mat4 = new THREE.Matrix4(); // reused for lipid instance matrix writes
+
     this._buildMaterials();
     this._buildChunks();
   }
@@ -65,6 +67,13 @@ class MembraineTerrain {
       emissiveIntensity: 0.5,
       transparent: true,
       opacity:     0.9,
+    }));
+
+    this._matLipid = _mat('lipidHead', () => new THREE.MeshPhongMaterial({
+      color:             P2_CFG.COL_LIPID_HEAD,
+      emissive:          new THREE.Color(P2_CFG.COL_LIPID_EMI),
+      emissiveIntensity: 0.3,
+      shininess:         60,
     }));
   }
 
@@ -97,8 +106,11 @@ class MembraineTerrain {
       // Lipid raft overlay patches
       const rafts = this._buildRaftPatches(i);
 
+      // Lipid headgroup spheres (InstancedMesh)
+      const lipids = this._buildLipidInstances(i);
+
       this._chunks.push({
-        mesh, subMesh, dots, rafts,
+        mesh, subMesh, dots, rafts, lipids,
         zOffset: i * CL,
       });
       this._raftZones[i] = this._computeRaftZones(i * CL, rafts);
@@ -154,6 +166,42 @@ class MembraineTerrain {
     return group;
   }
 
+  // ── Lipid headgroup instances ──────────────────────────────────────────
+  _buildLipidInstances(chunkIdx) {
+    const CL  = P2_CFG.CHUNK_LENGTH;
+    const CW  = P2_CFG.CHUNK_WIDTH;
+    const sp  = P2_CFG.LIPID_SPACING;
+    const r   = P2_CFG.LIPID_RADIUS;
+    const geo = _geo('lipidHead', () => new THREE.SphereGeometry(r, 7, 6));
+
+    const cols  = Math.floor(CW / sp);
+    const rows  = Math.floor(CL / sp);
+    const count = cols * rows;
+
+    const mesh = new THREE.InstancedMesh(geo, this._matLipid, count);
+    mesh.matrixAutoUpdate = false;
+
+    // Store (x, z) grid coordinates for wave animation
+    const gridXZ = new Float32Array(count * 2);
+    let idx = 0;
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const x = -CW / 2 + (col + 0.5) * sp;
+        const z = -CL / 2 + (row + 0.5) * sp;
+        gridXZ[idx * 2]     = x;
+        gridXZ[idx * 2 + 1] = z;
+        this._mat4.makeTranslation(x, r, z);
+        mesh.setMatrixAt(idx, this._mat4);
+        idx++;
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.position.z = chunkIdx * CL;
+    this._scene.add(mesh);
+
+    return { mesh, gridXZ, count };
+  }
+
   _computeRaftZones(chunkWorldZ, raftGroup) {
     const zones = [];
     raftGroup.children.forEach(m => {
@@ -194,10 +242,11 @@ class MembraineTerrain {
       ch.zOffset -= dz;
 
       // Reposition chunk group
-      ch.mesh.position.z    = ch.zOffset;
-      ch.subMesh.position.z = ch.zOffset;
-      ch.dots.position.z    = ch.zOffset;
-      ch.rafts.position.z   = ch.zOffset;
+      ch.mesh.position.z         = ch.zOffset;
+      ch.subMesh.position.z      = ch.zOffset;
+      ch.dots.position.z         = ch.zOffset;
+      ch.rafts.position.z        = ch.zOffset;
+      ch.lipids.mesh.position.z  = ch.zOffset;
 
       // Recycle chunk that has fully passed behind the camera
       if (ch.zOffset < -(CL * 1.5)) {
@@ -205,10 +254,11 @@ class MembraineTerrain {
         let maxZ = -Infinity;
         this._chunks.forEach(c => { if (c.zOffset > maxZ) maxZ = c.zOffset; });
         ch.zOffset = maxZ + CL;
-        ch.mesh.position.z    = ch.zOffset;
-        ch.subMesh.position.z = ch.zOffset;
-        ch.dots.position.z    = ch.zOffset;
-        ch.rafts.position.z   = ch.zOffset;
+        ch.mesh.position.z         = ch.zOffset;
+        ch.subMesh.position.z      = ch.zOffset;
+        ch.dots.position.z         = ch.zOffset;
+        ch.rafts.position.z        = ch.zOffset;
+        ch.lipids.mesh.position.z  = ch.zOffset;
 
         // Randomise raft positions in recycled chunk
         this._repositionRafts(i, ch);
@@ -231,6 +281,18 @@ class MembraineTerrain {
     }
     pos.needsUpdate = true;
     ch.mesh.geometry.computeVertexNormals();
+
+    // Animate lipid sphere positions to ride the membrane wave
+    const { mesh: lm, gridXZ, count: lc } = ch.lipids;
+    const r = P2_CFG.LIPID_RADIUS;
+    for (let i = 0; i < lc; i++) {
+      const x = gridXZ[i * 2];
+      const z = gridXZ[i * 2 + 1];
+      const y = Math.sin(x * 0.3 + t * 0.5) * 0.15 + Math.sin(z * 0.2 + t * 0.3) * 0.10;
+      this._mat4.makeTranslation(x, y + r, z);
+      lm.setMatrixAt(i, this._mat4);
+    }
+    lm.instanceMatrix.needsUpdate = true;
   }
 
   _repositionRafts(idx, ch) {
@@ -251,10 +313,11 @@ class MembraineTerrain {
     const CL = P2_CFG.CHUNK_LENGTH;
     this._chunks.forEach((ch, i) => {
       ch.zOffset = i * CL;
-      ch.mesh.position.z    = ch.zOffset;
-      ch.subMesh.position.z = ch.zOffset;
-      ch.dots.position.z    = ch.zOffset;
-      ch.rafts.position.z   = ch.zOffset;
+      ch.mesh.position.z        = ch.zOffset;
+      ch.subMesh.position.z     = ch.zOffset;
+      ch.dots.position.z        = ch.zOffset;
+      ch.rafts.position.z       = ch.zOffset;
+      ch.lipids.mesh.position.z = ch.zOffset;
     });
   }
 
@@ -264,6 +327,8 @@ class MembraineTerrain {
         this._scene.remove(obj);
         if (obj.geometry) obj.geometry.dispose();
       });
+      // Lipid InstancedMesh: geometry is shared via cache, do not dispose
+      this._scene.remove(ch.lipids.mesh);
     });
     this._chunks = [];
   }

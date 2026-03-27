@@ -52,6 +52,8 @@ const P2_CFG = {
   // ── Terrain ──────────────────────────────────────────────────────────────
   CHUNK_LENGTH:        200,    // world units along Z per chunk
   CHUNK_WIDTH:         40,     // world units along X
+  LIPID_SPACING:       2.0,   // grid pitch between lipid head centers (world units)
+  LIPID_RADIUS:        0.7,   // lipid head sphere radius
   NUM_CHUNKS:          3,
   PLAYER_Z:            0,      // player fixed world Z; terrain scrolls toward -Z
   CAMERA_Z_OFFSET:    -8,      // camera behind player
@@ -131,4 +133,6 @@ const P2_CFG = {
   COL_PU_NA:     0xff8800,
   COL_PU_RAFT:   0x00ccff,
   COL_PLAYER_LIGHT: 0xff8866,
+  COL_LIPID_HEAD:   0x1a4a70,  // phospholipid head (outer leaflet)
+  COL_LIPID_EMI:    0x0a1a30,  // lipid head emissive
 };
