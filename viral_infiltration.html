@@ -611,6 +611,41 @@ html, body {
 }
 #briefingContinue:hover { background: #e0c060; }
 
+/* ── Debug Skip Row ─────────────────────────────────────────────────────── */
+.debug-skip-row {
+  margin-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 10px;
+}
+.debug-skip-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+.debug-skip-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.debug-skip-btn {
+  flex: 1;
+  min-width: 28px;
+  padding: 5px 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(200,169,81,0.3);
+  border-radius: 5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  text-align: center;
+}
+.debug-skip-btn:hover { background: rgba(200,169,81,0.18); color: var(--gold); border-color: var(--gold); }
+.debug-skip-btn.active { background: rgba(200,169,81,0.25); color: var(--gold); border-color: var(--gold); }
+
 /* ── Codex Panel ────────────────────────────────────────────────────────── */
 #codexPanel {
   position: fixed;
@@ -915,6 +950,10 @@ html, body {
     <div class="briefing-intel-label">Biology Intel</div>
     <div id="briefingBio"></div>
     <button id="briefingContinue">Proceed →</button>
+    <div class="debug-skip-row">
+      <div class="debug-skip-label">⚙ Debug — Jump to Phase</div>
+      <div class="debug-skip-btns" id="debugSkipBtns"></div>
+    </div>
   </div>
 </div>
 
@@ -1407,6 +1446,7 @@ document.getElementById('quitBtn').addEventListener('click', () => {
   G.clock.stop();
 });
 document.getElementById('briefingContinue').addEventListener('click', dismissBriefing);
+_buildDebugSkipBtns();
 document.getElementById('goRetryBtn').addEventListener('click', () => {
   setOverlay(null);
   startGame();
@@ -1616,6 +1656,28 @@ function dismissBriefing() {
   if (G.phase === 0) {
     setTimeout(() => showToast('WASD / Arrow keys to move · Shift to sneak', 'info'), 1200);
   }
+}
+
+function skipToPhase(n) {
+  G.phase = n;
+  showBriefing(n);
+  // Highlight active skip button
+  document.querySelectorAll('.debug-skip-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === n);
+  });
+}
+
+// Build debug skip buttons once PHASE_DATA is available (called after PHASE_DATA defined)
+function _buildDebugSkipBtns() {
+  const container = document.getElementById('debugSkipBtns');
+  PHASE_DATA.forEach((pd, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'debug-skip-btn';
+    btn.title = pd.name;
+    btn.textContent = i + 1;
+    btn.addEventListener('click', () => skipToPhase(i));
+    container.appendChild(btn);
+  });
 }
 
 // ── HUD Update ────────────────────────────────────────────────────────────
