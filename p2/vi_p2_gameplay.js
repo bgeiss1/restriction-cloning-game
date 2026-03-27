@@ -44,14 +44,20 @@ function _haloSprite(size, hexColor) {
 }
 
 // First-encounter education triggers — delegate to P2EducationSystem when available
-function _edu(id, text) {
-  if (window.P2Attachment && P2Attachment.education) {
-    P2Attachment.education.trigger(id, text);
+// _edu(id, text)        → ticker only on first encounter
+// _edu(id, title, text) → modal info card on first encounter
+function _edu(id, title, text) {
+  if (text === undefined) { text = title; title = null; }
+  const PA = window.P2Attachment;
+  if (!PA) return;
+  if (PA.education) {
+    PA.education.trigger(id, title, text);
   } else {
-    // Fallback: simple dedup + direct ticker (used if fx file not yet loaded)
+    // Fallback: simple dedup + direct display (used if fx file not yet loaded)
     if (_edu._seen[id]) return;
     _edu._seen[id] = true;
-    if (window.P2Attachment) P2Attachment.showTicker(text, 3.5);
+    if (title) PA.showInfoCard(title, text);
+    else PA.showTicker(text, 3.5);
   }
 }
 _edu._seen = {};
@@ -347,27 +353,27 @@ class ReceptorManager {
     switch (item.type) {
       case 'sialic':
         PA.collectSialic();
-        _edu('SA_INTRO', 'Sialic acid — influenza\'s target receptor. HA binds α2,6-linked sialic acid on respiratory epithelial cells.');
+        _edu('SA_INTRO', 'Sialic Acid — Target Receptor', 'Influenza hemagglutinin (HA) binds α2,6-linked sialic acid on respiratory epithelial cells. This is your target receptor — collect as many as possible to complete attachment!');
         break;
       case 'ace2':
         PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true);
         PA.recordWrongCollision();
-        _edu('ACE2_WRONG', 'ACE2 is the receptor for SARS-CoV-2 — not influenza. Receptor specificity determines which host cells a virus can infect.');
+        _edu('ACE2_WRONG', 'ACE2 — Wrong Receptor', 'ACE2 (angiotensin-converting enzyme 2) is the host receptor for SARS-CoV-2 (COVID-19), not influenza. Receptor specificity is a key determinant of viral host range and tissue tropism.');
         break;
       case 'cd4':
         PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true);
         PA.recordWrongCollision();
-        _edu('CD4_WRONG', 'CD4 is HIV\'s primary co-receptor on T-helper cells. Influenza HA cannot bind CD4.');
+        _edu('CD4_WRONG', 'CD4 — Wrong Receptor', 'CD4 is expressed on T-helper cells and used by HIV (together with CCR5 or CXCR4 co-receptors) for cell entry. Influenza HA has no affinity for CD4 — completely different viral machinery.');
         break;
       case 'icam1':
         PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true);
         PA.recordWrongCollision();
-        _edu('ICAM1_WRONG', 'ICAM-1 is the receptor for rhinoviruses (common cold). Each virus has evolved to bind specific cell surface molecules.');
+        _edu('ICAM1_WRONG', 'ICAM-1 — Wrong Receptor', 'ICAM-1 (intercellular adhesion molecule 1) mediates rhinovirus (common cold) attachment to host cells. Each virus has evolved surface proteins that recognize unique host receptors.');
         break;
       case 'decoy':
         PA.takeDamage(P2_CFG.DMG_DECOY, Math.round(P2_CFG.ALERT_WRONG_RECEPTOR * 0.5), false);
         PA.recordWrongCollision();
-        _edu('DECOY_HIT', 'Modified sialic acid — a host defense. Cells can alter surface residues to reduce viral binding efficiency.');
+        _edu('DECOY_HIT', 'Modified Sialic Acid', 'A host defense: cells can chemically modify sialic acid residues (e.g., O-acetylation) to reduce viral binding affinity. This is one way the host fights back at the molecular level.');
         break;
     }
     // Brief delay before retiring so the flash is visible
@@ -408,7 +414,6 @@ class ObstacleManager {
     this._lastCompAt      = -50;
     this._lastMucusAt     = -55;
     this._HORIZON_Z       = 42;
-    this._firstObstacleHit = false;  // true after first info-card pause shown
 
     this._buildPools();
   }
@@ -628,7 +633,7 @@ class ObstacleManager {
     this._activateObs(item, laneIdx, this._HORIZON_Z);
     item.group.position.set(P2_CFG.LANES[laneIdx], 2.0, this._HORIZON_Z);
     item.oscT = Math.random() * Math.PI * 2;
-    _edu('IGA_HINT', 'IgA antibody patrol — duck with ↓ or Shift to pass underneath!');
+    _edu('IGA_HINT', 'IgA Antibody', 'Secretory IgA patrols mucosal surfaces and blocks pathogen attachment to host receptors — this is neutralization. Slide (↓ / Shift) to duck underneath and avoid binding!');
   }
 
   _spawnComplement() {
@@ -651,7 +656,7 @@ class ObstacleManager {
     this._activateObs(item, centerLane, this._HORIZON_Z, { spanLanes });
     item.group.position.set(P2_CFG.LANES[centerLane], 0, this._HORIZON_Z);
     item.group.scale.x = spanLanes * 1.7;
-    _edu('MUCUS_HINT', 'Respiratory mucus — passing through slows your lateral movement.');
+    _edu('MUCUS_HINT', 'Respiratory Mucus', 'Mucus traps pathogens and limits movement through the mucosal layer. Mucins can also bind sialic acid, competing with host cell receptors. Passing through will slow your lateral movement.');
   }
 
   // ── Per-type update loops ─────────────────────────────────────────────
@@ -683,10 +688,6 @@ class ObstacleManager {
       if (dx * dx + dy * dy + dz2 * dz2 < rr) {
         ab.hit = true;
         P2Attachment.takeDamage(P2_CFG.DMG_ANTIBODY, P2_CFG.ALERT_ANTIBODY, true);
-        if (!this._firstObstacleHit) {
-          this._firstObstacleHit = true;
-          P2Attachment.showInfoCard('IgA Antibody', 'IgA — secretory antibodies patrol mucosal surfaces and block receptor binding. This is neutralization. Slide (↓ / Shift) to duck underneath!');
-        }
         _edu('IGA_HIT', 'IgA — secretory antibodies patrol mucosal surfaces and block receptor binding. This is neutralization.');
         setTimeout(() => this._retireObs(this._antibodies, ab), 280);
       }
@@ -711,7 +712,7 @@ class ObstacleManager {
         if (inRing) {
           comp.state      = 'warning';
           comp.detonTimer = 0;
-          _edu('C3B_WARN', 'Complement C3b — escape the ring before it detonates!');
+          _edu('C3B_WARN', 'Complement C3b', 'Complement protein C3b has tagged the virus for destruction (opsonization). If the membrane attack complex (MAC) fully assembles on your envelope, it will lyse you. Escape the activation zone now!');
         }
       } else if (comp.state === 'warning') {
         comp.detonTimer += dt;
@@ -733,10 +734,6 @@ class ObstacleManager {
           if (!comp.hit) {
             comp.hit = true;
             P2Attachment.takeDamage(P2_CFG.DMG_COMPLEMENT, P2_CFG.ALERT_COMPLEMENT, true);
-            if (!this._firstObstacleHit) {
-              this._firstObstacleHit = true;
-              P2Attachment.showInfoCard('Complement C3b', 'Complement C3b tags pathogens for destruction and can trigger the membrane attack complex. Escape the glowing ring before it detonates!');
-            }
             _edu('C3B_HIT', 'Complement C3b tags pathogens for destruction and can trigger the membrane attack complex.');
             if (window.P2Attachment && P2Attachment.emitBurst) {
               P2Attachment.emitBurst(comp.group.position.x, 0.3, comp.z,
@@ -779,10 +776,9 @@ class ObstacleManager {
       );
     });
     this._totalScrolled = 0;
-    this._lastAbAt         = -28;
-    this._lastCompAt       = -50;
-    this._lastMucusAt      = -55;
-    this._firstObstacleHit = false;
+    this._lastAbAt    = -28;
+    this._lastCompAt  = -50;
+    this._lastMucusAt = -55;
   }
 
   destroy() {
