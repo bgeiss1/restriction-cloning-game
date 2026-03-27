@@ -406,6 +406,9 @@ class P2EducationSystem {
   /** Returns how many unique facts have been triggered. */
   getSeenCount() { return this._factLog.length; }
 
+  /** Returns true if id has been triggered at least once. */
+  hasSeen(id) { return !!this._seen[id]; }
+
   reset() {
     this._seen    = {};
     this._factLog = [];

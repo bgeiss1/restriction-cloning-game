@@ -63,6 +63,14 @@ function _edu(id, title, text) {
 _edu._seen = {};
 function _resetEdu() { _edu._seen = {}; }
 
+// Cards that must all be shown before incorrect contacts deal damage
+const _REQUIRED_CARDS = ['SA_INTRO', 'ACE2_WRONG', 'CD4_WRONG', 'ICAM1_WRONG', 'DECOY_HIT', 'IGA_HINT', 'C3B_WARN'];
+function _gracePeriodActive() {
+  const PA = window.P2Attachment;
+  if (!PA || !PA.education) return false;
+  return _REQUIRED_CARDS.some(id => !PA.education.hasSeen(id));
+}
+
 function _getStage() {
   const t = window.P2Attachment ? P2Attachment.elapsed : 0;
   if (t < P2_CFG.STAGE_TUTORIAL_END) return 'tutorial';
@@ -356,24 +364,20 @@ class ReceptorManager {
         _edu('SA_INTRO', 'Sialic Acid — Target Receptor', 'Influenza hemagglutinin (HA) binds α2,6-linked sialic acid on respiratory epithelial cells. This is your target receptor — collect as many as possible to complete attachment!');
         break;
       case 'ace2':
-        PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true);
-        PA.recordWrongCollision();
         _edu('ACE2_WRONG', 'ACE2 — Wrong Receptor', 'ACE2 (angiotensin-converting enzyme 2) is the host receptor for SARS-CoV-2 (COVID-19), not influenza. Receptor specificity is a key determinant of viral host range and tissue tropism.');
+        if (!_gracePeriodActive()) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
         break;
       case 'cd4':
-        PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true);
-        PA.recordWrongCollision();
         _edu('CD4_WRONG', 'CD4 — Wrong Receptor', 'CD4 is expressed on T-helper cells and used by HIV (together with CCR5 or CXCR4 co-receptors) for cell entry. Influenza HA has no affinity for CD4 — completely different viral machinery.');
+        if (!_gracePeriodActive()) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
         break;
       case 'icam1':
-        PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true);
-        PA.recordWrongCollision();
         _edu('ICAM1_WRONG', 'ICAM-1 — Wrong Receptor', 'ICAM-1 (intercellular adhesion molecule 1) mediates rhinovirus (common cold) attachment to host cells. Each virus has evolved surface proteins that recognize unique host receptors.');
+        if (!_gracePeriodActive()) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
         break;
       case 'decoy':
-        PA.takeDamage(P2_CFG.DMG_DECOY, Math.round(P2_CFG.ALERT_WRONG_RECEPTOR * 0.5), false);
-        PA.recordWrongCollision();
         _edu('DECOY_HIT', 'Modified Sialic Acid', 'A host defense: cells can chemically modify sialic acid residues (e.g., O-acetylation) to reduce viral binding affinity. This is one way the host fights back at the molecular level.');
+        if (!_gracePeriodActive()) { PA.takeDamage(P2_CFG.DMG_DECOY, Math.round(P2_CFG.ALERT_WRONG_RECEPTOR * 0.5), false); PA.recordWrongCollision(); }
         break;
     }
     // Brief delay before retiring so the flash is visible
@@ -424,10 +428,7 @@ class ObstacleManager {
       g.visible = false;
       this._scene.add(g);
       this._antibodies.push({
-        group: g, z: 0, lane: 0, active: false, hit: false,
-        oscT: Math.random() * Math.PI * 2,
-        oscAmp: 0.85 + Math.random() * 0.3,
-        oscSpd: 0.50 + Math.random() * 0.35,
+        group: g, z: 0, lane: 0, active: false, hit: false, rotY: 0,
       });
     }
     for (let i = 0; i < 6; i++) {
@@ -451,11 +452,9 @@ class ObstacleManager {
   // ── Geometry builders ─────────────────────────────────────────────────
 
   _buildAntibody() {
-    // outer: positioned in world space; inner: rotated π so Fab regions face DOWN
-    const outer = new THREE.Group();
-    const g     = new THREE.Group();
-    g.rotation.x = Math.PI; // antigen-binding sites (Fab) now point toward membrane
-    outer.add(g);
+    // IgA secretory dimer lying flat in XZ plane — two Y-shapes linked Fc-to-Fc
+    // Spans ±2.6 units in X (covers two adjacent lanes), slow Y-axis rotation in-game
+    const g = new THREE.Group();
 
     const mat = new THREE.MeshPhongMaterial({
       color:    P2_CFG.COL_ANTIBODY,
@@ -463,28 +462,46 @@ class ObstacleManager {
       emissiveIntensity: 0.6,
       shininess: 50,
     });
-    // Fc stalk (now points upward after flip)
-    const stalk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 1.4, 6), mat);
-    stalk.position.y = 0.7;
-    g.add(stalk);
-    // Fab arms
-    const lArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.82, 5), mat);
-    lArm.position.set(-0.30, 1.55, 0);
-    lArm.rotation.z = 0.62;
-    g.add(lArm);
-    const rArm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.82, 5), mat);
-    rArm.position.set( 0.30, 1.55, 0);
-    rArm.rotation.z = -0.62;
-    g.add(rArm);
-    // Fab tips (antigen-binding sites — face down toward membrane surface)
-    const fL = new THREE.Mesh(new THREE.SphereGeometry(0.10, 6, 6), mat);
-    fL.position.set(-0.57, 1.87, 0); g.add(fL);
-    const fR = new THREE.Mesh(new THREE.SphereGeometry(0.10, 6, 6), mat);
-    fR.position.set( 0.57, 1.87, 0); g.add(fR);
 
-    outer.userData.mat = mat;
-    outer.position.y   = 2.0;
-    return outer;
+    // ── Central Fc bar (X axis, shared between both monomers) ────────────
+    const fcBar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 6), mat);
+    fcBar.rotation.z = Math.PI / 2;
+    g.add(fcBar);
+
+    // J-chain connector at centre
+    const jChain = new THREE.Mesh(new THREE.SphereGeometry(0.13, 7, 7), mat);
+    g.add(jChain);
+
+    // ── Fab arms — 2 per Fc end (fork ±36° in XZ plane) ─────────────────
+    const fabLen   = 1.4;
+    const fabAngle = Math.PI / 5;  // 36°
+    const cosFab   = Math.cos(fabAngle);
+    const sinFab   = Math.sin(fabAngle);
+    const forkXs   = [-1.5, 1.5];
+    const zSigns   = [1, -1];
+
+    forkXs.forEach(fx => {
+      const xSign = fx < 0 ? -1 : 1;
+      zSigns.forEach(zs => {
+        const dx  = xSign * cosFab;
+        const dz  = zs   * sinFab;
+        const dir = new THREE.Vector3(dx, 0, dz);   // already unit length (cos²+sin²=1)
+
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, fabLen, 5), mat);
+        arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        arm.position.set(fx + dx * fabLen / 2, 0, dz * fabLen / 2);
+        g.add(arm);
+
+        // Antigen-binding tip
+        const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), mat);
+        tip.position.set(fx + dx * fabLen, 0, dz * fabLen);
+        g.add(tip);
+      });
+    });
+
+    g.userData.mat = mat;
+    g.position.y   = 1.0;
+    return g;
   }
 
   _buildComplement() {
@@ -629,11 +646,13 @@ class ObstacleManager {
   _spawnAntibody() {
     const item = this._getFree(this._antibodies);
     if (!item) return;
-    const laneIdx = Math.floor(Math.random() * 5);
-    this._activateObs(item, laneIdx, this._HORIZON_Z);
-    item.group.position.set(P2_CFG.LANES[laneIdx], 2.0, this._HORIZON_Z);
-    item.oscT = Math.random() * Math.PI * 2;
-    _edu('IGA_HINT', 'IgA Antibody', 'Secretory IgA patrols mucosal surfaces and blocks pathogen attachment to host receptors — this is neutralization. Slide (↓ / Shift) to duck underneath and avoid binding!');
+    // Centre the dimer between two adjacent lanes
+    const pairIdx = Math.floor(Math.random() * 4);
+    const laneX   = (P2_CFG.LANES[pairIdx] + P2_CFG.LANES[pairIdx + 1]) / 2;
+    this._activateObs(item, pairIdx, this._HORIZON_Z);
+    item.group.position.set(laneX, 1.0, this._HORIZON_Z);
+    item.rotY = 0;
+    _edu('IGA_HINT', 'IgA Antibody', 'Secretory IgA patrols mucosal surfaces and blocks pathogen attachment to host receptors — this is neutralization. Jump (↑) to clear the dimer, or switch to a lane it does not cover!');
   }
 
   _spawnComplement() {
@@ -668,27 +687,30 @@ class ObstacleManager {
       ab.group.position.z = ab.z;
       if (ab.z < -12) { this._retireObs(this._antibodies, ab); continue; }
 
-      // Lateral oscillation
-      ab.oscT += dt * ab.oscSpd;
-      ab.group.position.x = P2_CFG.LANES[ab.lane] + Math.sin(ab.oscT) * ab.oscAmp;
+      // Slow Y-axis rotation for visual interest
+      ab.rotY += dt * 0.4;
+      ab.group.rotation.y = ab.rotY;
 
       // Emissive pulse
       if (ab.group.userData.mat) {
-        ab.group.userData.mat.emissiveIntensity = 0.35 + 0.45 * Math.abs(Math.sin(ab.oscT * 1.6));
+        ab.group.userData.mat.emissiveIntensity = 0.35 + 0.45 * Math.abs(Math.sin(ab.rotY * 2));
       }
 
       if (ab.hit) continue;
       if (!window.P2Attachment || !P2Attachment.player) continue;
       const P = P2Attachment.player;
-      if (P.isSliding) continue;  // player ducked — pass safely underneath
-      const dx = ab.group.position.x - P.x;
-      const dy = ab.group.position.y - P.y;
+      if (P.y > 2.2) continue;  // jumped over
+      const dx  = ab.group.position.x - P.x;
       const dz2 = ab.z - P.z;
-      const rr  = (P2_CFG.RADIUS_PLAYER + P2_CFG.RADIUS_ANTIBODY) ** 2;
-      if (dx * dx + dy * dy + dz2 * dz2 < rr) {
+      // Wide box collision: dimer spans ±2.6 in X across two lanes
+      if (Math.abs(dx) < 3.2 && dz2 * dz2 < 2.25) {
         ab.hit = true;
-        P2Attachment.takeDamage(P2_CFG.DMG_ANTIBODY, P2_CFG.ALERT_ANTIBODY, true);
-        _edu('IGA_HIT', 'IgA — secretory antibodies patrol mucosal surfaces and block receptor binding. This is neutralization.');
+        if (_gracePeriodActive()) {
+          _edu('IGA_HINT', 'IgA Antibody', 'Secretory IgA patrols mucosal surfaces and blocks pathogen attachment to host receptors — this is neutralization. Jump (↑) to clear the dimer, or switch to a lane it does not cover!');
+        } else {
+          P2Attachment.takeDamage(P2_CFG.DMG_ANTIBODY, P2_CFG.ALERT_ANTIBODY, true);
+          _edu('IGA_HIT', 'IgA — secretory antibodies patrol mucosal surfaces and block receptor binding. This is neutralization.');
+        }
         setTimeout(() => this._retireObs(this._antibodies, ab), 280);
       }
     }
@@ -733,7 +755,9 @@ class ObstacleManager {
           // Detonate
           if (!comp.hit) {
             comp.hit = true;
-            P2Attachment.takeDamage(P2_CFG.DMG_COMPLEMENT, P2_CFG.ALERT_COMPLEMENT, true);
+            if (!_gracePeriodActive()) {
+              P2Attachment.takeDamage(P2_CFG.DMG_COMPLEMENT, P2_CFG.ALERT_COMPLEMENT, true);
+            }
             _edu('C3B_HIT', 'Complement C3b tags pathogens for destruction and can trigger the membrane attack complex.');
             if (window.P2Attachment && P2Attachment.emitBurst) {
               P2Attachment.emitBurst(comp.group.position.x, 0.3, comp.z,
