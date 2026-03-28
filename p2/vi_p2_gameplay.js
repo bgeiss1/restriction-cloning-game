@@ -63,13 +63,6 @@ function _edu(id, title, text) {
 _edu._seen = {};
 function _resetEdu() { _edu._seen = {}; }
 
-// Cards that must all be shown before incorrect contacts deal damage
-const _REQUIRED_CARDS = ['SA_INTRO', 'ACE2_WRONG', 'CD4_WRONG', 'ICAM1_WRONG', 'DECOY_HIT', 'C3B_WARN'];
-function _gracePeriodActive() {
-  const PA = window.P2Attachment;
-  if (!PA || !PA.education) return false;
-  return _REQUIRED_CARDS.some(id => !PA.education.hasSeen(id));
-}
 
 function _getStage() {
   const t = window.P2Attachment ? P2Attachment.elapsed : 0;
@@ -358,6 +351,7 @@ class ReceptorManager {
     const PA = window.P2Attachment;
     if (!PA) return;
 
+    const edu = PA.education;
     switch (item.type) {
       case 'sialic':
         PA.collectSialic();
@@ -365,19 +359,19 @@ class ReceptorManager {
         break;
       case 'ace2':
         _edu('ACE2_WRONG', 'ACE2 — Wrong Receptor', 'ACE2 (angiotensin-converting enzyme 2) is the host receptor for SARS-CoV-2 (COVID-19), not influenza. Receptor specificity is a key determinant of viral host range and tissue tropism.');
-        if (!_gracePeriodActive()) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
+        if (edu && edu.hasSeen('ACE2_WRONG')) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
         break;
       case 'cd4':
         _edu('CD4_WRONG', 'CD4 — Wrong Receptor', 'CD4 is expressed on T-helper cells and used by HIV (together with CCR5 or CXCR4 co-receptors) for cell entry. Influenza HA has no affinity for CD4 — completely different viral machinery.');
-        if (!_gracePeriodActive()) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
+        if (edu && edu.hasSeen('CD4_WRONG')) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
         break;
       case 'icam1':
         _edu('ICAM1_WRONG', 'ICAM-1 — Wrong Receptor', 'ICAM-1 (intercellular adhesion molecule 1) mediates rhinovirus (common cold) attachment to host cells. Each virus has evolved surface proteins that recognize unique host receptors.');
-        if (!_gracePeriodActive()) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
+        if (edu && edu.hasSeen('ICAM1_WRONG')) { PA.takeDamage(P2_CFG.DMG_WRONG_RECEPTOR, P2_CFG.ALERT_WRONG_RECEPTOR, true); PA.recordWrongCollision(); }
         break;
       case 'decoy':
         _edu('DECOY_HIT', 'Modified Sialic Acid', 'A host defense: cells can chemically modify sialic acid residues (e.g., O-acetylation) to reduce viral binding affinity. This is one way the host fights back at the molecular level.');
-        if (!_gracePeriodActive()) { PA.takeDamage(P2_CFG.DMG_DECOY, Math.round(P2_CFG.ALERT_WRONG_RECEPTOR * 0.5), false); PA.recordWrongCollision(); }
+        if (edu && edu.hasSeen('DECOY_HIT')) { PA.takeDamage(P2_CFG.DMG_DECOY, Math.round(P2_CFG.ALERT_WRONG_RECEPTOR * 0.5), false); PA.recordWrongCollision(); }
         break;
     }
     // Brief delay before retiring so the flash is visible
@@ -757,10 +751,10 @@ class ObstacleManager {
           // Detonate
           if (!comp.hit) {
             comp.hit = true;
-            if (!_gracePeriodActive()) {
+            _edu('C3B_HIT', 'Complement C3b tags pathogens for destruction and can trigger the membrane attack complex.');
+            if (P2Attachment.education && P2Attachment.education.hasSeen('C3B_WARN')) {
               P2Attachment.takeDamage(P2_CFG.DMG_COMPLEMENT, P2_CFG.ALERT_COMPLEMENT, true);
             }
-            _edu('C3B_HIT', 'Complement C3b tags pathogens for destruction and can trigger the membrane attack complex.');
             if (window.P2Attachment && P2Attachment.emitBurst) {
               P2Attachment.emitBurst(comp.group.position.x, 0.3, comp.z,
                 30, P2_CFG.COL_COMPLEMENT, { speed: 6, duration: 0.8 });
