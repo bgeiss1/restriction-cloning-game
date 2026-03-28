@@ -46,17 +46,19 @@ function _haloSprite(size, hexColor) {
 // First-encounter education triggers — delegate to P2EducationSystem when available
 // _edu(id, text)        → ticker only on first encounter
 // _edu(id, title, text) → modal info card on first encounter
+// Image is auto-derived: p2/images/{id.toLowerCase()}.png (hidden via onerror if absent)
 function _edu(id, title, text) {
   if (text === undefined) { text = title; title = null; }
+  const imgSrc = 'p2/images/' + id.toLowerCase() + '.png';
   const PA = window.P2Attachment;
   if (!PA) return;
   if (PA.education) {
-    PA.education.trigger(id, title, text);
+    PA.education.trigger(id, title, text, imgSrc);
   } else {
     // Fallback: simple dedup + direct display (used if fx file not yet loaded)
     if (_edu._seen[id]) return;
     _edu._seen[id] = true;
-    if (title) PA.showInfoCard(title, text);
+    if (title) PA.showInfoCard(title, text, imgSrc);
     else PA.showTicker(text, 3.5);
   }
 }
@@ -936,12 +938,18 @@ class PowerUpManager {
     this._retire(pu);
     if (!window.P2Attachment) return;
     P2Attachment.collectPowerup(pu.type);
-    const msgs = {
-      drift: 'Antigenic Drift — antibodies can\'t detect you! But receptor affinity is halved while active.',
-      na:    'Neuraminidase Burst — clears mucus and glycocalyx ahead. NA is the target of Tamiflu.',
-      raft:  'Lipid Raft Targeting — sialic acid receptors cluster in raft zones for the next 6 seconds.',
-    };
-    P2Attachment.showTicker(msgs[pu.type] || '', 3.5);
+
+    if (pu.type === 'drift') {
+      const alreadySeen = P2Attachment.education && P2Attachment.education.hasSeen('DRIFT_PU');
+      _edu('DRIFT_PU', 'Antigenic Drift', 'Point mutations in hemagglutinin have gradually shifted your surface epitopes — existing antibodies no longer recognize you! Receptor binding affinity is slightly reduced as a fitness cost of mutation. This is why flu vaccines must be updated every year: the virus drifts away from what immune memory knows.');
+      if (alreadySeen) P2Attachment.showTicker('Antigenic Drift — antibodies can\'t detect you!', 3.0);
+    } else {
+      const msgs = {
+        na:   'Neuraminidase Burst — clears mucus and glycocalyx ahead. NA is the target of Tamiflu.',
+        raft: 'Lipid Raft Targeting — sialic acid receptors cluster in raft zones for the next 6 seconds.',
+      };
+      P2Attachment.showTicker(msgs[pu.type] || '', 3.5);
+    }
   }
 
   _retire(pu) {

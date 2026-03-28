@@ -535,7 +535,7 @@ const P2 = {
     if (duration < 900) el._t = setTimeout(() => { el.style.opacity = '0'; }, (duration || 3) * 1000);
   },
 
-  showInfoCard(title, text) {
+  showInfoCard(title, text, imgSrc) {
     if (this._infoCardEl) return;   // already showing
     this._infoCardActive = true;
 
@@ -565,6 +565,19 @@ const P2 = {
       textTransform: 'uppercase',
     });
     titleEl.textContent = title;
+
+    const img = document.createElement('img');
+    img.src = imgSrc || '';
+    img.alt = title;
+    Object.assign(img.style, {
+      width:        '180px',
+      height:       '180px',
+      objectFit:    'contain',
+      borderRadius: '10px',
+      border:       '1px solid rgba(200,169,81,0.3)',
+      background:   'rgba(0,20,10,0.6)',
+    });
+    img.onerror = () => { img.style.display = 'none'; };
 
     const textEl = document.createElement('div');
     Object.assign(textEl.style, {
@@ -599,6 +612,7 @@ const P2 = {
     hint.textContent = 'or press Enter to continue';
 
     card.appendChild(titleEl);
+    card.appendChild(img);
     card.appendChild(textEl);
     card.appendChild(btn);
     card.appendChild(hint);
