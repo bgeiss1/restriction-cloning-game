@@ -384,7 +384,7 @@ const P2 = {
     subGeo.rotateX(-Math.PI / 2);
     const subMat = new THREE.MeshPhongMaterial({
       color: P2_CFG.COL_SUBMEM, emissive: new THREE.Color(0x000822),
-      emissiveIntensity: 0.6, transparent: true, opacity: 0.6,
+      emissiveIntensity: 0.6, transparent: true, opacity: 0.28,
     });
     const subMesh = new THREE.Mesh(subGeo, subMat);
     subMesh.position.set(0, -2, 4);
@@ -398,7 +398,7 @@ const P2 = {
     const mMat = new THREE.MeshPhongMaterial({
       color: P2_CFG.COL_MEMBRANE,
       emissive: new THREE.Color(P2_CFG.COL_MEM_EMI),
-      emissiveIntensity: 0.4, transparent: true, opacity: 0.88,
+      emissiveIntensity: 0.4, transparent: true, opacity: 0.38,
     });
     const mMesh = new THREE.Mesh(mGeo, mMat);
     mMesh.position.set(0, 0, 4);
@@ -507,18 +507,21 @@ const P2 = {
         a.pinchDone = true;
         this._createEoVesicle(a);        // membrane bubble wrapping virion
         this._spawnEoBurst(a);           // lipid fragments fly off at fission
-        g.visible = false;               // virion is now inside the vesicle
+        // virion stays visible — seen through the translucent vesicle shell
       }
 
     } else {
-      // Drift: endosomal vesicle carries virion deeper into the cell
+      // Drift: vesicle accelerates downward off screen — virion travels with it
       if (a.vesicle) {
-        a.vesicle.position.y -= dt * 1.2;
-        a.vesicleMat.opacity = Math.max(0, a.vesicleMat.opacity - dt * 0.2);
+        const speed = 0.6 + (t - 3.0) * 5.0;   // accelerates: 0.6 → 5.6+ units/s
+        const dy = speed * dt;
+        a.vesicle.position.y -= dy;
+        g.position.y = a.vesicle.position.y;
+        g.rotation.y += dt * 1.2;
       }
       this._updateEoBurst(a, dt);
       this._deformEoMembrane(a, t, dt);  // membrane healing
-      if (t > 4.8) { this._finishEndocytosis(); return; }
+      if (t > 4.2) { this._finishEndocytosis(); return; }
     }
 
     // Main phases: update burst and membrane deformation
@@ -533,12 +536,8 @@ const P2 = {
       a.eoCam.position.set(0, 4.5 - cf * 2.0, -6 + cf * 2.5);
       const lookY = g.visible ? Math.max(-1.5, g.position.y - 0.3) : -1.2;
       a.eoCam.lookAt(0, lookY, g.position.z + 7);
-    } else if (a.vesicle) {
-      // Follow vesicle drifting into cytoplasm
-      const vy = a.vesicle.position.y;
-      a.eoCam.position.set(0, Math.max(0.3, 2.5 + vy * 0.35), -3.5);
-      a.eoCam.lookAt(0, vy, 4);
     }
+    // Drift phase: camera stays fixed — vesicle falls out of frame below
   },
 
   // Inline particle burst — no dependency on the game particle system
@@ -575,13 +574,14 @@ const P2 = {
   // Spawns the endosomal membrane vesicle at the moment of fission.
   // The virion is hidden (inside) and the vesicle drifts into the cytoplasm.
   _createEoVesicle(a) {
-    const geo = new THREE.SphereGeometry(0.70, 16, 12);
+    // Slightly larger than virion (r=0.5) so virion is visible inside
+    const geo = new THREE.SphereGeometry(0.78, 20, 14);
     const mat = new THREE.MeshPhongMaterial({
-      color:    P2_CFG.COL_MEMBRANE,
-      emissive: new THREE.Color(P2_CFG.COL_MEM_EMI),
-      emissiveIntensity: 0.6,
-      transparent: true, opacity: 0.55,
-      side: THREE.DoubleSide, shininess: 60,
+      color:    0xc84868,                        // saturated warm rose — distinct from flat membrane
+      emissive: new THREE.Color(0x7a1828),
+      emissiveIntensity: 1.4,
+      transparent: true, opacity: 0.72,
+      side: THREE.DoubleSide, shininess: 80,
     });
     const vesicle = new THREE.Mesh(geo, mat);
     vesicle.position.set(0, a.virion.position.y, 4);
