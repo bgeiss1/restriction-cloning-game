@@ -12,6 +12,8 @@
 <script src="p2/vi_p2_world.js"></script>
 <script src="p2/vi_p2_gameplay.js"></script>
 <script src="p2/vi_p2_fx.js"></script>
+<script src="p3/vi_p3_config.js"></script>
+<script src="p3/vi_p3_main.js"></script>
 <style>
 /* ── Reset & Root ──────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -3631,8 +3633,20 @@ function completePhase() {
     }, 1200);
     return; // skip showBriefing(G.phase) at bottom of completePhase()
   }
-  // Phase 1 → 2: attachment complete — endocytosis pulls virion inside
+  // Phase 1 → 2: attachment complete — launch endosomal escape
   if (completedPhase === 1 && G.player.mesh) {
+    if (typeof P3Escape !== 'undefined') {
+      showToast('Receptor-mediated endocytosis complete — trapped inside endosome!', 'warn');
+      setTimeout(() => {
+        P3Escape.launch(
+          G.stats || {},
+          () => { G.state = 'PLAYING'; completePhase(); },  // onComplete → advance
+          null                                               // onFail: handled inside P3
+        );
+      }, 1200);
+      return;
+    }
+    // Fallback if Phase 3 files not loaded
     G.player.pos.x = 38; G.player.pos.z = 2;
     G.player.mesh.position.set(38, 0.8, 2);
     if (G.player.envelope) G.player.envelope.position.set(38, 0.8, 2);
@@ -5604,7 +5618,8 @@ function gameLoop() {
   updateTitleScene(dt);
 
   const p2Active = typeof P2Attachment !== 'undefined' && P2Attachment._active;
-  if (G.state === 'PLAYING' && !p2Active) {
+  const p3Active = typeof P3Escape !== 'undefined' && P3Escape._active;
+  if (G.state === 'PLAYING' && !p2Active && !p3Active) {
     if (G.phase === 0) { updatePhase1Antibodies(dt); updateCrowdAntibodies(dt); updateErythrocytes(dt); }
     updatePlayer(dt);
     updateGuards(dt);
@@ -5621,8 +5636,12 @@ function gameLoop() {
     updateGuardTooltip();
   }
 
+  // Phase 3 Endosomal Escape takes over rendering when active
+  if (p3Active) {
+    P3Escape._tick(dt);
+    G.renderer.render(P3Escape.scene, P3Escape.camera);
   // Phase 2 Attachment takes over rendering when active
-  if (p2Active) {
+  } else if (p2Active) {
     P2Attachment._tick(dt);
     G.renderer.render(P2Attachment.scene, P2Attachment.camera);
   } else {
