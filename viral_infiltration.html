@@ -2811,6 +2811,13 @@ function phaseCheck_Attachment(px, pz) {
 // ── Phase 1: Antibody Gauntlet ─────────────────────────────────────────────
 // Constants
 const AB_FIELD_OUTER  = 74;    // outer navigable radius while outside cell (circular, unused in rect mode)
+
+// Random spawn position on the outer ring — outside membrane (~49), inside visible bounds (~80)
+function _phase0SpawnPos() {
+  const ang = Math.random() * Math.PI * 2;
+  const r   = 66 + Math.random() * 6;   // 66–72
+  return { x: Math.cos(ang) * r, z: Math.sin(ang) * r };
+}
 const AB_RECT_XMIN    = -80;   // fallback bounds (overridden by computePhase0Bounds at runtime)
 const AB_RECT_XMAX    =  80;
 const AB_RECT_ZMIN    = -44;
@@ -3460,9 +3467,10 @@ function triggerPhase1Fail() {
   setTimeout(() => {
     if (G.state === 'PLAYING' && G.phase === 0) {
       clearPhase1Field();
-      G.player.pos.x = 65; G.player.pos.z = 0;
-      if (G.player.mesh)     G.player.mesh.position.set(65, 0.8, 0);
-      if (G.player.envelope)  G.player.envelope.position.set(65, 0.8, 0);
+      const _rsp = _phase0SpawnPos();
+      G.player.pos.x = _rsp.x; G.player.pos.z = _rsp.z;
+      if (G.player.mesh)     G.player.mesh.position.set(_rsp.x, 0.8, _rsp.z);
+      if (G.player.envelope)  G.player.envelope.position.set(_rsp.x, 0.8, _rsp.z);
       buildPhase1AntibodyField();
       showToast('Approach again — find a gap in the antibody cloud!', 'info');
     }
@@ -4214,8 +4222,9 @@ function buildPlayer() {
   group.add(pLight);
   G._playerLight = pLight;
 
-  // Starting position — right side of screen, vertically centered
-  const startX = 150, startZ = 0;
+  // Starting position — random point on the outer extracellular ring
+  const _sp = _phase0SpawnPos();
+  const startX = _sp.x, startZ = _sp.z;
   group.position.set(startX, 0.8, startZ);
   G.player.pos     = { x: startX, z: startZ };
   G.player.vel     = { x: 0, z: 0 };
