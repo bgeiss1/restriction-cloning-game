@@ -379,6 +379,38 @@ class MembraineTerrain {
     });
   }
 
+  // ── Endocytosis: keep wave alive without scrolling, plus invaginate surface
+  // invag = { x, z, depth, sigma } in worldGroup space, or null for wave-only tick.
+  tickFrozen(dt, invag) {
+    this._time += dt;
+    for (const ch of this._chunks) {
+      this._waveChunk(ch, this._time, 0);  // wave only — no scroll (curvature=0)
+      if (invag) this._applyInvagChunk(ch, invag);
+    }
+  },
+
+  // Add a Gaussian Y-depression to one chunk's membrane at the virion's XZ position.
+  // Called AFTER _waveChunk so invag adds on top of the wave Y.
+  _applyInvagChunk(ch, invag) {
+    const pos    = ch.mesh.geometry.attributes.position;
+    const count  = pos.count;
+    const ix     = invag.x, iz = invag.z;
+    const depth  = invag.depth;
+    const sigma2 = invag.sigma * invag.sigma;
+    const cutoff2 = sigma2 * 9;   // 3σ early-out: exp(-4.5) ≈ 0.01 — negligible
+
+    for (let v = 0; v < count; v++) {
+      const wx = ch.origX[v];
+      const wz = ch.zOffset + pos.getZ(v);
+      const dx = wx - ix, dz = wz - iz;
+      const r2 = dx * dx + dz * dz;
+      if (r2 >= cutoff2) continue;
+      pos.setY(v, pos.getY(v) - depth * Math.exp(-r2 / (2 * sigma2)));
+    }
+    pos.needsUpdate = true;
+    ch.mesh.geometry.computeVertexNormals();
+  },
+
   reset() {
     this._time = 0;
     this._scrollZ = 0;
