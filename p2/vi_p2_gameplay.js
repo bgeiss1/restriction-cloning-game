@@ -565,15 +565,23 @@ class ObstacleManager {
   _buildMucus() {
     const g   = new THREE.Group();
     const mat = new THREE.MeshPhongMaterial({
-      color:       P2_CFG.COL_MUCUS,
-      transparent: true,
-      opacity:     0.38,
-      shininess:   90,
+      color:             P2_CFG.COL_MUCUS,
+      emissive:          new THREE.Color(0x44aa66),
+      emissiveIntensity: 0.5,
+      transparent:       true,
+      opacity:           0.65,
+      shininess:         90,
     });
-    const blob = new THREE.Mesh(new THREE.SphereGeometry(1.1, 10, 7), mat);
-    blob.scale.set(1, 0.20, 0.75);
-    blob.position.y = 0.22;
+    // Main blob — tall enough to see, deep in Z so the player travels through it
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(1.2, 10, 7), mat);
+    blob.scale.set(1, 0.6, 4.5);
+    blob.position.y = 0.6;
     g.add(blob);
+    // Second organic lump — offset for a blobby gel look
+    const blob2 = new THREE.Mesh(new THREE.SphereGeometry(0.9, 8, 6), mat);
+    blob2.scale.set(0.8, 0.5, 3.5);
+    blob2.position.set(0.25, 1.0, -0.6);
+    g.add(blob2);
     g.userData.mat = mat;
     return g;
   }
@@ -780,7 +788,7 @@ class ObstacleManager {
             comp.ringMat.color.setHex(P2_CFG.COL_COMPLEMENT);
             comp.ringMat.opacity = 0.38;
           }
-        } else if (comp.detonTimer >= 0.5) {
+        } else if (comp.detonTimer >= 1.5) {
           // Detonate
           if (!comp.hit) {
             comp.hit = true;
@@ -811,8 +819,10 @@ class ObstacleManager {
         const P   = P2Attachment.player;
         const mdx = m.group.position.x - P.x;
         const mdz = m.z - P.z;
-        const r   = P2_CFG.RADIUS_MUCUS * Math.max(1, m.spanLanes * 0.7);
-        if (mdx * mdx + mdz * mdz < r * r) inMucus = true;
+        // Rectangular zone: wide in X (matches lane span), deep in Z (matches blob depth)
+        const xR  = P2_CFG.RADIUS_MUCUS * m.spanLanes * 0.9;
+        const zR  = P2_CFG.RADIUS_MUCUS * 3.0;
+        if (Math.abs(mdx) < xR && Math.abs(mdz) < zR) inMucus = true;
       }
     }
     if (window.P2Attachment) {

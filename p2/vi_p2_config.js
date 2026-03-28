@@ -107,7 +107,7 @@ const P2_CFG = {
   RADIUS_RECEPTOR:     0.4,
   RADIUS_ANTIBODY:     0.8,
   RADIUS_COMPLEMENT:   0.5,
-  RADIUS_COMP_RING:    2.0,    // detonation danger zone
+  RADIUS_COMP_RING:    4.0,    // detonation danger zone — wide enough to force lane change
   RADIUS_MUCUS:        1.5,
   RADIUS_POWERUP:      0.6,
   COLLISION_Z_RANGE:   20,     // only check objects within this many units of player
