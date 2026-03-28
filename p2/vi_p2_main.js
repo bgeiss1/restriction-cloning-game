@@ -535,7 +535,7 @@ const P2 = {
     if (duration < 900) el._t = setTimeout(() => { el.style.opacity = '0'; }, (duration || 3) * 1000);
   },
 
-  showInfoCard(title, text, imgSrc) {
+  showInfoCard(title, text, imgSrc, meshType) {
     if (this._infoCardEl) return;   // already showing
     this._infoCardActive = true;
 
@@ -548,7 +548,7 @@ const P2 = {
       flexDirection:  'column',
       alignItems:     'center',
       justifyContent: 'center',
-      gap:            '18px',
+      gap:            '16px',
       padding:        '32px 40px',
       textAlign:      'center',
       background:     'rgba(0,5,15,0.94)',
@@ -567,7 +567,52 @@ const P2 = {
     });
     titleEl.textContent = title;
 
-    // Image container — always visible; shows placeholder text when PNG is absent
+    // Side-by-side row: [in-game 3D icon] | [structure image / placeholder]
+    const row = document.createElement('div');
+    Object.assign(row.style, {
+      display:    'flex',
+      flexDirection: 'row',
+      gap:        '16px',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: '0',
+    });
+
+    // Left pane — mini Three.js spinning preview of the in-game object
+    const previewWrap = document.createElement('div');
+    Object.assign(previewWrap.style, {
+      width:        '160px',
+      height:       '160px',
+      borderRadius: '10px',
+      border:       '1px solid rgba(200,169,81,0.3)',
+      background:   'rgba(0,10,5,0.8)',
+      overflow:     'hidden',
+      flexShrink:   '0',
+      position:     'relative',
+    });
+    const previewLabel = document.createElement('div');
+    Object.assign(previewLabel.style, {
+      position:  'absolute',
+      bottom:    '4px',
+      width:     '100%',
+      textAlign: 'center',
+      fontSize:  '.6rem',
+      color:     'rgba(200,169,81,0.4)',
+      pointerEvents: 'none',
+    });
+    previewLabel.textContent = 'in-game model';
+    previewWrap.appendChild(previewLabel);
+
+    const previewCanvas = this._makePreviewCanvas(meshType);
+    if (previewCanvas) {
+      Object.assign(previewCanvas.style, { width: '100%', height: '100%', display: 'block' });
+      previewWrap.insertBefore(previewCanvas, previewLabel);
+    } else {
+      Object.assign(previewLabel.style, { bottom: '50%', transform: 'translateY(50%)', color: 'rgba(200,169,81,0.3)' });
+      previewLabel.textContent = 'model preview\nunavailable';
+    }
+
+    // Right pane — structure image (PNG drop-in), with placeholder when absent
     const imgWrap = document.createElement('div');
     Object.assign(imgWrap.style, {
       width:          '160px',
@@ -577,6 +622,7 @@ const P2 = {
       border:         '1px dashed rgba(200,169,81,0.4)',
       background:     'rgba(0,20,10,0.6)',
       display:        'flex',
+      flexDirection:  'column',
       alignItems:     'center',
       justifyContent: 'center',
       overflow:       'hidden',
@@ -588,16 +634,18 @@ const P2 = {
     img.onerror = () => {
       img.style.display = 'none';
       const ph = document.createElement('div');
-      Object.assign(ph.style, {
-        fontSize:   '.72rem',
-        color:      'rgba(200,169,81,0.45)',
-        lineHeight: '1.6',
-        padding:    '12px',
-      });
+      Object.assign(ph.style, { fontSize: '.7rem', color: 'rgba(200,169,81,0.4)', lineHeight: '1.7', padding: '10px' });
       ph.textContent = 'Structure image\ncoming soon';
       imgWrap.appendChild(ph);
+      const phLabel = document.createElement('div');
+      Object.assign(phLabel.style, { fontSize: '.6rem', color: 'rgba(200,169,81,0.25)', marginTop: '6px' });
+      phLabel.textContent = 'real structure';
+      imgWrap.appendChild(phLabel);
     };
     imgWrap.appendChild(img);
+
+    row.appendChild(previewWrap);
+    row.appendChild(imgWrap);
 
     const textEl = document.createElement('div');
     Object.assign(textEl.style, {
@@ -633,7 +681,7 @@ const P2 = {
     hint.textContent = 'or press Enter to continue';
 
     card.appendChild(titleEl);
-    card.appendChild(imgWrap);
+    card.appendChild(row);
     card.appendChild(textEl);
     card.appendChild(btn);
     card.appendChild(hint);
@@ -641,9 +689,64 @@ const P2 = {
     this._infoCardEl = card;
   },
 
+  // Creates a 160×160 Three.js canvas with a spinning preview of the given mesh type.
+  // Returns null if Three.js or P2MeshPreview is unavailable.
+  _makePreviewCanvas(meshType) {
+    if (!meshType || !window.THREE || !window.P2MeshPreview) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 160;
+    canvas.setAttribute('data-preview', '1');
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    } catch (e) { return null; }
+    renderer.setSize(160, 160);
+    renderer.setClearColor(0x000000, 0);
+
+    const scene  = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 50);
+    const cam    = P2MeshPreview.camFor(meshType);
+    camera.position.set(...cam.pos);
+    camera.lookAt(...cam.look);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const dir = new THREE.DirectionalLight(0xffffff, 1.1);
+    dir.position.set(1, 2, 2);
+    scene.add(dir);
+
+    const group = P2MeshPreview.build(meshType);
+    scene.add(group);
+
+    let rafId;
+    const animate = () => {
+      rafId = requestAnimationFrame(animate);
+      group.rotation.y += 0.018;
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    canvas._cleanup = () => {
+      cancelAnimationFrame(rafId);
+      scene.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+      });
+      renderer.dispose();
+    };
+    return canvas;
+  },
+
   _dismissInfoCard() {
     this._infoCardActive = false;
-    if (this._infoCardEl) { this._infoCardEl.remove(); this._infoCardEl = null; }
+    if (this._infoCardEl) {
+      const pc = this._infoCardEl.querySelector('canvas[data-preview]');
+      if (pc && pc._cleanup) pc._cleanup();
+      this._infoCardEl.remove();
+      this._infoCardEl = null;
+    }
   },
 
   // ── HUD build ─────────────────────────────────────────────────────────

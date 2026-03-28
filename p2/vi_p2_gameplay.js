@@ -43,22 +43,37 @@ function _haloSprite(size, hexColor) {
   return m;
 }
 
+// Maps education IDs to the mesh type used for the in-card 3D preview
+const _ID_TO_MESH = {
+  SA_INTRO:    'sialic',
+  ACE2_WRONG:  'ace2',
+  CD4_WRONG:   'cd4',
+  ICAM1_WRONG: 'icam1',
+  DECOY_HIT:   'decoy',
+  C3B_WARN:    'complement',
+  C3B_HIT:     'complement',
+  IGA_HINT:    'iga',
+  IGA_HIT:     'iga',
+  DRIFT_PU:    'drift',
+};
+
 // First-encounter education triggers — delegate to P2EducationSystem when available
 // _edu(id, text)        → ticker only on first encounter
 // _edu(id, title, text) → modal info card on first encounter
-// Image is auto-derived: p2/images/{id.toLowerCase()}.png (hidden via onerror if absent)
+// Image is auto-derived: p2/images/{id.toLowerCase()}.png (shown as placeholder if absent)
 function _edu(id, title, text) {
   if (text === undefined) { text = title; title = null; }
-  const imgSrc = 'p2/images/' + id.toLowerCase() + '.png';
+  const imgSrc  = 'p2/images/' + id.toLowerCase() + '.png';
+  const meshType = _ID_TO_MESH[id] || null;
   const PA = window.P2Attachment;
   if (!PA) return;
   if (PA.education) {
-    PA.education.trigger(id, title, text, imgSrc);
+    PA.education.trigger(id, title, text, imgSrc, meshType);
   } else {
     // Fallback: simple dedup + direct display (used if fx file not yet loaded)
     if (_edu._seen[id]) return;
     _edu._seen[id] = true;
-    if (title) PA.showInfoCard(title, text, imgSrc);
+    if (title) PA.showInfoCard(title, text, imgSrc, meshType);
     else PA.showTicker(text, 3.5);
   }
 }
@@ -968,3 +983,162 @@ class PowerUpManager {
     this._pool = [];
   }
 }
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// P2MeshPreview — builds isolated Three.js groups for info-card 3D previews
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const P2MeshPreview = (() => {
+  function _mat(col, emissive, ei = 0.7) {
+    return new THREE.MeshPhongMaterial({
+      color: col, emissive: new THREE.Color(emissive), emissiveIntensity: ei, shininess: 60,
+    });
+  }
+  function _mk(geo, mat, px, py, pz) {
+    const m = new THREE.Mesh(geo, mat);
+    if (px !== undefined) m.position.set(px, py, pz);
+    return m;
+  }
+
+  const builders = {
+    sialic() {
+      const g = new THREE.Group(), mat = _mat(P2_CFG.COL_SIALIC, 0x00aa44, 0.8);
+      g.add(_mk(new THREE.CylinderGeometry(0.28, 0.28, 0.4, 8), mat, 0, 0.2, 0));
+      g.add(_mk(new THREE.CylinderGeometry(0.06, 0.06, 0.4,  6), mat, 0, 0.6, 0));
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        const dir = new THREE.Vector3(Math.sin(a) * 0.38, 0.30, Math.cos(a) * 0.38).normalize();
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.36, 5), mat);
+        arm.position.set(dir.x * 0.45, 0.85 + dir.y * 0.45, dir.z * 0.45);
+        arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        g.add(arm);
+        const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), mat);
+        tip.position.set(dir.x * 0.85, 0.85 + dir.y * 0.85, dir.z * 0.85);
+        g.add(tip);
+      }
+      return g;
+    },
+    ace2() {
+      const g = new THREE.Group(), mat = _mat(P2_CFG.COL_ACE2, 0x1133bb, 0.7);
+      g.add(_mk(new THREE.CylinderGeometry(0.10, 0.10, 1.2, 8), mat, 0, 0.6, 0));
+      const cap = _mk(new THREE.SphereGeometry(0.36, 10, 8), mat, 0, 1.36, 0);
+      cap.scale.y = 0.52;
+      g.add(cap);
+      return g;
+    },
+    cd4() {
+      const g = new THREE.Group(), mat = _mat(P2_CFG.COL_CD4, 0x551199, 0.7);
+      g.add(_mk(new THREE.CylinderGeometry(0.05, 0.05, 1.1, 6), mat, 0, 0.55, 0));
+      g.add(_mk(new THREE.BoxGeometry(0.68, 0.08, 0.08),         mat, 0, 1.16, 0));
+      g.add(_mk(new THREE.SphereGeometry(0.07, 5, 5),            mat, -0.34, 1.16, 0));
+      g.add(_mk(new THREE.SphereGeometry(0.07, 5, 5),            mat,  0.34, 1.16, 0));
+      return g;
+    },
+    icam1() {
+      const g = new THREE.Group(), mat = _mat(P2_CFG.COL_ICAM1, 0xaa4400, 0.7);
+      g.add(_mk(new THREE.CylinderGeometry(0.06, 0.06, 0.38, 6),  mat, 0, 0.19, 0));
+      g.add(_mk(new THREE.CylinderGeometry(0.46, 0.42, 0.10, 12), mat, 0, 0.43, 0));
+      const inner = _mk(new THREE.CylinderGeometry(0.34, 0.34, 0.04, 10), mat, 0, 0.52, 0);
+      inner.material = _mat(0x883311, 0x441100, 0.5);
+      g.add(inner);
+      return g;
+    },
+    decoy() {
+      const g = new THREE.Group(), mat = _mat(P2_CFG.COL_DECOY, 0x448800, 0.6);
+      g.add(_mk(new THREE.CylinderGeometry(0.28, 0.28, 0.4, 8), mat, 0, 0.2, 0));
+      g.add(_mk(new THREE.CylinderGeometry(0.06, 0.06, 0.4,  6), mat, 0, 0.6, 0));
+      for (let i = 0; i < 2; i++) {
+        const a = (i / 2) * Math.PI * 2;
+        const dir = new THREE.Vector3(Math.sin(a) * 0.48, 0.22, Math.cos(a) * 0.48).normalize();
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.36, 5), mat);
+        arm.position.set(dir.x * 0.45, 0.85 + dir.y * 0.45, dir.z * 0.45);
+        arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+        g.add(arm);
+        const tip = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), mat);
+        tip.position.set(dir.x * 0.85, 0.85 + dir.y * 0.85, dir.z * 0.85);
+        g.add(tip);
+      }
+      return g;
+    },
+    complement() {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshPhongMaterial({
+        color: P2_CFG.COL_COMPLEMENT, emissive: new THREE.Color(0xaa1100), emissiveIntensity: 0.7,
+      });
+      [[0,0,0],[0.22,0.12,0.08],[-0.18,0.14,-0.10],[0.10,-0.08,0.20],[-0.12,0.20,-0.16]]
+        .forEach(([ox, oy, oz]) => {
+          const m = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 6), mat);
+          m.position.set(ox, oy + 0.16, oz);
+          g.add(m);
+        });
+      return g;
+    },
+    iga() {
+      const g = new THREE.Group();
+      const mat = new THREE.MeshPhongMaterial({
+        color: P2_CFG.COL_ANTIBODY, emissive: new THREE.Color(0xaa8800),
+        emissiveIntensity: 0.6, shininess: 50,
+      });
+      const fcBar = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 3.0, 6), mat);
+      fcBar.rotation.z = Math.PI / 2;
+      g.add(fcBar);
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.13, 7, 7), mat));
+      const fabLen = 1.4, fabAngle = Math.PI / 5;
+      const cosFab = Math.cos(fabAngle), sinFab = Math.sin(fabAngle);
+      [-1.5, 1.5].forEach(fx => {
+        const xs = fx < 0 ? -1 : 1;
+        [1, -1].forEach(zs => {
+          const dx = xs * cosFab, dz = zs * sinFab;
+          const dir = new THREE.Vector3(dx, 0, dz);
+          const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, fabLen, 5), mat);
+          arm.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+          arm.position.set(fx + dx * fabLen / 2, 0, dz * fabLen / 2);
+          g.add(arm);
+          const tip = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), mat);
+          tip.position.set(fx + dx * fabLen, 0, dz * fabLen);
+          g.add(tip);
+        });
+      });
+      return g;
+    },
+    drift() {
+      const col = P2_CFG.COL_PU_DRIFT;
+      const mat = new THREE.MeshPhongMaterial({
+        color: col, emissive: new THREE.Color(col),
+        emissiveIntensity: 0.5, transparent: true, opacity: 0.92, shininess: 80,
+      });
+      const pts = Array.from({ length: 28 }, (_, i) => {
+        const t = (i / 27) * Math.PI * 4;
+        return new THREE.Vector3(Math.cos(t) * 0.28, (i / 27) * 0.9, Math.sin(t) * 0.28);
+      });
+      const g = new THREE.Group();
+      g.add(new THREE.Mesh(
+        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 28, 0.055, 5, false), mat
+      ));
+      return g;
+    },
+  };
+
+  // Per-type camera setup: { pos:[x,y,z], look:[x,y,z] }
+  const _CAM = {
+    sialic:     { pos: [0, 0.8, 3.2], look: [0, 0.6, 0] },
+    ace2:       { pos: [0, 0.9, 3.2], look: [0, 0.8, 0] },
+    cd4:        { pos: [0, 0.8, 3.2], look: [0, 0.6, 0] },
+    icam1:      { pos: [0, 0.3, 2.5], look: [0, 0.3, 0] },
+    decoy:      { pos: [0, 0.8, 3.2], look: [0, 0.6, 0] },
+    complement: { pos: [0, 0.5, 2.5], look: [0, 0.2, 0] },
+    iga:        { pos: [0, 2.5, 4.5], look: [0, 0,   0] },
+    drift:      { pos: [0, 0.5, 2.5], look: [0, 0.45, 0] },
+  };
+
+  return {
+    build(type) {
+      return (builders[type] || (() => new THREE.Group()))();
+    },
+    camFor(type) {
+      return _CAM[type] || { pos: [0, 1, 4], look: [0, 0.5, 0] };
+    },
+  };
+})();
+window.P2MeshPreview = P2MeshPreview;
