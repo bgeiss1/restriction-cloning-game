@@ -19,7 +19,8 @@ const P2 = {
   scoreMultiplier: 1.0,
 
   // Game meters
-  state:            'IDLE',  // IDLE|INTRO|PLAYING|PAUSED|COMPLETE|DEAD
+  state:            'IDLE',  // IDLE|INTRO|PLAYING|PAUSED|ENDOCYTOSIS|COMPLETE|DEAD
+  _eoAnim:          null,   // endocytosis animation state, non-null during ENDOCYTOSIS
   elapsed:          0,
   distance:         0,
   speed:            1.0,
@@ -123,6 +124,7 @@ const P2 = {
   // ── _tick — called from viral_infiltration.html's gameLoop ────────────
   _tick(dt) {
     if (this.state === 'PLAYING' && !this._infoCardActive) this._updateGame(dt);
+    if (this.state === 'ENDOCYTOSIS') this._updateEndocytosis(dt);
     this._updateCamera(dt);
     if (this.activePowerup) this._updateHUDPowerup();
   },
@@ -149,6 +151,7 @@ const P2 = {
     this._infoCardActive   = false;
     this._infoCardEl       = null;
     this._motionSettingsEl = null;
+    this._eoAnim           = null;
   },
 
   // ── Scene ─────────────────────────────────────────────────────────────
@@ -204,6 +207,8 @@ const P2 = {
   // ── Camera ────────────────────────────────────────────────────────────
   _updateCamera(dt) {
     if (!this.camera) return;
+    // During endocytosis animation use a custom cinematic camera
+    if (this._eoAnim) { this._updateEndocytosisCamera(); return; }
     const px = this.player ? this.player.x : 0;
     // Lag camera X behind player X
     this._camX += (px - this._camX) * (1 - Math.exp(-dt / 0.3));
@@ -348,13 +353,141 @@ const P2 = {
   // ── Win / lose ────────────────────────────────────────────────────────
   _triggerComplete() {
     if (this.state !== 'PLAYING') return;
-    this._setState('COMPLETE');
+    this._setState('ENDOCYTOSIS');
     if (this.sounds) this.sounds.play('complete');
-    const acc  = this.totalCollisions > 0 ? Math.round(this.correctCollected / this.totalCollisions * 100) : 100;
+    this._startEndocytosisAnim();
+  },
+
+  // ── Endocytosis animation ─────────────────────────────────────────────
+  _smooth(t) { return t * t * (3 - 2 * t); },
+
+  _startEndocytosisAnim() {
+    const P  = this.player;
+    const px = P ? P.x : 0;
+    const py = P && P._group ? P._group.position.y : 1.0;
+    const pz = P && P._group ? P._group.position.z : 0;
+
+    // Membrane ring — horizontal torus that wraps around the virion
+    const ringGeo = new THREE.TorusGeometry(1.0, 0.07, 8, 48);
+    ringGeo.rotateX(-Math.PI / 2);   // lay flat
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: 0x44ffaa, transparent: true, opacity: 0.9,
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.set(px, 0.04, pz);
+    ring.scale.setScalar(0);
+    this._worldGroup.add(ring);
+
+    // Cinematic label
+    const label = document.createElement('div');
+    label.id = 'p2EoLabel';
+    label.style.cssText = [
+      'position:fixed;bottom:22%;left:50%;transform:translateX(-50%);',
+      'font-family:-apple-system,BlinkMacSystemFont,monospace;font-size:.84rem;',
+      'letter-spacing:.16em;color:#44ffaa;text-transform:uppercase;',
+      'opacity:0;transition:opacity 1.2s;pointer-events:none;z-index:300;',
+      'text-shadow:0 0 14px #44ffaa88;',
+    ].join('');
+    label.textContent = 'Receptor-mediated endocytosis';
+    document.body.appendChild(label);
+    setTimeout(() => { if (label.parentNode) label.style.opacity = '1'; }, 80);
+
+    this._eoAnim = {
+      t: 0,
+      ring, ringMat,
+      startY: py,
+      startZ: pz,
+      label,
+      burstDone: false,
+    };
+  },
+
+  _updateEndocytosis(dt) {
+    const a = this._eoAnim;
+    if (!a) return;
+    a.t += dt;
+    const t = a.t;
+    const P = this.player;
+    if (!P || !P._group) { this._finishEndocytosis(); return; }
+    const g = P._group;
+
+    if (t < 0.3) {
+      // Brief freeze beat — world already stopped (state !== PLAYING)
+
+    } else if (t < 1.2) {
+      // Approach: virion glides forward and slightly down
+      const f = this._smooth(Math.min(1, (t - 0.3) / 0.9));
+      g.position.z = a.startZ + f * 6;
+      g.position.y = a.startY  - f * 0.2;
+      a.ring.position.x = g.position.x;
+      a.ring.position.z = g.position.z;
+      a.ring.scale.setScalar(f * 1.35);
+
+    } else if (t < 2.5) {
+      // Engulfment: virion sinks, ring contracts around it
+      const f = this._smooth(Math.min(1, (t - 1.2) / 1.3));
+      g.position.z = a.startZ + 6;
+      g.position.y = (a.startY - 0.2) - f * 1.9;
+      g.scale.setScalar(Math.max(0.01, 1 - f * 0.88));
+      a.ring.position.y = Math.max(0.04, g.position.y + 0.2);
+      a.ring.scale.setScalar(Math.max(0.01, 1.35 - f * 1.15));
+
+    } else if (t < 3.5) {
+      // Pinch-off: ring fades, one particle burst
+      const f = (t - 2.5) / 1.0;
+      g.scale.setScalar(Math.max(0, 0.12 - f * 0.12));
+      a.ringMat.opacity = Math.max(0, 0.9 - f * 0.9);
+      if (!a.burstDone) {
+        a.burstDone = true;
+        g.visible = false;
+        if (this.particles) {
+          this.particles.emit(g.position.x, 0.5, g.position.z,
+            50, 0x44ffaa, { speed: 5.5, duration: 1.0 });
+        }
+      }
+    } else {
+      this._finishEndocytosis();
+    }
+  },
+
+  _finishEndocytosis() {
+    const a = this._eoAnim;
+    if (!a) return;
+    this._eoAnim = null;
+
+    if (a.ring && this._worldGroup) this._worldGroup.remove(a.ring);
+    if (a.label && a.label.parentNode) {
+      a.label.style.opacity = '0';
+      setTimeout(() => { if (a.label && a.label.parentNode) a.label.remove(); }, 1200);
+    }
+    // Restore virion for any subsequent renders before COMPLETE overlay covers it
+    if (this.player && this.player._group) {
+      this.player._group.visible = true;
+      this.player._group.scale.setScalar(1);
+    }
+
+    this._setState('COMPLETE');
+    const acc  = this.totalCollisions > 0
+      ? Math.round(this.correctCollected / this.totalCollisions * 100) : 100;
     const dist = Math.round(this.distance);
     const m    = Math.floor(this.elapsed / 60);
     const s    = Math.floor(this.elapsed % 60).toString().padStart(2, '0');
     this._showCompleteScreen(acc, dist, `${m}:${s}`);
+  },
+
+  _updateEndocytosisCamera() {
+    const a  = this._eoAnim;
+    const P  = this.player;
+    const px = P && P._group ? P._group.position.x : 0;
+    const pz = P && P._group ? P._group.position.z : 0;
+    const py = P && P._group ? P._group.position.y : 0;
+
+    // Ease camera forward and down to watch the virion sink
+    const f  = a ? this._smooth(Math.min(1, Math.max(0, (a.t - 0.2) / 1.8))) : 0;
+    const camZ = P2_CFG.CAMERA_Z_OFFSET + f * 4;
+    const camY = P2_CFG.CAMERA_Y_OFFSET - f * 1.8;
+    this.camera.position.set(px, camY, camZ);
+    this.camera.lookAt(px, Math.max(-1.5, py - 0.5), pz + 9);
   },
 
   _triggerDead(title, reason) {
@@ -400,6 +533,7 @@ const P2 = {
       if (el) el.style.display = 'none';
     });
     const hud = document.getElementById('p2HUD');
+    // Hide HUD meters during cinematic — ENDOCYTOSIS and COMPLETE are full-screen moments
     if (hud) hud.style.display = (s === 'PLAYING' || s === 'PAUSED') ? '' : 'none';
 
     if (s === 'INTRO')    { const el = document.getElementById('p2OverIntro');    if (el) el.style.display = 'flex'; }
@@ -1132,6 +1266,14 @@ const P2 = {
           transition:border-color .2s,color .2s;}
         #p2GearBtn:hover{border-color:rgba(0,255,136,0.6);color:#00ff88;}
 
+        /* Debug skip button */
+        #p2SkipBtn{position:absolute;bottom:14px;right:14px;
+          border:1px solid rgba(255,200,0,0.4);background:rgba(0,0,0,0.65);
+          color:#bb8800;font-size:.65rem;letter-spacing:.06em;padding:4px 10px;
+          border-radius:5px;cursor:pointer;pointer-events:auto;
+          transition:border-color .2s,color .2s;}
+        #p2SkipBtn:hover{border-color:rgba(255,200,0,0.8);color:#ffcc00;}
+
         /* Overlays */
         .p2Ov{position:absolute;inset:0;display:none;flex-direction:column;
           align-items:center;justify-content:center;background:rgba(0,5,15,0.90);
@@ -1199,6 +1341,7 @@ const P2 = {
         </div>
         <div id="p2TiltBar"><canvas id="p2TiltCanvas" width="180" height="28"></canvas></div>
         <button id="p2GearBtn" title="Motion Settings">⚙</button>
+        <button id="p2SkipBtn" title="Debug: skip to win">⏩ skip</button>
       </div>
 
       <!-- INTRO overlay -->
@@ -1234,6 +1377,12 @@ const P2 = {
     // Gear button → open motion settings (pointer-events:auto override handled by button itself)
     const gearBtn = document.getElementById('p2GearBtn');
     if (gearBtn) gearBtn.addEventListener('click', () => this._showMotionSettings());
+
+    // Debug skip button → force binding to WIN threshold
+    const skipBtn = document.getElementById('p2SkipBtn');
+    if (skipBtn) skipBtn.addEventListener('click', () => {
+      if (this.state === 'PLAYING') this.binding = P2_CFG.BINDING_WIN;
+    });
   },
 
   _removeHUD() {
