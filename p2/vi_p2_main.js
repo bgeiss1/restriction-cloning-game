@@ -38,6 +38,7 @@ const P2 = {
   naActive:      false,
   raftActive:    false,
   mucusSlow:     false,
+  mucusCoated:   false,
 
   // Sub-system handles (populated by world/gameplay/fx files)
   terrain:   null,
@@ -143,6 +144,7 @@ const P2 = {
     this.totalCollisions   = 0;
     this.activePowerup     = null;
     this.driftActive = this.naActive = this.raftActive = this.mucusSlow = false;
+    this.clearMucusCoat();
     this._camX             = 0;
     this._camShake         = { x: 0, y: 0, timer: 0 };
     this._hpRegenDelay     = 0;
@@ -296,6 +298,18 @@ const P2 = {
   // ── Collect / damage (called by gameplay sub-systems) ─────────────────
   collectSialic() {
     if (this.state !== 'PLAYING') return;
+    // Mucus coat blocks one binding event — mucins outcompete HA for sialic acid
+    if (this.mucusCoated) {
+      this.clearMucusCoat();
+      this.totalCollisions++;
+      this._flashVignette('yellow');
+      this.showTicker('Mucus blocked binding — sialic acid lost!', 2.5);
+      if (this.particles && this.player) {
+        this.particles.emit(this.player.x, this.player.y + 0.5, this.player.z,
+          8, 0x88bb00, { speed: 2.5, duration: 0.4 });
+      }
+      return;
+    }
     const base = P2_CFG.BINDING_PER_RECEPTOR[0]
                + Math.random() * (P2_CFG.BINDING_PER_RECEPTOR[1] - P2_CFG.BINDING_PER_RECEPTOR[0]);
     const eff  = base * this.scoreMultiplier * (this.driftActive ? P2_CFG.DRIFT_BINDING_MULT : 1);
@@ -907,6 +921,42 @@ const P2 = {
     if (el) el.style.opacity = active ? '1' : '0';
   },
 
+  // Coat the virion with mucus: turn it sickly yellow-green, show overlay.
+  // Clears automatically when the next sialic acid is struck (binding blocked).
+  applyMucusCoat() {
+    if (this.mucusCoated) return;   // already coated
+    this.mucusCoated = true;
+    // Recolour player body to sickly yellow-green
+    if (this.player && this.player._body) {
+      const m = this.player._body.material;
+      m._origColor = m.color.getHex();
+      m._origEmissive = m.emissive.getHex();
+      m._origEmissiveIntensity = m.emissiveIntensity;
+      m.color.setHex(0x99bb00);
+      m.emissive.setHex(0x4a6600);
+      m.emissiveIntensity = 0.9;
+    }
+    const el = document.getElementById('p2MucusCoat');
+    if (el) el.style.opacity = '1';
+    this.showTicker('Mucus coat — next sialic acid binding will be blocked!', 3);
+  },
+
+  clearMucusCoat() {
+    if (!this.mucusCoated) return;
+    this.mucusCoated = false;
+    if (this.player && this.player._body) {
+      const m = this.player._body.material;
+      if (m._origColor !== undefined) {
+        m.color.setHex(m._origColor);
+        m.emissive.setHex(m._origEmissive);
+        m.emissiveIntensity = m._origEmissiveIntensity;
+        delete m._origColor; delete m._origEmissive; delete m._origEmissiveIntensity;
+      }
+    }
+    const el = document.getElementById('p2MucusCoat');
+    if (el) el.style.opacity = '0';
+  },
+
   showTicker(text, duration) {
     const el = document.getElementById('p2Ticker');
     if (!el) return;
@@ -1438,6 +1488,10 @@ const P2 = {
         #p2Vignette{position:absolute;inset:0;opacity:0;transition:opacity 0.3s;pointer-events:none;}
         #p2MucusFilter{position:absolute;inset:0;backdrop-filter:blur(1px);opacity:0;
           transition:opacity 0.5s;pointer-events:none;}
+        #p2MucusCoat{position:absolute;inset:0;opacity:0;pointer-events:none;
+          transition:opacity 0.5s;
+          box-shadow:inset 0 0 80px rgba(140,200,0,0.35);
+          background:radial-gradient(ellipse at center,transparent 40%,rgba(100,170,0,0.18) 100%);}
         #p2HUD{position:absolute;inset:0;}
 
         /* Top-left info panel */
@@ -1540,6 +1594,7 @@ const P2 = {
     root.innerHTML = `
       <div id="p2Vignette"></div>
       <div id="p2MucusFilter"></div>
+      <div id="p2MucusCoat"></div>
 
       <!-- HUD (visible during PLAYING only) -->
       <div id="p2HUD" style="display:none">

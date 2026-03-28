@@ -709,7 +709,6 @@ class ObstacleManager {
     this._activateObs(item, centerLane, this._HORIZON_Z, { spanLanes });
     item.group.position.set(P2_CFG.LANES[centerLane], 0, this._HORIZON_Z);
     item.group.scale.x = spanLanes * 1.7;
-    _edu('MUCUS_HINT', 'Respiratory Mucus', 'Mucus traps pathogens and limits movement through the mucosal layer. Mucins can also bind sialic acid, competing with host cell receptors. Passing through will slow your lateral movement.');
   }
 
   // ── Per-type update loops ─────────────────────────────────────────────
@@ -826,8 +825,16 @@ class ObstacleManager {
       }
     }
     if (window.P2Attachment) {
+      const wasIn = P2Attachment.mucusSlow;
       P2Attachment.mucusSlow = inMucus;
       P2Attachment.setMucusEffect(inMucus);
+      // First frame of collision: show info card and apply coat
+      if (inMucus && !wasIn) {
+        _edu('MUCUS_HINT', 'Respiratory Mucus',
+          'Mucus coats the virion — mucins compete with host cell receptors for HA binding. ' +
+          'Your next sialic acid encounter will be blocked. Slide under or switch lanes to avoid!');
+        P2Attachment.applyMucusCoat();
+      }
     }
   }
 
