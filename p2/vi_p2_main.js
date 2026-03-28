@@ -757,6 +757,11 @@ const P2 = {
 
     if (pdbId && window.$3Dmol) {
       // ── 3Dmol path ──────────────────────────────────────────────────────
+      // pdbId may be a bare PDB code ("6LZG") or a prefixed query ("cid:439197")
+      const isSmallMol = pdbId.startsWith('cid:');
+      const query      = (pdbId.startsWith('pdb:') || pdbId.startsWith('cid:')) ? pdbId : 'pdb:' + pdbId;
+      const displayId  = pdbId.replace(/^(pdb:|cid:)/, '');
+
       label.textContent = 'loading…';
 
       // Inner viewer div (3Dmol sizes its canvas to this element)
@@ -780,14 +785,24 @@ const P2 = {
         }
         viewerDiv._viewer = viewer;
 
-        $3Dmol.download('pdb:' + pdbId, viewer, {}, () => {
+        $3Dmol.download(query, viewer, {}, () => {
           if (!this._infoCardEl) return;   // dismissed while loading
-          viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum', opacity: 0.88 } });
-          viewer.setStyle({ hetflag: true  }, { stick:   { colorscheme: 'default', radius: 0.12 } });
+          if (isSmallMol) {
+            // Ball-and-stick for small molecules (no secondary structure)
+            viewer.setStyle({}, {
+              stick:  { colorscheme: 'Jmol', radius: 0.15 },
+              sphere: { colorscheme: 'Jmol', scale:  0.25 },
+            });
+            label.textContent = 'chemical structure · ' + displayId;
+          } else {
+            // Cartoon + ligand sticks for proteins
+            viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum', opacity: 0.88 } });
+            viewer.setStyle({ hetflag: true  }, { stick:   { colorscheme: 'default', radius: 0.12 } });
+            label.textContent = 'real structure · ' + displayId;
+          }
           viewer.zoomTo();
           viewer.render();
           viewer.spin('y', 1);
-          label.textContent = 'real structure · ' + pdbId;
         });
       });
 

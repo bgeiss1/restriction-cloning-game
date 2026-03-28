@@ -60,11 +60,11 @@ const _ID_TO_MESH = {
 // Maps education IDs to PDB accession codes for the 3Dmol structure viewer.
 // Change any entry here to swap the displayed structure.
 const _ID_TO_PDB = {
-  SA_INTRO:    '1HGF',   // Influenza HA bound to sialic acid analog
-  ACE2_WRONG:  '6LZG',   // Human ACE2 ectodomain
-  CD4_WRONG:   '1CDH',   // CD4 D1-D2 domains
-  ICAM1_WRONG: '1IC1',   // ICAM-1 domains 1-2
-  DECOY_HIT:   '1HGF',   // Same HA-SA complex (modified SA context)
+  SA_INTRO:    'cid:439197',  // N-acetylneuraminic acid (sialic acid) — PubChem
+  ACE2_WRONG:  '6LZG',       // Human ACE2 ectodomain
+  CD4_WRONG:   '1CDH',       // CD4 D1-D2 domains
+  ICAM1_WRONG: '1IC1',       // ICAM-1 domains 1-2
+  DECOY_HIT:   'cid:439197', // Sialic acid (modified form explained in card text)
   C3B_WARN:    '2I07',   // Complement C3b
   C3B_HIT:     '2I07',
   IGA_HINT:    '1OW0',   // IgA1 Fc region
