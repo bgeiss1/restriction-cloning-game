@@ -549,11 +549,12 @@ const P2 = {
       alignItems:     'center',
       justifyContent: 'center',
       gap:            '18px',
-      padding:        '40px',
+      padding:        '32px 40px',
       textAlign:      'center',
       background:     'rgba(0,5,15,0.94)',
       fontFamily:     "-apple-system,BlinkMacSystemFont,'Segoe UI',monospace",
       boxSizing:      'border-box',
+      overflowY:      'auto',
     });
 
     const titleEl = document.createElement('div');
@@ -566,18 +567,37 @@ const P2 = {
     });
     titleEl.textContent = title;
 
+    // Image container — always visible; shows placeholder text when PNG is absent
+    const imgWrap = document.createElement('div');
+    Object.assign(imgWrap.style, {
+      width:          '160px',
+      height:         '160px',
+      flexShrink:     '0',
+      borderRadius:   '10px',
+      border:         '1px dashed rgba(200,169,81,0.4)',
+      background:     'rgba(0,20,10,0.6)',
+      display:        'flex',
+      alignItems:     'center',
+      justifyContent: 'center',
+      overflow:       'hidden',
+    });
     const img = document.createElement('img');
     img.src = imgSrc || '';
     img.alt = title;
-    Object.assign(img.style, {
-      width:        '180px',
-      height:       '180px',
-      objectFit:    'contain',
-      borderRadius: '10px',
-      border:       '1px solid rgba(200,169,81,0.3)',
-      background:   'rgba(0,20,10,0.6)',
-    });
-    img.onerror = () => { img.style.display = 'none'; };
+    Object.assign(img.style, { width: '100%', height: '100%', objectFit: 'contain', display: 'block' });
+    img.onerror = () => {
+      img.style.display = 'none';
+      const ph = document.createElement('div');
+      Object.assign(ph.style, {
+        fontSize:   '.72rem',
+        color:      'rgba(200,169,81,0.45)',
+        lineHeight: '1.6',
+        padding:    '12px',
+      });
+      ph.textContent = 'Structure image\ncoming soon';
+      imgWrap.appendChild(ph);
+    };
+    imgWrap.appendChild(img);
 
     const textEl = document.createElement('div');
     Object.assign(textEl.style, {
@@ -599,6 +619,7 @@ const P2 = {
       borderRadius: '8px',
       cursor:       'pointer',
       marginTop:    '4px',
+      flexShrink:   '0',
     });
     btn.textContent = 'Got it!';
     btn.addEventListener('click', () => this._dismissInfoCard());
@@ -612,7 +633,7 @@ const P2 = {
     hint.textContent = 'or press Enter to continue';
 
     card.appendChild(titleEl);
-    card.appendChild(img);
+    card.appendChild(imgWrap);
     card.appendChild(textEl);
     card.appendChild(btn);
     card.appendChild(hint);
