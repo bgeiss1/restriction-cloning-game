@@ -447,33 +447,7 @@ const P2 = {
       }
     } else {
       this._finishEndocytosis();
-      return;
     }
-
-    // ── Membrane invagination ─────────────────────────────────────────────
-    // Compute a Gaussian bowl depth/width that deepens as the virion sinks
-    // then snaps back to flat as the endosome pinches off.
-    let invag = null;
-    if (t >= 0.3) {
-      const vx = g.position.x, vz = g.position.z;
-      let depth = 0, sigma = 2.0;
-      if (t < 1.2) {
-        const f  = this._smooth((t - 0.3) / 0.9);
-        depth = f * 1.2;
-        sigma = 2.0 - f * 0.3;               // slightly tighter as virion docks
-      } else if (t < 2.5) {
-        const f  = this._smooth((t - 1.2) / 1.3);
-        depth = 1.2 + f * 1.6;               // bowl deepens to 2.8
-        sigma = 1.7 - f * 0.8;               // membrane wraps tighter (~0.9)
-      } else {
-        const f  = (t - 2.5) / 1.0;
-        depth = 2.8 * (1 - f);               // pinch-off: surface springs back
-        sigma = 0.9 + f * 0.4;
-      }
-      invag = { x: vx, z: vz, depth, sigma };
-    }
-
-    if (this.terrain) this.terrain.tickFrozen(dt, invag);
   },
 
   _finishEndocytosis() {
@@ -491,8 +465,6 @@ const P2 = {
       this.player._group.visible = true;
       this.player._group.scale.setScalar(1);
     }
-    // Reset membrane to normal wave (no invagination)
-    if (this.terrain) this.terrain.tickFrozen(0, null);
 
     this._setState('COMPLETE');
     const acc  = this.totalCollisions > 0
