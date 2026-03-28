@@ -21,6 +21,8 @@ const P2 = {
   // Game meters
   state:            'IDLE',  // IDLE|INTRO|PLAYING|PAUSED|ENDOCYTOSIS|COMPLETE|DEAD
   _eoAnim:          null,   // endocytosis animation state, non-null during ENDOCYTOSIS
+  _gameScene:       null,   // saved game scene while eoScene is active
+  _gameCamera:      null,   // saved game camera while eoCam is active
   elapsed:          0,
   distance:         0,
   speed:            1.0,
@@ -152,6 +154,8 @@ const P2 = {
     this._infoCardEl       = null;
     this._motionSettingsEl = null;
     this._eoAnim           = null;
+    this._gameScene        = null;
+    this._gameCamera       = null;
   },
 
   // ── Scene ─────────────────────────────────────────────────────────────
@@ -207,8 +211,8 @@ const P2 = {
   // ── Camera ────────────────────────────────────────────────────────────
   _updateCamera(dt) {
     if (!this.camera) return;
-    // During endocytosis animation use a custom cinematic camera
-    if (this._eoAnim) { this._updateEndocytosisCamera(); return; }
+    // During endocytosis animation the eo camera is driven inside _updateEndocytosis
+    if (this._eoAnim) return;
     const px = this.player ? this.player.x : 0;
     // Lag camera X behind player X
     this._camX += (px - this._camX) * (1 - Math.exp(-dt / 0.3));
@@ -362,23 +366,71 @@ const P2 = {
   _smooth(t) { return t * t * (3 - 2 * t); },
 
   _startEndocytosisAnim() {
-    const P  = this.player;
-    const px = P ? P.x : 0;
-    const py = P && P._group ? P._group.position.y : 1.0;
-    const pz = P && P._group ? P._group.position.z : 0;
+    // ── Build a completely isolated scene — no shared geometry touched ────
+    const eoScene = new THREE.Scene();
+    eoScene.background = new THREE.Color(P2_CFG.COL_BG);
+    eoScene.fog = new THREE.FogExp2(P2_CFG.COL_FOG, 0.03);
 
-    // Membrane ring — horizontal torus that wraps around the virion
+    eoScene.add(new THREE.AmbientLight(0x1a0906, 0.75));
+    const dir = new THREE.DirectionalLight(0xffaa88, 0.55);
+    dir.position.set(0, 10, -5);
+    eoScene.add(dir);
+    const fill = new THREE.PointLight(0x004422, 1.0, 18);
+    fill.position.set(0, 4, 4);
+    eoScene.add(fill);
+
+    // Sub-membrane backing — simple fresh plane
+    const subGeo = new THREE.PlaneGeometry(32, 32, 1, 1);
+    subGeo.rotateX(-Math.PI / 2);
+    const subMat = new THREE.MeshPhongMaterial({
+      color: P2_CFG.COL_SUBMEM, emissive: new THREE.Color(0x000822),
+      emissiveIntensity: 0.6, transparent: true, opacity: 0.6,
+    });
+    const subMesh = new THREE.Mesh(subGeo, subMat);
+    subMesh.position.set(0, -2, 4);
+    eoScene.add(subMesh);
+
+    // Main membrane — FRESH geometry, NOT from shared cache.
+    // PlaneGeometry in XY; after rotateX(-PI/2) verts are in XZ plane.
+    // Mesh at (0,0,4) so contact centre is world (0,0,4).
+    const mGeo = new THREE.PlaneGeometry(28, 28, 52, 52);
+    mGeo.rotateX(-Math.PI / 2);
+    const mMat = new THREE.MeshPhongMaterial({
+      color: P2_CFG.COL_MEMBRANE,
+      emissive: new THREE.Color(P2_CFG.COL_MEM_EMI),
+      emissiveIntensity: 0.4, transparent: true, opacity: 0.88,
+    });
+    const mMesh = new THREE.Mesh(mGeo, mMat);
+    mMesh.position.set(0, 0, 4);
+    eoScene.add(mMesh);
+    // Flat base Y values (all 0 after rotation) — reset each frame before wave+invag
+    const mPos   = mGeo.attributes.position;
+    const mOrigY = new Float32Array(mPos.count);   // zeros
+
+    // Membrane contact ring
     const ringGeo = new THREE.TorusGeometry(1.0, 0.07, 8, 48);
-    ringGeo.rotateX(-Math.PI / 2);   // lay flat
+    ringGeo.rotateX(-Math.PI / 2);
     const ringMat = new THREE.MeshBasicMaterial({
       color: 0x44ffaa, transparent: true, opacity: 0.9,
     });
     const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.position.set(px, 0.04, pz);
+    ring.position.set(0, 0.04, 4);
     ring.scale.setScalar(0);
-    this._worldGroup.add(ring);
+    eoScene.add(ring);
 
-    // Cinematic label
+    // Virion — fresh minimal mesh, not from shared cache
+    const virion = this._buildEoVirion();
+    virion.position.set(0, 1.0, 0);
+    eoScene.add(virion);
+
+    // Cinematic camera — behind and slightly above, looking at contact point
+    const eoCam = new THREE.PerspectiveCamera(
+      52, window.innerWidth / window.innerHeight, 0.1, 200
+    );
+    eoCam.position.set(0, 4.5, -6);
+    eoCam.lookAt(0, 0, 4);
+
+    // Label
     const label = document.createElement('div');
     label.id = 'p2EoLabel';
     label.style.cssText = [
@@ -392,13 +444,22 @@ const P2 = {
     document.body.appendChild(label);
     setTimeout(() => { if (label.parentNode) label.style.opacity = '1'; }, 80);
 
+    // Swap scenes — render loop reads P2Attachment.scene/.camera each frame
+    this._gameScene  = this.scene;
+    this._gameCamera = this.camera;
+    this.scene  = eoScene;
+    this.camera = eoCam;
+
     this._eoAnim = {
       t: 0,
-      ring, ringMat,
-      startY: py,
-      startZ: pz,
+      eoScene, eoCam,
+      mMesh, mGeo, mMat, mPos, mOrigY,
+      subGeo, subMat,
+      ring, ringGeo, ringMat,
+      virion,
       label,
-      burstDone: false,
+      burstDone: false, burst: [],
+      _waveT: 0,
     };
   },
 
@@ -407,47 +468,158 @@ const P2 = {
     if (!a) return;
     a.t += dt;
     const t = a.t;
-    const P = this.player;
-    if (!P || !P._group) { this._finishEndocytosis(); return; }
-    const g = P._group;
+    const g = a.virion;
 
+    // ── Virion + ring animation ───────────────────────────────────────────
     if (t < 0.3) {
-      // Brief freeze beat — world already stopped (state !== PLAYING)
+      g.rotation.y += dt * 0.6;                   // gentle bob during freeze beat
 
     } else if (t < 1.2) {
-      // Approach: virion glides forward and slightly down
+      // Approach: glide forward to membrane contact point (z 0 → 4)
       const f = this._smooth(Math.min(1, (t - 0.3) / 0.9));
-      g.position.z = a.startZ + f * 6;
-      g.position.y = a.startY  - f * 0.2;
-      a.ring.position.x = g.position.x;
+      g.position.z = f * 4;
+      g.position.y = 1.0 - f * 0.15;
+      g.rotation.y += dt * 0.6;
       a.ring.position.z = g.position.z;
-      a.ring.scale.setScalar(f * 1.35);
+      a.ring.scale.setScalar(f * 1.3);
 
-    } else if (t < 2.5) {
-      // Engulfment: virion sinks, ring contracts around it
-      const f = this._smooth(Math.min(1, (t - 1.2) / 1.3));
-      g.position.z = a.startZ + 6;
-      g.position.y = (a.startY - 0.2) - f * 1.9;
+    } else if (t < 2.6) {
+      // Engulfment: virion sinks, ring contracts
+      const f = this._smooth(Math.min(1, (t - 1.2) / 1.4));
+      g.position.z = 4;
+      g.position.y = 0.85 - f * 2.2;
       g.scale.setScalar(Math.max(0.01, 1 - f * 0.88));
-      a.ring.position.y = Math.max(0.04, g.position.y + 0.2);
-      a.ring.scale.setScalar(Math.max(0.01, 1.35 - f * 1.15));
+      g.rotation.y += dt * 0.5;
+      a.ring.position.y = Math.max(0.04, g.position.y + 0.25);
+      a.ring.scale.setScalar(Math.max(0.01, 1.3 - f * 1.1));
 
-    } else if (t < 3.5) {
-      // Pinch-off: ring fades, one particle burst
-      const f = (t - 2.5) / 1.0;
+    } else if (t < 3.6) {
+      // Pinch-off: virion gone, ring fades, burst fires
+      const f = (t - 2.6) / 1.0;
       g.scale.setScalar(Math.max(0, 0.12 - f * 0.12));
       a.ringMat.opacity = Math.max(0, 0.9 - f * 0.9);
       if (!a.burstDone) {
         a.burstDone = true;
         g.visible = false;
-        if (this.particles) {
-          this.particles.emit(g.position.x, 0.5, g.position.z,
-            50, 0x44ffaa, { speed: 5.5, duration: 1.0 });
-        }
+        this._spawnEoBurst(a);
       }
     } else {
+      this._updateEoBurst(a, dt);
       this._finishEndocytosis();
+      return;
     }
+
+    this._updateEoBurst(a, dt);
+    this._deformEoMembrane(a, t, dt);
+
+    // Cinematic camera eases forward and down as virion sinks
+    const cf = this._smooth(Math.min(1, Math.max(0, (t - 0.2) / 2.0)));
+    a.eoCam.position.set(0, 4.5 - cf * 2.0, -6 + cf * 2.5);
+    a.eoCam.lookAt(0, Math.max(-1.5, g.position.y - 0.3), g.position.z + 7);
+  },
+
+  // Inline particle burst — no dependency on the game particle system
+  _spawnEoBurst(a) {
+    const bGeo = new THREE.SphereGeometry(0.06, 4, 4);
+    for (let i = 0; i < 28; i++) {
+      const bMat = new THREE.MeshBasicMaterial({ color: 0x44ffaa, transparent: true, opacity: 1.0 });
+      const bm   = new THREE.Mesh(bGeo, bMat);
+      const ang  = Math.random() * Math.PI * 2;
+      const elev = (Math.random() - 0.2) * Math.PI * 0.5;
+      bm.position.set(0, 0.1, 4);
+      bm.userData.vel  = new THREE.Vector3(
+        Math.cos(ang) * Math.cos(elev) * (3 + Math.random() * 4),
+        Math.sin(elev) * 2 + 1.5,
+        Math.sin(ang) * Math.cos(elev) * (3 + Math.random() * 4)
+      );
+      bm.userData.life = 0.6 + Math.random() * 0.5;
+      a.eoScene.add(bm);
+      a.burst.push(bm);
+    }
+  },
+
+  _updateEoBurst(a, dt) {
+    for (let i = a.burst.length - 1; i >= 0; i--) {
+      const bm = a.burst[i];
+      bm.userData.life -= dt;
+      if (bm.userData.life <= 0) { a.eoScene.remove(bm); a.burst.splice(i, 1); continue; }
+      bm.position.addScaledVector(bm.userData.vel, dt);
+      bm.userData.vel.y -= 4 * dt;
+      bm.material.opacity = Math.max(0, bm.userData.life * 1.5);
+    }
+  },
+
+  // Per-frame Gaussian membrane deformation on the eo scene's fresh geometry.
+  // mOrigY is all-zeros (flat after rotateX bake); each frame resets to wave + invag.
+  _deformEoMembrane(a, t, dt) {
+    if (t < 0.3) return;
+    a._waveT += dt;
+    const wt = a._waveT;
+
+    let depth = 0, sigma = 2.2;
+    if (t < 1.2) {
+      const f = this._smooth((t - 0.3) / 0.9);
+      depth = f * 1.3;  sigma = 2.2 - f * 0.4;
+    } else if (t < 2.6) {
+      const f = this._smooth((t - 1.2) / 1.4);
+      depth = 1.3 + f * 1.8;   // deepens to 3.1
+      sigma = 1.8 - f * 0.9;   // tightens to 0.9
+    } else {
+      const f = (t - 2.6) / 1.0;
+      depth = 3.1 * (1 - f);   // springs back
+      sigma = 0.9 + f * 0.5;
+    }
+
+    const vx = a.virion.position.x;  // ≈ 0
+    const vz = a.virion.position.z;  // 0 → 4
+    const mZ = a.mMesh.position.z;   // 4
+
+    const pos    = a.mPos;
+    const sigma2 = sigma * sigma;
+    const cut2   = sigma2 * 9;       // 3σ early-out
+
+    for (let v = 0, n = pos.count; v < n; v++) {
+      const wx = pos.getX(v);
+      const wz = mZ + pos.getZ(v);
+      const r2 = (wx - vx) ** 2 + (wz - vz) ** 2;
+      let y = Math.sin(wx * 0.3 + wt * 0.5) * 0.13
+            + Math.sin(wz * 0.2 + wt * 0.3) * 0.09;
+      if (r2 < cut2) y -= depth * Math.exp(-r2 / (2 * sigma2));
+      pos.setY(v, y);
+    }
+    pos.needsUpdate = true;
+    a.mGeo.computeVertexNormals();
+  },
+
+  // Build a minimal virion for the eo scene — fresh materials, no shared cache.
+  _buildEoVirion() {
+    const g = new THREE.Group();
+    g.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.5, 16, 16),
+      new THREE.MeshPhongMaterial({
+        color: P2_CFG.COL_PLAYER,
+        emissive: new THREE.Color(0x003311), emissiveIntensity: 0.5, shininess: 40,
+      })
+    ));
+    g.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.58, 12, 12),
+      new THREE.MeshPhongMaterial({ color: 0x44ff88, transparent: true, opacity: 0.18, side: THREE.BackSide })
+    ));
+    const spikeGeo = new THREE.ConeGeometry(0.07, 0.38, 5);
+    const up  = new THREE.Vector3(0, 1, 0);
+    const phi = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < 20; i++) {
+      const y   = 1 - (i / 19) * 2;
+      const r   = Math.sqrt(Math.max(0, 1 - y * y));
+      const dir = new THREE.Vector3(Math.cos(phi * i) * r, y, Math.sin(phi * i) * r).normalize();
+      const sp  = new THREE.Mesh(spikeGeo,
+        new THREE.MeshPhongMaterial({ color: P2_CFG.COL_SPIKE_HA, emissive: new THREE.Color(0x002200), emissiveIntensity: 0.4 })
+      );
+      sp.position.copy(dir).multiplyScalar(0.52);
+      sp.quaternion.setFromUnitVectors(up, dir);
+      g.add(sp);
+    }
+    return g;
   },
 
   _finishEndocytosis() {
@@ -455,16 +627,27 @@ const P2 = {
     if (!a) return;
     this._eoAnim = null;
 
-    if (a.ring && this._worldGroup) this._worldGroup.remove(a.ring);
+    // Fade label
     if (a.label && a.label.parentNode) {
       a.label.style.opacity = '0';
       setTimeout(() => { if (a.label && a.label.parentNode) a.label.remove(); }, 1200);
     }
-    // Restore virion for any subsequent renders before COMPLETE overlay covers it
-    if (this.player && this.player._group) {
-      this.player._group.visible = true;
-      this.player._group.scale.setScalar(1);
+
+    // Dispose all eo scene resources — geometry + materials
+    if (a.eoScene) {
+      a.eoScene.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          mats.forEach(m => m.dispose());
+        }
+      });
     }
+
+    // Restore game scene/camera — render loop picks them up next frame
+    this.scene  = this._gameScene;
+    this.camera = this._gameCamera;
+    this._gameScene = this._gameCamera = null;
 
     this._setState('COMPLETE');
     const acc  = this.totalCollisions > 0
@@ -473,21 +656,6 @@ const P2 = {
     const m    = Math.floor(this.elapsed / 60);
     const s    = Math.floor(this.elapsed % 60).toString().padStart(2, '0');
     this._showCompleteScreen(acc, dist, `${m}:${s}`);
-  },
-
-  _updateEndocytosisCamera() {
-    const a  = this._eoAnim;
-    const P  = this.player;
-    const px = P && P._group ? P._group.position.x : 0;
-    const pz = P && P._group ? P._group.position.z : 0;
-    const py = P && P._group ? P._group.position.y : 0;
-
-    // Ease camera forward and down to watch the virion sink
-    const f  = a ? this._smooth(Math.min(1, Math.max(0, (a.t - 0.2) / 1.8))) : 0;
-    const camZ = P2_CFG.CAMERA_Z_OFFSET + f * 4;
-    const camY = P2_CFG.CAMERA_Y_OFFSET - f * 1.8;
-    this.camera.position.set(px, camY, camZ);
-    this.camera.lookAt(px, Math.max(-1.5, py - 0.5), pz + 9);
   },
 
   _triggerDead(title, reason) {
