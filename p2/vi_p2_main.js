@@ -458,7 +458,8 @@ const P2 = {
       ring, ringGeo, ringMat,
       virion,
       label,
-      burstDone: false, burst: [],
+      vesicle: null, vesicleMat: null, pinchDone: false,
+      burst: [],
       _waveT: 0,
     };
   },
@@ -472,50 +473,72 @@ const P2 = {
 
     // ── Virion + ring animation ───────────────────────────────────────────
     if (t < 0.3) {
-      g.rotation.y += dt * 0.6;                   // gentle bob during freeze beat
+      g.rotation.y += dt * 0.6;                   // freeze beat
 
     } else if (t < 1.2) {
-      // Approach: glide forward to membrane contact point (z 0 → 4)
+      // Approach: glide to membrane contact
       const f = this._smooth(Math.min(1, (t - 0.3) / 0.9));
       g.position.z = f * 4;
       g.position.y = 1.0 - f * 0.15;
       g.rotation.y += dt * 0.6;
-      a.ring.position.z = g.position.z;
-      a.ring.scale.setScalar(f * 1.3);
+      a.ring.position.set(0, 0.05, g.position.z);
+      a.ring.scale.setScalar(f * 1.5);
 
     } else if (t < 2.6) {
-      // Engulfment: virion sinks, ring contracts
+      // Engulfment: virion sinks (full size — it's being wrapped, not shrinking)
       const f = this._smooth(Math.min(1, (t - 1.2) / 1.4));
       g.position.z = 4;
-      g.position.y = 0.85 - f * 2.2;
-      g.scale.setScalar(Math.max(0.01, 1 - f * 0.88));
+      g.position.y = 0.85 - f * 1.95;    // sinks to −1.1
       g.rotation.y += dt * 0.5;
-      a.ring.position.y = Math.max(0.04, g.position.y + 0.25);
-      a.ring.scale.setScalar(Math.max(0.01, 1.3 - f * 1.1));
+      // Ring stays at membrane surface, scale tracks constricting neck radius
+      const neckR = Math.max(0.01, 1.8 - f * 1.55);
+      a.ring.position.set(0, 0.06, 4);
+      a.ring.scale.setScalar(neckR);
+      a.ringMat.opacity = Math.min(0.95, 0.35 + f * 0.6);
 
-    } else if (t < 3.6) {
-      // Pinch-off: virion gone, ring fades, burst fires
-      const f = (t - 2.6) / 1.0;
-      g.scale.setScalar(Math.max(0, 0.12 - f * 0.12));
-      a.ringMat.opacity = Math.max(0, 0.9 - f * 0.9);
-      if (!a.burstDone) {
-        a.burstDone = true;
-        g.visible = false;
-        this._spawnEoBurst(a);
+    } else if (t < 3.0) {
+      // Pinch-off: neck snaps shut, vesicle separates
+      const f = (t - 2.6) / 0.4;
+      g.position.z = 4;
+      g.position.y = -1.1;               // virion stays put — membrane closes over it
+      a.ring.scale.setScalar(Math.max(0.001, 0.25 * (1 - f)));
+      a.ringMat.opacity = Math.max(0, 0.95 - f * 2.4);
+      if (!a.pinchDone && f >= 0.85) {
+        a.pinchDone = true;
+        this._createEoVesicle(a);        // membrane bubble wrapping virion
+        this._spawnEoBurst(a);           // lipid fragments fly off at fission
+        g.visible = false;               // virion is now inside the vesicle
       }
+
     } else {
+      // Drift: endosomal vesicle carries virion deeper into the cell
+      if (a.vesicle) {
+        a.vesicle.position.y -= dt * 1.2;
+        a.vesicleMat.opacity = Math.max(0, a.vesicleMat.opacity - dt * 0.2);
+      }
       this._updateEoBurst(a, dt);
-      this._finishEndocytosis();
-      return;
+      this._deformEoMembrane(a, t, dt);  // membrane healing
+      if (t > 4.8) { this._finishEndocytosis(); return; }
     }
 
-    this._updateEoBurst(a, dt);
-    this._deformEoMembrane(a, t, dt);
+    // Main phases: update burst and membrane deformation
+    if (t < 3.0) {
+      this._updateEoBurst(a, dt);
+      this._deformEoMembrane(a, t, dt);
+    }
 
-    // Cinematic camera eases forward and down as virion sinks
-    const cf = this._smooth(Math.min(1, Math.max(0, (t - 0.2) / 2.0)));
-    a.eoCam.position.set(0, 4.5 - cf * 2.0, -6 + cf * 2.5);
-    a.eoCam.lookAt(0, Math.max(-1.5, g.position.y - 0.3), g.position.z + 7);
+    // ── Cinematic camera ──────────────────────────────────────────────────
+    if (t < 3.0) {
+      const cf = this._smooth(Math.min(1, Math.max(0, (t - 0.2) / 2.0)));
+      a.eoCam.position.set(0, 4.5 - cf * 2.0, -6 + cf * 2.5);
+      const lookY = g.visible ? Math.max(-1.5, g.position.y - 0.3) : -1.2;
+      a.eoCam.lookAt(0, lookY, g.position.z + 7);
+    } else if (a.vesicle) {
+      // Follow vesicle drifting into cytoplasm
+      const vy = a.vesicle.position.y;
+      a.eoCam.position.set(0, Math.max(0.3, 2.5 + vy * 0.35), -3.5);
+      a.eoCam.lookAt(0, vy, 4);
+    }
   },
 
   // Inline particle burst — no dependency on the game particle system
@@ -549,42 +572,92 @@ const P2 = {
     }
   },
 
-  // Per-frame Gaussian membrane deformation on the eo scene's fresh geometry.
-  // mOrigY is all-zeros (flat after rotateX bake); each frame resets to wave + invag.
+  // Spawns the endosomal membrane vesicle at the moment of fission.
+  // The virion is hidden (inside) and the vesicle drifts into the cytoplasm.
+  _createEoVesicle(a) {
+    const geo = new THREE.SphereGeometry(0.70, 16, 12);
+    const mat = new THREE.MeshPhongMaterial({
+      color:    P2_CFG.COL_MEMBRANE,
+      emissive: new THREE.Color(P2_CFG.COL_MEM_EMI),
+      emissiveIntensity: 0.6,
+      transparent: true, opacity: 0.55,
+      side: THREE.DoubleSide, shininess: 60,
+    });
+    const vesicle = new THREE.Mesh(geo, mat);
+    vesicle.position.set(0, a.virion.position.y, 4);
+    a.eoScene.add(vesicle);
+    a.vesicle    = vesicle;
+    a.vesicleMat = mat;
+  },
+
+  // Per-frame membrane deformation — cup with constricting neck, then healing scar.
+  //
+  // Key design: sigma = neckR * 0.7 (proportional).
+  // This ensures the bowl stays contained *inside* the cup opening at all stages.
+  // Outside neckR the membrane is nearly flat; inside is deeply depressed.
+  // The annular rim (rimH = bowlD * 0.45) rises above membrane level at the neck,
+  // creating the raised collar that makes the pinch-off visually convincing.
   _deformEoMembrane(a, t, dt) {
     if (t < 0.3) return;
     a._waveT += dt;
     const wt = a._waveT;
 
-    let depth = 0, sigma = 2.2;
+    let bowlD = 0, neckR = 2.0, scarH = 0;
     if (t < 1.2) {
       const f = this._smooth((t - 0.3) / 0.9);
-      depth = f * 1.3;  sigma = 2.2 - f * 0.4;
+      bowlD = f * 0.8;
+      neckR = 2.0 - f * 0.2;
     } else if (t < 2.6) {
       const f = this._smooth((t - 1.2) / 1.4);
-      depth = 1.3 + f * 1.8;   // deepens to 3.1
-      sigma = 1.8 - f * 0.9;   // tightens to 0.9
+      bowlD = 0.8 + f * 1.6;           // 0.8 → 2.4
+      neckR = 1.8 - f * 1.55;          // 1.8 → 0.25 (neck constricts)
+    } else if (t < 3.0) {
+      const f = (t - 2.6) / 0.4;
+      bowlD = 2.4;
+      neckR = Math.max(0, 0.25 * (1 - f));   // 0.25 → 0 (neck closes)
     } else {
-      const f = (t - 2.6) / 1.0;
-      depth = 3.1 * (1 - f);   // springs back
-      sigma = 0.9 + f * 0.5;
+      // Membrane heals: bowl fades, small upward scar pucker fades
+      const f = Math.min(1, (t - 3.0) / 1.2);
+      bowlD = 2.4 * (1 - this._smooth(f));
+      scarH = 0.28 * (1 - f);
     }
 
-    const vx = a.virion.position.x;  // ≈ 0
-    const vz = a.virion.position.z;  // 0 → 4
-    const mZ = a.mMesh.position.z;   // 4
-
-    const pos    = a.mPos;
+    // sigma proportional to neckR → cup is always contained inside the opening
+    const sigma  = Math.max(0.08, neckR * 0.7);
+    const rimH   = bowlD * 0.45;              // rim height > bowl at neckR → visible collar
+    const rimS   = Math.max(0.05, neckR * 0.28);
     const sigma2 = sigma * sigma;
-    const cut2   = sigma2 * 9;       // 3σ early-out
+    const rimS2  = rimS * rimS;
+    const scarS2 = 0.36;
+    const cutR   = neckR * 4.5 + 1.5;
+    const cutR2  = Math.max(4, cutR * cutR);
+
+    const pos = a.mPos;
+    const mZ  = a.mMesh.position.z;   // 4 — contact centre at world z=4
 
     for (let v = 0, n = pos.count; v < n; v++) {
       const wx = pos.getX(v);
       const wz = mZ + pos.getZ(v);
-      const r2 = (wx - vx) ** 2 + (wz - vz) ** 2;
+      const dx = wx;           // contact at x=0
+      const dz = wz - 4;       // contact at z=4
+      const r2 = dx * dx + dz * dz;
+
       let y = Math.sin(wx * 0.3 + wt * 0.5) * 0.13
             + Math.sin(wz * 0.2 + wt * 0.3) * 0.09;
-      if (r2 < cut2) y -= depth * Math.exp(-r2 / (2 * sigma2));
+
+      if (r2 < cutR2) {
+        // Bowl depression — uses r2, no sqrt needed
+        if (bowlD > 0) y -= bowlD * Math.exp(-r2 / (2 * sigma2));
+        // Healing scar — upward pucker at fission site, also r2 based
+        if (scarH > 0) y += scarH * Math.exp(-r2 / (2 * scarS2));
+        // Annular raised collar at neck — needs r to compute ring distance
+        if (rimH > 0 && neckR > 0.02) {
+          const r  = Math.sqrt(r2);
+          const dr = r - neckR;
+          y += rimH * Math.exp(-(dr * dr) / (2 * rimS2));
+        }
+      }
+
       pos.setY(v, y);
     }
     pos.needsUpdate = true;
