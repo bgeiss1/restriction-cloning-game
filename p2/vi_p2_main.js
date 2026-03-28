@@ -148,6 +148,7 @@ const P2 = {
     this._keys             = {};
     this._infoCardActive   = false;
     this._infoCardEl       = null;
+    this._motionSettingsEl = null;
   },
 
   // ── Scene ─────────────────────────────────────────────────────────────
@@ -267,7 +268,7 @@ const P2 = {
     // curvature drives parabolic X displacement: at z=30 ahead, offset = bendX
     const _curve = this._bendX / 450;
     if (this.terrain)   this.terrain.update(dt, this.speed, _curve);
-    if (this.player)    this.player.update(dt, this._keys, this.speed);
+    if (this.player)    this.player.update(dt, this._getEffectiveKeys(), this.speed);
     if (this.walls)     this.walls.update(dt, this.speed, this.elapsed, _curve);
     if (this.rbcs)      this.rbcs.update(dt, this.speed);
     if (this.receptors) this.receptors.update(dt, this.speed);
@@ -471,6 +472,11 @@ const P2 = {
         if (this.state === 'INTRO')    { this._startPlaying(); return; }
         if (this.state === 'COMPLETE') { this._completeAndAdvance(); return; }
         if (this.state === 'DEAD')     { this._retryRun(); return; }
+        // Tap-to-jump when motion controls active (tilt handles lanes)
+        if (this.state === 'PLAYING' && window.P2MotionControls && P2MotionControls.enabled) {
+          P2MotionControls.tapJump();
+          return;
+        }
       }
 
       if (this.state !== 'PLAYING') return;
@@ -827,6 +833,224 @@ const P2 = {
     return wrap;
   },
 
+  // ── Motion controls helpers ───────────────────────────────────────────
+
+  // Returns this._keys merged with any active motion input — non-destructive.
+  _getEffectiveKeys() {
+    return (window.P2MotionControls && P2MotionControls.enabled)
+      ? P2MotionControls.mergeKeys(this._keys)
+      : this._keys;
+  },
+
+  _showMotionSettings() {
+    if (this._motionSettingsEl) return;
+    if (this.state === 'PLAYING') this.pause();
+
+    const mc = window.P2MotionControls;
+    const panel = document.createElement('div');
+    Object.assign(panel.style, {
+      position: 'fixed', inset: '0', zIndex: '9998',
+      background: 'rgba(0,5,15,0.96)',
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'flex-start', overflowY: 'auto',
+      padding: '32px 24px 40px',
+      fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',monospace",
+      color: '#cce8cc', boxSizing: 'border-box', gap: '0',
+    });
+
+    const title = document.createElement('div');
+    Object.assign(title.style, {
+      fontSize: '1rem', fontWeight: '700', letterSpacing: '.12em',
+      color: '#ffcc44', textTransform: 'uppercase', marginBottom: '20px',
+    });
+    title.textContent = 'Motion Controls';
+    panel.appendChild(title);
+
+    const _row = (label, control) => {
+      const r = document.createElement('div');
+      Object.assign(r.style, {
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: '100%', maxWidth: '360px', marginBottom: '16px',
+      });
+      const lbl = document.createElement('div');
+      Object.assign(lbl.style, { fontSize: '.88rem', color: '#aaccaa' });
+      lbl.textContent = label;
+      r.appendChild(lbl);
+      r.appendChild(control);
+      return r;
+    };
+
+    const _toggle = (initial, onChange) => {
+      const btn = document.createElement('button');
+      let on = initial;
+      const update = () => {
+        btn.textContent = on ? 'ON' : 'OFF';
+        Object.assign(btn.style, {
+          padding: '5px 14px', borderRadius: '20px', border: 'none',
+          fontWeight: '700', fontSize: '.8rem', cursor: 'pointer',
+          background: on ? '#00cc44' : 'rgba(255,255,255,0.1)',
+          color: on ? '#001800' : '#778877',
+        });
+      };
+      update();
+      btn.addEventListener('click', () => { on = !on; update(); onChange(on); });
+      return btn;
+    };
+
+    // ── Enable toggle ──────────────────────────────────────────────────────
+    const enableToggle = _toggle(mc ? mc.enabled : false, async (v) => {
+      if (!mc) return;
+      const ok = await mc.setEnabled(v);
+      if (!ok) {
+        enableToggle.textContent = 'OFF';
+        enableToggle.style.background = 'rgba(255,255,255,0.1)';
+        enableToggle.style.color = '#778877';
+        const errEl = document.createElement('div');
+        Object.assign(errEl.style, { color: '#ff6666', fontSize: '.75rem', marginBottom: '8px', textAlign: 'center' });
+        errEl.textContent = 'Permission denied — check browser settings.';
+        panel.insertBefore(errEl, sensRow);
+      }
+      _refreshTiltCanvas();
+    });
+    panel.appendChild(_row('Enable', enableToggle));
+
+    // ── Sensitivity slider ─────────────────────────────────────────────────
+    const sensVal = document.createElement('div');
+    Object.assign(sensVal.style, { fontSize: '.8rem', color: '#ffcc44', minWidth: '36px', textAlign: 'right' });
+    sensVal.textContent = (mc ? mc.sensitivity : 1).toFixed(1) + '×';
+
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = '50'; slider.max = '200'; slider.step = '5';
+    slider.value = String(Math.round((mc ? mc.sensitivity : 1) * 100));
+    Object.assign(slider.style, { width: '140px', accentColor: '#00cc44', cursor: 'pointer' });
+    slider.addEventListener('input', () => {
+      const v = parseInt(slider.value) / 100;
+      sensVal.textContent = v.toFixed(1) + '×';
+      if (mc) mc.setSensitivity(v);
+      _refreshTiltCanvas();
+    });
+
+    const sensCtrl = document.createElement('div');
+    Object.assign(sensCtrl.style, { display: 'flex', alignItems: 'center', gap: '8px' });
+    sensCtrl.appendChild(slider);
+    sensCtrl.appendChild(sensVal);
+    const sensRow = _row('Sensitivity', sensCtrl);
+    panel.appendChild(sensRow);
+
+    // ── Jerk-to-jump toggle ────────────────────────────────────────────────
+    panel.appendChild(_row('Jerk bonus jump', _toggle(mc ? mc.jerkJump : false, (v) => { if (mc) mc.setJerkJump(v); })));
+
+    // ── Divider ────────────────────────────────────────────────────────────
+    const div1 = document.createElement('hr');
+    Object.assign(div1.style, { width: '100%', maxWidth: '360px', border: 'none', borderTop: '1px solid rgba(0,255,136,0.12)', margin: '4px 0 16px' });
+    panel.appendChild(div1);
+
+    // ── Calibration ────────────────────────────────────────────────────────
+    const calInstr = document.createElement('div');
+    Object.assign(calInstr.style, { fontSize: '.78rem', color: '#7a9988', maxWidth: '360px', textAlign: 'center', marginBottom: '10px', lineHeight: '1.5' });
+    calInstr.textContent = 'Hold device in your natural gaming position, then tap Calibrate.';
+    panel.appendChild(calInstr);
+
+    const calFeedback = document.createElement('div');
+    Object.assign(calFeedback.style, { fontSize: '.75rem', color: '#00ff88', height: '18px', marginBottom: '8px' });
+    panel.appendChild(calFeedback);
+
+    const calBtn = document.createElement('button');
+    Object.assign(calBtn.style, {
+      padding: '10px 28px', background: 'rgba(0,255,136,0.1)',
+      border: '1px solid rgba(0,255,136,0.3)', borderRadius: '8px',
+      color: '#00ff88', fontSize: '.88rem', cursor: 'pointer', marginBottom: '20px',
+    });
+    calBtn.textContent = 'Calibrate';
+    calBtn.addEventListener('click', () => {
+      if (mc) mc.calibrate();
+      calFeedback.textContent = '✓ Calibrated';
+      setTimeout(() => { calFeedback.textContent = ''; }, 2000);
+      _refreshTiltCanvas();
+    });
+    panel.appendChild(calBtn);
+
+    // ── Live tilt indicator ────────────────────────────────────────────────
+    const tiltLabel = document.createElement('div');
+    Object.assign(tiltLabel.style, { fontSize: '.65rem', color: '#447766', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: '6px' });
+    tiltLabel.textContent = 'Live Tilt';
+    panel.appendChild(tiltLabel);
+
+    const tiltCanvas = document.createElement('canvas');
+    tiltCanvas.width = 280; tiltCanvas.height = 44;
+    Object.assign(tiltCanvas.style, { display: 'block', borderRadius: '6px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(0,255,136,0.1)' });
+    panel.appendChild(tiltCanvas);
+
+    const slideLabel = document.createElement('div');
+    Object.assign(slideLabel.style, { fontSize: '.65rem', color: '#447766', marginTop: '6px', marginBottom: '20px' });
+    slideLabel.textContent = 'Orange dot = slide active';
+    panel.appendChild(slideLabel);
+
+    let _tiltRaf;
+    const _refreshTiltCanvas = () => {
+      const ctx = tiltCanvas.getContext('2d');
+      const W = tiltCanvas.width, H = tiltCanvas.height;
+      ctx.clearRect(0, 0, W, H);
+      if (!mc) return;
+      const tilt   = Math.max(-45, Math.min(45, mc.tiltLR));
+      const thresh = mc.tiltThresh;
+      const cx = W / 2;
+
+      // Track
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.beginPath(); ctx.roundRect(8, H/2 - 5, W - 16, 10, 5); ctx.fill();
+
+      // Labels
+      ctx.fillStyle = 'rgba(0,255,136,0.3)';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'left';  ctx.fillText('◀', 10, H/2 + 4);
+      ctx.textAlign = 'right'; ctx.fillText('▶', W - 10, H/2 + 4);
+
+      // Threshold markers
+      const lx = cx + (-thresh / 45) * (cx - 20);
+      const rx = cx + ( thresh / 45) * (cx - 20);
+      ctx.fillStyle = 'rgba(0,255,136,0.4)';
+      ctx.fillRect(lx - 1, 6, 2, H - 12);
+      ctx.fillRect(rx - 1, 6, 2, H - 12);
+
+      // Center
+      ctx.fillStyle = 'rgba(255,255,255,0.15)';
+      ctx.fillRect(cx - 1, 6, 2, H - 12);
+
+      // Needle
+      const nx = cx + (tilt / 45) * (cx - 20);
+      ctx.fillStyle = Math.abs(tilt) > thresh ? '#44aaff' : '#00ff88';
+      ctx.beginPath(); ctx.arc(nx, H / 2, 8, 0, Math.PI * 2); ctx.fill();
+
+      // Slide indicator
+      if (mc.tiltFB > mc.slideThresh) {
+        ctx.fillStyle = '#ff9800';
+        ctx.beginPath(); ctx.arc(W - 14, 10, 6, 0, Math.PI * 2); ctx.fill();
+      }
+    };
+
+    const _animTilt = () => { _tiltRaf = requestAnimationFrame(_animTilt); _refreshTiltCanvas(); };
+    _animTilt();
+
+    // ── Close button ───────────────────────────────────────────────────────
+    const closeBtn = document.createElement('button');
+    Object.assign(closeBtn.style, {
+      padding: '12px 40px', background: '#00cc44', color: '#001800',
+      fontSize: '.95rem', fontWeight: '700', border: 'none',
+      borderRadius: '8px', cursor: 'pointer',
+    });
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', () => {
+      cancelAnimationFrame(_tiltRaf);
+      panel.remove();
+      this._motionSettingsEl = null;
+    });
+    panel.appendChild(closeBtn);
+
+    document.body.appendChild(panel);
+    this._motionSettingsEl = panel;
+  },
+
   // ── HUD build ─────────────────────────────────────────────────────────
   _buildHUD() {
     if (!document.getElementById('p2Styles')) {
@@ -894,6 +1118,20 @@ const P2 = {
         #p2PUName{font-size:.76rem;color:#fff;margin-top:2px;}
         #p2PUTimer{font-size:.68rem;color:#00ff88;margin-top:2px;}
 
+        /* Tilt indicator bar (motion controls) */
+        #p2TiltBar{position:absolute;bottom:68px;left:50%;transform:translateX(-50%);
+          display:none;align-items:center;justify-content:center;}
+        #p2TiltBar canvas{display:block;}
+
+        /* Settings gear button */
+        #p2GearBtn{position:absolute;top:14px;left:50%;transform:translateX(-50%);
+          margin-left:175px;width:32px;height:32px;border-radius:50%;
+          border:1px solid rgba(0,255,136,0.25);background:rgba(0,0,0,0.55);
+          color:#5a8a6a;font-size:1rem;cursor:pointer;pointer-events:auto;
+          display:flex;align-items:center;justify-content:center;
+          transition:border-color .2s,color .2s;}
+        #p2GearBtn:hover{border-color:rgba(0,255,136,0.6);color:#00ff88;}
+
         /* Overlays */
         .p2Ov{position:absolute;inset:0;display:none;flex-direction:column;
           align-items:center;justify-content:center;background:rgba(0,5,15,0.90);
@@ -959,6 +1197,8 @@ const P2 = {
           <div id="p2PUName">—</div>
           <div id="p2PUTimer">—</div>
         </div>
+        <div id="p2TiltBar"><canvas id="p2TiltCanvas" width="180" height="28"></canvas></div>
+        <button id="p2GearBtn" title="Motion Settings">⚙</button>
       </div>
 
       <!-- INTRO overlay -->
@@ -990,6 +1230,10 @@ const P2 = {
     document.body.appendChild(root);
     this._hudRoot = root;
     this._refreshIntroPenalty();
+
+    // Gear button → open motion settings (pointer-events:auto override handled by button itself)
+    const gearBtn = document.getElementById('p2GearBtn');
+    if (gearBtn) gearBtn.addEventListener('click', () => this._showMotionSettings());
   },
 
   _removeHUD() {
@@ -1043,6 +1287,55 @@ const P2 = {
     if (this.boundSites > 0) {
       const pen = document.getElementById('p2Pen');
       if (pen) pen.textContent = `Affinity: ${Math.round(this.scoreMultiplier * 100)}% (${this.boundSites} site${this.boundSites > 1 ? 's' : ''} neutralized)`;
+    }
+
+    // Tilt indicator — only shown when motion controls are active
+    const tiltBar = document.getElementById('p2TiltBar');
+    if (tiltBar) {
+      const mc = window.P2MotionControls;
+      const showTilt = mc && mc.enabled && this.state === 'PLAYING';
+      tiltBar.style.display = showTilt ? 'flex' : 'none';
+      if (showTilt) this._drawTiltBar();
+    }
+  },
+
+  _drawTiltBar() {
+    const canvas = document.getElementById('p2TiltCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const mc = window.P2MotionControls;
+    const tilt   = Math.max(-45, Math.min(45, mc.tiltLR));
+    const thresh = mc.tiltThresh;
+    const cx = W / 2;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Track
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath(); ctx.roundRect(0, H/2 - 4, W, 8, 4); ctx.fill();
+
+    // Threshold markers
+    ctx.fillStyle = 'rgba(0,255,136,0.35)';
+    const lx = cx + (-thresh / 45) * cx;
+    const rx = cx + ( thresh / 45) * cx;
+    ctx.fillRect(lx - 1, 4, 2, H - 8);
+    ctx.fillRect(rx - 1, 4, 2, H - 8);
+
+    // Center tick
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fillRect(cx - 1, 4, 2, H - 8);
+
+    // Needle (position dot)
+    const nx = cx + (tilt / 45) * cx;
+    const inZone = Math.abs(tilt) > thresh;
+    ctx.fillStyle = inZone ? (tilt < 0 ? '#44aaff' : '#44aaff') : 'rgba(0,255,136,0.7)';
+    ctx.beginPath(); ctx.arc(nx, H / 2, 6, 0, Math.PI * 2); ctx.fill();
+
+    // Slide indicator dot (top-right corner)
+    if (mc.tiltFB > mc.slideThresh) {
+      ctx.fillStyle = '#ff9800';
+      ctx.beginPath(); ctx.arc(W - 8, 8, 5, 0, Math.PI * 2); ctx.fill();
     }
   },
 
