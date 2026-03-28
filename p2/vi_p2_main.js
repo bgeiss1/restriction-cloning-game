@@ -535,7 +535,7 @@ const P2 = {
     if (duration < 900) el._t = setTimeout(() => { el.style.opacity = '0'; }, (duration || 3) * 1000);
   },
 
-  showInfoCard(title, text, imgSrc, meshType) {
+  showInfoCard(title, text, imgSrc, meshType, pdbId) {
     if (this._infoCardEl) return;   // already showing
     this._infoCardActive = true;
 
@@ -612,40 +612,11 @@ const P2 = {
       previewLabel.textContent = 'model preview\nunavailable';
     }
 
-    // Right pane — structure image (PNG drop-in), with placeholder when absent
-    const imgWrap = document.createElement('div');
-    Object.assign(imgWrap.style, {
-      width:          '160px',
-      height:         '160px',
-      flexShrink:     '0',
-      borderRadius:   '10px',
-      border:         '1px dashed rgba(200,169,81,0.4)',
-      background:     'rgba(0,20,10,0.6)',
-      display:        'flex',
-      flexDirection:  'column',
-      alignItems:     'center',
-      justifyContent: 'center',
-      overflow:       'hidden',
-    });
-    const img = document.createElement('img');
-    img.src = imgSrc || '';
-    img.alt = title;
-    Object.assign(img.style, { width: '100%', height: '100%', objectFit: 'contain', display: 'block' });
-    img.onerror = () => {
-      img.style.display = 'none';
-      const ph = document.createElement('div');
-      Object.assign(ph.style, { fontSize: '.7rem', color: 'rgba(200,169,81,0.4)', lineHeight: '1.7', padding: '10px' });
-      ph.textContent = 'Structure image\ncoming soon';
-      imgWrap.appendChild(ph);
-      const phLabel = document.createElement('div');
-      Object.assign(phLabel.style, { fontSize: '.6rem', color: 'rgba(200,169,81,0.25)', marginTop: '6px' });
-      phLabel.textContent = 'real structure';
-      imgWrap.appendChild(phLabel);
-    };
-    imgWrap.appendChild(img);
+    // Right pane — 3Dmol spinning structure (preferred) or PNG fallback
+    const rightPane = this._makeStructurePane(pdbId, imgSrc, title);
 
     row.appendChild(previewWrap);
-    row.appendChild(imgWrap);
+    row.appendChild(rightPane);
 
     const textEl = document.createElement('div');
     Object.assign(textEl.style, {
@@ -742,11 +713,103 @@ const P2 = {
   _dismissInfoCard() {
     this._infoCardActive = false;
     if (this._infoCardEl) {
+      // Stop Three.js preview renderer
       const pc = this._infoCardEl.querySelector('canvas[data-preview]');
       if (pc && pc._cleanup) pc._cleanup();
+      // Stop 3Dmol spin
+      const sp = this._infoCardEl.querySelector('[data-3dmol]');
+      if (sp && sp._viewer) { try { sp._viewer.spin(false); } catch (e) {} }
       this._infoCardEl.remove();
       this._infoCardEl = null;
     }
+  },
+
+  // Builds the right-pane structure viewer.
+  // Uses 3Dmol.js if pdbId + library are available; falls back to static PNG / placeholder.
+  _makeStructurePane(pdbId, imgSrc, title) {
+    const wrap = document.createElement('div');
+    Object.assign(wrap.style, {
+      width:      '160px',
+      height:     '160px',
+      flexShrink: '0',
+      borderRadius: '10px',
+      border:     pdbId && window.$3Dmol
+                    ? '1px solid rgba(200,169,81,0.3)'
+                    : '1px dashed rgba(200,169,81,0.4)',
+      background: '#000a05',
+      position:   'relative',
+      overflow:   'hidden',
+    });
+
+    // Bottom label (always present)
+    const label = document.createElement('div');
+    Object.assign(label.style, {
+      position:   'absolute',
+      bottom:     '4px',
+      width:      '100%',
+      textAlign:  'center',
+      fontSize:   '.6rem',
+      color:      'rgba(200,169,81,0.4)',
+      pointerEvents: 'none',
+      zIndex:     '2',
+    });
+    wrap.appendChild(label);
+
+    if (pdbId && window.$3Dmol) {
+      // ── 3Dmol path ──────────────────────────────────────────────────────
+      label.textContent = 'loading…';
+
+      // Inner viewer div (3Dmol sizes its canvas to this element)
+      const viewerDiv = document.createElement('div');
+      Object.assign(viewerDiv.style, {
+        position: 'absolute', inset: '0',
+      });
+      viewerDiv.setAttribute('data-3dmol', '1');
+      wrap.insertBefore(viewerDiv, label);
+
+      // 3Dmol must be initialized after the element is in the DOM.
+      // We defer via a microtask so the caller can append first.
+      Promise.resolve().then(() => {
+        if (!this._infoCardEl) return;   // card already dismissed
+        let viewer;
+        try {
+          viewer = $3Dmol.createViewer(viewerDiv, { backgroundColor: '#000a05', antialias: true });
+        } catch (e) {
+          label.textContent = 'viewer error';
+          return;
+        }
+        viewerDiv._viewer = viewer;
+
+        $3Dmol.download('pdb:' + pdbId, viewer, {}, () => {
+          if (!this._infoCardEl) return;   // dismissed while loading
+          viewer.setStyle({ hetflag: false }, { cartoon: { color: 'spectrum', opacity: 0.88 } });
+          viewer.setStyle({ hetflag: true  }, { stick:   { colorscheme: 'default', radius: 0.12 } });
+          viewer.zoomTo();
+          viewer.render();
+          viewer.spin('y', 1);
+          label.textContent = 'real structure · ' + pdbId;
+        });
+      });
+
+    } else {
+      // ── PNG / placeholder fallback ───────────────────────────────────────
+      const img = document.createElement('img');
+      img.src = imgSrc || '';
+      img.alt = title;
+      Object.assign(img.style, {
+        width: '100%', height: '100%', objectFit: 'contain',
+        display: 'block', position: 'relative', zIndex: '1',
+      });
+      img.onload  = () => { label.textContent = 'real structure'; };
+      img.onerror = () => {
+        img.style.display = 'none';
+        Object.assign(label.style, { bottom: '50%', transform: 'translateY(50%)', whiteSpace: 'pre' });
+        label.textContent = 'structure image\ncoming soon';
+      };
+      wrap.insertBefore(img, label);
+    }
+
+    return wrap;
   },
 
   // ── HUD build ─────────────────────────────────────────────────────────

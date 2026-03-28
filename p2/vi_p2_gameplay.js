@@ -57,23 +57,39 @@ const _ID_TO_MESH = {
   DRIFT_PU:    'drift',
 };
 
+// Maps education IDs to PDB accession codes for the 3Dmol structure viewer.
+// Change any entry here to swap the displayed structure.
+const _ID_TO_PDB = {
+  SA_INTRO:    '1HGF',   // Influenza HA bound to sialic acid analog
+  ACE2_WRONG:  '6LZG',   // Human ACE2 ectodomain
+  CD4_WRONG:   '1CDH',   // CD4 D1-D2 domains
+  ICAM1_WRONG: '1IC1',   // ICAM-1 domains 1-2
+  DECOY_HIT:   '1HGF',   // Same HA-SA complex (modified SA context)
+  C3B_WARN:    '2I07',   // Complement C3b
+  C3B_HIT:     '2I07',
+  IGA_HINT:    '1OW0',   // IgA1 Fc region
+  IGA_HIT:     '1OW0',
+  DRIFT_PU:    '1RUZ',   // Influenza H3 hemagglutinin
+};
+
 // First-encounter education triggers — delegate to P2EducationSystem when available
 // _edu(id, text)        → ticker only on first encounter
 // _edu(id, title, text) → modal info card on first encounter
 // Image is auto-derived: p2/images/{id.toLowerCase()}.png (shown as placeholder if absent)
 function _edu(id, title, text) {
   if (text === undefined) { text = title; title = null; }
-  const imgSrc  = 'p2/images/' + id.toLowerCase() + '.png';
+  const imgSrc   = 'p2/images/' + id.toLowerCase() + '.png';
   const meshType = _ID_TO_MESH[id] || null;
+  const pdbId    = _ID_TO_PDB[id]  || null;
   const PA = window.P2Attachment;
   if (!PA) return;
   if (PA.education) {
-    PA.education.trigger(id, title, text, imgSrc, meshType);
+    PA.education.trigger(id, title, text, imgSrc, meshType, pdbId);
   } else {
     // Fallback: simple dedup + direct display (used if fx file not yet loaded)
     if (_edu._seen[id]) return;
     _edu._seen[id] = true;
-    if (title) PA.showInfoCard(title, text, imgSrc, meshType);
+    if (title) PA.showInfoCard(title, text, imgSrc, meshType, pdbId);
     else PA.showTicker(text, 3.5);
   }
 }

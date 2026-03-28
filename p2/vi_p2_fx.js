@@ -375,16 +375,16 @@ class P2EducationSystem {
    * Record a first-encounter educational fact and show it as a ticker.
    * Subsequent calls with the same id are silently ignored.
    */
-  // trigger(id, text)                        — ticker only
-  // trigger(id, title, text)                 — modal card on first encounter
-  // trigger(id, title, text, img, meshType)  — modal card with image + 3D preview
-  trigger(id, title, text, imgSrc, meshType) {
+  // trigger(id, text)                               — ticker only
+  // trigger(id, title, text)                        — modal card on first encounter
+  // trigger(id, title, text, img, meshType, pdbId)  — full card with 3D preview + structure
+  trigger(id, title, text, imgSrc, meshType, pdbId) {
     if (text === undefined) { text = title; title = null; }
     if (this._seen[id]) return;
     this._seen[id]  = true;
     this._factLog.push({ id, text });
     if (!window.P2Attachment) return;
-    if (title) P2Attachment.showInfoCard(title, text, imgSrc, meshType);
+    if (title) P2Attachment.showInfoCard(title, text, imgSrc, meshType, pdbId);
     else P2Attachment.showTicker(text, 3.5);
   }
 
