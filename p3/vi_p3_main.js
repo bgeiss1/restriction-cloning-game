@@ -319,7 +319,8 @@ const P3Escape = {
       list.push(...this.surface.getM2Channels().map(c => c.group));
     }
     if (this.env) {
-      list.push(...this.env.getTLRNodes().map(n => n.mesh));
+      // Pass the full group so the hitbox and ring are also raycaster targets
+      list.push(...this.env.getTLRNodes().map(n => n.group));
     }
     return list;
   },
@@ -417,6 +418,9 @@ const P3Escape = {
 
     // Track peak alert for stats
     if (this.immuneAlert > this._peakAlert) this._peakAlert = this.immuneAlert;
+
+    // Interaction crosshair + raycaster (must run every frame for live targeting display)
+    if (this.interaction) this.interaction.update(dt);
 
     // HUD update
     if (this.hud) this.hud.update(this._buildHUDState());

@@ -177,9 +177,19 @@ class P3Environment {
       const glow = new THREE.PointLight(cfg.COL_TLR, 0.2, 6);
       group.add(glow);
 
+      // Invisible hitbox sphere for easier targeting at endosome-wall distance
+      const hitGeo = new THREE.SphereGeometry(0.52, 6, 4);
+      const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+      const hitbox = new THREE.Mesh(hitGeo, hitMat);
+      group.add(hitbox);
+
       this._scene.add(group);
-      this._tlrNodes.push({ mesh: body, group, dir, index: i,
-                             state: 'idle', ring, ringMat, bodyMat, glow });
+
+      const nodeObj = { mesh: body, group, dir, index: i,
+                        state: 'idle', ring, ringMat, bodyMat, glow };
+      // Tag the GROUP so any child hit (body, ring, hitbox) walks up and finds the type
+      group.userData = { p3type: 'tlr', p3index: i, p3ref: nodeObj };
+      this._tlrNodes.push(nodeObj);
     }
   }
 
