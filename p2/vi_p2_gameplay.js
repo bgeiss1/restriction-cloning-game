@@ -64,7 +64,7 @@ _edu._seen = {};
 function _resetEdu() { _edu._seen = {}; }
 
 // Cards that must all be shown before incorrect contacts deal damage
-const _REQUIRED_CARDS = ['SA_INTRO', 'ACE2_WRONG', 'CD4_WRONG', 'ICAM1_WRONG', 'DECOY_HIT', 'IGA_HINT', 'C3B_WARN'];
+const _REQUIRED_CARDS = ['SA_INTRO', 'ACE2_WRONG', 'CD4_WRONG', 'ICAM1_WRONG', 'DECOY_HIT', 'C3B_WARN'];
 function _gracePeriodActive() {
   const PA = window.P2Attachment;
   if (!PA || !PA.education) return false;
@@ -652,7 +652,6 @@ class ObstacleManager {
     this._activateObs(item, pairIdx, this._HORIZON_Z);
     item.group.position.set(laneX, 1.0, this._HORIZON_Z);
     item.rotY = 0;
-    _edu('IGA_HINT', 'IgA Antibody', 'Secretory IgA patrols mucosal surfaces and blocks pathogen attachment to host receptors — this is neutralization. Jump (↑) to clear the dimer, or switch to a lane it does not cover!');
   }
 
   _spawnComplement() {
@@ -705,7 +704,10 @@ class ObstacleManager {
       // Wide box collision: dimer spans ±2.6 in X across two lanes
       if (Math.abs(dx) < 3.2 && dz2 * dz2 < 2.25) {
         ab.hit = true;
-        if (_gracePeriodActive()) {
+        const igaSeen = P2Attachment.education
+          ? P2Attachment.education.hasSeen('IGA_HINT')
+          : _edu._seen['IGA_HINT'];
+        if (!igaSeen) {
           _edu('IGA_HINT', 'IgA Antibody', 'Secretory IgA patrols mucosal surfaces and blocks pathogen attachment to host receptors — this is neutralization. Jump (↑) to clear the dimer, or switch to a lane it does not cover!');
         } else {
           P2Attachment.takeDamage(P2_CFG.DMG_ANTIBODY, P2_CFG.ALERT_ANTIBODY, true);

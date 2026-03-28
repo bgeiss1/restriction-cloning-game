@@ -278,8 +278,7 @@ const P2 = {
 
     // Win / lose
     if (this.binding >= P2_CFG.BINDING_WIN) { this._triggerComplete(); return; }
-    if (this.hp <= 0)                        { this._triggerDead('VIRUS NEUTRALIZED', 'The immune system destroyed the virus before it could attach to a host cell receptor.'); return; }
-    if (this.alert >= 100)                   { this._triggerDead('IMMUNE ALERT', 'The adaptive immune response was fully activated. An antibody swarm was deployed.'); return; }
+    if (this.alert >= 100)                  { this._triggerDead('IMMUNE ALERT', 'The adaptive immune response was fully activated. An antibody swarm was deployed.'); return; }
 
     this._updateHUD();
   },
