@@ -275,7 +275,7 @@ const P3Descent = (() => {
     const fogCol = _ph.getColor('fog');
     pub.scene.background.setHex(fogCol);
     if (pub.scene.fog) pub.scene.fog.color.setHex(fogCol);
-    if (pub._hemi) { pub._hemi.skyColor.setHex(ambCol); }
+    if (pub._hemi) { pub._hemi.color.setHex(ambCol); }
     if (pub._amb)  { pub._amb.color.setHex(ambCol); }
     P3DMatLib.applyPH(_ph.pH);
   }
