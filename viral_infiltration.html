@@ -5728,15 +5728,17 @@ gameLoop();
 function p3dSkipToAct(n) {
   if (!window.P3Descent || !P3Descent._active) return;
 
-  // Shared fake stats so the game always has sensible carry-forward values
+  // Shared fake stats — max values so every act starts with full resources/vRNP
   const fakeA1 = {
     m2: 3, m2Tokens: 3, ns1: 2, ns1Charges: 2,
-    hp: 100, score: 500, depth: 100,
-    lysoDodged: 5, nearMisses: 3, peakAlert: 20, time: 60,
+    hp: 100, score: 5000, depth: 100,
+    lysoDodged: 10, nearMisses: 5, peakAlert: 10, time: 60,
   };
   const fakeA2 = {
-    perfect: 12, good: 6, misses: 1, maxCombo: 10,
-    syncHits: 4, syncTotal: 6, ir: 2, score: 2000,
+    perfect: 50, good: 0, misses: 0, maxCombo: 50,
+    syncHits: 10, syncTotal: 10,
+    ir: 0,        // ir=0 → all 8 vRNP segments + 1.0× score multiplier
+    score: 15000,
   };
 
   // Helper: force-complete any active transition instantly
