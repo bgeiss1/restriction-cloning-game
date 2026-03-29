@@ -308,6 +308,12 @@ const P3Escape = {
     if (typeof P3HUD !== 'undefined') {
       this.hud = new P3HUD(P3_CFG, this);
     }
+    if (typeof P3FusionSequence !== 'undefined') {
+      this.fusion = new P3FusionSequence(P3_CFG);
+    }
+    if (typeof P3VRNPTargeting !== 'undefined') {
+      this.vrnp = new P3VRNPTargeting(P3_CFG);
+    }
   },
 
   // Returns the flat array of interactive objects for the raycaster.
