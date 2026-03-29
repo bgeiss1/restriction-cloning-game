@@ -667,6 +667,12 @@ const P3Escape = {
       this.state === 'PLAYING' ? this.pause() : this.resume();
       return;
     }
+    // VRNP_TARGETING: SPACE rushes the inter-segment gap
+    if (this.state === 'VRNP_TARGETING' && e.code === 'Space') {
+      if (this.vrnp) this.vrnp.requestExtract();
+      return;
+    }
+
     if (this.state !== 'PLAYING') return;
 
     // SPACE → attempt fusion (when ready)
