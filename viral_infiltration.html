@@ -12,21 +12,17 @@
 <script src="p2/vi_p2_world.js"></script>
 <script src="p2/vi_p2_gameplay.js"></script>
 <script src="p2/vi_p2_fx.js"></script>
-<script src="p3/vi_p3_config.js"></script>
-<script src="p3/vi_p3_main.js"></script>
-<script src="p3/vi_p3_env.js"></script>
-<script src="p3/vi_p3_camera.js"></script>
-<script src="p3/vi_p3_surface.js"></script>
-<script src="p3/vi_p3_interaction.js"></script>
-<script src="p3/vi_p3_m2.js"></script>
-<script src="p3/vi_p3_particles.js"></script>
-<script src="p3/vi_p3_ha.js"></script>
-<script src="p3/vi_p3_hud.js"></script>
-<script src="p3/vi_p3_integrity.js"></script>
-<script src="p3/vi_p3_audio.js"></script>
-<script src="p3/vi_p3_edu.js"></script>
-<script src="p3/vi_p3_fusion.js"></script>
-<script src="p3/vi_p3_vrnp.js"></script>
+<!-- Phase 3: Endosomal Descent (archived Pressure Cooker on branch archive/p3-endosomal-escape) -->
+<script src="p3/shared/vi_p3d_config.js"></script>
+<script src="p3/shared/vi_p3d_ph.js"></script>
+<script src="p3/shared/vi_p3d_materials.js"></script>
+<script src="p3/shared/vi_p3d_geometries.js"></script>
+<script src="p3/shared/vi_p3d_particles.js"></script>
+<script src="p3/shared/vi_p3d_sound.js"></script>
+<script src="p3/shared/vi_p3d_edu.js"></script>
+<script src="p3/shared/vi_p3d_hud.js"></script>
+<script src="p3/shared/vi_p3d_transition.js"></script>
+<script src="p3/vi_p3d_main.js"></script>
 <style>
 /* ── Reset & Root ──────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1138,7 +1134,7 @@ const PHASE_DATA = [
     index: 2,
     name: 'Endosomal Escape',
     shortName: 'Escape',
-    objective: 'Acidify the endosome, trigger HA-mediated membrane fusion, and extract all 8 vRNP segments before the pore collapses',
+    objective: 'Navigate to the endosome before the lysosome arrives and destroys the viral genome',
     bio: 'Inside the endosome, the acidic pH (≈5.0) triggers conformational changes in viral surface proteins. For influenza, acidification causes HA to refold, fusing the viral membrane with the endosomal membrane. The viral genome is released into the cytoplasm — if a lysosome fuses with the endosome first, degradative enzymes destroy the virus.',
   },
   {
@@ -1672,14 +1668,14 @@ function dismissBriefing() {
     return;
   }
 
-  // Phase 2 (Endosomal Escape) is entirely the P3Escape mini-game —
+  // Phase 2 (Endosomal Descent) is entirely the P3Descent mini-game —
   // launch it directly here, same as the completePhase() path.
-  if (G.phase === 2 && typeof P3Escape !== 'undefined') {
+  if (G.phase === 2 && typeof P3Descent !== 'undefined') {
     setOverlay(null);
     document.getElementById('hud').classList.add('hidden');
     G.state = 'PLAYING';
     if (!G.clock.running) { G.clock.start(); G.clock.getDelta(); }
-    P3Escape.launch(
+    P3Descent.launch(
       G.stats || {},
       () => { G.state = 'PLAYING'; completePhase(); },
       null
@@ -3663,13 +3659,13 @@ function completePhase() {
   }
   // Phase 1 → 2: attachment complete — launch endosomal escape
   if (completedPhase === 1 && G.player.mesh) {
-    if (typeof P3Escape !== 'undefined') {
+    if (typeof P3Descent !== 'undefined') {
       showToast('Receptor-mediated endocytosis complete — trapped inside endosome!', 'warn');
       setTimeout(() => {
-        P3Escape.launch(
+        P3Descent.launch(
           G.stats || {},
           () => { G.state = 'PLAYING'; completePhase(); },  // onComplete → advance
-          null                                               // onFail: handled inside P3
+          null                                               // onFail: handled inside P3Descent
         );
       }, 1200);
       return;
@@ -5646,7 +5642,7 @@ function gameLoop() {
   updateTitleScene(dt);
 
   const p2Active = typeof P2Attachment !== 'undefined' && P2Attachment._active;
-  const p3Active = typeof P3Escape !== 'undefined' && P3Escape._active;
+  const p3Active = typeof P3Descent !== 'undefined' && P3Descent._active;
   if (G.state === 'PLAYING' && !p2Active && !p3Active) {
     if (G.phase === 0) { updatePhase1Antibodies(dt); updateCrowdAntibodies(dt); updateErythrocytes(dt); }
     updatePlayer(dt);
@@ -5666,8 +5662,8 @@ function gameLoop() {
 
   // Phase 3 Endosomal Escape takes over rendering when active
   if (p3Active) {
-    P3Escape._tick(dt);
-    G.renderer.render(P3Escape.scene, P3Escape.camera);
+    P3Descent._tick(dt);
+    G.renderer.render(P3Descent.scene, P3Descent.camera);
   // Phase 2 Attachment takes over rendering when active
   } else if (p2Active) {
     P2Attachment._tick(dt);
