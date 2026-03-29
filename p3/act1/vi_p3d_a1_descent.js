@@ -17,6 +17,7 @@
  *   • Camera sits at vehicle + (0, +OY, +OZ), looking ahead
  *
  * Completes when pH drops to PH_ACT1_END → calls P3Descent._act1Done(stats).
+ * Fails on HP zero or Alert 100 → calls P3Descent._fail(reason).
  */
 const P3DAct1Descent = (() => {
   // ── Private state ──────────────────────────────────────────────────────
@@ -29,6 +30,7 @@ const P3DAct1Descent = (() => {
   let _vehicle = null;
   let _env     = null;
   let _collect = null;
+  let _hazards = null;
 
   // Physics
   let _velX = 0, _velZ = 0;   // lateral velocity (world units/sec)
@@ -45,7 +47,15 @@ const P3DAct1Descent = (() => {
   let _hp      = 100;
   let _score   = 0;
 
-  // Chunk tracking (for collectible spawning)
+  // Hazard / survival tracking
+  let _alert        = 0;    // 0–100
+  let _mitoCooldown = 0;    // seconds until next mito damage is allowed
+  let _lysoDodged   = 0;
+  let _nearMisses   = 0;
+  let _peakAlert    = 0;
+  let _descentTime  = 0;
+
+  // Chunk tracking (for collectible + hazard spawning)
   let _chunksSpawned = 0;
 
   // Educational trigger deduplication
@@ -68,6 +78,7 @@ const P3DAct1Descent = (() => {
     _vehicle = new P3DEndosomeVehicle(_p3.scene);
     _env     = new P3DCytoplasmEnv(_p3.scene);
     _collect = new P3DCollectibleMgr(_p3.scene);
+    _hazards = new P3DLysosomeManager(_p3.scene);
 
     // Reset state
     _velX = 0; _velZ = 0;
@@ -77,6 +88,12 @@ const P3DAct1Descent = (() => {
     _m2Count = 0; _ns1Count = 0;
     _hp      = 100;
     _score   = 0;
+    _alert   = 0;
+    _mitoCooldown = 0;
+    _lysoDodged   = 0;
+    _nearMisses   = 0;
+    _peakAlert    = 0;
+    _descentTime  = 0;
     _chunksSpawned = 0;
     for (const k in _eduFired) delete _eduFired[k];
 
@@ -85,9 +102,11 @@ const P3DAct1Descent = (() => {
     _p3._hud.updateInventory(_m2Count, _ns1Count);
     _p3._hud.updateScore(_score);
     _p3._hud.updateSpeed(P3D_CFG.A1_DESCENT_BASE);
+    _p3._hud.updateAlert(0);
 
-    // First collectible cluster (placed ahead of start position)
+    // First collectible cluster + hazard spawn (placed ahead of start position)
     _collect.spawnGroup(0);
+    _hazards.spawnForChunk(0, _p3._ph.pH);
     _chunksSpawned = 1;
   }
 
@@ -103,6 +122,7 @@ const P3DAct1Descent = (() => {
     if (!_running || _paused) return;
 
     const pH = _p3._ph.pH;
+    _descentTime += dt;
 
     // ── Descent ───────────────────────────────────────────────────────
     _descentSpeed = Math.min(
@@ -173,10 +193,57 @@ const P3DAct1Descent = (() => {
     }
     _collect.cullAbove(-_descentY);
 
-    // Spawn next chunk of collectibles when vehicle crosses chunk boundary
+    // ── Hazards ───────────────────────────────────────────────────────
+    const hazResult = _hazards.update(dt, _vPos, P3D_CFG.A1_ENDO_RADIUS);
+
+    if (hazResult.damage > 0) {
+      _hp = Math.max(0, _hp - hazResult.damage);
+      _p3._hud.showDamageFlash();
+      _cam.addShake(0.45);
+      _p3._snd.playDamage?.();
+    }
+
+    if (hazResult.nearMissScore > 0) {
+      _score      += hazResult.nearMissScore;
+      _nearMisses += hazResult.nearMissCount;
+      _p3._hud.showNearMissFlash();
+      _p3._snd.playNearMiss?.();
+    }
+
+    if (hazResult.alertDelta > 0) {
+      _alert = Math.min(100, _alert + hazResult.alertDelta);
+      if (_alert > _peakAlert) _peakAlert = _alert;
+      _p3._hud.updateAlert(_alert);
+    }
+
+    const culled = _hazards.cull(-_descentY);
+    _lysoDodged += culled.dodged;
+
+    // ── Mito collision (with cooldown) ────────────────────────────────
+    _mitoCooldown -= dt;
+    if (_mitoCooldown <= 0) {
+      const mitoPos  = _env.getMitoPositions();
+      const collideR = P3D_CFG.A1_ENDO_RADIUS + 0.6;
+      const crSq     = collideR * collideR;
+      for (const mp of mitoPos) {
+        const dx = _posX - mp.x;
+        const dy = (-_descentY) - mp.y;
+        const dz = _posZ - mp.z;
+        if (dx*dx + dy*dy + dz*dz < crSq) {
+          _hp = Math.max(0, _hp - P3D_CFG.A1_MITO_DMG);
+          _p3._hud.showDamageFlash();
+          _cam.addShake(0.2);
+          _mitoCooldown = 1.5;
+          break;
+        }
+      }
+    }
+
+    // Spawn next chunk of collectibles + hazards when vehicle crosses chunk boundary
     const chunkIdx = Math.floor(_descentY / P3D_CFG.A1_CHUNK_H);
     if (chunkIdx >= _chunksSpawned) {
       _collect.spawnGroup(_descentY);
+      _hazards.spawnForChunk(_descentY, pH);
       _chunksSpawned = chunkIdx + 1;
     }
 
@@ -189,9 +256,17 @@ const P3DAct1Descent = (() => {
     // ── Educational triggers ──────────────────────────────────────────
     _checkEduTriggers(pH);
 
-    // ── Exit condition ────────────────────────────────────────────────
+    // ── Fail / exit conditions ────────────────────────────────────────
+    if (_hp <= 0) {
+      _complete('hp_zero');
+      return;
+    }
+    if (_alert >= 100) {
+      _complete('alert_max');
+      return;
+    }
     if (pH <= P3D_CFG.PH_ACT1_END) {
-      _complete();
+      _complete('ph_done');
     }
   }
 
@@ -228,18 +303,34 @@ const P3DAct1Descent = (() => {
     fire('HA_LOOSEN',     pH <= 5.8);
   }
 
-  // ── Complete ───────────────────────────────────────────────────────────
+  // ── Complete / fail ────────────────────────────────────────────────────
 
-  function _complete() {
+  function _complete(reason) {
     _running = false;
     _removeInput();
 
+    if (reason === 'hp_zero') {
+      _p3._fail('The endosome membrane was destroyed by lysosomal enzymes.');
+      return;
+    }
+    if (reason === 'alert_max') {
+      _p3._fail('Immune surveillance detected the viral particle and neutralized it.');
+      return;
+    }
+
+    // Normal completion — pH reached target
     const stats = {
-      m2:    _m2Count,
-      ns1:   _ns1Count,
-      hp:    _hp,
-      score: _score,
-      depth: Math.round(_descentY),
+      m2:          _m2Count,
+      ns1:         _ns1Count,
+      m2Tokens:    _m2Count,
+      ns1Charges:  _ns1Count,
+      hp:          _hp,
+      score:       _score,
+      depth:       Math.round(_descentY),
+      lysoDodged:  _lysoDodged,
+      nearMisses:  _nearMisses,
+      peakAlert:   _peakAlert,
+      time:        _descentTime,
     };
     _p3._act1Done(stats);
   }
@@ -256,6 +347,7 @@ const P3DAct1Descent = (() => {
     _paused  = false;
     _removeInput();
 
+    if (_hazards) { _hazards.destroy(); _hazards = null; }
     if (_vehicle) { _vehicle.destroy(); _vehicle = null; }
     if (_env)     { _env.destroy();     _env     = null; }
     if (_collect) { _collect.destroy(); _collect = null; }

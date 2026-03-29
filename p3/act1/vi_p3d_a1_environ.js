@@ -19,6 +19,7 @@ class P3DCytoplasmEnv {
     this._scene   = scene;
     this._chunks  = [];
     this._ambient = new P3DAmbientParticles(scene);
+    this._tmpV    = new THREE.Vector3();
 
     this._initChunks();
   }
@@ -36,8 +37,9 @@ class P3DCytoplasmEnv {
   _buildChunk(yBase) {
     const H        = P3D_CFG.A1_CHUNK_H;
     const R        = P3D_CFG.A1_BOUNDARY_R;
-    const grp      = new THREE.Group();
+    const grp       = new THREE.Group();
     const localGeos = [];   // geometries to dispose with this chunk
+    const mitoMeshes = [];  // for collision detection in descent.js
 
     grp.position.y = yBase;
     this._scene.add(grp);
@@ -81,6 +83,7 @@ class P3DCytoplasmEnv {
         Math.random() * Math.PI
       );
       grp.add(mesh);
+      mitoMeshes.push(mesh);
     }
 
     // ── ER membrane sheets ─────────────────────────────────────────────
@@ -125,7 +128,7 @@ class P3DCytoplasmEnv {
       grp.add(mesh);
     }
 
-    return { group: grp, yBase, localGeos };
+    return { group: grp, yBase, localGeos, mitoMeshes };
   }
 
   // ── Per-frame update ───────────────────────────────────────────────────
@@ -150,6 +153,24 @@ class P3DCytoplasmEnv {
     }
 
     this._ambient.update(dt, descentSpeed);
+  }
+
+  // ── Mito positions (for collision in descent.js) ──────────────────────
+
+  /**
+   * Returns world-space positions of all active mitochondria.
+   * @returns {Array<{x,y,z}>}
+   */
+  getMitoPositions() {
+    const out = [];
+    const tmp = this._tmpV;
+    for (const chunk of this._chunks) {
+      for (const m of chunk.mitoMeshes) {
+        m.getWorldPosition(tmp);
+        out.push({ x: tmp.x, y: tmp.y, z: tmp.z });
+      }
+    }
+    return out;
   }
 
   // ── Cleanup ───────────────────────────────────────────────────────────
