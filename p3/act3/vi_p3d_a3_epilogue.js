@@ -16,7 +16,7 @@ const P3DAct3Epilogue = (() => {
   const PTS_BONUS  = 100;
   const BONUS_T    = 20;     // s — entry before this time earns bonus
   const OUTRO_WAIT = 2.2;    // s after last entry before completing
-  const LINEUP_R   = 5.5;    // radius inside nucleus for lineup dots
+  const LINEUP_SPACING = 1.4;  // units between lineup dots along X axis
 
   // Nuclear pore complexes
   const NPC_N    = 24;
@@ -58,6 +58,7 @@ const P3DAct3Epilogue = (() => {
   let _npcRings    = [];   // THREE.Mesh[]
   let _cytoObjs    = [];   // THREE.Mesh[]  (cytoplasmic fill + inner glow)
   let _lineupDots  = [];   // THREE.Mesh[]  (inside nucleus after entry)
+  let _lineupPositions = [];  // [ { pos: THREE.Vector3, idx } ] for label projection
   let _localGeos   = [];   // geometries to dispose
   let _localMats   = [];   // materials to dispose
 
@@ -78,7 +79,7 @@ const P3DAct3Epilogue = (() => {
     _t = 0; _score = 0; _entered = 0; _allDoneT = -1; _nextSegIdx = 0;
     _segs = []; _npcRings = []; _cytoObjs = []; _lineupDots = [];
     _localGeos = []; _localMats = []; _flashes = [];
-    _npcPositions = []; _labelFlash = null;
+    _npcPositions = []; _lineupPositions = []; _labelFlash = null;
     _eduFired = { vrnp: false, npc: false, all: false };
 
     const ir   = (act2Stats && act2Stats.ir) || 0;
@@ -236,20 +237,21 @@ const P3DAct3Epilogue = (() => {
     cyl.position.set(0, yOff + shape.len + 0.15, 0);
     group.add(cyl);
 
-    // ── Polymerase complex (PB1 centre, PB2 left, PA right-back) ───────────
-    const polyMat = new THREE.MeshPhongMaterial({
-      color: 0xf0e8d0, emissive: 0x332211, emissiveIntensity: 0.25, shininess: 100,
-    });
-    _localMats.push(polyMat);
+    // ── Polymerase complex (PB1 blue centre, PB2 red left, PA red right-back)
     const topY = yOff + shape.len + 0.38;
 
-    [[0,    topY,      0,    0.18],   // PB1
-     [-0.22, topY+0.08, 0.08, 0.14],  // PB2
-     [ 0.18, topY+0.06,-0.12, 0.12],  // PA
-    ].forEach(([x, y, z, r]) => {
-      const sg = new THREE.SphereGeometry(r, 7, 5);
+    [
+      [0,    topY,       0,    0.18, 0x1155ee, 0x1133aa],  // PB1 — blue
+      [-0.22, topY+0.08, 0.08, 0.14, 0xee1133, 0xaa0022],  // PB2 — red
+      [ 0.18, topY+0.06,-0.12, 0.12, 0xdd2244, 0x991122],  // PA  — red
+    ].forEach(([x, y, z, r, col, emi]) => {
+      const sg  = new THREE.SphereGeometry(r, 7, 5);
       _localGeos.push(sg);
-      const sm = new THREE.Mesh(sg, polyMat);
+      const smat = new THREE.MeshPhongMaterial({
+        color: col, emissive: emi, emissiveIntensity: 0.45, shininess: 110,
+      });
+      _localMats.push(smat);
+      const sm = new THREE.Mesh(sg, smat);
       sm.position.set(x, y, z);
       group.add(sm);
     });
@@ -462,8 +464,13 @@ const P3DAct3Epilogue = (() => {
   function _addLineupDot(idx) {
     const scene = P3Descent.scene;
     if (!scene) return;
-    const NP    = P3D_CFG.A3_NUCLEUS_POS;
-    const angle = (idx / 8) * Math.PI * 2;
+    const NP = P3D_CFG.A3_NUCLEUS_POS;
+
+    // Straight line along X, largest (idx 0) at left → smallest (idx 7) at right
+    // Centre offset = (idx - 3.5) * spacing
+    const dotX = NP.x + (idx - 3.5) * LINEUP_SPACING;
+    const dotY = NP.y + 1.0;   // slightly above nucleus centre
+    const dotZ = NP.z;
 
     const geo = new THREE.SphereGeometry(0.28, 7, 5);
     _localGeos.push(geo);
@@ -473,13 +480,12 @@ const P3DAct3Epilogue = (() => {
     });
     _localMats.push(mat);
     const dot = new THREE.Mesh(geo, mat);
-    dot.position.set(
-      NP.x + Math.cos(angle) * LINEUP_R,
-      NP.y + Math.sin(angle) * LINEUP_R,
-      NP.z
-    );
+    dot.position.set(dotX, dotY, dotZ);
     scene.add(dot);
     _lineupDots.push(dot);
+
+    // Store for canvas label projection
+    _lineupPositions.push({ pos: new THREE.Vector3(dotX, dotY, dotZ), idx });
   }
 
   // ── Canvas overlay ─────────────────────────────────────────────────────────
@@ -549,7 +555,38 @@ const P3DAct3Epilogue = (() => {
       }
     }
 
+    _drawLineupLabels(W, H);
     _drawTracker(W, H);
+  }
+
+  function _drawLineupLabels(W, H) {
+    if (_lineupPositions.length === 0) return;
+    const cam = window.P3Descent && P3Descent.camera;
+    if (!cam) return;
+
+    _ctx.font         = 'bold 11px monospace';
+    _ctx.textAlign    = 'center';
+    _ctx.textBaseline = 'bottom';
+
+    for (const { pos, idx } of _lineupPositions) {
+      const v = pos.clone();
+      v.project(cam);
+
+      // Skip if behind camera or outside clip range
+      if (v.z > 1) continue;
+
+      const sx = (v.x + 1) / 2 * W;
+      const sy = (-v.y + 1) / 2 * H;
+
+      const label = P3D_CFG.A3_VRNP_LABELS[idx];
+      const col   = '#' + P3D_CFG.A3_VRNP_COLS[idx].toString(16).padStart(6, '0');
+
+      // Shadow for legibility
+      _ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      _ctx.fillText(label, sx + 1, sy - 11);
+      _ctx.fillStyle = col;
+      _ctx.fillText(label, sx, sy - 12);
+    }
   }
 
   function _drawTracker(W, H) {
