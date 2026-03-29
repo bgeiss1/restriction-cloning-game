@@ -123,7 +123,7 @@ const P3_CFG = {
 
   // ── Lights ───────────────────────────────────────────────────────────────
   MAX_POINT_LIGHTS:     12,
-  HEMI_PULSE_AMP:       0.05,  // hemisphere light intensity oscillation amplitude
+  HEMI_PULSE_AMP:       0.0625, // hemisphere light intensity oscillation amplitude
   HEMI_PULSE_FREQ:      1.2,   // Hz
 
   // ── Structural colors (constant regardless of pH) ────────────────────────

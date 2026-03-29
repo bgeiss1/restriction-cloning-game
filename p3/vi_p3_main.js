@@ -259,10 +259,10 @@ const P3Escape = {
     this.camera.lookAt(0, P3_CFG.ENDO_RADIUS, 0);
 
     // Lighting — colors shift with pH, updated each frame in _applyPHColors()
-    this._ambientLight = new THREE.AmbientLight(colors.ambient, 0.3);
+    this._ambientLight = new THREE.AmbientLight(colors.ambient, 0.375);
     this.scene.add(this._ambientLight);
 
-    this._hemiLight = new THREE.HemisphereLight(colors.ambient, 0x050508, 0.4);
+    this._hemiLight = new THREE.HemisphereLight(colors.ambient, 0x050508, 0.5);
     this.scene.add(this._hemiLight);
 
     // Resize handler
@@ -380,7 +380,7 @@ const P3Escape = {
     // Pulsing hemisphere light (heartbeat effect)
     const pulse = Math.sin(this.elapsed * P3_CFG.HEMI_PULSE_FREQ * Math.PI * 2);
     if (this._hemiLight)
-      this._hemiLight.intensity = 0.4 + pulse * P3_CFG.HEMI_PULSE_AMP;
+      this._hemiLight.intensity = 0.5 + pulse * P3_CFG.HEMI_PULSE_AMP;
 
     if (this.scene) {
       this.scene.background = new THREE.Color(c.fog);
