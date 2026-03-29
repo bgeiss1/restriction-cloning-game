@@ -666,6 +666,43 @@ html, body {
 .debug-skip-btn:hover { background: rgba(200,169,81,0.18); color: var(--gold); border-color: var(--gold); }
 .debug-skip-btn.active { background: rgba(200,169,81,0.25); color: var(--gold); border-color: var(--gold); }
 
+/* ── P3 Debug Bar ────────────────────────────────────────────────────────── */
+#p3dDebugBar {
+  display: none;
+  position: fixed;
+  bottom: 14px;
+  right: 16px;
+  z-index: 30;
+  background: rgba(10,10,20,0.82);
+  border: 1px solid rgba(200,169,81,0.30);
+  border-radius: 8px;
+  padding: 7px 10px 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', monospace;
+  pointer-events: auto;
+  user-select: none;
+}
+#p3dDebugBar .p3d-db-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(200,169,81,0.6);
+  margin-bottom: 6px;
+}
+#p3dDebugBar .p3d-db-btns { display: flex; gap: 5px; }
+#p3dDebugBar .p3d-db-btn {
+  padding: 4px 10px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(200,169,81,0.28);
+  border-radius: 5px;
+  color: rgba(232,245,233,0.7);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+#p3dDebugBar .p3d-db-btn:hover { background: rgba(200,169,81,0.18); color: var(--gold); border-color: var(--gold); }
+#p3dDebugBar .p3d-db-btn.active { background: rgba(200,169,81,0.25); color: var(--gold); border-color: var(--gold); }
+
 /* ── Codex Panel ────────────────────────────────────────────────────────── */
 #codexPanel {
   position: fixed;
@@ -5685,6 +5722,83 @@ function gameLoop() {
 // Show title screen; world is built on first startGame() call
 setOverlay('titleScreen');
 gameLoop();
+
+// ── P3 Debug Skip ─────────────────────────────────────────────────────────
+function p3dSkipToAct(n) {
+  if (!window.P3Descent || !P3Descent._active) return;
+
+  // Shared fake stats so the game always has sensible carry-forward values
+  const fakeA1 = {
+    m2: 3, m2Tokens: 3, ns1: 2, ns1Charges: 2,
+    hp: 100, score: 500, depth: 100,
+    lysoDodged: 5, nearMisses: 3, peakAlert: 20, time: 60,
+  };
+  const fakeA2 = {
+    perfect: 12, good: 6, misses: 1, maxCombo: 10,
+    syncHits: 4, syncTotal: 6, ir: 2, score: 2000,
+  };
+
+  // Helper: force-complete any active transition instantly
+  function _flushTransition() {
+    if (P3DTransition && P3DTransition.isActive()) {
+      P3DTransition._t = P3DTransition._dur;
+      P3DTransition.tick(0);
+    }
+  }
+
+  // Highlight active button
+  document.querySelectorAll('.p3d-db-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i + 1 === n);
+  });
+
+  if (n === 1) {
+    // Full restart of P3Descent
+    P3Descent.destroy();
+    P3Descent.launch(
+      G.stats || {},
+      () => { G.state = 'PLAYING'; completePhase(); },
+      null
+    );
+    return;
+  }
+
+  if (n === 2) {
+    // Clean up Act 1 + any active transition, then jump to Act 2
+    if (typeof P3DAct1Descent    !== 'undefined') P3DAct1Descent.destroy?.();
+    if (typeof P3DAct2BossBattle !== 'undefined') P3DAct2BossBattle.destroy?.();
+    P3DTransition.reset();
+    P3Descent._act1Done(fakeA1);
+    _flushTransition();
+    return;
+  }
+
+  if (n === 3) {
+    // Skip Act 1 → Act 2 → Act 3
+    if (typeof P3DAct1Descent    !== 'undefined') P3DAct1Descent.destroy?.();
+    if (typeof P3DAct2BossBattle !== 'undefined') P3DAct2BossBattle.destroy?.();
+    P3DTransition.reset();
+    // Skip through Act 1→2 transition
+    P3Descent._act1Done(fakeA1);
+    _flushTransition();
+    // Act 2 is now initialized; destroy it and skip through Act 2→3 transition
+    if (typeof P3DAct2BossBattle !== 'undefined') P3DAct2BossBattle.destroy?.();
+    P3DTransition.reset();
+    P3Descent._act2Done(fakeA2);
+    _flushTransition();
+    return;
+  }
+}
 </script>
+
+<!-- ── P3 Debug Bar ─────────────────────────────────────────────────────── -->
+<div id="p3dDebugBar">
+  <div class="p3d-db-label">⚙ P3 Debug — Jump to Act</div>
+  <div class="p3d-db-btns">
+    <button class="p3d-db-btn" onclick="p3dSkipToAct(1)">Act 1</button>
+    <button class="p3d-db-btn" onclick="p3dSkipToAct(2)">Act 2</button>
+    <button class="p3d-db-btn" onclick="p3dSkipToAct(3)">Act 3</button>
+  </div>
+</div>
+
 </body>
 </html>

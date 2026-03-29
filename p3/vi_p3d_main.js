@@ -92,9 +92,11 @@ const P3Descent = (() => {
       this._amb  = amb;
       this._dir  = dir;
 
-      // Hide main game HUD
+      // Hide main game HUD; show P3 debug bar
       const mainHud = document.getElementById('hud');
       if (mainHud) mainHud.classList.add('hidden');
+      const p3DbBar = document.getElementById('p3dDebugBar');
+      if (p3DbBar) p3DbBar.style.display = '';
 
       this._active = true;
       _act = 'ACT1';
@@ -200,9 +202,11 @@ const P3Descent = (() => {
       if (_edu) { _edu.reset();   _edu = null; }
       if (_ph)  { _ph.reset();    _ph  = null; }
 
-      // Restore main HUD
+      // Restore main HUD; hide P3 debug bar
       const mainHud = document.getElementById('hud');
       if (mainHud) mainHud.classList.remove('hidden');
+      const p3DbBar = document.getElementById('p3dDebugBar');
+      if (p3DbBar) p3DbBar.style.display = 'none';
     },
 
     // ── Inter-act callbacks (called by act sub-systems) ────────────────
