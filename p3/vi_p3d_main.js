@@ -96,7 +96,7 @@ const P3Descent = (() => {
       const mainHud = document.getElementById('hud');
       if (mainHud) mainHud.classList.add('hidden');
       const p3DbBar = document.getElementById('p3dDebugBar');
-      if (p3DbBar) p3DbBar.style.display = '';
+      if (p3DbBar) p3DbBar.style.display = 'block';
 
       this._active = true;
       _act = 'ACT1';
