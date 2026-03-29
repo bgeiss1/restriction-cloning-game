@@ -564,15 +564,9 @@ const P3DAct3Epilogue = (() => {
     const cam = window.P3Descent && P3Descent.camera;
     if (!cam) return;
 
-    _ctx.font         = 'bold 11px monospace';
-    _ctx.textAlign    = 'center';
-    _ctx.textBaseline = 'bottom';
-
     for (const { pos, idx } of _lineupPositions) {
       const v = pos.clone();
       v.project(cam);
-
-      // Skip if behind camera or outside clip range
       if (v.z > 1) continue;
 
       const sx = (v.x + 1) / 2 * W;
@@ -581,11 +575,18 @@ const P3DAct3Epilogue = (() => {
       const label = P3D_CFG.A3_VRNP_LABELS[idx];
       const col   = '#' + P3D_CFG.A3_VRNP_COLS[idx].toString(16).padStart(6, '0');
 
-      // Shadow for legibility
-      _ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      _ctx.fillText(label, sx + 1, sy - 11);
-      _ctx.fillStyle = col;
-      _ctx.fillText(label, sx, sy - 12);
+      // Rotate 90° — text reads bottom-to-top above each dot, zero horizontal overlap
+      _ctx.save();
+      _ctx.translate(sx, sy - 8);
+      _ctx.rotate(-Math.PI / 2);
+      _ctx.font         = 'bold 11px monospace';
+      _ctx.textAlign    = 'left';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillStyle    = 'rgba(0,0,0,0.75)';
+      _ctx.fillText(label, 1, 1);
+      _ctx.fillStyle    = col;
+      _ctx.fillText(label, 0, 0);
+      _ctx.restore();
     }
   }
 
