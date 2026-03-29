@@ -57,7 +57,6 @@ const P3DAct3Epilogue = (() => {
   let _nucleus     = null;
   let _npcRings    = [];   // THREE.Mesh[]
   let _cytoObjs    = [];   // THREE.Mesh[]  (cytoplasmic fill + inner glow)
-  let _lineupDots  = [];   // THREE.Mesh[]  (inside nucleus after entry)
   let _lineupPositions = [];  // [ { pos: THREE.Vector3, idx } ] for label projection
   let _localGeos   = [];   // geometries to dispose
   let _localMats   = [];   // materials to dispose
@@ -77,7 +76,7 @@ const P3DAct3Epilogue = (() => {
   function init(p3, act2Stats) {
     _p3 = p3;
     _t = 0; _score = 0; _entered = 0; _allDoneT = -1; _nextSegIdx = 0;
-    _segs = []; _npcRings = []; _cytoObjs = []; _lineupDots = [];
+    _segs = []; _npcRings = []; _cytoObjs = [];
     _localGeos = []; _localMats = []; _flashes = [];
     _npcPositions = []; _lineupPositions = []; _labelFlash = null;
     _eduFired = { vrnp: false, npc: false, all: false };
@@ -405,7 +404,7 @@ const P3DAct3Epilogue = (() => {
         // Show segment label on canvas
         if (!_labelFlash || _labelFlash.segIdx !== seg.idx) {
           const hex = '#' + P3D_CFG.A3_VRNP_COLS[seg.idx].toString(16).padStart(6, '0');
-          _labelFlash = { text: P3D_CFG.A3_VRNP_LABELS[seg.idx], col: hex, t: _t, segIdx: seg.idx };
+          _labelFlash = { text: P3D_CFG.A3_VRNP_LABELS[seg.idx].split(' ')[0], col: hex, t: _t, segIdx: seg.idx };
         }
 
         if (!_eduFired.npc) { _p3._edu.trigger('NPC_APPROACH'); _eduFired.npc = true; }
@@ -449,7 +448,6 @@ const P3DAct3Epilogue = (() => {
 
   function _onEntry(seg) {
     seg.phase = 'entered';
-    seg.group.visible = false;
     _entered++;
 
     _score += PTS_ENTRY + (_t < BONUS_T ? PTS_BONUS : 0);
@@ -458,34 +456,27 @@ const P3DAct3Epilogue = (() => {
 
     const hex = '#' + P3D_CFG.A3_VRNP_COLS[seg.idx].toString(16).padStart(6, '0');
     _flashes.push({ t: _t, col: hex });
-    _addLineupDot(seg.idx);
+    _addToLineup(seg);
   }
 
-  function _addLineupDot(idx) {
-    const scene = P3Descent.scene;
-    if (!scene) return;
-    const NP = P3D_CFG.A3_NUCLEUS_POS;
+  // Reposition the segment's own group into the nucleus lineup at side-view orientation.
+  // Helix Y-axis reset to world-up so the coil is visible from the camera (+Z direction).
+  function _addToLineup(seg) {
+    const NP  = P3D_CFG.A3_NUCLEUS_POS;
+    const idx = seg.idx;
+    const lx  = NP.x + (idx - 3.5) * LINEUP_SPACING;
+    const ly  = NP.y + 1.0;   // slightly above nucleus centre
+    const lz  = NP.z;
 
-    // Straight line along X, largest (idx 0) at left → smallest (idx 7) at right
-    // Centre offset = (idx - 3.5) * spacing
-    const dotX = NP.x + (idx - 3.5) * LINEUP_SPACING;
-    const dotY = NP.y + 1.0;   // slightly above nucleus centre
-    const dotZ = NP.z;
+    seg.group.position.set(lx, ly, lz);
+    seg.group.rotation.set(0, 0, 0);   // helix axis = world Y → side view from camera
+    seg.group.scale.setScalar(0.70);
+    seg.group.visible = true;
 
-    const geo = new THREE.SphereGeometry(0.28, 7, 5);
-    _localGeos.push(geo);
-    const mat = new THREE.MeshPhongMaterial({
-      color: P3D_CFG.A3_VRNP_COLS[idx], emissive: P3D_CFG.A3_VRNP_COLS[idx],
-      emissiveIntensity: 0.8, shininess: 100,
-    });
-    _localMats.push(mat);
-    const dot = new THREE.Mesh(geo, mat);
-    dot.position.set(dotX, dotY, dotZ);
-    scene.add(dot);
-    _lineupDots.push(dot);
+    // Restore helix emissive to resting glow
+    seg.helixMat.emissiveIntensity = 0.4;
 
-    // Store for canvas label projection
-    _lineupPositions.push({ pos: new THREE.Vector3(dotX, dotY, dotZ), idx });
+    _lineupPositions.push({ pos: new THREE.Vector3(lx, ly, lz), idx });
   }
 
   // ── Canvas overlay ─────────────────────────────────────────────────────────
@@ -572,10 +563,10 @@ const P3DAct3Epilogue = (() => {
       const sx = (v.x + 1) / 2 * W;
       const sy = (-v.y + 1) / 2 * H;
 
-      const label = P3D_CFG.A3_VRNP_LABELS[idx];
+      const label = P3D_CFG.A3_VRNP_LABELS[idx].split(' ')[0];   // e.g. 'PB2'
       const col   = '#' + P3D_CFG.A3_VRNP_COLS[idx].toString(16).padStart(6, '0');
 
-      // Rotate 90° — text reads bottom-to-top above each dot, zero horizontal overlap
+      // Rotate 90° — text reads bottom-to-top above each segment, zero horizontal overlap
       _ctx.save();
       _ctx.translate(sx, sy - 8);
       _ctx.rotate(-Math.PI / 2);
@@ -670,13 +661,12 @@ const P3DAct3Epilogue = (() => {
       if (_nucleus) scene.remove(_nucleus);
       for (const r of _npcRings)   scene.remove(r);
       for (const o of _cytoObjs)   scene.remove(o);
-      for (const d of _lineupDots) scene.remove(d);
       for (const s of _segs) if (s.group) scene.remove(s.group);
     }
     for (const g of _localGeos) g.dispose();
     for (const m of _localMats) m.dispose();
     _localGeos = []; _localMats = [];
-    _nucleus = null; _npcRings = []; _cytoObjs = []; _lineupDots = []; _segs = [];
+    _nucleus = null; _npcRings = []; _cytoObjs = []; _lineupPositions = []; _segs = [];
     _p3 = null;
   }
 
