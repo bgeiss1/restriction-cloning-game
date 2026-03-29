@@ -169,6 +169,6 @@ class P3DCytoplasmEnv {
       });
     }
     this._chunks = [];
-    this._ambient.destroy();
+    this._ambient.destroy(this._scene);
   }
 }

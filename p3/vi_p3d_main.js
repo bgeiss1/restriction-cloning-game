@@ -80,11 +80,17 @@ const P3Descent = (() => {
       this.camera.lookAt(0, 0, 0);
 
       // Lighting
-      const hemi = new THREE.HemisphereLight(0x1a2a5a, 0x050508, 0.4);
-      const amb  = new THREE.AmbientLight(0x1a2a5a, 0.2);
-      this.scene.add(hemi, amb);
+      // Hemisphere: cool blue sky / near-black ground — modest fill
+      const hemi = new THREE.HemisphereLight(0x4466aa, 0x111118, 0.8);
+      // Ambient: small warm-tinted base so shadowed faces aren't pure black
+      const amb  = new THREE.AmbientLight(0xffffff, 0.25);
+      // Directional: front-above light to show endosome and scene objects clearly
+      const dir  = new THREE.DirectionalLight(0xffffff, 0.7);
+      dir.position.set(5, 15, -8);
+      this.scene.add(hemi, amb, dir);
       this._hemi = hemi;
       this._amb  = amb;
+      this._dir  = dir;
 
       // Hide main game HUD
       const mainHud = document.getElementById('hud');

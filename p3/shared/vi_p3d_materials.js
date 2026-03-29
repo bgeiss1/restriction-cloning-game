@@ -31,7 +31,7 @@ const P3DMatLib = {
 
   init() {
     const C = P3D_CFG;
-    this.endosome   = new THREE.MeshPhongMaterial({ color: C.PH_KEYFRAMES[0].endo, transparent: true, opacity: 0.30, side: THREE.DoubleSide, depthWrite: false });
+    this.endosome   = new THREE.MeshPhongMaterial({ color: C.PH_KEYFRAMES[0].endo, emissive: 0x112255, emissiveIntensity: 0.6, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false });
     this.clathrin   = new THREE.MeshBasicMaterial({ color: C.COL_CLATHRIN, wireframe: true, transparent: true, opacity: 1.0 });
     this.virus      = new THREE.MeshPhongMaterial({ color: C.COL_VIRUS, emissive: 0x441100, shininess: 80 });
     this.haHead     = new THREE.MeshPhongMaterial({ color: C.COL_HA, emissive: C.COL_HA_EM, emissiveIntensity: 0.1, shininess: 100 });

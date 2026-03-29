@@ -84,7 +84,7 @@ const P3DAct1Descent = (() => {
     _p3._hud.updateHP(_hp, 100);
     _p3._hud.updateInventory(_m2Count, _ns1Count);
     _p3._hud.updateScore(_score);
-    _p3._hud.updateSpeed(P3D_CFG.A1_DESCENT_BASE.toFixed(1));
+    _p3._hud.updateSpeed(P3D_CFG.A1_DESCENT_BASE);
 
     // First collectible cluster (placed ahead of start position)
     _collect.spawnGroup(0);
@@ -184,7 +184,7 @@ const P3DAct1Descent = (() => {
     _p3._hud.updateHP(_hp, 100);
     _p3._hud.updateInventory(_m2Count, _ns1Count);
     _p3._hud.updateScore(_score);
-    _p3._hud.updateSpeed(_descentSpeed.toFixed(1));
+    _p3._hud.updateSpeed(_descentSpeed);
 
     // ── Educational triggers ──────────────────────────────────────────
     _checkEduTriggers(pH);
