@@ -1677,6 +1677,8 @@ function dismissBriefing() {
   if (G.phase === 2 && typeof P3Escape !== 'undefined') {
     setOverlay(null);
     document.getElementById('hud').classList.add('hidden');
+    G.state = 'PLAYING';
+    if (!G.clock.running) { G.clock.start(); G.clock.getDelta(); }
     P3Escape.launch(
       G.stats || {},
       () => { G.state = 'PLAYING'; completePhase(); },
