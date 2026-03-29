@@ -1672,6 +1672,19 @@ function dismissBriefing() {
     return;
   }
 
+  // Phase 2 (Endosomal Escape) is entirely the P3Escape mini-game —
+  // launch it directly here, same as the completePhase() path.
+  if (G.phase === 2 && typeof P3Escape !== 'undefined') {
+    setOverlay(null);
+    document.getElementById('hud').classList.add('hidden');
+    P3Escape.launch(
+      G.stats || {},
+      () => { G.state = 'PLAYING'; completePhase(); },
+      null
+    );
+    return;
+  }
+
   G.state = 'PLAYING';
   G.clock.getDelta(); // consume accumulated delta so first frame isn't huge
   setOverlay(null);
