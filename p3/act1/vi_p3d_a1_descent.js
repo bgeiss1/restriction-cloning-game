@@ -113,8 +113,8 @@ const P3DAct1Descent = (() => {
 
     // ── Lateral input & physics ───────────────────────────────────────
     const accel = P3D_CFG.A1_MOVE_ACCEL;
-    if (_keys['KeyA'] || _keys['ArrowLeft'])  _velX -= accel * dt;
-    if (_keys['KeyD'] || _keys['ArrowRight']) _velX += accel * dt;
+    if (_keys['KeyA'] || _keys['ArrowLeft'])  _velX += accel * dt;
+    if (_keys['KeyD'] || _keys['ArrowRight']) _velX -= accel * dt;
     if (_keys['KeyW'] || _keys['ArrowUp'])    _velZ += accel * dt;
     if (_keys['KeyS'] || _keys['ArrowDown'])  _velZ -= accel * dt;
 
