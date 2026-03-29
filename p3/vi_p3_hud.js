@@ -211,7 +211,7 @@ class P3HUD {
 
     // Fusion-ready pulse banner (above bottom bar)
     if (e.fusionReady) {
-      e.fusionReady.style.opacity = s.fusionReady ? '1' : '0';
+      e.fusionReady.style.opacity = s.fusionReady ? '' : '0';
     }
   }
 

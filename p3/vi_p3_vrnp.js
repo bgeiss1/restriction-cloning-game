@@ -1,6 +1,6 @@
 // vi_p3_vrnp.js — P3VRNPTargeting: vRNP segment extraction through fusion pore
 // Segments auto-extract sequentially; SPACE rushes the inter-segment gap.
-// Antibody tagging (25% per segment) stalls a segment mid-transit for ANTIBODY_DELAY s.
+// Antibody tagging (25 % per segment) stalls a segment mid-transit for ANTIBODY_DELAY s.
 // Pore stability decays at PORE_DECAY_RATE %/s — pore collapse ends the phase.
 // Depends on: three.js r128, vi_p3_config.js, vi_p3_main.js, vi_p3_surface.js
 'use strict';
@@ -162,7 +162,7 @@ class P3VRNPTargeting {
     // One-shot antibody check at f ≈ 0.30 (segment is partway to the pore)
     if (!this._abChecked && f >= 0.30) {
       this._abChecked = true;
-      if (Math.random() < 0.27) {  // 27 % chance
+      if (Math.random() < 0.25) {  // 25 % chance
         this._abTagged = true;
         this._abTimer  = this._cfg.ANTIBODY_DELAY;
         this._spawnABGlow(seg.mesh.position.clone());
