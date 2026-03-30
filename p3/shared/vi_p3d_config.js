@@ -98,12 +98,12 @@ const P3D_CFG = {
   A2_T_GOOD_MS:      130,
   A2_T_SYNC_MS:      80,
 
-  A2_PTS_PERFECT:    100,
-  A2_PTS_GOOD:       50,
-  A2_PTS_HOLD:       150,
-  A2_PTS_SYNC:       200,
-  A2_PTS_TAP:        30,
-  A2_PTS_BURST:      100,
+  A2_PTS_PERFECT:    5,
+  A2_PTS_GOOD:       5,
+  A2_PTS_HOLD:       5,
+  A2_PTS_SYNC:       5,
+  A2_PTS_TAP:        5,
+  A2_PTS_BURST:      5,
 
   A2_IR_FAIL:        16,
   A2_IR_MISS:        1,
