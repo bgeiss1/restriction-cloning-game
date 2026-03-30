@@ -32,7 +32,6 @@ class P3DHUD {
       .p3d-bar-fill { height:100%;border-radius:3px;transition:width 0.2s; }
       .p3d-bar-fill.hp   { background:linear-gradient(to right,#ef5350,#66bb6a); }
       .p3d-bar-fill.alert { background:linear-gradient(to right,#66bb6a,#ffa726,#ef5350); }
-      .p3d-bar-fill.ir   { background:#ef5350; }
       .p3d-bar-fill.prog { background:#00cc88; }
       .p3d-score { font-size:0.9rem;color:#C8A951;font-weight:700; }
       .p3d-inv { font-size:0.72rem;color:#e8f5e9; }
@@ -125,12 +124,7 @@ class P3DHUD {
     this._el.progFill = document.getElementById('p3dProgFill');
 
     const tr2 = this._div(a2, null, 'p3d-tr');
-    tr2.innerHTML = `
-      <div class="p3d-bar-label">RESISTANCE <span id="p3dIRVal">0/16</span></div>
-      <div class="p3d-bar" style="width:140px"><div id="p3dIRFill" class="p3d-bar-fill ir" style="width:0%"></div></div>
-      <div class="p3d-score" id="p3dScore2" style="margin-top:6px">0</div>`;
-    this._el.irVal   = document.getElementById('p3dIRVal');
-    this._el.irFill  = document.getElementById('p3dIRFill');
+    tr2.innerHTML = `<div class="p3d-score" id="p3dScore2">0</div>`;
     this._el.score2  = document.getElementById('p3dScore2');
 
     const br2 = this._div(a2, null, 'p3d-br');
@@ -193,12 +187,6 @@ class P3DHUD {
 
   updateAlert(pct) {
     if (this._el.alertFill) this._el.alertFill.style.width = Math.min(100, pct).toFixed(1) + '%';
-  }
-
-  updateIR(ir, max) {
-    if (this._el.irVal)  this._el.irVal.textContent  = `${ir}/${max}`;
-    if (this._el.irFill) this._el.irFill.style.width = Math.min(100, ir / max * 100).toFixed(1) + '%';
-    if (ir >= 10 && this._el.irFill) this._el.irFill.style.animation = 'none';
   }
 
   updateScore(score) {
@@ -294,7 +282,7 @@ class P3DHUD {
   showComplete(score, allStats) {
     const el = this._el.complete; if (!el) return;
     const a1 = allStats.act1 || {}, a2 = allStats.act2 || {}, a3 = allStats.act3 || {};
-    const tier = (P3D_CFG.A2_SCORE_TIERS.find(t => (a2.ir||0) <= t.irMax) || P3D_CFG.A2_SCORE_TIERS[P3D_CFG.A2_SCORE_TIERS.length-1]);
+    const tier = P3D_CFG.A2_SCORE_TIERS[P3D_CFG.A2_SCORE_TIERS.length - 1];
     const debriefFacts = (allStats.eduLog || []).map(id => `• ${P3D_FACTS[id] || id}`).join('<br>');
     el.innerHTML = `
       <div class="p3d-comp-title">PHASE 3: ENDOSOMAL DESCENT — COMPLETE</div>
@@ -315,8 +303,6 @@ class P3DHUD {
           <dt>Misses</dt><dd>${a2.misses||0}</dd>
           <dt>Max combo</dt><dd>${a2.maxCombo||0}</dd>
           <dt>Sync hits</dt><dd>${a2.syncHits||0}/${a2.syncTotal||0}</dd>
-          <dt>Immune resistance</dt><dd>${a2.ir||0}/16</dd>
-          <dt>Fusion quality</dt><dd>${tier.label}</dd>
         </dl>
         <div class="p3d-section">ACT 3 — THE ESCAPE</div>
         <dl class="p3d-stat-grid">
