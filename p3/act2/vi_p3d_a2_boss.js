@@ -67,6 +67,7 @@ const P3DAct2BossBattle = (() => {
   let _nodes       = [];
   let _nodePtr     = 0;
   let _activeNodes = [];
+  let _kickedTimes = new Set();   // deduplicates kicks for SYNC pairs
 
   // Sync
   let _syncTotal  = 0;
@@ -108,6 +109,7 @@ const P3DAct2BossBattle = (() => {
     _t              = 0;
     _nodePtr        = 0;
     _activeNodes    = [];
+    _kickedTimes    = new Set();
     _heldNode       = [null, null, null];
     _judgFlash      = [null, null, null];
     _score          = 0;
@@ -162,17 +164,18 @@ const P3DAct2BossBattle = (() => {
     _paused  = false;
     _p3._edu.trigger('HA_LOOSEN');
 
-    // Start SMB music, then immediately pause for the Phase A intro card
-    if (window.A2SMBSynth) {
+    // Start electroswing ambient (bass + stabs), immediately mute for intro card.
+    // Kicks are fired per-node in the tick loop so they stay in sync with _t.
+    if (window.A2ElectroswingSynth) {
       try {
-        window.A2SMBSynth.init(_p3._snd);
+        window.A2ElectroswingSynth.init(_p3._snd);
         const ctx = _p3._snd.audioCtx;
         if (ctx) {
-          window.A2SMBSynth.start(ctx.currentTime + 0.05);
-          window.A2SMBSynth.pauseForCard();
+          window.A2ElectroswingSynth.start(ctx.currentTime + 0.05);
+          window.A2ElectroswingSynth.pauseForCard();
         }
       } catch(e) {
-        console.error('[A2SMBSynth] start failed:', e);
+        console.error('[A2ElectroswingSynth] start failed:', e);
       }
     }
 
@@ -203,7 +206,7 @@ const P3DAct2BossBattle = (() => {
       _render();
       if (_card.t >= CARD_DUR) {
         _card = null;
-        if (window.A2SMBSynth) window.A2SMBSynth.resumeFromCard();
+        if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.resumeFromCard();
       }
       return;
     }
@@ -230,7 +233,7 @@ const P3DAct2BossBattle = (() => {
       _activeNodes = _activeNodes.filter(n => n.hitTime >= _phaseStartT[_phaseIdx]);
       for (let li = 0; li < N_LANES; li++) _heldNode[li] = null;
       _card = { phaseIdx: _phaseIdx, t: 0 };
-      if (window.A2SMBSynth) window.A2SMBSynth.pauseForCard();
+      if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.pauseForCard();
       _render();
       return;
     }
@@ -242,7 +245,22 @@ const P3DAct2BossBattle = (() => {
 
     while (_nodePtr < _nodes.length &&
            _nodes[_nodePtr].hitTime <= _t + lookahead) {
-      _activeNodes.push(_nodes[_nodePtr++]);
+      const activating = _nodes[_nodePtr++];
+      _activeNodes.push(activating);
+
+      // Fire one kick per unique hitTime (deduplicates SYNC pairs)
+      if (window.A2ElectroswingSynth) {
+        const kickKey = Math.round(activating.hitTime * 1000);
+        if (!_kickedTimes.has(kickKey)) {
+          _kickedTimes.add(kickKey);
+          const audioCtx = _p3._snd && _p3._snd.audioCtx;
+          if (audioCtx) {
+            window.A2ElectroswingSynth.kickAt(
+              audioCtx.currentTime + Math.max(0, activating.hitTime - _t)
+            );
+          }
+        }
+      }
     }
 
     // ── Process active nodes ─────────────────────────────────────────
@@ -545,7 +563,7 @@ const P3DAct2BossBattle = (() => {
     _running = false;
     _removeInput();
     _destroyCanvas();
-    if (window.A2SMBSynth) window.A2SMBSynth.stop();
+    if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.stop();
     if (window.P3DMatLib && P3DMatLib.endosome) {
       P3DMatLib.endosome.emissiveIntensity = 0.6;
     }
@@ -1164,7 +1182,7 @@ const P3DAct2BossBattle = (() => {
     _paused  = false;
     _removeInput();
     _destroyCanvas();
-    if (window.A2SMBSynth) window.A2SMBSynth.stop();
+    if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.stop();
     if (window.P3DMatLib && P3DMatLib.endosome) {
       P3DMatLib.endosome.emissiveIntensity = 0.6;
     }

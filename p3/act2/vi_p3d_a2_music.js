@@ -797,7 +797,9 @@ class A2ElectroswingSynth {
   }
 
   // ── Start — takes the node array so kicks fire at button hitTimes ────────
-  start(nodes, startAt) {
+  // ── Start — ambient only (bass + stabs).  Kicks are fired by the boss
+  // tick loop via kickAt() so they stay perfectly in sync with game time.
+  start(startAt) {
     // Re-acquire ctx if it wasn't ready at init time
     if (!this._ctx && this._snd) {
       this._ctx = this._snd.audioCtx;
@@ -814,20 +816,18 @@ class A2ElectroswingSynth {
     const ctx = this._ctx;
     if (!ctx || !this._mainGain) return;
 
-    // One kick per unique hitTime (deduplicates SYNC pairs)
-    const seen = new Set();
-    for (const n of nodes) {
-      const key = Math.round(n.hitTime * 1000);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      this._schedKick(startAt + n.hitTime);
-    }
-
     // Walking bass: quarter-note chord walk, 82 s total
     this._schedBass(startAt, 82);
 
     // Chord stabs: every 2 bars (4 s), 80 s total
     this._schedStabs(startAt, 80);
+  }
+
+  // ── Kick: public — called by boss at node-activation time ────────────────
+  // audioTime is ctx.currentTime + seconds_until_hit_zone
+  kickAt(audioTime) {
+    if (!this._ctx || !this._mainGain) return;
+    this._schedKick(audioTime);
   }
 
   // ── Kick: sine sub-thump + filtered noise click ──────────────────────────
