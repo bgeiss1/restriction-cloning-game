@@ -164,11 +164,15 @@ const P3DAct2BossBattle = (() => {
 
     // Start SMB music, then immediately pause for the Phase A intro card
     if (window.A2SMBSynth) {
-      A2SMBSynth.init(_p3._snd);
-      const ctx = _p3._snd.audioCtx;
-      if (ctx) {
-        A2SMBSynth.start(ctx.currentTime + 0.05);
-        A2SMBSynth.pauseForCard();
+      try {
+        A2SMBSynth.init(_p3._snd);
+        const ctx = _p3._snd.audioCtx;
+        if (ctx) {
+          A2SMBSynth.start(ctx.currentTime + 0.05);
+          A2SMBSynth.pauseForCard();
+        }
+      } catch(e) {
+        console.error('[A2SMBSynth] start failed:', e);
       }
     }
 
@@ -323,15 +327,19 @@ const P3DAct2BossBattle = (() => {
   function _generateNodes() {
     // Use SMB-derived beatmap when available; fall back to LCG otherwise.
     if (window.A2SMBBeatmap) {
-      const nodes = A2SMBBeatmap.build(_phaseStartT, _totalDur);
-      // Count SYNC pairs for stats (each pair = 1 syncTotal entry)
-      const syncIds = new Set();
-      for (const n of nodes) {
-        if (n.type === 'SYNC' && n.syncId !== null) syncIds.add(n.syncId);
+      try {
+        const nodes = A2SMBBeatmap.build(_phaseStartT, _totalDur);
+        // Count SYNC pairs for stats (each pair = 1 syncTotal entry)
+        const syncIds = new Set();
+        for (const n of nodes) {
+          if (n.type === 'SYNC' && n.syncId !== null) syncIds.add(n.syncId);
+        }
+        _syncTotal += syncIds.size;
+        _nextSyncId = syncIds.size;
+        return nodes;
+      } catch(e) {
+        console.error('[A2SMBBeatmap] build() failed, falling back to LCG:', e);
       }
-      _syncTotal += syncIds.size;
-      _nextSyncId = syncIds.size;
-      return nodes;
     }
 
     // ── LCG fallback ────────────────────────────────────────────────────
