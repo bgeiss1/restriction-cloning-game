@@ -816,20 +816,21 @@ class A2ElectroswingSynth {
     const ctx = this._ctx;
     if (!ctx || !this._mainGain) return;
 
-    // Walking bass: quarter-note chord walk, 82 s total
-    this._schedBass(startAt, 82);
+    // 75s game + 5 phase cards × 3.2s each ≈ 91s real time; schedule 100s
+    // Walking bass: quarter-note chord walk
+    this._schedBass(startAt, 100);
 
-    // Chord stabs + horn layer: every 2 bars (4 s), 80 s total
-    this._schedStabs(startAt, 80);
+    // Chord stabs + horn layer: every 2 bars (4 s)
+    this._schedStabs(startAt, 100);
 
-    // Hi-hats: swing closed/open pattern, 82 s total
-    this._schedHiHats(startAt, 82);
+    // Hi-hats: swing closed/open pattern
+    this._schedHiHats(startAt, 100);
 
-    // Snare: beats 2 and 4, 82 s total
-    this._schedSnare(startAt, 82);
+    // Snare: beats 2 and 4
+    this._schedSnare(startAt, 100);
 
     // Horn call pickups: 2-note figure before each chord stab
-    this._schedHornCalls(startAt, 80);
+    this._schedHornCalls(startAt, 100);
   }
 
   // ── Kick: public — called by boss at node-activation time ────────────────
