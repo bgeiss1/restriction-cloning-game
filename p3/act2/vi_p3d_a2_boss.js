@@ -13,8 +13,8 @@
  *  - HA trimer diagram drawn to the left of the lane area; its fusion progress
  *    (`_fusionProgress`) is driven by player performance (`_perf`).
  *
- * Immune Resistance (IR) rises on misses; game-over at IR ≥ A2_IR_FAIL (16).
- * M2 token carryover from Act 1 gives a free IR buffer (−1 per token, max 3).
+ * Players accumulate score to reach each phase threshold. Misses subtract
+ * points but never end the game — keep playing until the threshold is met.
  */
 const P3DAct2BossBattle = (() => {
 
@@ -74,12 +74,10 @@ const P3DAct2BossBattle = (() => {
   let _syncHits   = 0;
   let _nextSyncId = 0;
 
-  // Scoring / survival
+  // Scoring
   let _score      = 0;
   let _phaseScore = 0;   // score within current phase (reset on advance; drives progress bar)
   let _phaseThresh = 0;  // score threshold to advance current phase
-  let _ir         = 0;
-  let _irFail     = P3D_CFG.A2_IR_FAIL;
   let _combo      = 0;
   let _maxCombo   = 0;
   let _perfect    = 0;
@@ -135,10 +133,6 @@ const P3DAct2BossBattle = (() => {
     _card           = null;
     _lastNodeT      = 2.0;   // 2s game-time lead-in before first note
 
-    // M2 carryover: each token offsets 1 IR (max 3)
-    const m2 = (act1Stats && (act1Stats.m2 || act1Stats.m2Tokens)) || 0;
-    _ir    = -Math.min(m2, P3D_CFG.M2_IR_MAX);
-    _irFail = P3D_CFG.A2_IR_FAIL;
     _phaseThresh = P3D_CFG.A2_PHASE_SCORE_THRESH[PHASE_KEYS[0]];
 
     _lookY = -((act1Stats && act1Stats.depth) || 80);
@@ -148,7 +142,6 @@ const P3DAct2BossBattle = (() => {
     _appendPhaseLoop();
 
     // Prime HUD
-    _p3._hud.updateIR(Math.max(0, _ir), _irFail);
     _p3._hud.updateProgress(0);
     _p3._hud.updateA2Phase(PHASE_LABELS[0]);
     _p3._hud.updateScore(_score);
@@ -348,18 +341,12 @@ const P3DAct2BossBattle = (() => {
     }
 
     // ── HUD ──────────────────────────────────────────────────────────
-    _p3._hud.updateIR(Math.max(0, _ir), _irFail);
     // Progress = how far through the current phase score threshold (0–100%)
     _p3._hud.updateProgress(Math.min(100, (_phaseScore / _phaseThresh) * 100));
 
     // ── Canvas render ─────────────────────────────────────────────────
     _render();
 
-    // ── Fail check ───────────────────────────────────────────────────
-    if (_ir >= _irFail && !window._p3dNoFail) {
-      _complete('fail');
-      return;
-    }
   }
 
   // ── Beat-map generation ────────────────────────────────────────────────
@@ -611,26 +598,19 @@ const P3DAct2BossBattle = (() => {
     node.judgement = 'MISS';
     node.flashT    = _t;
 
-    const irDelta = node.type === 'SYNC'
-      ? P3D_CFG.A2_IR_SYNC_MISS
-      : P3D_CFG.A2_IR_MISS;
-    _ir += irDelta;
     _misses++;
     _combo = 0;
-    _perf = Math.max(0, _perf - 0.25);
+    _perf  = Math.max(0, _perf - 0.25);
 
-    // Misses cost the same as a good hit — bad rhythm sets fusion back
+    // Misses subtract points — bad rhythm sets fusion back
     const ptsSub = P3D_CFG.A2_PTS_GOOD;
     _score      = Math.max(0, _score      - ptsSub);
     _phaseScore = Math.max(0, _phaseScore - ptsSub);
 
     _judgFlash[node.lane] = { text: 'MISS', t: _t };
-    _p3._hud.updateIR(Math.max(0, _ir), _irFail);
     _p3._hud.updateScore(_score);
     _p3._hud.updateCombo(0);
     _p3._hud.showDamageFlash?.();
-
-    if (_ir >= 4 && _ir < 4 + irDelta) _p3._edu.trigger('AB_BLOCK');
   }
 
   // ── Complete / fail ────────────────────────────────────────────────────
@@ -658,7 +638,6 @@ const P3DAct2BossBattle = (() => {
       maxCombo:  _maxCombo,
       syncHits:  _syncHits,
       syncTotal: _syncTotal,
-      ir:        Math.max(0, _ir),
       score:     _score,
     };
     _p3._act2Done(stats);
@@ -863,14 +842,6 @@ const P3DAct2BossBattle = (() => {
         _ctx.fillText(label, W / 2, H / 2 - 40);
         _ctx.restore();
       }
-    }
-
-    // ── IR warning overlay ────────────────────────────────────────────
-    const irPct = Math.max(0, _ir) / _irFail;
-    if (irPct > 0.6) {
-      const alpha = (irPct - 0.6) / 0.4 * 0.18;
-      _ctx.fillStyle = `rgba(239,83,80,${alpha.toFixed(3)})`;
-      _ctx.fillRect(0, 0, W, H);
     }
 
     // ── Intro card / countdown (drawn last, on top of everything) ─────
