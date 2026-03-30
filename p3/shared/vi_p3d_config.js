@@ -91,6 +91,9 @@ const P3D_CFG = {
   A2_BPM:            { A: 90,  B: 100, C: 110, D: 120, E: 130 },
   A2_PHASE_DUR:      { A: 15,  B: 15,  C: 20,  D: 10,  E: 15  },
 
+  // Score threshold to advance each phase (resets per phase; misses subtract)
+  A2_PHASE_SCORE_THRESH: { A: 300, B: 400, C: 500, D: 400, E: 700 },
+
   A2_T_PERFECT_MS:   55,
   A2_T_GOOD_MS:      130,
   A2_T_SYNC_MS:      80,

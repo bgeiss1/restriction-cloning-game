@@ -55,12 +55,10 @@ const P3DAct2BossBattle = (() => {
   let _ctx    = null;
 
   // Game time (frozen during intro cards)
-  let _t        = 0;
-  let _totalDur = 0;
+  let _t = 0;
 
   // Phase
-  let _phaseIdx    = 0;
-  let _phaseStartT = [];
+  let _phaseIdx = 0;
 
   // Audio beat reference — set when synth starts, used for beat-sync countdown
   let _synthStartAt = 0;
@@ -77,14 +75,19 @@ const P3DAct2BossBattle = (() => {
   let _nextSyncId = 0;
 
   // Scoring / survival
-  let _score    = 0;
-  let _ir       = 0;
-  let _irFail   = P3D_CFG.A2_IR_FAIL;
-  let _combo    = 0;
-  let _maxCombo = 0;
-  let _perfect  = 0;
-  let _good     = 0;
-  let _misses   = 0;
+  let _score      = 0;
+  let _phaseScore = 0;   // score within current phase (reset on advance; drives progress bar)
+  let _phaseThresh = 0;  // score threshold to advance current phase
+  let _ir         = 0;
+  let _irFail     = P3D_CFG.A2_IR_FAIL;
+  let _combo      = 0;
+  let _maxCombo   = 0;
+  let _perfect    = 0;
+  let _good       = 0;
+  let _misses     = 0;
+
+  // Node buffer refill tracking
+  let _lastNodeT  = 0;   // game-time of end of last generated loop chunk
 
   // Hold + judgement flash per lane
   let _heldNode  = [null, null, null];
@@ -115,6 +118,7 @@ const P3DAct2BossBattle = (() => {
     _heldNode       = [null, null, null];
     _judgFlash      = [null, null, null];
     _score          = 0;
+    _phaseScore     = 0;
     _combo          = 0;
     _maxCombo       = 0;
     _perfect        = 0;
@@ -129,24 +133,19 @@ const P3DAct2BossBattle = (() => {
     _fusionProgress = 0;
     _perf           = 0.4;
     _card           = null;
+    _lastNodeT      = 2.0;   // 2s game-time lead-in before first note
 
     // M2 carryover: each token offsets 1 IR (max 3)
     const m2 = (act1Stats && (act1Stats.m2 || act1Stats.m2Tokens)) || 0;
     _ir    = -Math.min(m2, P3D_CFG.M2_IR_MAX);
     _irFail = P3D_CFG.A2_IR_FAIL;
+    _phaseThresh = P3D_CFG.A2_PHASE_SCORE_THRESH[PHASE_KEYS[0]];
 
     _lookY = -((act1Stats && act1Stats.depth) || 80);
 
-    // Build phase timing
-    _phaseStartT = [];
-    let acc = 0;
-    for (const k of PHASE_KEYS) {
-      _phaseStartT.push(acc);
-      acc += P3D_CFG.A2_PHASE_DUR[k];
-    }
-    _totalDur = acc;
-
-    _nodes = _generateNodes();
+    // Generate first loop of phase 0 (more added dynamically in tick)
+    _nodes = [];
+    _appendPhaseLoop();
 
     // Prime HUD
     _p3._hud.updateIR(Math.max(0, _ir), _irFail);
@@ -190,6 +189,12 @@ const P3DAct2BossBattle = (() => {
   function tick(dt) {
     if (!_running || _paused) return;
 
+    // Extend music scheduling regardless of card state
+    if (window.A2ElectroswingSynth) {
+      const _ac = _p3._snd && _p3._snd.audioCtx;
+      if (_ac) window.A2ElectroswingSynth.extendIfNeeded(_ac.currentTime);
+    }
+
     // Camera orbit runs even during intro cards
     _orbitAngle += 0.18 * dt;
     if (window.P3Descent && P3Descent.camera) {
@@ -232,19 +237,29 @@ const P3DAct2BossBattle = (() => {
     const fusionTarget = phaseMin + _perf * (phaseMax - phaseMin);
     _fusionProgress   += (fusionTarget - _fusionProgress) * Math.min(1, 2.5 * dt);
 
-    // ── Phase transition ─────────────────────────────────────────────
-    const newPhase = _phaseAt(_t);
-    if (newPhase !== _phaseIdx) {
-      _phaseIdx = newPhase;
+    // ── Score-threshold phase transition ────────────────────────────
+    if (_phaseScore >= _phaseThresh) {
+      _phaseIdx++;
+      if (_phaseIdx >= PHASE_KEYS.length) {
+        _complete('done');
+        return;
+      }
+      _phaseScore  = 0;
+      _phaseThresh = P3D_CFG.A2_PHASE_SCORE_THRESH[PHASE_KEYS[_phaseIdx]];
       _p3._hud.updateA2Phase(PHASE_LABELS[_phaseIdx]);
-      // Drop any stale nodes from the previous phase; cancel held notes
-      _activeNodes = _activeNodes.filter(n => n.hitTime >= _phaseStartT[_phaseIdx]);
+      // Clear queued (unactivated) nodes; keep active lane holds
+      _nodes.length = _nodePtr;
+      _lastNodeT    = _t + 2.0;   // 2s lead-in for new phase
+      _appendPhaseLoop();
       for (let li = 0; li < N_LANES; li++) _heldNode[li] = null;
       _card = { phaseIdx: _phaseIdx, t: 0, dismissed: false, countdownT: 0, btnRect: null };
       if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.pauseForCard();
       _render();
       return;
     }
+
+    // ── Refill node buffer (keep ~12s ahead) ─────────────────────────
+    if (_lastNodeT < _t + 12) _appendPhaseLoop();
 
     // ── Activate pending nodes ───────────────────────────────────────
     const canvasH   = _canvas ? _canvas.height : 600;
@@ -282,7 +297,9 @@ const P3DAct2BossBattle = (() => {
         if (!_keys[LANE_KEYS[n.lane]]) {
           // Key released early
           const frac = Math.min(n.holdProgress, 1.0);
-          _score += Math.floor(P3D_CFG.A2_PTS_HOLD * frac);
+          const holdPts = Math.floor(P3D_CFG.A2_PTS_HOLD * frac);
+          _score      += holdPts;
+          _phaseScore += holdPts;
           n.state = 'hit'; n.judgement = frac >= 0.75 ? 'GOOD' : null; n.flashT = _t;
           _heldNode[n.lane] = null;
           if (frac >= 0.75) {
@@ -298,7 +315,8 @@ const P3DAct2BossBattle = (() => {
           _p3._hud.updateCombo(_combo);
         } else if (n.holdProgress >= 1.0) {
           // Full hold completed
-          _score += P3D_CFG.A2_PTS_HOLD;
+          _score      += P3D_CFG.A2_PTS_HOLD;
+          _phaseScore += P3D_CFG.A2_PTS_HOLD;
           n.state = 'hit'; n.judgement = 'PERFECT'; n.flashT = _t;
           _heldNode[n.lane] = null;
           _combo++; if (_combo > _maxCombo) _maxCombo = _combo; _perfect++;
@@ -331,7 +349,8 @@ const P3DAct2BossBattle = (() => {
 
     // ── HUD ──────────────────────────────────────────────────────────
     _p3._hud.updateIR(Math.max(0, _ir), _irFail);
-    _p3._hud.updateProgress(Math.min(100, (_t / _totalDur) * 100));
+    // Progress = how far through the current phase score threshold (0–100%)
+    _p3._hud.updateProgress(Math.min(100, (_phaseScore / _phaseThresh) * 100));
 
     // ── Canvas render ─────────────────────────────────────────────────
     _render();
@@ -341,20 +360,70 @@ const P3DAct2BossBattle = (() => {
       _complete('fail');
       return;
     }
-
-    // ── Completion ────────────────────────────────────────────────────
-    if (_t >= _totalDur + 1.5) {
-      _complete('done');
-    }
   }
 
   // ── Beat-map generation ────────────────────────────────────────────────
 
-  function _generateNodes() {
+  // Append one 8-second loop of the current phase pattern to _nodes.
+  function _appendPhaseLoop() {
+    if (window.A2ElectroswingBeatmap) {
+      try {
+        const startT = _lastNodeT;
+        const {nodes: newNodes, nextSyncId} =
+          window.A2ElectroswingBeatmap.buildPhaseLoop(_phaseIdx, startT, _nextSyncId);
+        for (const n of newNodes) _nodes.push(n);
+        _nextSyncId = nextSyncId;
+        const newSyncIds = new Set(newNodes
+          .filter(n => n.type === 'SYNC' && n.syncId !== null).map(n => n.syncId));
+        _syncTotal += newSyncIds.size;
+        _lastNodeT  = startT + 8.0;
+        return;
+      } catch(e) {
+        console.error('[A2ElectroswingBeatmap] buildPhaseLoop failed:', e);
+      }
+    }
+    // Fallback: generate a short LCG block for the current phase
+    _appendLCGBlock();
+  }
+
+  // LCG fallback: generate ~8s of nodes starting at _lastNodeT.
+  function _appendLCGBlock() {
+    let seed = (0xdeadbeef + _phaseIdx * 0x1337 + Math.round(_lastNodeT * 100)) | 0;
+    const rand = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) | 0;
+      return ((seed >>> 0) / 0x100000000);
+    };
+    const k   = PHASE_KEYS[_phaseIdx];
+    const bpm = P3D_CFG.A2_BPM[k];
+    const bi  = 60 / bpm;
+    const nb  = Math.ceil(8 / bi);
+    let prevLane = -1;
+    for (let b = 0; b < nb; b++) {
+      const hitTime = _lastNodeT + b * bi;
+      if (rand() < 0.25) continue;
+      const r = rand();
+      if (r < 0.15 && b > 2) {
+        const l1 = Math.floor(rand() * 3), l2 = (l1 + 1) % 3;
+        const sid = _nextSyncId++;
+        _nodes.push(_mkNode('SYNC', l1, hitTime, {syncId: sid}));
+        _nodes.push(_mkNode('SYNC', l2, hitTime, {syncId: sid}));
+        _syncTotal++;
+      } else {
+        const lane = _pickLane(rand, prevLane);
+        _nodes.push(_mkNode('TAP', lane, hitTime, {}));
+        prevLane = lane;
+      }
+    }
+    _lastNodeT += 8.0;
+  }
+
+  // ── Kept for LCG fallback (unused by main path) ───────────────────────────
+
+  function _UNUSED_generateNodes() {
     // Prefer electroswing beatmap, then SMB-derived, then LCG fallback.
     if (window.A2ElectroswingBeatmap) {
       try {
-        const nodes = window.A2ElectroswingBeatmap.build(_phaseStartT, _totalDur);
+        const nodes = window.A2ElectroswingBeatmap.build([], 75);
         const syncIds = new Set();
         for (const n of nodes) {
           if (n.type === 'SYNC' && n.syncId !== null) syncIds.add(n.syncId);
@@ -498,7 +567,8 @@ const P3DAct2BossBattle = (() => {
     const pts = judgement === 'PERFECT'
       ? P3D_CFG.A2_PTS_PERFECT
       : P3D_CFG.A2_PTS_GOOD;
-    _score += pts;
+    _score      += pts;
+    _phaseScore += pts;
     _combo++;
     if (_combo > _maxCombo) _maxCombo = _combo;
     if (judgement === 'PERFECT') {
@@ -527,7 +597,8 @@ const P3DAct2BossBattle = (() => {
       Math.abs(n.flashT - node.flashT) <= syncT
     );
     if (partner) {
-      _score += P3D_CFG.A2_PTS_SYNC;
+      _score      += P3D_CFG.A2_PTS_SYNC;
+      _phaseScore += P3D_CFG.A2_PTS_SYNC;
       _syncHits++;
       _judgFlash[node.lane] = { text: 'SYNC!', t: _t };
       _beatFlash = 1.0;
@@ -548,21 +619,18 @@ const P3DAct2BossBattle = (() => {
     _combo = 0;
     _perf = Math.max(0, _perf - 0.25);
 
+    // Misses cost the same as a good hit — bad rhythm sets fusion back
+    const ptsSub = P3D_CFG.A2_PTS_GOOD;
+    _score      = Math.max(0, _score      - ptsSub);
+    _phaseScore = Math.max(0, _phaseScore - ptsSub);
+
     _judgFlash[node.lane] = { text: 'MISS', t: _t };
     _p3._hud.updateIR(Math.max(0, _ir), _irFail);
+    _p3._hud.updateScore(_score);
     _p3._hud.updateCombo(0);
     _p3._hud.showDamageFlash?.();
 
     if (_ir >= 4 && _ir < 4 + irDelta) _p3._edu.trigger('AB_BLOCK');
-  }
-
-  // ── Phase helper ───────────────────────────────────────────────────────
-
-  function _phaseAt(t) {
-    for (let i = _phaseStartT.length - 1; i >= 0; i--) {
-      if (t >= _phaseStartT[i]) return i;
-    }
-    return 0;
   }
 
   // ── Complete / fail ────────────────────────────────────────────────────

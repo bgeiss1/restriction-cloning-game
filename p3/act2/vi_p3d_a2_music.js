@@ -757,6 +757,84 @@ class A2ElectroswingBeatmap {
     out.sort((a, b) => a.hitTime - b.hitTime);
     return out;
   }
+
+  /**
+   * buildPhaseLoop(phaseIdx, startT, syncIdStart) → { nodes, nextSyncId }
+   *
+   * Generates one 8-second repeating pattern for the given phase, starting
+   * at startT. Used by the boss for score-threshold looping phases.
+   *
+   * phaseIdx  : 0–4  (A–E)
+   * startT    : absolute game-time for first node
+   * syncIdStart : next available syncId integer
+   */
+  buildPhaseLoop(phaseIdx, startT, syncIdStart = 0) {
+    const mkNode = (type, lane, hitTime, holdDur = 0, syncId = null) => ({
+      type, lane, hitTime, holdDur, syncId,
+      state: 'waiting', judgement: null, flashT: -1, holdProgress: 0,
+    });
+
+    const out = [];
+    let sid = syncIdStart;
+
+    // Patterns are defined as arrays of {type, lane(s), off, hd?} within 8 seconds.
+    // off = seconds from startT.
+    const mkSync = (l1, l2, off) => {
+      const id = sid++;
+      out.push(mkNode('SYNC', l1, startT + off, 0, id));
+      out.push(mkNode('SYNC', l2, startT + off, 0, id));
+    };
+    const mkTap  = (lane, off) => out.push(mkNode('TAP',  lane, startT + off));
+    const mkHold = (lane, off, hd) => out.push(mkNode('HOLD', lane, startT + off, hd));
+
+    switch (phaseIdx) {
+      case 0: // Phase A — TAP only, 1 hit/s, easy lane sequence
+        [1,0,2,1,0,2,1,0].forEach((l, i) => mkTap(l, i));
+        break;
+
+      case 1: // Phase B — TAP + HOLD every 3rd beat
+        [0,1,2,1,0,2,1,0].forEach((l, i) => {
+          if (i === 2 || i === 6) mkHold(l, i, 0.5);
+          else                    mkTap(l, i);
+        });
+        break;
+
+      case 2: // Phase C — TAP + SYNC every 4th beat
+        [0,2,1,0,2,1,0,2].forEach((l, i) => {
+          if (i === 0) mkSync(0, 2, 0);
+          else if (i === 4) mkSync(1, 2, 4);
+          else              mkTap(l, i);
+        });
+        break;
+
+      case 3: // Phase D — SYNC + HOLD mix, denser
+        mkSync(0, 1, 0);
+        mkTap(2, 1);
+        mkHold(1, 2, 0.5);
+        mkSync(1, 2, 3);
+        mkTap(0, 4);
+        mkSync(0, 2, 5);
+        mkHold(0, 6, 0.5);
+        mkTap(1, 7);
+        break;
+
+      case 4: // Phase E — max intensity, SYNC-heavy, hits every ~0.8s
+        mkSync(0, 1, 0.0);
+        mkTap(2,   0.8);
+        mkSync(1, 2, 1.6);
+        mkHold(0,  2.4, 0.5);
+        mkSync(0, 2, 3.2);
+        mkTap(1,   4.0);
+        mkSync(0, 1, 4.8);
+        mkHold(2,  5.6, 0.5);
+        mkTap(0,   6.4);
+        mkSync(1, 2, 7.2);
+        break;
+    }
+
+    out.sort((a, b) => a.hitTime - b.hitTime);
+    return { nodes: out, nextSyncId: sid };
+  }
 }
 
 // Singleton — available globally as window.A2ElectroswingBeatmap
@@ -774,12 +852,14 @@ window.A2ElectroswingBeatmap = new A2ElectroswingBeatmap();
 // the baseline carry through phase cards.
 class A2ElectroswingSynth {
   constructor() {
-    this._snd      = null;
-    this._ctx      = null;
-    this._mainGain = null;
-    this._bassGain = null;
-    this._reverb   = null;
-    this._sched    = [];     // every AudioNode created, for bulk disconnect
+    this._snd            = null;
+    this._ctx            = null;
+    this._mainGain       = null;
+    this._bassGain       = null;
+    this._reverb         = null;
+    this._sched          = [];     // AudioNodes for bulk disconnect on stop()
+    this._startAt        = 0;     // audioCtx time at which music began
+    this._scheduledUntil = 0;     // audioCtx time scheduled up to so far
   }
 
   // ── Init ────────────────────────────────────────────────────────────────
@@ -841,21 +921,31 @@ class A2ElectroswingSynth {
       this._sched.push(bassRevSend);
     }
 
-    // 75s game + 5 phase cards × 3.2s each ≈ 91s real time; schedule 100s
-    // Walking bass: quarter-note chord walk
-    this._schedBass(startAt, 100);
+    // Record start time and kick off the first 20 seconds.
+    // Further chunks are added by extendIfNeeded(), called each boss tick.
+    this._startAt        = startAt;
+    this._scheduledUntil = startAt;
+    this._scheduleRange(startAt, startAt + 20);
+  }
 
-    // Chord stabs + horn layer: every 2 bars (4 s)
-    this._schedStabs(startAt, 100);
+  // ── Lookahead scheduler — called every tick by the boss ─────────────────
+  extendIfNeeded(audioNow) {
+    if (!this._ctx || !this._scheduledUntil) return;
+    const LOOKAHEAD = 8.0;   // keep at least 8s buffered
+    const EXTEND_BY = 16.0;  // schedule one full chord cycle (Am–C–F–G) at a time
+    while (audioNow + LOOKAHEAD > this._scheduledUntil) {
+      const from = this._scheduledUntil;
+      this._scheduleRange(from, from + EXTEND_BY);
+    }
+  }
 
-    // Hi-hats: swing closed/open pattern
-    this._schedHiHats(startAt, 100);
-
-    // Snare: beats 2 and 4
-    this._schedSnare(startAt, 100);
-
-    // Horn call pickups: 2-note figure before each chord stab
-    this._schedHornCalls(startAt, 100);
+  _scheduleRange(from, to) {
+    this._schedBass(from, to);
+    this._schedStabs(from, to);
+    this._schedHiHats(from, to);
+    this._schedSnare(from, to);
+    this._schedHornCalls(from, to);
+    this._scheduledUntil = to;
   }
 
   // ── Kick: public — called by boss at node-activation time ────────────────
@@ -898,28 +988,28 @@ class A2ElectroswingSynth {
   }
 
   // ── Walking bass: square-wave quarter notes, C major / A minor walk ──────
-  _schedBass(startAt, duration) {
+  _schedBass(from, to) {
     // 16-note cycle = 4 bars; chord tones in C / Am (Hz at 2nd octave)
-    // C2=65 D2=73 E2=82 F2=87 G2=98 A2=110 B2=123
     const WALK = [
-       65,  82,  98, 110,  98,  82,  87,  98,   // bars 1-2: C-E-G-A-G-E-F-G
-      110,  82,  98, 110, 123, 110,  98,  82,   // bars 3-4: A-E-G-A-B-A-G-E
+       65,  82,  98, 110,  98,  82,  87,  98,
+      110,  82,  98, 110, 123, 110,  98,  82,
     ];
-    const BEAT = 0.5;   // quarter note at 120 BPM
+    const BEAT = 0.5;
     const ctx  = this._ctx;
-    let ni       = 0;
-    let prevFreq = WALK[0];   // for portamento
-    for (let t = startAt; t < startAt + duration; t += BEAT, ni++) {
-      // ±3 cents intonation variation — no bassist plays perfectly in tune
+    // Align to beat grid from _startAt
+    const niStart = Math.floor((from - this._startAt + 1e-9) / BEAT);
+    for (let ni = niStart; ; ni++) {
+      const t = this._startAt + ni * BEAT;
+      if (t >= to) break;
+      const prevNiNom = ((( ni - 1) % WALK.length) + WALK.length) % WALK.length;
+      const prevFreq  = WALK[prevNiNom];   // nominal (no humanization) for portamento
       const cents   = (Math.random() - 0.5) * 6;
       const freq    = WALK[ni % WALK.length] * Math.pow(2, cents / 1200);
       const noteDur = BEAT * 0.78;
-      // ±15% velocity humanization
       const peak    = 0.052 * (0.86 + Math.random() * 0.28);
       const osc = ctx.createOscillator();
       const g   = ctx.createGain();
       osc.type  = 'square';
-      // 12 ms portamento glide from previous pitch (like a bassist sliding)
       osc.frequency.setValueAtTime(prevFreq, t);
       osc.frequency.linearRampToValueAtTime(freq, t + 0.012);
       g.gain.setValueAtTime(0.001, t);
@@ -929,22 +1019,23 @@ class A2ElectroswingSynth {
       osc.connect(g);  g.connect(this._bassGain);
       osc.start(t);  osc.stop(t + noteDur + 0.01);
       this._sched.push(osc, g);
-      prevFreq = freq;
     }
   }
 
   // ── Chord stabs: sawtooth triads, short attack / quick decay ────────────
-  _schedStabs(startAt, duration) {
-    // Am – C – F – G rotation, one stab every 2 bars (4 s)
+  _schedStabs(from, to) {
     const CHORDS = [
-      [220, 262, 330],   // Am  (A3, C4, E4)
-      [262, 330, 392],   // C   (C4, E4, G4)
-      [175, 220, 262],   // F   (F3, A3, C4)
-      [196, 247, 294],   // G   (G3, B3, D4)
+      [220, 262, 330],   // Am
+      [262, 330, 392],   // C
+      [175, 220, 262],   // F
+      [196, 247, 294],   // G
     ];
-    const ctx = this._ctx;
-    let ci = 0;
-    for (let t = startAt + 4.0; t < startAt + duration; t += 4.0, ci++) {
+    const ctx      = this._ctx;
+    const stabBase = this._startAt + 4.0;
+    const ciStart  = Math.max(0, Math.floor((from - stabBase + 1e-9) / 4.0));
+    for (let ci = ciStart; ; ci++) {
+      const t = stabBase + ci * 4.0;
+      if (t >= to) break;
       for (const freq of CHORDS[ci % CHORDS.length]) {
         const osc = ctx.createOscillator();
         const g   = ctx.createGain();
@@ -961,19 +1052,17 @@ class A2ElectroswingSynth {
   }
 
   // ── Hi-hats: closed on beats, open on swing-8th upbeats ─────────────────
-  // One shared noise buffer is reused by all BufferSource nodes (efficient).
-  _schedHiHats(startAt, duration) {
+  _schedHiHats(from, to) {
     const ctx     = this._ctx;
     const SR      = ctx.sampleRate;
-    const bufLen  = Math.ceil(SR * 0.25);   // 250 ms noise buffer, reused
+    const bufLen  = Math.ceil(SR * 0.25);
     const noiseBuf = ctx.createBuffer(1, bufLen, SR);
     const nd       = noiseBuf.getChannelData(0);
     for (let i = 0; i < bufLen; i++) nd[i] = Math.random() * 2 - 1;
 
-    const BEAT  = 0.5;    // quarter note
-    const SWING = 0.333;  // swing 8th long subdivision
+    const BEAT  = 0.5;
+    const SWING = 0.333;
 
-    // Closed HH helper — ±8% velocity humanization
     const closedHH = (t) => {
       const src  = ctx.createBufferSource();
       const bpf  = ctx.createBiquadFilter();
@@ -988,7 +1077,6 @@ class A2ElectroswingSynth {
       this._sched.push(src, bpf, g);
     };
 
-    // Open HH helper — ±8% velocity humanization
     const openHH = (t) => {
       const src  = ctx.createBufferSource();
       const bpf  = ctx.createBiquadFilter();
@@ -1005,16 +1093,18 @@ class A2ElectroswingSynth {
       this._sched.push(src, bpf, hpf, g);
     };
 
-    // Schedule: closed on every beat, open on every swing upbeat
-    let beat = 0;
-    for (let t = startAt; t < startAt + duration; t += BEAT, beat++) {
+    // Align to beat grid from _startAt
+    const biStart = Math.floor((from - this._startAt + 1e-9) / BEAT);
+    for (let bi = biStart; ; bi++) {
+      const t = this._startAt + bi * BEAT;
+      if (t >= to) break;
       closedHH(t);
-      if (t + SWING < startAt + duration) openHH(t + SWING);
+      if (t + SWING < to) openHH(t + SWING);
     }
   }
 
   // ── Snare: white-noise body + sine thump on beats 2 and 4 ────────────────
-  _schedSnare(startAt, duration) {
+  _schedSnare(from, to) {
     const ctx    = this._ctx;
     const SR     = ctx.sampleRate;
     const bufLen = Math.ceil(SR * 0.18);
@@ -1022,13 +1112,17 @@ class A2ElectroswingSynth {
     const sd     = snBuf.getChannelData(0);
     for (let i = 0; i < bufLen; i++) sd[i] = Math.random() * 2 - 1;
 
-    const BAR  = 2.0;   // 4 beats at 120 BPM
+    const BAR  = 2.0;
     const BEAT = 0.5;
 
-    for (let bar = startAt; bar < startAt + duration; bar += BAR) {
-      for (const beatOff of [BEAT, BEAT * 3]) {   // beats 2 and 4
+    // Align to bar grid from _startAt
+    const biStart = Math.floor((from - this._startAt + 1e-9) / BAR);
+    for (let bi = biStart; ; bi++) {
+      const bar = this._startAt + bi * BAR;
+      if (bar >= to) break;
+      for (const beatOff of [BEAT, BEAT * 3]) {
         const t = bar + beatOff;
-        if (t >= startAt + duration) continue;
+        if (t < from || t >= to) continue;
 
         // ±6% velocity humanization per hit
         const vel = 0.94 + Math.random() * 0.12;
@@ -1059,34 +1153,31 @@ class A2ElectroswingSynth {
   }
 
   // ── Horn phrases: 4-note run + resolution, one phrase per chord stab ───────
-  // Each phrase builds into the downbeat so the player can feel the landing.
-  _schedHornCalls(startAt, duration) {
-    // Phrase tables: {f=Hz, o=offset_from_stab, d=duration}
-    // All offsets are negative (before stab) except the resolution at o=0.
+  _schedHornCalls(from, to) {
     const PHRASES = [
-      // Am stab — E4 minor approach, lands on A4
       [ {f:329.63, o:-1.50, d:0.22}, {f:392.00, o:-1.00, d:0.20},
         {f:440.00, o:-0.55, d:0.22}, {f:392.00, o:-0.22, d:0.15},
         {f:440.00, o: 0.00, d:0.45} ],
-      // C stab — G major run, lands on E5
       [ {f:392.00, o:-1.50, d:0.22}, {f:440.00, o:-1.00, d:0.20},
         {f:493.88, o:-0.55, d:0.22}, {f:523.25, o:-0.22, d:0.15},
         {f:659.25, o: 0.00, d:0.45} ],
-      // F stab — C major ascent, lands on C5
       [ {f:261.63, o:-1.50, d:0.22}, {f:293.66, o:-1.00, d:0.20},
         {f:329.63, o:-0.55, d:0.22}, {f:349.23, o:-0.22, d:0.15},
         {f:523.25, o: 0.00, d:0.45} ],
-      // G stab — D mixolydian climb, lands on G4
       [ {f:293.66, o:-1.50, d:0.22}, {f:329.63, o:-1.00, d:0.20},
         {f:369.99, o:-0.55, d:0.22}, {f:392.00, o:-0.22, d:0.15},
         {f:392.00, o: 0.00, d:0.45} ],
     ];
 
-    let ci = 0;
-    for (let stabT = startAt + 4.0; stabT < startAt + duration; stabT += 4.0, ci++) {
+    const stabBase = this._startAt + 4.0;
+    // Start from one stab before `from` so horn pickups (-1.5s) aren't clipped
+    const ciStart  = Math.max(0, Math.floor((from - stabBase - 1.5 + 1e-9) / 4.0));
+    for (let ci = ciStart; ; ci++) {
+      const stabT = stabBase + ci * 4.0;
+      if (stabT - 1.5 >= to) break;  // even earliest note past range
       for (const note of PHRASES[ci % PHRASES.length]) {
         const t = stabT + note.o;
-        if (t < startAt) continue;
+        if (t < from || t >= to) continue;
         this._playHorn(t, note.f, note.d);
       }
     }
