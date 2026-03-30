@@ -164,7 +164,6 @@ const P3DAct2BossBattle = (() => {
   function start() {
     _running = true;
     _paused  = false;
-    _p3._edu.trigger('HA_LOOSEN');
 
     // Start electroswing ambient (bass + stabs), immediately mute for intro card.
     // Kicks are fired per-node in the tick loop so they stay in sync with _t.
@@ -238,7 +237,6 @@ const P3DAct2BossBattle = (() => {
     if (newPhase !== _phaseIdx) {
       _phaseIdx = newPhase;
       _p3._hud.updateA2Phase(PHASE_LABELS[_phaseIdx]);
-      _p3._edu.trigger(PHASE_EDU[_phaseIdx]);
       // Drop any stale nodes from the previous phase; cancel held notes
       _activeNodes = _activeNodes.filter(n => n.hitTime >= _phaseStartT[_phaseIdx]);
       for (let li = 0; li < N_LANES; li++) _heldNode[li] = null;
