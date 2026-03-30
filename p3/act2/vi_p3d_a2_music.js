@@ -778,6 +778,7 @@ class A2ElectroswingSynth {
     this._ctx      = null;
     this._mainGain = null;
     this._bassGain = null;
+    this._reverb   = null;
     this._sched    = [];     // every AudioNode created, for bulk disconnect
   }
 
@@ -815,6 +816,30 @@ class A2ElectroswingSynth {
     }
     const ctx = this._ctx;
     if (!ctx || !this._mainGain) return;
+
+    // ── Reverb — parallel wet/dry via synthetic IR ───────────────────────
+    if (!this._reverb) {
+      this._reverb = ctx.createConvolver();
+      this._reverb.buffer = this._makeReverbIR(ctx);
+      // Darken the tail (real reverb rolls off high frequencies)
+      const revHpf = ctx.createBiquadFilter();
+      revHpf.type = 'highpass'; revHpf.frequency.value = 220;
+      const revLpf = ctx.createBiquadFilter();
+      revLpf.type = 'lowpass';  revLpf.frequency.value = 4800;
+      const wetGain = ctx.createGain();
+      wetGain.gain.value = 0.20;   // wet level
+      this._reverb.connect(revHpf); revHpf.connect(revLpf);
+      revLpf.connect(wetGain);     wetGain.connect(ctx.destination);
+      this._sched.push(this._reverb, revHpf, revLpf, wetGain);
+      // Main signal (kicks, stabs, hi-hats, horns) → reverb
+      this._mainGain.connect(this._reverb);
+      // Bass → reverb at reduced level (avoids low-end mud)
+      const bassRevSend = ctx.createGain();
+      bassRevSend.gain.value = 0.38;
+      this._bassGain.connect(bassRevSend);
+      bassRevSend.connect(this._reverb);
+      this._sched.push(bassRevSend);
+    }
 
     // 75s game + 5 phase cards × 3.2s each ≈ 91s real time; schedule 100s
     // Walking bass: quarter-note chord walk
@@ -882,21 +907,29 @@ class A2ElectroswingSynth {
     ];
     const BEAT = 0.5;   // quarter note at 120 BPM
     const ctx  = this._ctx;
-    let ni = 0;
+    let ni       = 0;
+    let prevFreq = WALK[0];   // for portamento
     for (let t = startAt; t < startAt + duration; t += BEAT, ni++) {
-      const freq    = WALK[ni % WALK.length];
+      // ±3 cents intonation variation — no bassist plays perfectly in tune
+      const cents   = (Math.random() - 0.5) * 6;
+      const freq    = WALK[ni % WALK.length] * Math.pow(2, cents / 1200);
       const noteDur = BEAT * 0.78;
+      // ±15% velocity humanization
+      const peak    = 0.052 * (0.86 + Math.random() * 0.28);
       const osc = ctx.createOscillator();
       const g   = ctx.createGain();
-      osc.type = 'square';
-      osc.frequency.value = freq;
+      osc.type  = 'square';
+      // 12 ms portamento glide from previous pitch (like a bassist sliding)
+      osc.frequency.setValueAtTime(prevFreq, t);
+      osc.frequency.linearRampToValueAtTime(freq, t + 0.012);
       g.gain.setValueAtTime(0.001, t);
-      g.gain.linearRampToValueAtTime(0.052, t + 0.012);
-      g.gain.setValueAtTime(0.052, t + noteDur - 0.025);
+      g.gain.linearRampToValueAtTime(peak, t + 0.012);
+      g.gain.setValueAtTime(peak, t + noteDur - 0.025);
       g.gain.linearRampToValueAtTime(0.001, t + noteDur);
       osc.connect(g);  g.connect(this._bassGain);
       osc.start(t);  osc.stop(t + noteDur + 0.01);
       this._sched.push(osc, g);
+      prevFreq = freq;
     }
   }
 
@@ -940,30 +973,32 @@ class A2ElectroswingSynth {
     const BEAT  = 0.5;    // quarter note
     const SWING = 0.333;  // swing 8th long subdivision
 
-    // Closed HH helper
+    // Closed HH helper — ±8% velocity humanization
     const closedHH = (t) => {
-      const src = ctx.createBufferSource();
-      const bpf = ctx.createBiquadFilter();
-      const g   = ctx.createGain();
+      const src  = ctx.createBufferSource();
+      const bpf  = ctx.createBiquadFilter();
+      const g    = ctx.createGain();
+      const peak = 0.060 * (0.92 + Math.random() * 0.16);
       src.buffer = noiseBuf;
       bpf.type = 'bandpass';  bpf.frequency.value = 9000;  bpf.Q.value = 0.8;
-      g.gain.setValueAtTime(0.060, t);
+      g.gain.setValueAtTime(peak, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + 0.030);
       src.connect(bpf);  bpf.connect(g);  g.connect(this._mainGain);
       src.start(t);  src.stop(t + 0.035);
       this._sched.push(src, bpf, g);
     };
 
-    // Open HH helper
+    // Open HH helper — ±8% velocity humanization
     const openHH = (t) => {
-      const src = ctx.createBufferSource();
-      const bpf = ctx.createBiquadFilter();
-      const hpf = ctx.createBiquadFilter();
-      const g   = ctx.createGain();
+      const src  = ctx.createBufferSource();
+      const bpf  = ctx.createBiquadFilter();
+      const hpf  = ctx.createBiquadFilter();
+      const g    = ctx.createGain();
+      const peak = 0.045 * (0.92 + Math.random() * 0.16);
       src.buffer = noiseBuf;
       bpf.type = 'bandpass';  bpf.frequency.value = 6500;  bpf.Q.value = 0.6;
       hpf.type = 'highpass';  hpf.frequency.value = 4000;
-      g.gain.setValueAtTime(0.045, t);
+      g.gain.setValueAtTime(peak, t);
       g.gain.exponentialRampToValueAtTime(0.001, t + 0.180);
       src.connect(bpf);  bpf.connect(hpf);  hpf.connect(g);  g.connect(this._mainGain);
       src.start(t);  src.stop(t + 0.200);
@@ -995,13 +1030,16 @@ class A2ElectroswingSynth {
         const t = bar + beatOff;
         if (t >= startAt + duration) continue;
 
+        // ±6% velocity humanization per hit
+        const vel = 0.94 + Math.random() * 0.12;
+
         // Noise body
         const src = ctx.createBufferSource();
         const bpf = ctx.createBiquadFilter();
         const gN  = ctx.createGain();
         src.buffer = snBuf;
         bpf.type = 'bandpass';  bpf.frequency.value = 260;  bpf.Q.value = 0.9;
-        gN.gain.setValueAtTime(0.065, t);
+        gN.gain.setValueAtTime(0.065 * vel, t);
         gN.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
         src.connect(bpf);  bpf.connect(gN);  gN.connect(this._mainGain);
         src.start(t);  src.stop(t + 0.14);
@@ -1011,7 +1049,7 @@ class A2ElectroswingSynth {
         const osc = ctx.createOscillator();
         const gS  = ctx.createGain();
         osc.type = 'sine';  osc.frequency.value = 185;
-        gS.gain.setValueAtTime(0.055, t);
+        gS.gain.setValueAtTime(0.055 * vel, t);
         gS.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
         osc.connect(gS);  gS.connect(this._mainGain);
         osc.start(t);  osc.stop(t + 0.10);
@@ -1058,6 +1096,17 @@ class A2ElectroswingSynth {
   _playHorn(t, freq, dur) {
     const ctx = this._ctx;
 
+    // ±5 cent intonation variation — players don't hit exact pitch every time
+    const intonation = (Math.random() - 0.5) * 10;         // cents
+    const targetFreq = freq * Math.pow(2, intonation / 1200);
+
+    // Lip-attack: start 14 cents sharp, settle to pitch over 22 ms
+    // (brass players overshoot slightly on attack before settling)
+    const attackFreq = targetFreq * Math.pow(2, 14 / 1200);
+
+    // ±10% velocity humanization
+    const vel = 0.90 + Math.random() * 0.20;
+
     // Vibrato LFO: 5.5 Hz, ramps from 0 to ±9 cents over first 80 ms
     const lfo  = ctx.createOscillator();
     const lfoG = ctx.createGain();
@@ -1079,11 +1128,14 @@ class A2ElectroswingSynth {
     this._sched.push(lpf);
 
     // Two sawtooth voices: fundamental (louder) + 9 cents sharp (width)
-    for (const [detuneC, peak] of [[0, 0.042], [9, 0.020]]) {
-      const osc = ctx.createOscillator();
-      const g   = ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.value = freq * Math.pow(2, detuneC / 1200);
+    for (const [detuneC, basePeak] of [[0, 0.042], [9, 0.020]]) {
+      const peak = basePeak * vel;
+      const osc  = ctx.createOscillator();
+      const g    = ctx.createGain();
+      osc.type   = 'sawtooth';
+      // Lip attack: start sharp, slide to target pitch
+      osc.frequency.setValueAtTime(attackFreq * Math.pow(2, detuneC / 1200), t);
+      osc.frequency.linearRampToValueAtTime(targetFreq * Math.pow(2, detuneC / 1200), t + 0.022);
       lfoG.connect(osc.detune);   // vibrato modulates detune in cents
       g.gain.setValueAtTime(0.001, t);
       g.gain.linearRampToValueAtTime(peak, t + 0.015);
@@ -1095,6 +1147,24 @@ class A2ElectroswingSynth {
       osc.stop(t + dur + 0.01);
       this._sched.push(osc, g);
     }
+  }
+
+  // ── Reverb impulse response — synthetic small-club room ─────────────────
+  _makeReverbIR(ctx) {
+    const SR  = ctx.sampleRate;
+    const dur = 1.4;                          // tail length (s)
+    const len = Math.ceil(SR * dur);
+    const PRE = Math.ceil(SR * 0.015);        // 15 ms pre-delay
+    const buf = ctx.createBuffer(2, len, SR);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = PRE; i < len; i++) {
+        const t   = (i - PRE) / SR;
+        const env = Math.pow(1 - t / dur, 2.8);   // exponential-ish decay
+        d[i] = (Math.random() * 2 - 1) * env;
+      }
+    }
+    return buf;
   }
 
   // ── Card transitions ─────────────────────────────────────────────────────
