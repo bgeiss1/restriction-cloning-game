@@ -819,8 +819,17 @@ class A2ElectroswingSynth {
     // Walking bass: quarter-note chord walk, 82 s total
     this._schedBass(startAt, 82);
 
-    // Chord stabs: every 2 bars (4 s), 80 s total
+    // Chord stabs + horn layer: every 2 bars (4 s), 80 s total
     this._schedStabs(startAt, 80);
+
+    // Hi-hats: swing closed/open pattern, 82 s total
+    this._schedHiHats(startAt, 82);
+
+    // Snare: beats 2 and 4, 82 s total
+    this._schedSnare(startAt, 82);
+
+    // Horn call pickups: 2-note figure before each chord stab
+    this._schedHornCalls(startAt, 80);
   }
 
   // ── Kick: public — called by boss at node-activation time ────────────────
@@ -913,6 +922,141 @@ class A2ElectroswingSynth {
         osc.connect(g);  g.connect(this._mainGain);
         osc.start(t);  osc.stop(t + 0.38);
         this._sched.push(osc, g);
+      }
+    }
+  }
+
+  // ── Hi-hats: closed on beats, open on swing-8th upbeats ─────────────────
+  // One shared noise buffer is reused by all BufferSource nodes (efficient).
+  _schedHiHats(startAt, duration) {
+    const ctx     = this._ctx;
+    const SR      = ctx.sampleRate;
+    const bufLen  = Math.ceil(SR * 0.25);   // 250 ms noise buffer, reused
+    const noiseBuf = ctx.createBuffer(1, bufLen, SR);
+    const nd       = noiseBuf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) nd[i] = Math.random() * 2 - 1;
+
+    const BEAT  = 0.5;    // quarter note
+    const SWING = 0.333;  // swing 8th long subdivision
+
+    // Closed HH helper
+    const closedHH = (t) => {
+      const src = ctx.createBufferSource();
+      const bpf = ctx.createBiquadFilter();
+      const g   = ctx.createGain();
+      src.buffer = noiseBuf;
+      bpf.type = 'bandpass';  bpf.frequency.value = 9000;  bpf.Q.value = 0.8;
+      g.gain.setValueAtTime(0.060, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.030);
+      src.connect(bpf);  bpf.connect(g);  g.connect(this._mainGain);
+      src.start(t);  src.stop(t + 0.035);
+      this._sched.push(src, bpf, g);
+    };
+
+    // Open HH helper
+    const openHH = (t) => {
+      const src = ctx.createBufferSource();
+      const bpf = ctx.createBiquadFilter();
+      const hpf = ctx.createBiquadFilter();
+      const g   = ctx.createGain();
+      src.buffer = noiseBuf;
+      bpf.type = 'bandpass';  bpf.frequency.value = 6500;  bpf.Q.value = 0.6;
+      hpf.type = 'highpass';  hpf.frequency.value = 4000;
+      g.gain.setValueAtTime(0.045, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.180);
+      src.connect(bpf);  bpf.connect(hpf);  hpf.connect(g);  g.connect(this._mainGain);
+      src.start(t);  src.stop(t + 0.200);
+      this._sched.push(src, bpf, hpf, g);
+    };
+
+    // Schedule: closed on every beat, open on every swing upbeat
+    let beat = 0;
+    for (let t = startAt; t < startAt + duration; t += BEAT, beat++) {
+      closedHH(t);
+      if (t + SWING < startAt + duration) openHH(t + SWING);
+    }
+  }
+
+  // ── Snare: white-noise body + sine thump on beats 2 and 4 ────────────────
+  _schedSnare(startAt, duration) {
+    const ctx    = this._ctx;
+    const SR     = ctx.sampleRate;
+    const bufLen = Math.ceil(SR * 0.18);
+    const snBuf  = ctx.createBuffer(1, bufLen, SR);
+    const sd     = snBuf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) sd[i] = Math.random() * 2 - 1;
+
+    const BAR  = 2.0;   // 4 beats at 120 BPM
+    const BEAT = 0.5;
+
+    for (let bar = startAt; bar < startAt + duration; bar += BAR) {
+      for (const beatOff of [BEAT, BEAT * 3]) {   // beats 2 and 4
+        const t = bar + beatOff;
+        if (t >= startAt + duration) continue;
+
+        // Noise body
+        const src = ctx.createBufferSource();
+        const bpf = ctx.createBiquadFilter();
+        const gN  = ctx.createGain();
+        src.buffer = snBuf;
+        bpf.type = 'bandpass';  bpf.frequency.value = 260;  bpf.Q.value = 0.9;
+        gN.gain.setValueAtTime(0.065, t);
+        gN.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+        src.connect(bpf);  bpf.connect(gN);  gN.connect(this._mainGain);
+        src.start(t);  src.stop(t + 0.14);
+        this._sched.push(src, bpf, gN);
+
+        // Sine body thump
+        const osc = ctx.createOscillator();
+        const gS  = ctx.createGain();
+        osc.type = 'sine';  osc.frequency.value = 185;
+        gS.gain.setValueAtTime(0.055, t);
+        gS.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.connect(gS);  gS.connect(this._mainGain);
+        osc.start(t);  osc.stop(t + 0.10);
+        this._sched.push(osc, gS);
+      }
+    }
+  }
+
+  // ── Horn call: 2-note pickup figure 1 beat before each chord stab ────────
+  _schedHornCalls(startAt, duration) {
+    const ctx = this._ctx;
+    // Pickup pairs (low→high) cycling with chord progression
+    // Am→C→F→G chords, horns in upper octave
+    const PICKUPS = [
+      [330, 440],   // before Am:  E4→A4
+      [392, 523],   // before C:   G4→C5
+      [349, 440],   // before F:   F4→A4
+      [392, 494],   // before G:   G4→B4
+    ];
+    const NOTE_DUR = 0.14;
+    let ci = 0;
+    for (let stabT = startAt + 4.0; stabT < startAt + duration; stabT += 4.0, ci++) {
+      const [f1, f2] = PICKUPS[ci % PICKUPS.length];
+      const t1 = stabT - 0.60;   // note 1: 600ms before stab
+      const t2 = stabT - 0.30;   // note 2: 300ms before stab
+      if (t1 < startAt) continue;
+
+      for (const [t, freq] of [[t1, f1], [t2, f2]]) {
+        // Layer: sawtooth + detuned square for brass-ish timbre
+        for (const [type, detune, gain] of [
+          ['sawtooth', 0,   0.025],
+          ['square',   7,   0.012],
+        ]) {
+          const osc = ctx.createOscillator();
+          const bpf = ctx.createBiquadFilter();
+          const g   = ctx.createGain();
+          osc.type = type;
+          osc.frequency.value = freq * Math.pow(2, detune / 1200);
+          bpf.type = 'bandpass';  bpf.frequency.value = 1800;  bpf.Q.value = 0.7;
+          g.gain.setValueAtTime(0.001, t);
+          g.gain.linearRampToValueAtTime(gain, t + 0.012);
+          g.gain.exponentialRampToValueAtTime(0.001, t + NOTE_DUR);
+          osc.connect(bpf);  bpf.connect(g);  g.connect(this._mainGain);
+          osc.start(t);  osc.stop(t + NOTE_DUR + 0.01);
+          this._sched.push(osc, bpf, g);
+        }
       }
     }
   }
