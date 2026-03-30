@@ -325,7 +325,22 @@ const P3DAct2BossBattle = (() => {
   // ── Beat-map generation ────────────────────────────────────────────────
 
   function _generateNodes() {
-    // Use SMB-derived beatmap when available; fall back to LCG otherwise.
+    // Prefer electroswing beatmap, then SMB-derived, then LCG fallback.
+    if (window.A2ElectroswingBeatmap) {
+      try {
+        const nodes = window.A2ElectroswingBeatmap.build(_phaseStartT, _totalDur);
+        const syncIds = new Set();
+        for (const n of nodes) {
+          if (n.type === 'SYNC' && n.syncId !== null) syncIds.add(n.syncId);
+        }
+        _syncTotal += syncIds.size;
+        _nextSyncId = syncIds.size;
+        return nodes;
+      } catch(e) {
+        console.error('[A2ElectroswingBeatmap] build() failed:', e);
+      }
+    }
+
     if (window.A2SMBBeatmap) {
       try {
         const nodes = window.A2SMBBeatmap.build(_phaseStartT, _totalDur);
@@ -730,6 +745,35 @@ const P3DAct2BossBattle = (() => {
     _ctx.textAlign    = 'center';
     _ctx.textBaseline = 'top';
     _ctx.fillText(PHASE_LABELS[_phaseIdx], W / 2, 12);
+
+    // ── Countdown before first note (electroswing lead-in) ───────────
+    if (!_card && _phaseIdx === 0 && window.A2ElectroswingBeatmap) {
+      const LEAD_IN = 2.0;  // must match A2ElectroswingBeatmap.LEAD_IN
+      if (_t < LEAD_IN + 0.5) {
+        let label, alpha;
+        if (_t < 1.0) {
+          label = '2';
+          alpha = 1.0;
+        } else if (_t < LEAD_IN) {
+          label = '1';
+          alpha = 1.0;
+        } else {
+          label = 'GO!';
+          alpha = Math.max(0, 1 - (_t - LEAD_IN) / 0.5);
+        }
+        const pulse = 1 + 0.12 * Math.sin(_t * 12);
+        _ctx.save();
+        _ctx.globalAlpha  = alpha;
+        _ctx.font         = `bold ${Math.round(72 * pulse)}px monospace`;
+        _ctx.textAlign    = 'center';
+        _ctx.textBaseline = 'middle';
+        _ctx.fillStyle    = label === 'GO!' ? '#00ff88' : '#ffffff';
+        _ctx.shadowColor  = label === 'GO!' ? '#00ff88' : '#aaddff';
+        _ctx.shadowBlur   = 24;
+        _ctx.fillText(label, W / 2, H / 2 - 40);
+        _ctx.restore();
+      }
+    }
 
     // ── IR warning overlay ────────────────────────────────────────────
     const irPct = Math.max(0, _ir) / _irFail;

@@ -631,3 +631,133 @@ class A2SMBBeatmap {
 
 // Singleton — available globally as window.A2SMBBeatmap
 window.A2SMBBeatmap = new A2SMBBeatmap();
+
+// ── A2ElectroswingBeatmap ───────────────────────────────────────────────────
+// Hand-crafted 120 BPM swing beatmap: ~1 hit/sec, 2-second lead-in,
+// builds from TAPs → HOLDs → SYNCs across five phases.
+class A2ElectroswingBeatmap {
+  static get LEAD_IN() { return 2.0; }
+
+  build(phaseStartT, totalDur) {
+    const mkNode = (type, lane, hitTime, holdDur=0, syncId=null) => ({
+      type, lane, hitTime, holdDur, syncId,
+      state:'waiting', judgement:null, flashT:-1, holdProgress:0
+    });
+
+    const out = [];
+    let nextSyncId = 0;
+    const LEAD_IN = A2ElectroswingBeatmap.LEAD_IN;
+
+    // ── Phase A (0–15s): TAPs only, 2s lead-in ──────────────────────────
+    {
+      const base     = phaseStartT[0];
+      const dur      = 15;
+      const laneSeq  = [1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1];
+      for (let i = 0; i < laneSeq.length; i++) {
+        const t = base + LEAD_IN + i * 1.0;
+        if (t >= base + dur) break;
+        out.push(mkNode('TAP', laneSeq[i], t));
+      }
+    }
+
+    // ── Phase B (15–30s): TAPs + HOLDs every 5th beat ───────────────────
+    {
+      const base    = phaseStartT[1];
+      const dur     = 15;
+      const laneSeq = [0, 1, 2, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0, 2];
+      for (let i = 0; i < laneSeq.length; i++) {
+        const t    = base + i * 1.0;
+        if (t >= base + dur) break;
+        const type = (i % 5 === 2) ? 'HOLD' : 'TAP';
+        const hd   = type === 'HOLD' ? 0.5 : 0;
+        out.push(mkNode(type, laneSeq[i], t, hd));
+      }
+    }
+
+    // ── Phase C (30–50s): TAPs + SYNC every 4th beat ────────────────────
+    {
+      const base    = phaseStartT[2];
+      const dur     = 20;
+      const laneSeq = [0, 2, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0, 2, 1, 0, 2];
+      for (let i = 0; i < laneSeq.length; i++) {
+        const t = base + i * 1.0;
+        if (t >= base + dur) break;
+        if (i > 0 && i % 4 === 0) {
+          const sid = nextSyncId++;
+          out.push(mkNode('SYNC', 0, t, 0, sid));
+          out.push(mkNode('SYNC', 2, t, 0, sid));
+        } else {
+          out.push(mkNode('TAP', laneSeq[i], t));
+        }
+      }
+    }
+
+    // ── Phase D (50–60s): explicit high-drama table ──────────────────────
+    {
+      const base    = phaseStartT[3];
+      const dur     = 10;
+      const entries = [
+        { type:'SYNC', lanes:[0,1], off:0 },
+        { type:'TAP',  lane:2,      off:1 },
+        { type:'HOLD', lane:1,      off:2, hd:0.5 },
+        { type:'SYNC', lanes:[1,2], off:3 },
+        { type:'TAP',  lane:0,      off:4 },
+        { type:'SYNC', lanes:[0,2], off:5 },
+        { type:'HOLD', lane:0,      off:6, hd:0.5 },
+        { type:'TAP',  lane:1,      off:7 },
+        { type:'SYNC', lanes:[0,1], off:8 },
+        { type:'TAP',  lane:2,      off:9 },
+      ];
+      for (const e of entries) {
+        const t = base + e.off;
+        if (t >= base + dur) continue;
+        if (e.type === 'SYNC') {
+          const sid = nextSyncId++;
+          for (const l of e.lanes) out.push(mkNode('SYNC', l, t, 0, sid));
+        } else {
+          out.push(mkNode(e.type, e.lane, t, e.hd || 0));
+        }
+      }
+    }
+
+    // ── Phase E (60–75s): full energy, SYNC + HOLD every beat ───────────
+    {
+      const base    = phaseStartT[4];
+      const dur     = 15;
+      const entries = [
+        { type:'SYNC', lanes:[0,1] },
+        { type:'TAP',  lane:2 },
+        { type:'SYNC', lanes:[1,2] },
+        { type:'HOLD', lane:0, hd:0.5 },
+        { type:'SYNC', lanes:[0,2] },
+        { type:'TAP',  lane:1 },
+        { type:'HOLD', lane:2, hd:0.5 },
+        { type:'SYNC', lanes:[0,1] },
+        { type:'TAP',  lane:2 },
+        { type:'SYNC', lanes:[1,2] },
+        { type:'TAP',  lane:0 },
+        { type:'HOLD', lane:1, hd:0.5 },
+        { type:'SYNC', lanes:[0,2] },
+        { type:'TAP',  lane:2 },
+        { type:'SYNC', lanes:[0,1] },
+      ];
+      for (let i = 0; i < entries.length; i++) {
+        const t = base + i * 1.0;
+        if (t >= base + dur) break;
+        const e = entries[i];
+        if (e.type === 'SYNC') {
+          const sid = nextSyncId++;
+          for (const l of e.lanes) out.push(mkNode('SYNC', l, t, 0, sid));
+        } else {
+          out.push(mkNode(e.type, e.lane, t, e.hd || 0));
+        }
+      }
+    }
+
+    out.sort((a, b) => a.hitTime - b.hitTime);
+    return out;
+  }
+}
+
+// Singleton — available globally as window.A2ElectroswingBeatmap
+window.A2ElectroswingBeatmap = new A2ElectroswingBeatmap();
