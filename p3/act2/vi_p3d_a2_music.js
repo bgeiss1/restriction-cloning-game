@@ -761,3 +761,206 @@ class A2ElectroswingBeatmap {
 
 // Singleton — available globally as window.A2ElectroswingBeatmap
 window.A2ElectroswingBeatmap = new A2ElectroswingBeatmap();
+
+// ── A2ElectroswingSynth ───────────────────────────────────────────────────────
+// Electroswing percussion engine for Act 2.
+//
+// Architecture:
+//   _mainGain  →  ctx.destination  (kicks + chord stabs; muted during cards)
+//   _bassGain  →  ctx.destination  (walking bass; attenuated but alive during cards)
+//
+// All audio is pre-scheduled on start() so the boss clock drives placement;
+// card-mode fading is done by GainNode ramps — ctx is NOT suspended, letting
+// the baseline carry through phase cards.
+class A2ElectroswingSynth {
+  constructor() {
+    this._snd      = null;
+    this._ctx      = null;
+    this._mainGain = null;
+    this._bassGain = null;
+    this._sched    = [];     // every AudioNode created, for bulk disconnect
+  }
+
+  // ── Init ────────────────────────────────────────────────────────────────
+  init(snd) {
+    this._snd = snd;
+    const ctx = snd.audioCtx;
+    this._ctx = ctx;
+    if (!ctx) return;
+    this._mainGain = ctx.createGain();
+    this._mainGain.gain.value = 1.0;
+    this._mainGain.connect(ctx.destination);
+    this._bassGain = ctx.createGain();
+    this._bassGain.gain.value = 1.0;
+    this._bassGain.connect(ctx.destination);
+    this._sched.push(this._mainGain, this._bassGain);
+  }
+
+  // ── Start — takes the node array so kicks fire at button hitTimes ────────
+  start(nodes, startAt) {
+    // Re-acquire ctx if it wasn't ready at init time
+    if (!this._ctx && this._snd) {
+      this._ctx = this._snd.audioCtx;
+      if (this._ctx) {
+        this._mainGain = this._ctx.createGain();
+        this._mainGain.gain.value = 1.0;
+        this._mainGain.connect(this._ctx.destination);
+        this._bassGain = this._ctx.createGain();
+        this._bassGain.gain.value = 1.0;
+        this._bassGain.connect(this._ctx.destination);
+        this._sched.push(this._mainGain, this._bassGain);
+      }
+    }
+    const ctx = this._ctx;
+    if (!ctx || !this._mainGain) return;
+
+    // One kick per unique hitTime (deduplicates SYNC pairs)
+    const seen = new Set();
+    for (const n of nodes) {
+      const key = Math.round(n.hitTime * 1000);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      this._schedKick(startAt + n.hitTime);
+    }
+
+    // Walking bass: quarter-note chord walk, 82 s total
+    this._schedBass(startAt, 82);
+
+    // Chord stabs: every 2 bars (4 s), 80 s total
+    this._schedStabs(startAt, 80);
+  }
+
+  // ── Kick: sine sub-thump + filtered noise click ──────────────────────────
+  _schedKick(t) {
+    const ctx = this._ctx;
+
+    // Sub-bass thump
+    const oscK = ctx.createOscillator();
+    const gK   = ctx.createGain();
+    oscK.type = 'sine';
+    oscK.frequency.setValueAtTime(85, t);
+    oscK.frequency.exponentialRampToValueAtTime(28, t + 0.18);
+    gK.gain.setValueAtTime(0.42, t);
+    gK.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    oscK.connect(gK);  gK.connect(this._mainGain);
+    oscK.start(t);  oscK.stop(t + 0.25);
+    this._sched.push(oscK, gK);
+
+    // Attack click — short white-noise burst, low-pass filtered
+    const bufLen = Math.ceil(ctx.sampleRate * 0.018);
+    const buf    = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const d      = buf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+    const src = ctx.createBufferSource();
+    const lpf = ctx.createBiquadFilter();
+    const gN  = ctx.createGain();
+    src.buffer = buf;
+    lpf.type = 'lowpass';  lpf.frequency.value = 220;
+    gN.gain.value = 0.22;
+    src.connect(lpf);  lpf.connect(gN);  gN.connect(this._mainGain);
+    src.start(t);
+    this._sched.push(src, lpf, gN);
+  }
+
+  // ── Walking bass: square-wave quarter notes, C major / A minor walk ──────
+  _schedBass(startAt, duration) {
+    // 16-note cycle = 4 bars; chord tones in C / Am (Hz at 2nd octave)
+    // C2=65 D2=73 E2=82 F2=87 G2=98 A2=110 B2=123
+    const WALK = [
+       65,  82,  98, 110,  98,  82,  87,  98,   // bars 1-2: C-E-G-A-G-E-F-G
+      110,  82,  98, 110, 123, 110,  98,  82,   // bars 3-4: A-E-G-A-B-A-G-E
+    ];
+    const BEAT = 0.5;   // quarter note at 120 BPM
+    const ctx  = this._ctx;
+    let ni = 0;
+    for (let t = startAt; t < startAt + duration; t += BEAT, ni++) {
+      const freq    = WALK[ni % WALK.length];
+      const noteDur = BEAT * 0.78;
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.linearRampToValueAtTime(0.052, t + 0.012);
+      g.gain.setValueAtTime(0.052, t + noteDur - 0.025);
+      g.gain.linearRampToValueAtTime(0.001, t + noteDur);
+      osc.connect(g);  g.connect(this._bassGain);
+      osc.start(t);  osc.stop(t + noteDur + 0.01);
+      this._sched.push(osc, g);
+    }
+  }
+
+  // ── Chord stabs: sawtooth triads, short attack / quick decay ────────────
+  _schedStabs(startAt, duration) {
+    // Am – C – F – G rotation, one stab every 2 bars (4 s)
+    const CHORDS = [
+      [220, 262, 330],   // Am  (A3, C4, E4)
+      [262, 330, 392],   // C   (C4, E4, G4)
+      [175, 220, 262],   // F   (F3, A3, C4)
+      [196, 247, 294],   // G   (G3, B3, D4)
+    ];
+    const ctx = this._ctx;
+    let ci = 0;
+    for (let t = startAt + 4.0; t < startAt + duration; t += 4.0, ci++) {
+      for (const freq of CHORDS[ci % CHORDS.length]) {
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0.001, t);
+        g.gain.linearRampToValueAtTime(0.022, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+        osc.connect(g);  g.connect(this._mainGain);
+        osc.start(t);  osc.stop(t + 0.38);
+        this._sched.push(osc, g);
+      }
+    }
+  }
+
+  // ── Card transitions ─────────────────────────────────────────────────────
+  // Mute kicks/stabs; attenuate (not silence) bass so baseline is audible.
+  pauseForCard() {
+    const ctx = this._ctx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    if (this._mainGain) {
+      this._mainGain.gain.cancelScheduledValues(now);
+      this._mainGain.gain.setValueAtTime(this._mainGain.gain.value, now);
+      this._mainGain.gain.linearRampToValueAtTime(0.0, now + 0.12);
+    }
+    if (this._bassGain) {
+      this._bassGain.gain.cancelScheduledValues(now);
+      this._bassGain.gain.setValueAtTime(this._bassGain.gain.value, now);
+      this._bassGain.gain.linearRampToValueAtTime(0.28, now + 0.15);
+    }
+  }
+
+  resumeFromCard() {
+    const ctx = this._ctx;
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    if (this._mainGain) {
+      this._mainGain.gain.cancelScheduledValues(now);
+      this._mainGain.gain.setValueAtTime(0.0, now);
+      this._mainGain.gain.linearRampToValueAtTime(1.0, now + 0.18);
+    }
+    if (this._bassGain) {
+      this._bassGain.gain.cancelScheduledValues(now);
+      this._bassGain.gain.setValueAtTime(this._bassGain.gain.value, now);
+      this._bassGain.gain.linearRampToValueAtTime(1.0, now + 0.18);
+    }
+  }
+
+  // ── Stop: disconnect all scheduled nodes ─────────────────────────────────
+  stop() {
+    for (const n of this._sched) {
+      try { n.disconnect(); } catch (_) {}
+    }
+    this._sched    = [];
+    this._mainGain = null;
+    this._bassGain = null;
+  }
+}
+
+// Singleton — available globally as window.A2ElectroswingSynth
+window.A2ElectroswingSynth = new A2ElectroswingSynth();
