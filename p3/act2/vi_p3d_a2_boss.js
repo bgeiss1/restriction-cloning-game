@@ -25,7 +25,6 @@ const P3DAct2BossBattle = (() => {
   const LANE_COLS   = ['#00cc88', '#C8A951', '#4488ff'];
   const LANE_BIO    = ['HA1 · Head', 'HA2 · Stem', 'FP · Peptide'];
 
-  const CARD_DUR = 3.2;   // seconds each intro card is displayed
 
   const PHASE_KEYS   = ['A', 'B', 'C', 'D', 'E'];
   const PHASE_LABELS = [
@@ -180,7 +179,7 @@ const P3DAct2BossBattle = (() => {
     }
 
     // Show intro card for Phase A before any notes fall
-    _card = { phaseIdx: 0, t: 0 };
+    _card = { phaseIdx: 0, t: 0, dismissed: false, countdownT: 0, btnRect: null };
   }
 
   // ── Main tick ──────────────────────────────────────────────────────────
@@ -200,14 +199,17 @@ const P3DAct2BossBattle = (() => {
       P3Descent.camera.lookAt(0, _lookY, 0);
     }
 
-    // ── Intro card — freeze game time ────────────────────────────────
+    // ── Intro card — freeze game time until player dismisses ────────
     if (_card) {
       _card.t += dt;
-      _render();
-      if (_card.t >= CARD_DUR) {
-        _card = null;
-        if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.resumeFromCard();
+      if (_card.dismissed) {
+        _card.countdownT += dt;
+        if (_card.countdownT >= 3.0) {
+          _card = null;
+          if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.resumeFromCard();
+        }
       }
+      _render();
       return;
     }
 
@@ -232,7 +234,7 @@ const P3DAct2BossBattle = (() => {
       // Drop any stale nodes from the previous phase; cancel held notes
       _activeNodes = _activeNodes.filter(n => n.hitTime >= _phaseStartT[_phaseIdx]);
       for (let li = 0; li < N_LANES; li++) _heldNode[li] = null;
-      _card = { phaseIdx: _phaseIdx, t: 0 };
+      _card = { phaseIdx: _phaseIdx, t: 0, dismissed: false, countdownT: 0, btnRect: null };
       if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.pauseForCard();
       _render();
       return;
@@ -598,19 +600,26 @@ const P3DAct2BossBattle = (() => {
       position:      'fixed',
       top: '0', left: '0',
       width: '100%', height: '100%',
-      pointerEvents: 'none',
+      pointerEvents: 'auto',
       zIndex:        '18',
+      cursor:        'default',
     });
     document.body.appendChild(cv);
     _canvas = cv;
     _ctx    = cv.getContext('2d');
     _onResize();
     window.addEventListener('resize', _onResize);
+    cv.addEventListener('click', _onCanvasClick);
   }
 
   function _destroyCanvas() {
     window.removeEventListener('resize', _onResize);
-    if (_canvas) { _canvas.remove(); _canvas = null; _ctx = null; }
+    if (_canvas) {
+      _canvas.removeEventListener('click', _onCanvasClick);
+      _canvas.remove();
+      _canvas = null;
+      _ctx    = null;
+    }
   }
 
   function _onResize() {
@@ -801,9 +810,16 @@ const P3DAct2BossBattle = (() => {
       _ctx.fillRect(0, 0, W, H);
     }
 
-    // ── Intro card (drawn last, on top of everything) ──────────────────
+    // ── Intro card / countdown (drawn last, on top of everything) ─────
     if (_card) {
-      _drawIntroCard(W, H);
+      if (!_card.dismissed) {
+        _drawIntroCard(W, H, 1.0);
+      } else {
+        // Card fades out over 350ms; countdown overlays immediately
+        const cardAlpha = Math.max(0, 1 - _card.countdownT / 0.35);
+        if (cardAlpha > 0) _drawIntroCard(W, H, cardAlpha);
+        _drawCardCountdown(W, H);
+      }
     }
   }
 
@@ -985,14 +1001,11 @@ const P3DAct2BossBattle = (() => {
 
   // ── Phase intro card ───────────────────────────────────────────────────
 
-  function _drawIntroCard(W, H) {
+  function _drawIntroCard(W, H, extraAlpha = 1) {
     if (!_card) return;
 
-    const t        = _card.t;
-    const progress = Math.min(1, t / CARD_DUR);
-    const fadeIn   = Math.min(1, t / 0.28);
-    const fadeOut  = t > CARD_DUR - 0.28 ? Math.max(0, (CARD_DUR - t) / 0.28) : 1;
-    const alpha    = fadeIn * fadeOut;
+    const fadeIn = Math.min(1, _card.t / 0.28);
+    const alpha  = fadeIn * extraAlpha;
 
     _ctx.globalAlpha = alpha;
 
@@ -1050,15 +1063,55 @@ const P3DAct2BossBattle = (() => {
       _ctx.fillText(lines[li], cX, ly);
     }
 
-    // Timer bar
-    const barW = cardW - 60;
-    const barY = cY + cardH / 2 - 22;
-    _ctx.fillStyle = 'rgba(255,255,255,0.07)';
-    _ctx.fillRect(cX - barW / 2, barY, barW, 3);
-    _ctx.fillStyle = '#C8A951';
-    _ctx.fillRect(cX - barW / 2, barY, barW * progress, 3);
+    // "GROOVE ON »" button (only before player clicks)
+    if (!_card.dismissed) {
+      const btnW  = 172;
+      const btnH  = 38;
+      const btnX  = cX - btnW / 2;
+      const btnY  = cY + cardH / 2 - 54;
+      _card.btnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
+
+      const pulse = 0.5 + 0.5 * Math.sin(_card.t * 3.8);
+      _roundRect(btnX, btnY, btnW, btnH, 7);
+      _ctx.fillStyle   = `rgba(200,169,81,${(0.15 + 0.10 * pulse).toFixed(2)})`;
+      _ctx.fill();
+      _ctx.strokeStyle = `rgba(200,169,81,${(0.55 + 0.35 * pulse).toFixed(2)})`;
+      _ctx.lineWidth   = 1.5;
+      _ctx.stroke();
+
+      _ctx.fillStyle    = `rgba(255,235,150,${(0.82 + 0.18 * pulse).toFixed(2)})`;
+      _ctx.font         = 'bold 13px monospace';
+      _ctx.textAlign    = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText('GROOVE ON  »', cX, btnY + btnH / 2);
+    }
 
     _ctx.globalAlpha = 1;
+  }
+
+  // ── Post-dismiss countdown (3 → 2 → 1) ────────────────────────────────
+  function _drawCardCountdown(W, H) {
+    if (!_card) return;
+    const ct = _card.countdownT;
+    if (ct >= 3.0) return;
+
+    const num   = 3 - Math.floor(ct);
+    const beat  = ct % 1.0;
+    // Scale pops on the downbeat and shrinks into the next
+    const scale = 1.0 + 0.22 * Math.pow(1 - beat, 3);
+    // Quick fade-in, stays solid, fast fade on transition
+    const alpha = Math.min(1, ct * 10) * (beat < 0.85 ? 1 : Math.max(0, 1 - (beat - 0.85) / 0.15));
+
+    _ctx.save();
+    _ctx.globalAlpha  = alpha;
+    _ctx.font         = `bold ${Math.round(92 * scale)}px monospace`;
+    _ctx.textAlign    = 'center';
+    _ctx.textBaseline = 'middle';
+    _ctx.fillStyle    = num === 1 ? '#00ff88' : '#ffffff';
+    _ctx.shadowColor  = num === 1 ? '#00ff88' : '#88aaff';
+    _ctx.shadowBlur   = 38;
+    _ctx.fillText(String(num), W / 2, H / 2 - 44);
+    _ctx.restore();
   }
 
   // ── Node drawing ───────────────────────────────────────────────────────
@@ -1150,6 +1203,18 @@ const P3DAct2BossBattle = (() => {
   }
 
   // ── Input ──────────────────────────────────────────────────────────────
+
+  function _onCanvasClick(e) {
+    if (!_card || _card.dismissed) return;
+    const rect = _canvas.getBoundingClientRect();
+    const mx   = (e.clientX - rect.left) * (_canvas.width  / rect.width);
+    const my   = (e.clientY - rect.top)  * (_canvas.height / rect.height);
+    const b    = _card.btnRect;
+    if (b && mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+      _card.dismissed   = true;
+      _card.countdownT  = 0;
+    }
+  }
 
   function _onKeyDown(e) {
     if (_keys[e.code]) return;
