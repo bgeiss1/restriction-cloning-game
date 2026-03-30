@@ -1073,17 +1073,21 @@ const P3DAct2BossBattle = (() => {
     _ctx.globalAlpha = alpha;
 
     // Dim overlay behind card
-    _ctx.fillStyle = 'rgba(0,0,0,0.68)';
+    _ctx.fillStyle = 'rgba(0,0,0,0.72)';
     _ctx.fillRect(0, 0, W, H);
 
-    const cardW = Math.min(520, W - 60);
-    const cardH = 230;
-    const cX    = W / 2;
-    const cY    = H / 2;
+    // Side-by-side layout: animation left, text right
+    const ANIM_W  = 300;
+    const cardW   = Math.min(820, W - 60);
+    const cardH   = 340;
+    const cX      = W / 2;
+    const cY      = H / 2;
+    const cardL   = cX - cardW / 2;
+    const cardT_  = cY - cardH / 2;
 
     // Card background
-    _ctx.fillStyle = 'rgba(8,12,30,0.94)';
-    _roundRect(cX - cardW / 2, cY - cardH / 2, cardW, cardH, 12);
+    _ctx.fillStyle = 'rgba(8,12,30,0.96)';
+    _roundRect(cardL, cardT_, cardW, cardH, 14);
     _ctx.fill();
     _ctx.strokeStyle = 'rgba(200,169,81,0.55)';
     _ctx.lineWidth   = 1.5;
@@ -1091,47 +1095,77 @@ const P3DAct2BossBattle = (() => {
 
     const pi = _card.phaseIdx;
 
-    // Phase counter (top-right)
+    // ── 3-D HA animation (left panel) ────────────────────────────────────
+    const animPad = 12;
+    const animX   = cardL + animPad;
+    const animY   = cardT_ + animPad;
+    const animW   = Math.min(ANIM_W, cardW * 0.40);
+    const animH   = cardH - animPad * 2;
+
+    if (window.A2HAAnim) {
+      // Clip to animation panel so the 3D render doesn't bleed outside card
+      _ctx.save();
+      _roundRect(animX, animY, animW, animH, 8);
+      _ctx.clip();
+      _ctx.globalAlpha = alpha;
+      window.A2HAAnim.render(_ctx, animX, animY, animW, animH, pi);
+      _ctx.restore();
+      _ctx.globalAlpha = alpha;
+    }
+
+    // Divider between animation and text
+    _ctx.strokeStyle = 'rgba(200,169,81,0.22)';
+    _ctx.lineWidth   = 1;
+    _ctx.beginPath();
+    _ctx.moveTo(animX + animW + animPad, cardT_ + 20);
+    _ctx.lineTo(animX + animW + animPad, cardT_ + cardH - 20);
+    _ctx.stroke();
+
+    // ── Text panel (right side) ───────────────────────────────────────────
+    const textPanL = animX + animW + animPad * 2 + 4;
+    const textPanW = (cardL + cardW) - textPanL - 16;
+    const textCX   = textPanL + textPanW / 2;
+
+    // Phase counter (top-right corner of text panel)
     _ctx.fillStyle    = 'rgba(200,169,81,0.50)';
     _ctx.font         = '10px monospace';
     _ctx.textAlign    = 'right';
     _ctx.textBaseline = 'top';
-    _ctx.fillText(`${pi + 1} / 5`, cX + cardW / 2 - 18, cY - cardH / 2 + 14);
+    _ctx.fillText(`${pi + 1} / 5`, cardL + cardW - 18, cardT_ + 14);
 
     // Phase label
     _ctx.fillStyle    = '#C8A951';
     _ctx.font         = 'bold 13px monospace';
     _ctx.textAlign    = 'center';
     _ctx.textBaseline = 'middle';
-    _ctx.fillText(PHASE_LABELS[pi], cX, cY - cardH / 2 + 36);
+    _ctx.fillText(PHASE_LABELS[pi], textCX, cardT_ + 38);
 
-    // Separator
+    // Separator under label
     _ctx.strokeStyle = 'rgba(200,169,81,0.28)';
     _ctx.lineWidth   = 1;
     _ctx.beginPath();
-    _ctx.moveTo(cX - cardW / 2 + 24, cY - cardH / 2 + 58);
-    _ctx.lineTo(cX + cardW / 2 - 24, cY - cardH / 2 + 58);
+    _ctx.moveTo(textPanL, cardT_ + 60);
+    _ctx.lineTo(textPanL + textPanW, cardT_ + 60);
     _ctx.stroke();
 
-    // Description text (multi-line)
-    const lines  = PHASE_DESC[pi].split('\n');
-    const lineH  = 24;
-    const textCY = cY + 8;
+    // Description text (multi-line, word-wrapped to panel width)
+    const lines = PHASE_DESC[pi].split('\n');
+    const lineH = 26;
+    const textStartY = cardT_ + 80;
     _ctx.fillStyle    = '#b8d8ba';
     _ctx.font         = '13px sans-serif';
-    _ctx.textAlign    = 'center';
-    _ctx.textBaseline = 'middle';
+    _ctx.textAlign    = 'left';
+    _ctx.textBaseline = 'top';
     for (let li = 0; li < lines.length; li++) {
-      const ly = textCY + (li - (lines.length - 1) / 2) * lineH;
-      _ctx.fillText(lines[li], cX, ly);
+      _ctx.fillText(lines[li], textPanL, textStartY + li * lineH, textPanW);
     }
 
-    // "GROOVE ON »" button (only before player clicks)
+    // "GROOVE ON »" button
     if (!_card.dismissed) {
-      const btnW  = 172;
+      const btnW  = 160;
       const btnH  = 38;
-      const btnX  = cX - btnW / 2;
-      const btnY  = cY + cardH / 2 - 54;
+      const btnX  = textCX - btnW / 2;
+      const btnY  = cardT_ + cardH - 58;
       _card.btnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
 
       const pulse = 0.5 + 0.5 * Math.sin(_card.t * 3.8);
@@ -1146,7 +1180,7 @@ const P3DAct2BossBattle = (() => {
       _ctx.font         = 'bold 13px monospace';
       _ctx.textAlign    = 'center';
       _ctx.textBaseline = 'middle';
-      _ctx.fillText('GROOVE ON  »', cX, btnY + btnH / 2);
+      _ctx.fillText('GROOVE ON  »', textCX, btnY + btnH / 2);
     }
 
     _ctx.globalAlpha = 1;
