@@ -762,17 +762,6 @@ const P3DAct2BossBattle = (() => {
       _ctx.globalAlpha = 1;
     }
 
-    // ── Combo display ─────────────────────────────────────────────────
-    if (_combo >= 5 && !_card) {
-      const pulse = 0.78 + 0.22 * Math.sin(_t * 7.5);
-      _ctx.globalAlpha  = pulse;
-      _ctx.fillStyle    = '#C8A951';
-      _ctx.font         = 'bold 18px monospace';
-      _ctx.textAlign    = 'center';
-      _ctx.textBaseline = 'middle';
-      _ctx.fillText(`COMBO ×${_combo}`, W / 2, hitY - 110);
-      _ctx.globalAlpha = 1;
-    }
 
     // ── Phase label ───────────────────────────────────────────────────
     _ctx.fillStyle    = 'rgba(200,169,81,0.80)';
