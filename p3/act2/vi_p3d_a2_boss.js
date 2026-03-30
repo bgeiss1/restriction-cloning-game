@@ -62,6 +62,9 @@ const P3DAct2BossBattle = (() => {
   let _phaseIdx    = 0;
   let _phaseStartT = [];
 
+  // Audio beat reference — set when synth starts, used for beat-sync countdown
+  let _synthStartAt = 0;
+
   // Node pool
   let _nodes       = [];
   let _nodePtr     = 0;
@@ -170,7 +173,8 @@ const P3DAct2BossBattle = (() => {
         window.A2ElectroswingSynth.init(_p3._snd);
         const ctx = _p3._snd.audioCtx;
         if (ctx) {
-          window.A2ElectroswingSynth.start(ctx.currentTime + 0.05);
+          _synthStartAt = ctx.currentTime + 0.05;
+          window.A2ElectroswingSynth.start(_synthStartAt);
           window.A2ElectroswingSynth.pauseForCard();
         }
       } catch(e) {
@@ -204,7 +208,11 @@ const P3DAct2BossBattle = (() => {
       _card.t += dt;
       if (_card.dismissed) {
         _card.countdownT += dt;
-        if (_card.countdownT >= 3.0) {
+        const audioCtx  = _p3._snd && _p3._snd.audioCtx;
+        const resumeNow = (_card.resumeAudioT && audioCtx)
+          ? audioCtx.currentTime >= _card.resumeAudioT
+          : _card.countdownT >= 3.0;   // plain fallback
+        if (resumeNow) {
           _card = null;
           if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.resumeFromCard();
         }
@@ -755,7 +763,7 @@ const P3DAct2BossBattle = (() => {
     }
 
     // ── Combo display ─────────────────────────────────────────────────
-    if (_combo >= 5) {
+    if (_combo >= 5 && !_card) {
       const pulse = 0.78 + 0.22 * Math.sin(_t * 7.5);
       _ctx.globalAlpha  = pulse;
       _ctx.fillStyle    = '#C8A951';
@@ -1089,18 +1097,39 @@ const P3DAct2BossBattle = (() => {
     _ctx.globalAlpha = 1;
   }
 
-  // ── Post-dismiss countdown (3 → 2 → 1) ────────────────────────────────
+  // ── Post-dismiss countdown (3 → 2 → 1, beat-synced) ──────────────────
   function _drawCardCountdown(W, H) {
-    if (!_card) return;
-    const ct = _card.countdownT;
-    if (ct >= 3.0) return;
+    if (!_card || !_card.dismissed) return;
 
-    const num   = 3 - Math.floor(ct);
-    const beat  = ct % 1.0;
-    // Scale pops on the downbeat and shrinks into the next
-    const scale = 1.0 + 0.22 * Math.pow(1 - beat, 3);
-    // Quick fade-in, stays solid, fast fade on transition
-    const alpha = Math.min(1, ct * 10) * (beat < 0.85 ? 1 : Math.max(0, 1 - (beat - 0.85) / 0.15));
+    const BEAT          = 0.5;   // 120 BPM
+    const BEATS_PER_NUM = 2;     // each number lasts 2 beats = 1 s
+    const TOTAL         = 3 * BEATS_PER_NUM * BEAT;  // 3.0 s
+
+    // Derive elapsed time from audio clock when available; fall back to dt sum
+    const audioCtx = _p3._snd && _p3._snd.audioCtx;
+    let ct;
+    if (_card.beat0 !== null && _card.beat0 !== undefined && audioCtx) {
+      ct = audioCtx.currentTime - _card.beat0;
+    } else {
+      ct = _card.countdownT;
+    }
+    if (ct < 0 || ct >= TOTAL) return;
+
+    const numWindow = BEATS_PER_NUM * BEAT;           // 1.0 s per number
+    const numIdx    = Math.floor(ct / numWindow);     // 0, 1, 2
+    const num       = 3 - numIdx;                     // 3, 2, 1
+    const fracInNum = (ct % numWindow) / numWindow;   // 0→1 within that number's window
+
+    // Also compute beat fraction for the pop-on-beat effect within each number
+    const beatFrac  = (ct % BEAT) / BEAT;             // 0→1 within each beat
+
+    // Size: pops large on each beat, settles back down
+    const scale = 1.0 + 0.20 * Math.pow(1 - beatFrac, 3);
+
+    // Alpha: quick fade-in at start of each number, sharp cut at end
+    const fadeIn  = Math.min(1, fracInNum * 8);
+    const fadeOut = fracInNum > 0.88 ? Math.max(0, 1 - (fracInNum - 0.88) / 0.12) : 1;
+    const alpha   = fadeIn * fadeOut;
 
     _ctx.save();
     _ctx.globalAlpha  = alpha;
@@ -1210,9 +1239,29 @@ const P3DAct2BossBattle = (() => {
     const mx   = (e.clientX - rect.left) * (_canvas.width  / rect.width);
     const my   = (e.clientY - rect.top)  * (_canvas.height / rect.height);
     const b    = _card.btnRect;
-    if (b && mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
-      _card.dismissed   = true;
-      _card.countdownT  = 0;
+    if (!b || mx < b.x || mx > b.x + b.w || my < b.y || my > b.y + b.h) return;
+
+    _card.dismissed  = true;
+    _card.countdownT = 0;
+
+    // Snap countdown to next beat boundary so numbers land on the pulse.
+    // Each number holds for 2 beats (1 s at 120 BPM); total = 3 s / 6 beats.
+    const BEAT           = 0.5;          // 120 BPM quarter note
+    const BEATS_PER_NUM  = 2;
+    const audioCtx = _p3._snd && _p3._snd.audioCtx;
+    if (audioCtx && _synthStartAt) {
+      const now       = audioCtx.currentTime;
+      const elapsed   = now - _synthStartAt;
+      const beatPhase = ((elapsed % BEAT) + BEAT) % BEAT;  // 0 → BEAT
+      // If we're very close to a beat already (< 5 % of beat), snap to it;
+      // otherwise wait for the next one.
+      const toNext    = beatPhase > BEAT * 0.05 ? BEAT - beatPhase : 0;
+      _card.beat0     = now + toNext;                                   // "3" onset
+      _card.resumeAudioT = _card.beat0 + 3 * BEATS_PER_NUM * BEAT;     // game resumes
+    } else {
+      // Fallback when no audio context: plain 3 s timer
+      _card.beat0        = null;
+      _card.resumeAudioT = null;
     }
   }
 
