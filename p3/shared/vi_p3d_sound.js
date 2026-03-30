@@ -213,6 +213,19 @@ class P3DSoundManager {
   playHemifusion()          { this._playPing(440, 0.04, 0.3); }
   playPoreOpen()            { this._playImpact(35, 0.08); }
 
+  // ── Shared context access (for A2SMBSynth) ───────────────────────────
+  get audioCtx() { return this._getCtx(); }
+
+  // Fade the master gain to targetGain over rampSec seconds.
+  // Used by A2SMBSynth to avoid audible clicks on card pause/resume.
+  fadeMasterGain(targetGain, rampSec) {
+    const ctx = this._getCtx(); if (!ctx || !this._master) return;
+    const now = ctx.currentTime;
+    this._master.gain.cancelScheduledValues(now);
+    this._master.gain.setValueAtTime(this._master.gain.value, now);
+    this._master.gain.linearRampToValueAtTime(targetGain, now + rampSec);
+  }
+
   // ── Lifecycle ─────────────────────────────────────────────────────────
   pause() {
     if (this._ctx && this._ctx.state === 'running') this._ctx.suspend();

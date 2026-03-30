@@ -161,6 +161,17 @@ const P3DAct2BossBattle = (() => {
     _running = true;
     _paused  = false;
     _p3._edu.trigger('HA_LOOSEN');
+
+    // Start SMB music, then immediately pause for the Phase A intro card
+    if (window.A2SMBSynth) {
+      A2SMBSynth.init(_p3._snd);
+      const ctx = _p3._snd.audioCtx;
+      if (ctx) {
+        A2SMBSynth.start(ctx.currentTime + 0.05);
+        A2SMBSynth.pauseForCard();
+      }
+    }
+
     // Show intro card for Phase A before any notes fall
     _card = { phaseIdx: 0, t: 0 };
   }
@@ -186,7 +197,10 @@ const P3DAct2BossBattle = (() => {
     if (_card) {
       _card.t += dt;
       _render();
-      if (_card.t >= CARD_DUR) _card = null;
+      if (_card.t >= CARD_DUR) {
+        _card = null;
+        if (window.A2SMBSynth) A2SMBSynth.resumeFromCard();
+      }
       return;
     }
 
@@ -212,6 +226,7 @@ const P3DAct2BossBattle = (() => {
       _activeNodes = _activeNodes.filter(n => n.hitTime >= _phaseStartT[_phaseIdx]);
       for (let li = 0; li < N_LANES; li++) _heldNode[li] = null;
       _card = { phaseIdx: _phaseIdx, t: 0 };
+      if (window.A2SMBSynth) A2SMBSynth.pauseForCard();
       _render();
       return;
     }
@@ -306,6 +321,20 @@ const P3DAct2BossBattle = (() => {
   // ── Beat-map generation ────────────────────────────────────────────────
 
   function _generateNodes() {
+    // Use SMB-derived beatmap when available; fall back to LCG otherwise.
+    if (window.A2SMBBeatmap) {
+      const nodes = A2SMBBeatmap.build(_phaseStartT, _totalDur);
+      // Count SYNC pairs for stats (each pair = 1 syncTotal entry)
+      const syncIds = new Set();
+      for (const n of nodes) {
+        if (n.type === 'SYNC' && n.syncId !== null) syncIds.add(n.syncId);
+      }
+      _syncTotal += syncIds.size;
+      _nextSyncId = syncIds.size;
+      return nodes;
+    }
+
+    // ── LCG fallback ────────────────────────────────────────────────────
     const out = [];
 
     let seed = 0xdeadbeef;
@@ -493,6 +522,7 @@ const P3DAct2BossBattle = (() => {
     _running = false;
     _removeInput();
     _destroyCanvas();
+    if (window.A2SMBSynth) A2SMBSynth.stop();
     if (window.P3DMatLib && P3DMatLib.endosome) {
       P3DMatLib.endosome.emissiveIntensity = 0.6;
     }
@@ -1082,6 +1112,7 @@ const P3DAct2BossBattle = (() => {
     _paused  = false;
     _removeInput();
     _destroyCanvas();
+    if (window.A2SMBSynth) A2SMBSynth.stop();
     if (window.P3DMatLib && P3DMatLib.endosome) {
       P3DMatLib.endosome.emissiveIntensity = 0.6;
     }

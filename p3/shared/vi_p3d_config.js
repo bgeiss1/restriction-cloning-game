@@ -91,8 +91,8 @@ const P3D_CFG = {
   A2_BPM:            { A: 90,  B: 100, C: 110, D: 120, E: 130 },
   A2_PHASE_DUR:      { A: 15,  B: 15,  C: 20,  D: 10,  E: 15  },
 
-  A2_T_PERFECT_MS:   50,
-  A2_T_GOOD_MS:      120,
+  A2_T_PERFECT_MS:   38,
+  A2_T_GOOD_MS:      75,
   A2_T_SYNC_MS:      80,
 
   A2_PTS_PERFECT:    100,
@@ -108,7 +108,7 @@ const P3D_CFG = {
   A2_IR_SYNC_MISS:   2,
 
   A2_ORBIT_RATE:     0.025,
-  A2_NODE_SPD:       300,    // px/sec scroll
+  A2_NODE_SPD:       420,    // px/sec scroll (increased for 16th-note visibility)
   A2_LANE_W:         100,    // px
   A2_HIT_Y:          80,     // px from bottom of lane
 
@@ -171,6 +171,7 @@ const P3D_CFG = {
   AUD_BEAT_FREQ:    40,
   AUD_BEAT_GAIN_S:  0.01,
   AUD_BEAT_GAIN_E:  0.04,
+  AUD_A2_MUSIC_GAIN: 0.07,  // Act 2 SMB synth gain (direct to destination)
   AUD_LANE_FREQS:   [440, 554, 660],
   AUD_TICK_GAIN:    0.015,
   AUD_HIT_P_GAIN:   0.04,

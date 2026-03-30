@@ -1,0 +1,633 @@
+'use strict';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// vi_p3d_a2_music.js
+// Sub-chunk 2a: SMB_NOTES constant + A2SMBSynth class
+// Sub-chunk 2b (A2SMBBeatmap) is appended separately.
+//
+// Tempo: 200 BPM  →  quarter = 0.300 s, 8th = 0.150 s, 16th = 0.075 s
+// Frequencies: equal temperament, A4 = 440 Hz
+//
+// Voice 0 = melody (square, upper register)
+// Voice 1 = bass  (square, one octave below chord root, walking pattern)
+//
+// Staccato melody notes use dur 0.070 s (NES percussive hit feel).
+// Held melody notes use rhythmic value − 0.030 s gap.
+// Bass notes use dur 0.110 s (slightly longer than staccato, still punchy).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Frequency reference (Hz) ─────────────────────────────────────────────────
+// G3=196.00  A3=220.00  B3=246.94  C4=261.63  D4=293.66  E4=329.63
+// F4=349.23  F#4=369.99 G4=392.00  Ab4=415.30 A4=440.00  Bb4=466.16  B4=493.88
+// C5=523.25  C#5=554.37 D5=587.33  Eb5=622.25 E5=659.25  F5=698.46
+// F#5=739.99 G5=783.99  Ab5=830.61 A5=880.00  Bb5=932.33 B5=987.77
+// C6=1046.50 D6=1174.66 E6=1318.51 G6=1567.98
+
+const SMB_NOTES = [
+
+  // ════════════════════════════════════════════════════════════════════════
+  // INTRO RIFF  (t = 0.000 – 1.350)
+  // E5 E5 . E5 . C5 E5 . G5 . . . G4 . . .
+  // ════════════════════════════════════════════════════════════════════════
+
+  // bar 1 — E5 E5 (rest) E5 (rest) C5 E5 (rest)
+  { t: 0.000, freq: 659.25, dur: 0.070, voice: 0 },   // E5
+  { t: 0.150, freq: 659.25, dur: 0.070, voice: 0 },   // E5
+  // 0.300 rest
+  { t: 0.450, freq: 659.25, dur: 0.070, voice: 0 },   // E5
+  // 0.600 rest
+  { t: 0.750, freq: 523.25, dur: 0.070, voice: 0 },   // C5
+  { t: 0.900, freq: 659.25, dur: 0.070, voice: 0 },   // E5
+
+  // bar 1 bass (C major feel: C roots)
+  { t: 0.000, freq: 261.63, dur: 0.110, voice: 1 },   // C4 bass
+  { t: 0.300, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 0.600, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 0.900, freq: 261.63, dur: 0.110, voice: 1 },
+
+  // bar 2 — G5 . . . G4 . . .
+  { t: 1.050, freq: 783.99, dur: 0.070, voice: 0 },   // G5
+  // big rest 0.300
+  // G4 lower register hit
+  { t: 1.500, freq: 392.00, dur: 0.070, voice: 0 },   // G4
+  // rest to t=2.100
+
+  // bar 2 bass
+  { t: 1.050, freq: 392.00, dur: 0.110, voice: 1 },   // G3 (392/2 = 196 = G3)
+  { t: 1.350, freq: 196.00, dur: 0.110, voice: 1 },
+  { t: 1.650, freq: 196.00, dur: 0.110, voice: 1 },
+  { t: 1.950, freq: 196.00, dur: 0.110, voice: 1 },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // MELODY A — PHRASE 1  (t ≈ 2.100 – 6.000)
+  // C5 . G4 . E4 . A4 . B4 . Bb4 A4 .
+  // G4 E5 G5   A5 . F5 G5 . E5 . C5 D5 B4 .
+  // ════════════════════════════════════════════════════════════════════════
+
+  // phrase 1a
+  { t: 2.100, freq: 523.25, dur: 0.070, voice: 0 },   // C5
+  // rest 0.150
+  { t: 2.400, freq: 392.00, dur: 0.070, voice: 0 },   // G4
+  // rest 0.150
+  { t: 2.700, freq: 329.63, dur: 0.070, voice: 0 },   // E4
+  // rest 0.150
+  { t: 3.000, freq: 440.00, dur: 0.070, voice: 0 },   // A4
+  // rest 0.150
+  { t: 3.300, freq: 493.88, dur: 0.070, voice: 0 },   // B4
+  // rest 0.150
+  { t: 3.600, freq: 466.16, dur: 0.070, voice: 0 },   // Bb4
+  { t: 3.750, freq: 440.00, dur: 0.070, voice: 0 },   // A4
+
+  // phrase 1a bass (C – G – Am – F walk)
+  { t: 2.100, freq: 261.63, dur: 0.110, voice: 1 },   // C4
+  { t: 2.400, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 2.700, freq: 196.00, dur: 0.110, voice: 1 },   // G3
+  { t: 3.000, freq: 220.00, dur: 0.110, voice: 1 },   // A3
+  { t: 3.300, freq: 220.00, dur: 0.110, voice: 1 },
+  { t: 3.600, freq: 174.61, dur: 0.110, voice: 1 },   // F3
+  { t: 3.750, freq: 174.61, dur: 0.110, voice: 1 },
+
+  // phrase 1b — G4 E5 G5  A5 . F5 G5 . E5 . C5 D5 B4 .
+  { t: 4.050, freq: 392.00, dur: 0.070, voice: 0 },   // G4
+  { t: 4.200, freq: 659.25, dur: 0.070, voice: 0 },   // E5
+  { t: 4.350, freq: 783.99, dur: 0.070, voice: 0 },   // G5
+  // 8th rest
+  { t: 4.650, freq: 880.00, dur: 0.070, voice: 0 },   // A5
+  // 8th rest
+  { t: 4.950, freq: 698.46, dur: 0.070, voice: 0 },   // F5
+  { t: 5.100, freq: 783.99, dur: 0.070, voice: 0 },   // G5
+  // 8th rest
+  { t: 5.400, freq: 659.25, dur: 0.070, voice: 0 },   // E5
+  // 8th rest
+  { t: 5.700, freq: 523.25, dur: 0.070, voice: 0 },   // C5
+  { t: 5.850, freq: 587.33, dur: 0.070, voice: 0 },   // D5
+  { t: 6.000, freq: 493.88, dur: 0.070, voice: 0 },   // B4
+  // 8th rest → t=6.300
+
+  // phrase 1b bass
+  { t: 4.050, freq: 261.63, dur: 0.110, voice: 1 },   // C4
+  { t: 4.350, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 4.650, freq: 220.00, dur: 0.110, voice: 1 },   // A3
+  { t: 4.950, freq: 174.61, dur: 0.110, voice: 1 },   // F3
+  { t: 5.250, freq: 196.00, dur: 0.110, voice: 1 },   // G3
+  { t: 5.550, freq: 261.63, dur: 0.110, voice: 1 },   // C4
+  { t: 5.850, freq: 293.66, dur: 0.110, voice: 1 },   // D4
+  { t: 6.150, freq: 246.94, dur: 0.110, voice: 1 },   // B3
+
+  // ════════════════════════════════════════════════════════════════════════
+  // MELODY A — PHRASE 2  (repeat of phrase 1, t ≈ 6.300 – 10.200)
+  // ════════════════════════════════════════════════════════════════════════
+
+  // phrase 2a
+  { t: 6.300, freq: 523.25, dur: 0.070, voice: 0 },   // C5
+  { t: 6.600, freq: 392.00, dur: 0.070, voice: 0 },   // G4
+  { t: 6.900, freq: 329.63, dur: 0.070, voice: 0 },   // E4
+  { t: 7.200, freq: 440.00, dur: 0.070, voice: 0 },   // A4
+  { t: 7.500, freq: 493.88, dur: 0.070, voice: 0 },   // B4
+  { t: 7.800, freq: 466.16, dur: 0.070, voice: 0 },   // Bb4
+  { t: 7.950, freq: 440.00, dur: 0.070, voice: 0 },   // A4
+
+  { t: 6.300, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 6.600, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 6.900, freq: 196.00, dur: 0.110, voice: 1 },
+  { t: 7.200, freq: 220.00, dur: 0.110, voice: 1 },
+  { t: 7.500, freq: 220.00, dur: 0.110, voice: 1 },
+  { t: 7.800, freq: 174.61, dur: 0.110, voice: 1 },
+  { t: 7.950, freq: 174.61, dur: 0.110, voice: 1 },
+
+  // phrase 2b — same as 1b
+  { t: 8.250, freq: 392.00, dur: 0.070, voice: 0 },   // G4
+  { t: 8.400, freq: 659.25, dur: 0.070, voice: 0 },   // E5
+  { t: 8.550, freq: 783.99, dur: 0.070, voice: 0 },   // G5
+  { t: 8.850, freq: 880.00, dur: 0.070, voice: 0 },   // A5
+  { t: 9.150, freq: 698.46, dur: 0.070, voice: 0 },   // F5
+  { t: 9.300, freq: 783.99, dur: 0.070, voice: 0 },   // G5
+  { t: 9.600, freq: 659.25, dur: 0.070, voice: 0 },   // E5
+  { t: 9.900, freq: 523.25, dur: 0.070, voice: 0 },   // C5
+  { t: 10.050, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+  { t: 10.200, freq: 493.88, dur: 0.070, voice: 0 },  // B4
+
+  { t: 8.250, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 8.550, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 8.850, freq: 220.00, dur: 0.110, voice: 1 },
+  { t: 9.150, freq: 174.61, dur: 0.110, voice: 1 },
+  { t: 9.450, freq: 196.00, dur: 0.110, voice: 1 },
+  { t: 9.750, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 10.050, freq: 293.66, dur: 0.110, voice: 1 },
+  { t: 10.350, freq: 246.94, dur: 0.110, voice: 1 },
+
+  // ════════════════════════════════════════════════════════════════════════
+  // MELODY B — "Underground bridge"  (t ≈ 10.500 – 18.900)
+  // This is the contrasting section with the descending chromatic feel.
+  //
+  // B-section phrase 1:
+  //   E5 C5 . [oct-up] C5 C5 D5 . E5 . C5 D5 E5 [half held]
+  //   C5 A4 . A4 B4 . C5 [half held]
+  //
+  // B-section phrase 2 (sequence, step up):
+  //   E5 C5 . C5 C5 D5 . E5 . G5 . G5(hold)
+  //   E5 C5 D5 B4 [half held]
+  //
+  // B-section phrase 3 (descending run):
+  //   Bb4 A4 G4  Ab4 A4 C5 A4 C5 D5
+  //   Bb4 A4 G4  Ab4 A4 F5 . F5 F5 G5 E5 Eb5 D5 Db5
+  //   C5 D5 B4 . Bb4 A4 Ab4 G4 F4 E4 Eb4 D4 Db4 [end riff → loop]
+  // ════════════════════════════════════════════════════════════════════════
+
+  // B-phrase 1  (t=10.500)
+  { t: 10.500, freq: 659.25, dur: 0.270, voice: 0 },  // E5 dotted-quarter
+  { t: 10.800, freq: 523.25, dur: 0.070, voice: 0 },  // C5 8th
+
+  { t: 11.100, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 11.250, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 11.400, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+  // 8th rest
+  { t: 11.700, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+  // 8th rest
+  { t: 12.000, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 12.150, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+  { t: 12.300, freq: 659.25, dur: 0.270, voice: 0 },  // E5 hold (dotted)
+
+  { t: 12.600, freq: 523.25, dur: 0.270, voice: 0 },  // C5 hold
+  { t: 12.900, freq: 440.00, dur: 0.070, voice: 0 },  // A4
+  // 8th rest
+  { t: 13.200, freq: 440.00, dur: 0.070, voice: 0 },  // A4
+  { t: 13.350, freq: 493.88, dur: 0.070, voice: 0 },  // B4
+  // 8th rest
+  { t: 13.650, freq: 523.25, dur: 0.420, voice: 0 },  // C5 half-note hold
+
+  // B-phrase 1 bass
+  { t: 10.500, freq: 261.63, dur: 0.110, voice: 1 },  // C4
+  { t: 10.800, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 11.100, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 11.400, freq: 293.66, dur: 0.110, voice: 1 },  // D4
+  { t: 11.700, freq: 261.63, dur: 0.110, voice: 1 },  // C4
+  { t: 12.000, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 12.300, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 12.600, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 12.900, freq: 220.00, dur: 0.110, voice: 1 },  // A3
+  { t: 13.200, freq: 220.00, dur: 0.110, voice: 1 },
+  { t: 13.500, freq: 220.00, dur: 0.110, voice: 1 },
+  { t: 13.800, freq: 261.63, dur: 0.110, voice: 1 },  // C4
+
+  // B-phrase 2  (t=14.100)
+  { t: 14.100, freq: 659.25, dur: 0.270, voice: 0 },  // E5 dotted-quarter
+  { t: 14.400, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+
+  { t: 14.700, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 14.850, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 15.000, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+  // 8th rest
+  { t: 15.300, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+  // 8th rest
+  { t: 15.600, freq: 783.99, dur: 0.070, voice: 0 },  // G5
+  // 8th rest
+  { t: 15.900, freq: 783.99, dur: 0.420, voice: 0 },  // G5 half-hold
+
+  { t: 16.500, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+  { t: 16.650, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 16.800, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+  { t: 16.950, freq: 493.88, dur: 0.420, voice: 0 },  // B4 half-hold
+
+  // B-phrase 2 bass
+  { t: 14.100, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 14.400, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 14.700, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 15.000, freq: 293.66, dur: 0.110, voice: 1 },
+  { t: 15.300, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 15.600, freq: 196.00, dur: 0.110, voice: 1 },  // G3
+  { t: 15.900, freq: 196.00, dur: 0.110, voice: 1 },
+  { t: 16.200, freq: 196.00, dur: 0.110, voice: 1 },
+  { t: 16.500, freq: 261.63, dur: 0.110, voice: 1 },  // C4
+  { t: 16.800, freq: 293.66, dur: 0.110, voice: 1 },  // D4
+  { t: 17.100, freq: 246.94, dur: 0.110, voice: 1 },  // B3
+
+  // B-phrase 3 — chromatic descending run  (t=17.400)
+  // Bb4 A4 G4 — Ab4 A4 C5 A4 C5 D5
+  { t: 17.400, freq: 466.16, dur: 0.070, voice: 0 },  // Bb4
+  { t: 17.550, freq: 440.00, dur: 0.070, voice: 0 },  // A4
+  { t: 17.700, freq: 392.00, dur: 0.070, voice: 0 },  // G4
+
+  { t: 17.850, freq: 415.30, dur: 0.070, voice: 0 },  // Ab4
+  { t: 18.000, freq: 440.00, dur: 0.070, voice: 0 },  // A4
+  { t: 18.150, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 18.300, freq: 440.00, dur: 0.070, voice: 0 },  // A4
+  { t: 18.450, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 18.600, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+
+  // B-phrase 3 bass
+  { t: 17.400, freq: 174.61, dur: 0.110, voice: 1 },  // F3
+  { t: 17.700, freq: 196.00, dur: 0.110, voice: 1 },  // G3
+  { t: 18.000, freq: 220.00, dur: 0.110, voice: 1 },  // A3
+  { t: 18.300, freq: 261.63, dur: 0.110, voice: 1 },  // C4
+  { t: 18.600, freq: 293.66, dur: 0.110, voice: 1 },  // D4
+
+  // ════════════════════════════════════════════════════════════════════════
+  // MELODY B — second half of B-section  (t ≈ 18.900 – 24.900)
+  // Bb4 A4 G4  Ab4 A4 F5 . F5 F5 G5 E5 Eb5 D5 Db5
+  // C5 D5 B4 . Bb4 A4 Ab4 G4 F4 E4 Eb4 D4 Db4
+  // ════════════════════════════════════════════════════════════════════════
+
+  { t: 18.900, freq: 466.16, dur: 0.070, voice: 0 },  // Bb4
+  { t: 19.050, freq: 440.00, dur: 0.070, voice: 0 },  // A4
+  { t: 19.200, freq: 392.00, dur: 0.070, voice: 0 },  // G4
+
+  { t: 19.350, freq: 415.30, dur: 0.070, voice: 0 },  // Ab4
+  { t: 19.500, freq: 440.00, dur: 0.070, voice: 0 },  // A4
+  // 8th rest
+  { t: 19.800, freq: 698.46, dur: 0.070, voice: 0 },  // F5
+  // 8th rest
+  { t: 20.100, freq: 698.46, dur: 0.070, voice: 0 },  // F5
+  { t: 20.250, freq: 698.46, dur: 0.070, voice: 0 },  // F5
+  { t: 20.400, freq: 783.99, dur: 0.070, voice: 0 },  // G5
+  { t: 20.550, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+  { t: 20.700, freq: 622.25, dur: 0.070, voice: 0 },  // Eb5
+  { t: 20.850, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+  { t: 21.000, freq: 554.37, dur: 0.070, voice: 0 },  // C#5/Db5
+
+  // bass
+  { t: 18.900, freq: 174.61, dur: 0.110, voice: 1 },  // F3
+  { t: 19.200, freq: 196.00, dur: 0.110, voice: 1 },  // G3
+  { t: 19.500, freq: 220.00, dur: 0.110, voice: 1 },  // A3
+  { t: 19.800, freq: 174.61, dur: 0.110, voice: 1 },  // F3
+  { t: 20.100, freq: 174.61, dur: 0.110, voice: 1 },
+  { t: 20.400, freq: 196.00, dur: 0.110, voice: 1 },  // G3
+  { t: 20.700, freq: 261.63, dur: 0.110, voice: 1 },  // C4
+  { t: 21.000, freq: 246.94, dur: 0.110, voice: 1 },  // B3
+
+  // descending chromatic run to close
+  { t: 21.150, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 21.300, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+  { t: 21.450, freq: 493.88, dur: 0.070, voice: 0 },  // B4
+  // 8th rest
+  { t: 21.750, freq: 466.16, dur: 0.070, voice: 0 },  // Bb4
+  { t: 21.900, freq: 440.00, dur: 0.070, voice: 0 },  // A4
+  { t: 22.050, freq: 415.30, dur: 0.070, voice: 0 },  // Ab4
+  { t: 22.200, freq: 392.00, dur: 0.070, voice: 0 },  // G4
+  { t: 22.350, freq: 349.23, dur: 0.070, voice: 0 },  // F4
+  { t: 22.500, freq: 329.63, dur: 0.070, voice: 0 },  // E4
+  { t: 22.650, freq: 311.13, dur: 0.070, voice: 0 },  // Eb4
+  { t: 22.800, freq: 293.66, dur: 0.070, voice: 0 },  // D4
+  { t: 22.950, freq: 277.18, dur: 0.070, voice: 0 },  // Db4/C#4
+
+  // bass for descending run
+  { t: 21.150, freq: 261.63, dur: 0.110, voice: 1 },  // C4
+  { t: 21.450, freq: 246.94, dur: 0.110, voice: 1 },  // B3
+  { t: 21.750, freq: 233.08, dur: 0.110, voice: 1 },  // Bb3
+  { t: 22.050, freq: 220.00, dur: 0.110, voice: 1 },  // A3
+  { t: 22.350, freq: 207.65, dur: 0.110, voice: 1 },  // Ab3
+  { t: 22.650, freq: 196.00, dur: 0.110, voice: 1 },  // G3
+  { t: 22.950, freq: 174.61, dur: 0.110, voice: 1 },  // F3
+
+  // ════════════════════════════════════════════════════════════════════════
+  // ENDING / LOOP TAIL  (t ≈ 23.100 – 25.920)
+  // Return to C-major landing, then brief turnaround back to intro riff
+  // C4 E4 G4 → E5 D5 C5 [hold] … then silence to loop point ≈ 26.0
+  // ════════════════════════════════════════════════════════════════════════
+
+  // octave-up arrival
+  { t: 23.100, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 23.250, freq: 329.63, dur: 0.070, voice: 0 },  // E4
+  { t: 23.400, freq: 392.00, dur: 0.070, voice: 0 },  // G4
+
+  // ascending fill to next phrase start
+  { t: 23.700, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+  { t: 23.850, freq: 587.33, dur: 0.070, voice: 0 },  // D5
+  { t: 24.000, freq: 523.25, dur: 0.570, voice: 0 },  // C5 held ~2 beats
+
+  // tail bass
+  { t: 23.100, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 23.400, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 23.700, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 24.000, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 24.300, freq: 261.63, dur: 0.110, voice: 1 },
+
+  // short turnaround riff back to intro (mirrors opening E5 hits)
+  { t: 24.750, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+  { t: 24.900, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+  // 0.150 rest
+  { t: 25.200, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+  // 0.150 rest
+  { t: 25.500, freq: 523.25, dur: 0.070, voice: 0 },  // C5
+  { t: 25.650, freq: 659.25, dur: 0.070, voice: 0 },  // E5
+
+  { t: 24.750, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 25.050, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 25.350, freq: 261.63, dur: 0.110, voice: 1 },
+  { t: 25.650, freq: 261.63, dur: 0.110, voice: 1 },
+
+  // final note before loop — G5 lands, then silence back to t=0
+  { t: 25.800, freq: 783.99, dur: 0.120, voice: 0 },  // G5 → loop
+
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A2SMBSynth
+// Pre-schedules all oscillators for N loop iterations using Web Audio API.
+// Connects to its own GainNode (NOT through P3DSoundManager master gain) so
+// that pauseForCard() / resumeFromCard() can ramp + suspend independently.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class A2SMBSynth {
+  constructor() {
+    this._snd      = null;   // P3DSoundManager ref
+    this._ctx      = null;   // AudioContext (from snd.audioCtx)
+    this._gainNode = null;   // dedicated GainNode for all music output
+    this._oscs     = [];     // all scheduled OscillatorNode refs
+    this._startAt  = 0;      // AudioContext time when music started
+    this._loopDur  = 0;      // computed from SMB_NOTES
+    this._loops    = 3;      // number of pre-scheduled loop iterations
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+
+  init(snd) {
+    this._snd = snd;
+    // audioCtx may be null if context not yet unlocked — start() will retry
+    const ctx = snd.audioCtx;
+    this._ctx = ctx;
+
+    // Compute loop duration from note data
+    let maxEnd = 0;
+    for (const n of SMB_NOTES) {
+      const end = n.t + n.dur;
+      if (end > maxEnd) maxEnd = end;
+    }
+    this._loopDur = maxEnd;  // ~25.92 s; close enough to 26 s
+
+    if (ctx) {
+      this._gainNode = ctx.createGain();
+      this._gainNode.gain.value = 0.07;
+      // Connect directly to destination — bypasses P3DSoundManager master gain
+      this._gainNode.connect(ctx.destination);
+    }
+  }
+
+  // ── Start ─────────────────────────────────────────────────────────────────
+
+  start(startAt) {
+    // Re-acquire ctx in case it wasn't ready during init()
+    if (!this._ctx && this._snd) {
+      this._ctx = this._snd.audioCtx;
+      if (this._ctx && !this._gainNode) {
+        this._gainNode = this._ctx.createGain();
+        this._gainNode.gain.value = 0.07;
+        this._gainNode.connect(this._ctx.destination);
+      }
+    }
+    const ctx = this._ctx;
+    if (!ctx || !this._gainNode) return;
+
+    this._startAt = startAt;
+
+    for (let i = 0; i < this._loops; i++) {
+      const loopOffset = i * this._loopDur;
+      for (const n of SMB_NOTES) {
+        const absT = startAt + loopOffset + n.t;
+        const osc  = ctx.createOscillator();
+        osc.type = 'square';
+        osc.frequency.value = n.freq;
+        osc.connect(this._gainNode);
+        osc.start(absT);
+        osc.stop(absT + n.dur);
+        this._oscs.push(osc);
+      }
+    }
+  }
+
+  // ── Pause / Resume (for info cards) ──────────────────────────────────────
+
+  pauseForCard() {
+    if (!this._ctx || !this._gainNode) return;
+    const now = this._ctx.currentTime;
+    this._gainNode.gain.cancelScheduledValues(now);
+    this._gainNode.gain.setValueAtTime(this._gainNode.gain.value, now);
+    this._gainNode.gain.linearRampToValueAtTime(0, now + 0.12);
+    // Suspend context after ramp completes
+    setTimeout(() => {
+      if (this._ctx && this._ctx.state === 'running') this._ctx.suspend();
+    }, 150);
+  }
+
+  resumeFromCard() {
+    if (!this._ctx || !this._gainNode) return;
+    this._ctx.resume().then(() => {
+      const now = this._ctx.currentTime;
+      this._gainNode.gain.cancelScheduledValues(now);
+      this._gainNode.gain.setValueAtTime(0, now);
+      this._gainNode.gain.linearRampToValueAtTime(0.07, now + 0.12);
+    });
+  }
+
+  // ── Stop ─────────────────────────────────────────────────────────────────
+
+  stop() {
+    if (this._gainNode && this._ctx) {
+      const now = this._ctx.currentTime;
+      this._gainNode.gain.cancelScheduledValues(now);
+      this._gainNode.gain.setValueAtTime(this._gainNode.gain.value, now);
+      this._gainNode.gain.linearRampToValueAtTime(0, now + 0.05);
+    }
+    this._oscs.forEach(o => {
+      try { o.stop(); o.disconnect(); } catch (e) { /* already stopped */ }
+    });
+    this._oscs = [];
+    if (this._gainNode) {
+      try { this._gainNode.disconnect(); } catch (e) {}
+      this._gainNode = null;
+    }
+  }
+
+  // ── Getters ───────────────────────────────────────────────────────────────
+
+  get loopDur() { return this._loopDur; }
+
+  // Seconds elapsed since music started (based on AudioContext clock)
+  get elapsed() { return this._ctx ? this._ctx.currentTime - this._startAt : 0; }
+}
+
+// Singleton — available globally as window.A2SMBSynth
+window.A2SMBSynth = new A2SMBSynth();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A2SMBBeatmap — builds the node pool for P3DAct2BossBattle from SMB_NOTES.
+// Sub-chunk 2b.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class A2SMBBeatmap {
+  constructor() {}
+
+  /**
+   * build(phaseStartT, totalDur) → sorted node array
+   *
+   * phaseStartT : [0, 15, 30, 50, 60]  (game-time seconds for each phase A–E)
+   * totalDur    : 75  (total Act 2 duration in seconds)
+   */
+  build(phaseStartT, totalDur) {
+    // ── Step 1: setup ────────────────────────────────────────────────────────
+    const loopDur = SMB_NOTES.reduce((mx, n) => Math.max(mx, n.t + n.dur), 0);
+    const nLoops  = Math.ceil(totalDur / loopDur) + 1;
+    const out     = [];
+    let   syncId  = 0;
+
+    // ── Step 2: phase helper ─────────────────────────────────────────────────
+    function phaseOf(t) {
+      for (let i = phaseStartT.length - 1; i >= 0; i--)
+        if (t >= phaseStartT[i]) return i;
+      return 0;
+    }
+
+    // ── Step 3: density gate ─────────────────────────────────────────────────
+    function densityPass(phase, noteT) {
+      const eighth = 0.150, sixteenth = 0.075;
+      if (phase <= 1) {
+        // 8th-note-aligned only (±20 ms tolerance)
+        return Math.abs((noteT % eighth)) < 0.020 ||
+               Math.abs((noteT % eighth) - eighth) < 0.020;
+      }
+      if (phase <= 3) {
+        // 8th boundaries always pass; every-other 16th passes
+        const slot = Math.round(noteT / sixteenth);
+        return slot % 2 === 0 || Math.abs(noteT % eighth) < 0.020;
+      }
+      return true; // Phase E: all pass
+    }
+
+    // ── Step 4: SYNC detection helpers ──────────────────────────────────────
+    const bassOnsets = new Set(
+      SMB_NOTES.filter(n => n.voice === 1).map(n => Math.round(n.t * 1000))
+    );
+
+    function isSyncCandidate(n) {
+      const tms = Math.round(n.t * 1000);
+      if (bassOnsets.has(tms)) return true;
+      for (let d = -15; d <= 15; d++)
+        if (bassOnsets.has(tms + d)) return true;
+      return false;
+    }
+
+    // ── Step 5: lane from frequency ──────────────────────────────────────────
+    function laneFromFreq(freq) {
+      if (freq < 330) return 0;
+      if (freq < 660) return 1;
+      return 2;
+    }
+
+    // ── Node factory (exact shape required by P3DAct2BossBattle._mkNode) ────
+    function mkNode(type, lane, hitTime, extra) {
+      return Object.assign({
+        type, lane, hitTime,
+        state: 'waiting', judgement: null, flashT: -1,
+        holdProgress: 0, holdDur: 0, syncId: null,
+      }, extra);
+    }
+
+    // ── Step 6: main loop ────────────────────────────────────────────────────
+    // consumed[loopIdx][Math.round(noteT*1000)] = true → bass note used by SYNC
+    const consumed = {};
+
+    function markConsumed(loopIdx, noteT) {
+      if (!consumed[loopIdx]) consumed[loopIdx] = {};
+      consumed[loopIdx][Math.round(noteT * 1000)] = true;
+    }
+    function isConsumed(loopIdx, noteT) {
+      return !!(consumed[loopIdx] && consumed[loopIdx][Math.round(noteT * 1000)]);
+    }
+
+    for (let loopIdx = 0; loopIdx < nLoops; loopIdx++) {
+      const loopBase = loopIdx * loopDur;
+
+      // ── Melody notes (voice 0) ───────────────────────────────────────────
+      for (const n of SMB_NOTES) {
+        if (n.voice !== 0) continue;
+        const hitTime = loopBase + n.t;
+        if (hitTime >= totalDur) continue;
+        const phase = phaseOf(hitTime);
+        if (!densityPass(phase, n.t)) continue;
+
+        const lane = laneFromFreq(n.freq);
+
+        if (isSyncCandidate(n)) {
+          // Find closest bass note within 15 ms
+          const bassNote = SMB_NOTES
+            .filter(b => b.voice === 1 && Math.abs(b.t - n.t) <= 0.015)
+            .sort((a, b) => Math.abs(a.t - n.t) - Math.abs(b.t - n.t))[0];
+
+          if (bassNote) {
+            const sid = syncId++;
+            out.push(mkNode('SYNC', lane, hitTime,       { syncId: sid }));
+            out.push(mkNode('SYNC', 0,    loopBase + bassNote.t, { syncId: sid }));
+            markConsumed(loopIdx, bassNote.t);
+            continue;
+          }
+        }
+
+        // HOLD if note duration > 0.22 s, else TAP
+        if (n.dur > 0.22) {
+          out.push(mkNode('HOLD', lane, hitTime, { holdDur: n.dur - 0.030 }));
+        } else {
+          out.push(mkNode('TAP', lane, hitTime));
+        }
+      }
+
+      // ── Solo bass notes not consumed by SYNC (phases C/D/E only) ─────────
+      for (const n of SMB_NOTES) {
+        if (n.voice !== 1) continue;
+        if (isConsumed(loopIdx, n.t)) continue;
+        const hitTime = loopBase + n.t;
+        if (hitTime >= totalDur) continue;
+        const phase = phaseOf(hitTime);
+        if (phase < 2) continue;                  // skip phases A/B
+        if (!densityPass(phase, n.t)) continue;
+        out.push(mkNode('TAP', 0, hitTime));
+      }
+    }
+
+    // ── Step 7: sort by hitTime ──────────────────────────────────────────────
+    out.sort((a, b) => a.hitTime - b.hitTime);
+    return out;
+  }
+}
+
+// Singleton — available globally as window.A2SMBBeatmap
+window.A2SMBBeatmap = new A2SMBBeatmap();
