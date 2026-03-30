@@ -311,7 +311,7 @@ const P3DAct2BossBattle = (() => {
     _render();
 
     // ── Fail check ───────────────────────────────────────────────────
-    if (_ir >= _irFail) {
+    if (_ir >= _irFail && !window._p3dNoFail) {
       _complete('fail');
       return;
     }

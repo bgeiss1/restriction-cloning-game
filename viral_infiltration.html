@@ -5726,6 +5726,12 @@ setOverlay('titleScreen');
 gameLoop();
 
 // ── P3 Debug Skip ─────────────────────────────────────────────────────────
+function p3dToggleNoFail() {
+  window._p3dNoFail = !window._p3dNoFail;
+  const btn = document.getElementById('p3dNoFailBtn');
+  if (btn) btn.classList.toggle('active', !!window._p3dNoFail);
+}
+
 function p3dSkipToAct(n) {
   if (!window.P3Descent || !P3Descent._active) return;
 
@@ -5801,6 +5807,7 @@ function p3dSkipToAct(n) {
     <button class="p3d-db-btn" onclick="p3dSkipToAct(1)">Act 1</button>
     <button class="p3d-db-btn" onclick="p3dSkipToAct(2)">Act 2</button>
     <button class="p3d-db-btn" onclick="p3dSkipToAct(3)">Act 3</button>
+    <button class="p3d-db-btn" id="p3dNoFailBtn" onclick="p3dToggleNoFail()">No-Fail</button>
   </div>
 </div>
 
