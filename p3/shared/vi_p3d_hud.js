@@ -139,7 +139,7 @@ class P3DHUD {
     this._el.ns1Ct2 = document.getElementById('p3dNS1Ct2');
 
     // Combo counter (center, hidden by default)
-    this._el.combo = this._el_(a2, '<div id="p3dCombo" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:1.5rem;font-weight:700;color:#C8A951;text-shadow:0 0 8px rgba(200,169,81,0.7);display:none"></div>');
+    this._el.combo = this._el_(a2, '<div id="p3dCombo" style="position:absolute;bottom:110px;left:50%;transform:translateX(-50%);font-size:1.5rem;font-weight:700;color:#C8A951;text-shadow:0 0 8px rgba(200,169,81,0.7);display:none"></div>');
     this._el.comboEl = document.getElementById('p3dCombo');
 
     // ── Act 3 elements ────────────────────────────────────────────────
