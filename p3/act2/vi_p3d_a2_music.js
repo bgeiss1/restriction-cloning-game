@@ -1019,45 +1019,80 @@ class A2ElectroswingSynth {
     }
   }
 
-  // ── Horn call: 2-note pickup figure 1 beat before each chord stab ────────
+  // ── Horn phrases: 4-note run + resolution, one phrase per chord stab ───────
+  // Each phrase builds into the downbeat so the player can feel the landing.
   _schedHornCalls(startAt, duration) {
-    const ctx = this._ctx;
-    // Pickup pairs (low→high) cycling with chord progression
-    // Am→C→F→G chords, horns in upper octave
-    const PICKUPS = [
-      [330, 440],   // before Am:  E4→A4
-      [392, 523],   // before C:   G4→C5
-      [349, 440],   // before F:   F4→A4
-      [392, 494],   // before G:   G4→B4
+    // Phrase tables: {f=Hz, o=offset_from_stab, d=duration}
+    // All offsets are negative (before stab) except the resolution at o=0.
+    const PHRASES = [
+      // Am stab — E4 minor approach, lands on A4
+      [ {f:329.63, o:-1.50, d:0.22}, {f:392.00, o:-1.00, d:0.20},
+        {f:440.00, o:-0.55, d:0.22}, {f:392.00, o:-0.22, d:0.15},
+        {f:440.00, o: 0.00, d:0.45} ],
+      // C stab — G major run, lands on E5
+      [ {f:392.00, o:-1.50, d:0.22}, {f:440.00, o:-1.00, d:0.20},
+        {f:493.88, o:-0.55, d:0.22}, {f:523.25, o:-0.22, d:0.15},
+        {f:659.25, o: 0.00, d:0.45} ],
+      // F stab — C major ascent, lands on C5
+      [ {f:261.63, o:-1.50, d:0.22}, {f:293.66, o:-1.00, d:0.20},
+        {f:329.63, o:-0.55, d:0.22}, {f:349.23, o:-0.22, d:0.15},
+        {f:523.25, o: 0.00, d:0.45} ],
+      // G stab — D mixolydian climb, lands on G4
+      [ {f:293.66, o:-1.50, d:0.22}, {f:329.63, o:-1.00, d:0.20},
+        {f:369.99, o:-0.55, d:0.22}, {f:392.00, o:-0.22, d:0.15},
+        {f:392.00, o: 0.00, d:0.45} ],
     ];
-    const NOTE_DUR = 0.14;
+
     let ci = 0;
     for (let stabT = startAt + 4.0; stabT < startAt + duration; stabT += 4.0, ci++) {
-      const [f1, f2] = PICKUPS[ci % PICKUPS.length];
-      const t1 = stabT - 0.60;   // note 1: 600ms before stab
-      const t2 = stabT - 0.30;   // note 2: 300ms before stab
-      if (t1 < startAt) continue;
-
-      for (const [t, freq] of [[t1, f1], [t2, f2]]) {
-        // Layer: sawtooth + detuned square for brass-ish timbre
-        for (const [type, detune, gain] of [
-          ['sawtooth', 0,   0.025],
-          ['square',   7,   0.012],
-        ]) {
-          const osc = ctx.createOscillator();
-          const bpf = ctx.createBiquadFilter();
-          const g   = ctx.createGain();
-          osc.type = type;
-          osc.frequency.value = freq * Math.pow(2, detune / 1200);
-          bpf.type = 'bandpass';  bpf.frequency.value = 1800;  bpf.Q.value = 0.7;
-          g.gain.setValueAtTime(0.001, t);
-          g.gain.linearRampToValueAtTime(gain, t + 0.012);
-          g.gain.exponentialRampToValueAtTime(0.001, t + NOTE_DUR);
-          osc.connect(bpf);  bpf.connect(g);  g.connect(this._mainGain);
-          osc.start(t);  osc.stop(t + NOTE_DUR + 0.01);
-          this._sched.push(osc, bpf, g);
-        }
+      for (const note of PHRASES[ci % PHRASES.length]) {
+        const t = stabT + note.o;
+        if (t < startAt) continue;
+        this._playHorn(t, note.f, note.d);
       }
+    }
+  }
+
+  // ── Horn voice: 2 detuned sawtooths + vibrato LFO + warm lowpass ─────────
+  _playHorn(t, freq, dur) {
+    const ctx = this._ctx;
+
+    // Vibrato LFO: 5.5 Hz, ramps from 0 to ±9 cents over first 80 ms
+    const lfo  = ctx.createOscillator();
+    const lfoG = ctx.createGain();
+    lfo.type = 'sine';
+    lfo.frequency.value = 5.5;
+    lfoG.gain.setValueAtTime(0, t);
+    lfoG.gain.linearRampToValueAtTime(9, t + 0.08);   // cents
+    lfo.connect(lfoG);
+    lfo.start(t);
+    lfo.stop(t + dur + 0.02);
+    this._sched.push(lfo, lfoG);
+
+    // Shared lowpass — warm brass body, cuts harsh high partials
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass';
+    lpf.frequency.value = 2600;
+    lpf.Q.value = 0.4;
+    lpf.connect(this._mainGain);
+    this._sched.push(lpf);
+
+    // Two sawtooth voices: fundamental (louder) + 9 cents sharp (width)
+    for (const [detuneC, peak] of [[0, 0.042], [9, 0.020]]) {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.value = freq * Math.pow(2, detuneC / 1200);
+      lfoG.connect(osc.detune);   // vibrato modulates detune in cents
+      g.gain.setValueAtTime(0.001, t);
+      g.gain.linearRampToValueAtTime(peak, t + 0.015);
+      g.gain.setValueAtTime(peak, Math.max(t + 0.016, t + dur - 0.040));
+      g.gain.linearRampToValueAtTime(0.001, t + dur);
+      osc.connect(g);
+      g.connect(lpf);
+      osc.start(t);
+      osc.stop(t + dur + 0.01);
+      this._sched.push(osc, g);
     }
   }
 
