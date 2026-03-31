@@ -210,6 +210,7 @@ const P3DAct2BossBattle = (() => {
           ? audioCtx.currentTime >= _card.resumeAudioT
           : _card.countdownT >= 3.0;   // plain fallback
         if (resumeNow) {
+          if (window.A2MolViewer) A2MolViewer.hide();
           _card = null;
           if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.resumeFromCard();
         }
@@ -242,6 +243,11 @@ const P3DAct2BossBattle = (() => {
       _p3._hud.updateA2Phase(PHASE_LABELS[_phaseIdx]);
       // Clear queued (unactivated) nodes; keep active lane holds
       _nodes.length = _nodePtr;
+      // Also purge 'waiting' nodes already moved to _activeNodes — they'd visually
+      // overlap with new-phase lead-in nodes since _t is frozen during card/countdown
+      for (let i = _activeNodes.length - 1; i >= 0; i--) {
+        if (_activeNodes[i].state === 'waiting') _activeNodes.splice(i, 1);
+      }
       _lastNodeT    = _t + 2.0;   // 2s lead-in for new phase
       _appendPhaseLoop();
       for (let li = 0; li < N_LANES; li++) _heldNode[li] = null;
@@ -619,6 +625,7 @@ const P3DAct2BossBattle = (() => {
     _running = false;
     _removeInput();
     _destroyCanvas();
+    if (window.A2MolViewer) A2MolViewer.hide();
     if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.stop();
     if (window.P3DMatLib && P3DMatLib.endosome) {
       P3DMatLib.endosome.emissiveIntensity = 0.6;
@@ -1048,9 +1055,9 @@ const P3DAct2BossBattle = (() => {
     _ctx.fillRect(0, 0, W, H);
 
     // Side-by-side layout: animation left, text right
-    const ANIM_W  = 300;
-    const cardW   = Math.min(820, W - 60);
-    const cardH   = 340;
+    const ANIM_W  = 440;
+    const cardW   = Math.min(860, W - 60);
+    const cardH   = 440;
     const cX      = W / 2;
     const cY      = H / 2;
     const cardL   = cX - cardW / 2;
@@ -1067,14 +1074,37 @@ const P3DAct2BossBattle = (() => {
     const pi = _card.phaseIdx;
 
     // ── 3-D HA animation (left panel) ────────────────────────────────────
-    const animPad = 12;
+    const animPad = 14;
+    const CIT_H   = 32;                             // citation strip height below viewer
     const animX   = cardL + animPad;
     const animY   = cardT_ + animPad;
-    const animW   = Math.min(ANIM_W, cardW * 0.40);
-    const animH   = cardH - animPad * 2;
+    const animW   = Math.min(ANIM_W, cardW * 0.50);
+    const animH   = cardH - animPad * 2;             // total left-panel height
+    const viewH   = animH - CIT_H;                  // 3D viewer portion only
 
-    if (window.A2HAAnim) {
-      // Clip to animation panel so the 3D render doesn't bleed outside card
+    if (window.A2MolViewer && window.A2MolViewer.ready) {
+      // ── Real PDB structures via 3Dmol ─────────────────────────────────────
+      // Position and load once on card open (subsequent frames just update alpha)
+      if (!_card._molShown) {
+        _card._molShown = true;
+        A2MolViewer.show(animX, animY, animW, viewH, pi);
+      }
+      A2MolViewer.setAlpha(alpha);
+
+      // Citation drawn on canvas below the 3Dmol overlay
+      _ctx.globalAlpha = alpha * 0.80;
+      _ctx.fillStyle    = 'rgba(200,169,81,0.75)';
+      _ctx.font         = '10px sans-serif';
+      _ctx.textAlign    = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText(
+        'Benton et al., Nature 583, 2020  ·  doi:10.1038/s41586-020-2333-6',
+        animX + animW / 2,
+        animY + viewH + CIT_H / 2
+      );
+      _ctx.globalAlpha = alpha;
+    } else if (window.A2HAAnim) {
+      // ── Fallback: schematic Three.js animation ────────────────────────────
       _ctx.save();
       _roundRect(animX, animY, animW, animH, 8);
       _ctx.clip();
@@ -1356,6 +1386,7 @@ const P3DAct2BossBattle = (() => {
     _paused  = false;
     _removeInput();
     _destroyCanvas();
+    if (window.A2MolViewer) A2MolViewer.destroy();
     if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.stop();
     if (window.P3DMatLib && P3DMatLib.endosome) {
       P3DMatLib.endosome.emissiveIntensity = 0.6;
