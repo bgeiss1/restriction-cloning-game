@@ -2,54 +2,47 @@
 /**
  * vi_p3d_a2_mol.js — Real PDB structure viewer for Act 2 phase transition cards.
  *
- * Uses $3Dmol (already loaded by viral_infiltration.html) to render live RCSB
- * structures from Benton et al., Nature 2020 (doi:10.1038/s41586-020-2333-6).
+ * Uses $3Dmol (already loaded by viral_infiltration.html) to render three
+ * simultaneously-spinning RCSB structures from Benton et al., Nature 2020
+ * (doi:10.1038/s41586-020-2333-6), labeled X · Y · Z.
  *
- * Two persistent 3Dmol viewers cross-fade to show each conformational transition.
- *
- * PDB mapping (Benton et al., Nature 583, 2020):
- *   Phase A — 6Y5G  (native pre-fusion trimer, pH 7.4 conformation)
- *   Phase B — 6Y5G → 6Y5I  (pH-triggered HA1 head separation begins)
- *   Phase C — 6Y5I → 6Y5J  (stem exposure, coiled-coil primed)
- *   Phase D — 6Y5J → 6Y5K  (coiled-coil extension, FP targeted)
- *   Phase E — 6Y5K → 1QU1  (final post-fusion hairpin conformation)
+ * PDB mapping — a sliding window of 3 consecutive conformational states per phase:
+ *   Phase A: X=6Y5G  Y=6Y5I  Z=6Y5J   (pre-fusion → early loosening)
+ *   Phase B: X=6Y5G  Y=6Y5I  Z=6Y5J   (same early window)
+ *   Phase C: X=6Y5I  Y=6Y5J  Z=6Y5K   (mid-transition window)
+ *   Phase D: X=6Y5J  Y=6Y5K  Z=1QU1   (late window)
+ *   Phase E: X=6Y5J  Y=6Y5K  Z=1QU1   (same late window — fusion committed)
  *
  * Public API  (window.A2MolViewer):
- *   .show(x, y, w, h, phaseIdx)  — position overlay and load structures (call once per card)
+ *   .show(x, y, w, h, phaseIdx)  — position overlay and load all three structures
  *   .setAlpha(a)                 — sync CSS opacity with canvas card fade
  *   .hide()                      — collapse overlay on card dismiss
  *   .destroy()                   — full teardown when Act 2 ends
  *   .ready                       — true when $3Dmol is available
+ *   .panelCenters(animX, animW)  — returns [cx0, cx1, cx2] for label drawing
  */
 window.A2MolViewer = (() => {
 
-  // ── PDB pairs per phase card [fromCode, toCode | null] ─────────────────────
+  // ── PDB triples per phase [X, Y, Z] ───────────────────────────────────────
   const PHASE_PDBS = [
-    ['6Y5G', null  ],   // Phase A — native pre-fusion
-    ['6Y5G', '6Y5I'],   // Phase B — head loosening begins
-    ['6Y5I', '6Y5J'],   // Phase C — stem exposure
-    ['6Y5J', '6Y5K'],   // Phase D — coiled-coil fires + FP insertion
-    ['6Y5K', '1QU1'],   // Phase E — final post-fusion hairpin
+    ['6Y5G', '6Y5I', '6Y5J'],   // Phase A — entering head loosening
+    ['6Y5G', '6Y5I', '6Y5J'],   // Phase B — stem exposure begins
+    ['6Y5I', '6Y5J', '6Y5K'],   // Phase C — coiled-coil window
+    ['6Y5J', '6Y5K', '1QU1'],   // Phase D — fusion peptide + final
+    ['6Y5J', '6Y5K', '1QU1'],   // Phase E — hemifusion committed
   ];
 
   // ── Config ─────────────────────────────────────────────────────────────────
-  const BG_COLOR   = '#080c1e';   // matches card background rgba(8,12,30)
-  const HOLD_S     = 3.5;        // seconds to display structure A before cross-fade
-  const FADE_CSS   = '1.5s ease-in-out';
-  // HA2 chains in H3 HA trimers are typically B, D, F (HA1 = A, C, E).
-  // Residues 1-20 of HA2 = the fusion loop (GLFGAIAGFIEGGWTGMIDG…).
-  // If chain IDs differ for a given PDB entry the orange simply won't appear — no error.
-  const HA2_CHAINS   = ['B', 'D', 'F'];
-  const FUSION_RESI  = Array.from({ length: 20 }, (_, i) => i + 1);  // 1–20
-  const FUSION_COLOR = '#ff5500';   // vivid orange — distinct from chain palette
+  const BG_COLOR    = '#080c1e';
+  const PANEL_GAP   = 8;           // px between the three viewer panels
+  const HA2_CHAINS  = ['B', 'D', 'F'];   // HA2 chain IDs in H3 trimers (typical)
+  const FUSION_RESI = Array.from({ length: 20 }, (_, i) => i + 1);  // residues 1–20
+  const FUSION_COLOR = '#ff5500';  // vivid orange for fusion loop
 
   // ── State ──────────────────────────────────────────────────────────────────
-  let _container = null;   // fixed overlay div
-  let _divA      = null;   // slot A: "from" structure
-  let _divB      = null;   // slot B: "to"   structure
-  let _viewerA   = null;   // $3Dmol GLViewer for slot A
-  let _viewerB   = null;   // $3Dmol GLViewer for slot B
-  let _fadeTimer = null;   // setTimeout handle for cross-fade trigger
+  let _container = null;
+  let _divs      = [null, null, null];    // X, Y, Z viewer host elements
+  let _viewers   = [null, null, null];    // $3Dmol GLViewer instances
 
   // ── DOM helpers ────────────────────────────────────────────────────────────
 
@@ -60,72 +53,67 @@ window.A2MolViewer = (() => {
     Object.assign(_container.style, {
       position:      'fixed',
       display:       'none',
-      zIndex:        '19',       // above rhythm canvas (z-index 18)
+      zIndex:        '19',
       overflow:      'hidden',
-      pointerEvents: 'none',     // all clicks pass through to canvas
-      borderRadius:  '8px',
+      pointerEvents: 'none',
     });
 
-    _divA = _mkSlot('1');
-    _divB = _mkSlot('0');
-    _container.appendChild(_divA);
-    _container.appendChild(_divB);
+    for (let i = 0; i < 3; i++) {
+      const d = document.createElement('div');
+      Object.assign(d.style, {
+        position:      'absolute',
+        top:           '0',
+        bottom:        '0',
+        pointerEvents: 'none',
+      });
+      _divs[i] = d;
+      _container.appendChild(d);
+    }
     document.body.appendChild(_container);
   }
 
-  function _mkSlot(opacity) {
-    const d = document.createElement('div');
-    Object.assign(d.style, {
-      position:      'absolute',
-      inset:         '0',
-      pointerEvents: 'none',
-      opacity:       opacity,
-    });
-    return d;
+  function _panelW(containerW) {
+    return Math.floor((containerW - 2 * PANEL_GAP) / 3);
   }
 
   // ── 3Dmol helpers ──────────────────────────────────────────────────────────
 
-  function _createViewers() {
-    // Called after container is visible + sized so $3Dmol reads correct dimensions
-    _viewerA = $3Dmol.createViewer(_divA, { backgroundColor: BG_COLOR, antialias: true });
-    _viewerB = $3Dmol.createViewer(_divB, { backgroundColor: BG_COLOR, antialias: true });
+  function _applyStyle(viewer) {
+    viewer.setStyle({ hetflag: false }, { cartoon: { colorscheme: 'chain', opacity: 0.92 } });
+    // Overlay vivid orange on fusion loop (HA2 N-terminus, residues 1–20)
+    HA2_CHAINS.forEach(ch => {
+      viewer.setStyle(
+        { chain: ch, resi: FUSION_RESI, hetflag: false },
+        { cartoon: { color: FUSION_COLOR, opacity: 0.98 } }
+      );
+    });
   }
 
-  function _loadPDB(viewer, pdbCode, onDone) {
+  function _loadPDB(viewer, pdbCode) {
     viewer.removeAllModels();
     viewer.render();
     $3Dmol.download('pdb:' + pdbCode, viewer, {}, () => {
-      // Base: color each chain a distinct hue
-      viewer.setStyle({ hetflag: false }, { cartoon: { colorscheme: 'chain', opacity: 0.92 } });
-      // Overlay: fusion loop (HA2 N-terminus) in vivid orange
-      HA2_CHAINS.forEach(ch => {
-        viewer.setStyle(
-          { chain: ch, resi: FUSION_RESI, hetflag: false },
-          { cartoon: { color: FUSION_COLOR, opacity: 0.98 } }
-        );
-      });
+      _applyStyle(viewer);
       viewer.zoomTo();
       viewer.render();
       viewer.spin('z', 1);
-      if (onDone) onDone();
     });
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
 
   /**
-   * Position the overlay and begin loading PDB structures.
-   * x/y/w/h are in CSS fixed-position pixels (= canvas pixels since canvas
-   * is position:fixed at 100vw × 100vh with no DPR scaling).
+   * Position the three-panel overlay and load PDB structures for phaseIdx.
+   * x/y/w/h are in CSS fixed-position pixels.
    * Call once per card (boss guards with _card._molShown).
    */
   function show(x, y, w, h, phaseIdx) {
     if (!window.$3Dmol) return;
     _ensureDOM();
-    clearTimeout(_fadeTimer);
 
-    // Position + reveal container BEFORE creating viewers (so they size correctly)
+    const pw = _panelW(w);
+
+    // Position + reveal container
     Object.assign(_container.style, {
       display: 'block',
       left:    x + 'px',
@@ -135,37 +123,29 @@ window.A2MolViewer = (() => {
       opacity: '1',
     });
 
-    // Create on first call; resize on subsequent calls (window resize edge-case)
-    if (!_viewerA) {
-      _createViewers();
-    } else {
-      try { _viewerA.resize(); } catch(e) {}
-      try { _viewerB.resize(); } catch(e) {}
+    // Size and create/resize each viewer panel
+    for (let i = 0; i < 3; i++) {
+      _divs[i].style.left  = (i * (pw + PANEL_GAP)) + 'px';
+      _divs[i].style.width = pw + 'px';
+
+      if (!_viewers[i]) {
+        _viewers[i] = $3Dmol.createViewer(_divs[i], { backgroundColor: BG_COLOR, antialias: true });
+      } else {
+        try { _viewers[i].resize(); } catch(e) {}
+      }
     }
 
-    // Reset cross-fade: slot A visible, slot B hidden (instant, no transition)
-    _divA.style.transition = 'none';
-    _divB.style.transition = 'none';
-    _divA.style.opacity    = '1';
-    _divB.style.opacity    = '0';
-
-    const [pdbA, pdbB] = PHASE_PDBS[phaseIdx];
-
-    // Load structure A immediately
-    _loadPDB(_viewerA, pdbA);
-
-    // Load structure B (if this card has a transition) and schedule cross-fade
-    if (pdbB) {
-      _loadPDB(_viewerB, pdbB, () => {
-        // B is ready — schedule the fade after hold delay
-        _fadeTimer = setTimeout(() => {
-          _divA.style.transition = `opacity ${FADE_CSS}`;
-          _divB.style.transition = `opacity ${FADE_CSS}`;
-          _divA.style.opacity    = '0';
-          _divB.style.opacity    = '1';
-        }, HOLD_S * 1000);
-      });
+    // Load all three structures
+    const pdbs = PHASE_PDBS[phaseIdx];
+    for (let i = 0; i < 3; i++) {
+      _loadPDB(_viewers[i], pdbs[i]);
     }
+  }
+
+  /** X-centers (in canvas/CSS px) of each panel — used by boss to draw X Y Z labels. */
+  function panelCenters(animX, animW) {
+    const pw = _panelW(animW);
+    return [0, 1, 2].map(i => animX + i * (pw + PANEL_GAP) + pw / 2);
   }
 
   /** Sync overlay opacity with canvas card fade (called every frame). */
@@ -173,23 +153,21 @@ window.A2MolViewer = (() => {
     if (_container) _container.style.opacity = String(a);
   }
 
-  /** Hide overlay. Called on card dismiss. */
+  /** Hide overlay. Called on card dismiss / act complete. */
   function hide() {
-    clearTimeout(_fadeTimer);
     if (!_container) return;
     _container.style.display = 'none';
-    try { if (_viewerA) _viewerA.spin(false); } catch(e) {}
-    try { if (_viewerB) _viewerB.spin(false); } catch(e) {}
+    _viewers.forEach(v => { try { if (v) v.spin(false); } catch(e) {} });
   }
 
   /** Full teardown — dispose viewers, remove DOM nodes. */
   function destroy() {
     hide();
-    clearTimeout(_fadeTimer);
-    try { if (_viewerA) { _viewerA.clear(); _viewerA = null; } } catch(e) {}
-    try { if (_viewerB) { _viewerB.clear(); _viewerB = null; } } catch(e) {}
+    _viewers.forEach((v, i) => {
+      try { if (v) { v.clear(); _viewers[i] = null; } } catch(e) {}
+    });
     if (_container) { _container.remove(); _container = null; }
-    _divA = _divB = null;
+    _divs = [null, null, null];
   }
 
   return {
@@ -197,6 +175,7 @@ window.A2MolViewer = (() => {
     hide,
     setAlpha,
     destroy,
+    panelCenters,
     get ready() { return !!window.$3Dmol; },
   };
 })();

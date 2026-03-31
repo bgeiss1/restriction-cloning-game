@@ -1055,8 +1055,8 @@ const P3DAct2BossBattle = (() => {
     _ctx.fillRect(0, 0, W, H);
 
     // Side-by-side layout: animation left, text right
-    const ANIM_W  = 440;
-    const cardW   = Math.min(860, W - 60);
+    const ANIM_W  = 580;
+    const cardW   = Math.min(960, W - 30);
     const cardH   = 440;
     const cX      = W / 2;
     const cY      = H / 2;
@@ -1075,23 +1075,47 @@ const P3DAct2BossBattle = (() => {
 
     // ── 3-D HA animation (left panel) ────────────────────────────────────
     const animPad = 14;
-    const CIT_H   = 32;                             // citation strip height below viewer
+    const CIT_H   = 28;                             // citation strip height below viewers
+    const LABEL_H = 22;                             // X / Y / Z label strip above viewers
     const animX   = cardL + animPad;
     const animY   = cardT_ + animPad;
-    const animW   = Math.min(ANIM_W, cardW * 0.50);
+    const animW   = Math.min(ANIM_W, cardW * 0.60);
     const animH   = cardH - animPad * 2;             // total left-panel height
-    const viewH   = animH - CIT_H;                  // 3D viewer portion only
+    const viewH   = animH - CIT_H;                  // labels + viewers (excludes citation)
 
     if (window.A2MolViewer && window.A2MolViewer.ready) {
-      // ── Real PDB structures via 3Dmol ─────────────────────────────────────
-      // Position and load once on card open (subsequent frames just update alpha)
+      // ── Real PDB structures via 3Dmol (three panels) ──────────────────────
       if (!_card._molShown) {
         _card._molShown = true;
-        A2MolViewer.show(animX, animY, animW, viewH, pi);
+        // Viewers sit below the label strip
+        A2MolViewer.show(animX, animY + LABEL_H, animW, viewH - LABEL_H, pi);
       }
       A2MolViewer.setAlpha(alpha);
 
-      // Citation drawn on canvas below the 3Dmol overlay
+      // X / Y / Z labels above each viewer panel
+      const lblCenters = A2MolViewer.panelCenters(animX, animW);
+      const lblY       = animY + LABEL_H / 2;
+      _ctx.font         = 'bold 13px monospace';
+      _ctx.textBaseline = 'middle';
+      _ctx.textAlign    = 'center';
+      ['X', 'Y', 'Z'].forEach((lbl, i) => {
+        _ctx.globalAlpha = alpha;
+        _ctx.fillStyle   = 'rgba(200,169,81,0.90)';
+        _ctx.fillText(lbl, lblCenters[i], lblY);
+      });
+
+      // Thin gold separator lines between panels
+      _ctx.strokeStyle = 'rgba(200,169,81,0.18)';
+      _ctx.lineWidth   = 1;
+      [1, 2].forEach(i => {
+        const sx = Math.round(lblCenters[i] - (animW / 3) / 2) - 4;
+        _ctx.beginPath();
+        _ctx.moveTo(sx, animY + LABEL_H + 6);
+        _ctx.lineTo(sx, animY + viewH - 6);
+        _ctx.stroke();
+      });
+
+      // Citation strip below the viewers
       _ctx.globalAlpha = alpha * 0.80;
       _ctx.fillStyle    = 'rgba(200,169,81,0.75)';
       _ctx.font         = '10px sans-serif';
