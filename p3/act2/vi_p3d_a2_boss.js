@@ -1075,7 +1075,7 @@ const P3DAct2BossBattle = (() => {
 
     // ── 3-D HA animation (left panel) ────────────────────────────────────
     const animPad = 14;
-    const CIT_H   = 28;                             // citation strip height below viewers
+    const CIT_H   = 46;                             // citation + PDB label strip below viewers
     const LABEL_H = 22;                             // X / Y / Z label strip above viewers
     const animX   = cardL + animPad;
     const animY   = cardT_ + animPad;
@@ -1115,27 +1115,8 @@ const P3DAct2BossBattle = (() => {
         _ctx.stroke();
       });
 
-      // PDB code labels at the bottom of each viewer panel
-      const pdbs    = A2MolViewer.pdbsForPhase(pi);
-      const viewerB = animY + viewH;    // bottom edge of viewer area
-      const PDB_H   = 18;              // height of the label band
-      _ctx.font         = 'bold 11px monospace';
-      _ctx.textBaseline = 'middle';
-      _ctx.textAlign    = 'center';
-      pdbs.forEach((code, i) => {
-        _ctx.globalAlpha = alpha * 0.82;
-        // dark tinted background strip
-        _ctx.fillStyle = 'rgba(8,12,30,0.72)';
-        const pw = Math.floor((animW - 2 * 8) / 3);   // PANEL_GAP = 8
-        const px = animX + i * (pw + 8);
-        _ctx.fillRect(px, viewerB - PDB_H, pw, PDB_H);
-        // gold text
-        _ctx.fillStyle = 'rgba(200,169,81,0.95)';
-        _ctx.fillText(code, px + pw / 2, viewerB - PDB_H / 2);
-      });
-      _ctx.globalAlpha = alpha;
-
-      // Citation strip below the viewers
+      // Citation line (top of the strip below viewers)
+      const stripTop = animY + viewH;
       _ctx.globalAlpha = alpha * 0.80;
       _ctx.fillStyle    = 'rgba(200,169,81,0.75)';
       _ctx.font         = '10px sans-serif';
@@ -1144,8 +1125,21 @@ const P3DAct2BossBattle = (() => {
       _ctx.fillText(
         'Benton et al., Nature 583, 2020  ·  doi:10.1038/s41586-020-2333-6',
         animX + animW / 2,
-        animY + viewH + CIT_H / 2
+        stripTop + 11
       );
+
+      // PDB code labels below the citation, one per panel
+      const pdbs = A2MolViewer.pdbsForPhase(pi);
+      const pw   = Math.floor((animW - 2 * 8) / 3);   // PANEL_GAP = 8
+      _ctx.font         = 'bold 11px monospace';
+      _ctx.textBaseline = 'middle';
+      _ctx.textAlign    = 'center';
+      pdbs.forEach((code, i) => {
+        _ctx.globalAlpha = alpha * 0.90;
+        _ctx.fillStyle   = 'rgba(200,169,81,0.95)';
+        const px = animX + i * (pw + 8) + pw / 2;
+        _ctx.fillText(code, px, stripTop + 34);
+      });
       _ctx.globalAlpha = alpha;
     } else if (window.A2HAAnim) {
       // ── Fallback: schematic Three.js animation ────────────────────────────
