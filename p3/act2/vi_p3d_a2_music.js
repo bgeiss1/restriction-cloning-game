@@ -856,6 +856,7 @@ class A2ElectroswingSynth {
     this._mainGain       = null;
     this._bassGain       = null;
     this._reverb         = null;
+    this._brassWave      = null;   // cached PeriodicWave for brass voices
     this._sched          = [];
     this._startAt        = 0;
     this._scheduledUntil = 0;
@@ -953,9 +954,10 @@ class A2ElectroswingSynth {
 
   // ── Pre-scheduled breakbeat kick grid ─────────────────────────────────────
   _schedKickPattern(from, to) {
-    const BEAT = 60 / 118;
-    const SIX  = BEAT / 4;
-    const BAR  = BEAT * 4;
+    const BEAT   = 60 / 118;
+    const SIX    = BEAT / 4;
+    const BAR    = BEAT * 4;
+    const JITTER = 0.004;  // ±4 ms human feel
     // Syncopated breakbeat: slots in 16th-note grid (0 = beat 1)
     const KICK_SLOTS = [0, 3, 6, 8, 10, 14];
     const refT = this._startAt;
@@ -965,7 +967,10 @@ class A2ElectroswingSynth {
       if (barBase >= to) break;
       for (const slot of KICK_SLOTS) {
         const t = barBase + slot * SIX;
-        if (t >= from && t < to) this._schedKick(t, 0.38);
+        if (t >= from && t < to) {
+          const jT = t + (Math.random() - 0.5) * 2 * JITTER;
+          this._schedKick(jT, 0.38);
+        }
       }
     }
   }
@@ -999,13 +1004,12 @@ class A2ElectroswingSynth {
     this._sched.push(src, lpf, gN);
   }
 
-  // ── Slap bass: triangle pluck, 2-bar syncopated pattern, G major / Em ─────
+  // ── Slap bass: Karplus-Strong pluck, 2-bar syncopated pattern, G major/Em ──
   _schedBass(from, to) {
     const BEAT = 60 / 118;
     const SIX  = BEAT / 4;
     const ctx  = this._ctx;
     const G2=98.00, D2=73.42, E2=82.41, C2=65.41, B2=123.47, A2=110.00;
-    // 2-bar pattern: [slot (0–31 in 16th grid), freq, gate_mult]
     const PAT = [
        [0,  G2, 3.0],  [3,  D2, 2.0],  [6,  G2, 1.8],
        [8,  G2, 3.0],  [11, E2, 2.0],  [14, D2, 1.8],
@@ -1023,17 +1027,7 @@ class A2ElectroswingSynth {
         const noteDur = SIX * gm * 0.55;
         const f   = freq * Math.pow(2, ((Math.random()-0.5)*6) / 1200);
         const vel = 0.80 + Math.random() * 0.40;
-        // Triangle body — rounder than square, closer to bass guitar tone
-        const osc = ctx.createOscillator();
-        const g   = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.value = f;
-        g.gain.setValueAtTime(0.001, t);
-        g.gain.linearRampToValueAtTime(0.072 * vel, t + 0.006);
-        g.gain.exponentialRampToValueAtTime(0.001, t + noteDur);
-        osc.connect(g);  g.connect(this._bassGain);
-        osc.start(t);  osc.stop(t + noteDur + 0.01);
-        this._sched.push(osc, g);
+        this._ksPluck(t, f, noteDur, vel);
         // Slap click — bandpass noise burst simulating string snap
         const bLen = Math.ceil(ctx.sampleRate * 0.009);
         const sbuf = ctx.createBuffer(1, bLen, ctx.sampleRate);
@@ -1052,12 +1046,53 @@ class A2ElectroswingSynth {
     }
   }
 
-  // ── Brass stabs: sawtooth triads on funky upbeats (G major cycle) ─────────
+  // ── Karplus-Strong string pluck ────────────────────────────────────────────
+  _ksPluck(t, freq, noteDur, vel) {
+    const ctx    = this._ctx;
+    const SR     = ctx.sampleRate;
+    const period = Math.round(SR / freq);
+    // Seed buffer: one period of 1-pole LP-filtered white noise
+    const seedBuf = ctx.createBuffer(1, period, SR);
+    const sd = seedBuf.getChannelData(0);
+    for (let i = 0; i < period; i++) sd[i] = Math.random() * 2 - 1;
+    let prev = 0;
+    for (let i = 0; i < period; i++) {
+      sd[i] = 0.5 * sd[i] + 0.5 * prev;
+      prev  = sd[i];
+    }
+    const seed  = ctx.createBufferSource();
+    seed.buffer = seedBuf;
+    const delay = ctx.createDelay(0.025);
+    delay.delayTime.value = period / SR;
+    const lpf   = ctx.createBiquadFilter();
+    lpf.type    = 'lowpass';
+    lpf.frequency.value = Math.min(freq * 11, SR * 0.45);
+    const fb    = ctx.createGain();
+    fb.gain.value = 0.992;
+    const out   = ctx.createGain();
+    out.gain.setValueAtTime(0.001, t);
+    out.gain.linearRampToValueAtTime(0.085 * vel, t + 0.003);
+    out.gain.setValueAtTime(0.085 * vel, t + noteDur * 0.6);
+    out.gain.exponentialRampToValueAtTime(0.001, t + noteDur);
+    // Feedback loop: seed→delay→lpf→fb→delay; output tap from delay
+    seed.connect(delay);
+    delay.connect(lpf);
+    lpf.connect(fb);
+    fb.connect(delay);
+    delay.connect(out);
+    out.connect(this._bassGain);
+    seed.start(t);
+    seed.stop(t + period / SR + 0.003);
+    this._sched.push(seed, delay, lpf, fb, out);
+  }
+
+  // ── Brass stabs: PeriodicWave triads on funky upbeats (G major cycle) ───────
   _schedStabs(from, to) {
     const BEAT = 60 / 118;
     const SIX  = BEAT / 4;
     const BAR  = BEAT * 4;
     const ctx  = this._ctx;
+    const wave = this._getBrassWave();
     const CHORDS = [
       [392.00, 493.88, 587.33],   // G:  G4 B4 D5
       [329.63, 392.00, 493.88],   // Em: E4 G4 B4
@@ -1077,15 +1112,21 @@ class A2ElectroswingSynth {
         if (t < from || t >= to) continue;
         for (const freq of chord) {
           const osc = ctx.createOscillator();
+          const lpf = ctx.createBiquadFilter();
           const g   = ctx.createGain();
-          osc.type = 'sawtooth';
+          if (wave) osc.setPeriodicWave(wave); else osc.type = 'sawtooth';
           osc.frequency.value = freq;
+          lpf.type = 'lowpass';
+          // Brightness envelope: open on attack, darken by end
+          lpf.frequency.setValueAtTime(4000, t);
+          lpf.frequency.exponentialRampToValueAtTime(1600, t + 0.070);
+          lpf.Q.value = 0.5;
           g.gain.setValueAtTime(0.001, t);
           g.gain.linearRampToValueAtTime(0.020, t + 0.007);
           g.gain.exponentialRampToValueAtTime(0.001, t + 0.070);
-          osc.connect(g);  g.connect(this._mainGain);
+          osc.connect(lpf);  lpf.connect(g);  g.connect(this._mainGain);
           osc.start(t);  osc.stop(t + 0.08);
-          this._sched.push(osc, g);
+          this._sched.push(osc, lpf, g);
         }
       }
     }
@@ -1114,17 +1155,19 @@ class A2ElectroswingSynth {
       const barSlot = ((si % 16) + 16) % 16;
       const isOpen  = OPEN.has(barSlot);
       if (!isOpen && SKIP.has(barSlot)) continue;
-      const vel = 0.70 + Math.random() * 0.60;
+      const vel    = 0.70 + Math.random() * 0.60;
+      const jitter = isOpen ? 0.005 : 0.007;  // ±5 ms open, ±7 ms closed
+      const jT     = t + (Math.random() - 0.5) * 2 * jitter;
       if (isOpen) {
         const src = ctx.createBufferSource();
         const hpf = ctx.createBiquadFilter();
         const g   = ctx.createGain();
         src.buffer = noiseBuf;
         hpf.type = 'highpass';  hpf.frequency.value = 5500;
-        g.gain.setValueAtTime(0.050 * vel, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        g.gain.setValueAtTime(0.050 * vel, jT);
+        g.gain.exponentialRampToValueAtTime(0.001, jT + 0.16);
         src.connect(hpf);  hpf.connect(g);  g.connect(this._mainGain);
-        src.start(t);  src.stop(t + 0.18);
+        src.start(jT);  src.stop(jT + 0.18);
         this._sched.push(src, hpf, g);
       } else {
         const src = ctx.createBufferSource();
@@ -1132,16 +1175,16 @@ class A2ElectroswingSynth {
         const g   = ctx.createGain();
         src.buffer = noiseBuf;
         bpf.type = 'bandpass';  bpf.frequency.value = 10000;  bpf.Q.value = 0.7;
-        g.gain.setValueAtTime(0.030 * vel, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.018);
+        g.gain.setValueAtTime(0.030 * vel, jT);
+        g.gain.exponentialRampToValueAtTime(0.001, jT + 0.018);
         src.connect(bpf);  bpf.connect(g);  g.connect(this._mainGain);
-        src.start(t);  src.stop(t + 0.022);
+        src.start(jT);  src.stop(jT + 0.022);
         this._sched.push(src, bpf, g);
       }
     }
   }
 
-  // ── Snare: main hits beats 2 & 4, ghost notes on 16th grid ───────────────
+  // ── Snare: main hits beats 2 & 4, ghost notes, snare wire buzz ───────────
   _schedSnare(from, to) {
     const BEAT = 60 / 118;
     const SIX  = BEAT / 4;
@@ -1154,26 +1197,43 @@ class A2ElectroswingSynth {
     for (let i = 0; i < bufLen; i++) sd[i] = Math.random()*2-1;
 
     const playSnare = (t, ghost) => {
+      const jT  = t + (Math.random() - 0.5) * (ghost ? 0.018 : 0.012);
       const vel = ghost ? 0.15 + Math.random()*0.12 : 0.82 + Math.random()*0.18;
       const src = ctx.createBufferSource();
       const bpf = ctx.createBiquadFilter();
       const gN  = ctx.createGain();
       src.buffer = snBuf;
       bpf.type = 'bandpass';  bpf.frequency.value = 260;  bpf.Q.value = 0.9;
-      gN.gain.setValueAtTime(0.068 * vel, t);
-      gN.gain.exponentialRampToValueAtTime(0.001, ghost ? t+0.055 : t+0.105);
+      gN.gain.setValueAtTime(0.068 * vel, jT);
+      gN.gain.exponentialRampToValueAtTime(0.001, ghost ? jT+0.055 : jT+0.105);
       src.connect(bpf);  bpf.connect(gN);  gN.connect(this._mainGain);
-      src.start(t);  src.stop(ghost ? t+0.065 : t+0.12);
+      src.start(jT);  src.stop(ghost ? jT+0.065 : jT+0.12);
       this._sched.push(src, bpf, gN);
       if (!ghost) {
+        // Body thump
         const osc = ctx.createOscillator();
         const gS  = ctx.createGain();
         osc.type = 'sine';  osc.frequency.value = 188;
-        gS.gain.setValueAtTime(0.052 * vel, t);
-        gS.gain.exponentialRampToValueAtTime(0.001, t + 0.072);
+        gS.gain.setValueAtTime(0.052 * vel, jT);
+        gS.gain.exponentialRampToValueAtTime(0.001, jT + 0.072);
         osc.connect(gS);  gS.connect(this._mainGain);
-        osc.start(t);  osc.stop(t + 0.09);
+        osc.start(jT);  osc.stop(jT + 0.09);
         this._sched.push(osc, gS);
+        // Snare wire buzz — HP noise layer (rattling bottom-head wires)
+        const wireBufLen = Math.ceil(SR * 0.032);
+        const wireBuf  = ctx.createBuffer(1, wireBufLen, SR);
+        const wd = wireBuf.getChannelData(0);
+        for (let i = 0; i < wireBufLen; i++) wd[i] = Math.random()*2-1;
+        const wireSrc = ctx.createBufferSource();
+        const wireHpf = ctx.createBiquadFilter();
+        const wireG   = ctx.createGain();
+        wireSrc.buffer = wireBuf;
+        wireHpf.type = 'highpass';  wireHpf.frequency.value = 2500;
+        wireG.gain.setValueAtTime(0.035 * vel, jT);
+        wireG.gain.exponentialRampToValueAtTime(0.001, jT + 0.030);
+        wireSrc.connect(wireHpf);  wireHpf.connect(wireG);  wireG.connect(this._mainGain);
+        wireSrc.start(jT);  wireSrc.stop(jT + 0.035);
+        this._sched.push(wireSrc, wireHpf, wireG);
       }
     };
 
@@ -1222,19 +1282,24 @@ class A2ElectroswingSynth {
     }
   }
 
-  // ── Horn voice: 2 detuned sawtooths + warm LPF (punchy stab style) ────────
+  // ── Horn voice: PeriodicWave brass harmonics + time-varying brightness ────
   _playHorn(t, freq, dur) {
-    const ctx = this._ctx;
-    const vel = 0.85 + Math.random() * 0.30;
-    const lpf = ctx.createBiquadFilter();
-    lpf.type = 'lowpass';  lpf.frequency.value = 3000;  lpf.Q.value = 0.5;
+    const ctx  = this._ctx;
+    const wave = this._getBrassWave();
+    const vel  = 0.85 + Math.random() * 0.30;
+    const lpf  = ctx.createBiquadFilter();
+    lpf.type = 'lowpass';
+    // Brightness envelope: opens bright on attack, darkens toward release
+    lpf.frequency.setValueAtTime(4000, t);
+    lpf.frequency.exponentialRampToValueAtTime(1600, t + dur);
+    lpf.Q.value = 0.5;
     lpf.connect(this._mainGain);
     this._sched.push(lpf);
     for (const [detuneC, basePeak] of [[0, 0.040], [7, 0.018]]) {
       const osc = ctx.createOscillator();
       const g   = ctx.createGain();
       const f   = freq * Math.pow(2, (detuneC + (Math.random()-0.5)*8) / 1200);
-      osc.type = 'sawtooth';
+      if (wave) osc.setPeriodicWave(wave); else osc.type = 'sawtooth';
       osc.frequency.value = f;
       g.gain.setValueAtTime(0.001, t);
       g.gain.linearRampToValueAtTime(basePeak * vel, t + 0.009);
@@ -1244,6 +1309,26 @@ class A2ElectroswingSynth {
       osc.start(t);  osc.stop(t + dur + 0.01);
       this._sched.push(osc, g);
     }
+  }
+
+  // ── PeriodicWave: brass harmonic series (lazy cache) ─────────────────────
+  _getBrassWave() {
+    if (this._brassWave) return this._brassWave;
+    const ctx = this._ctx;
+    if (!ctx) return null;
+    const real = new Float32Array(9);
+    const imag = new Float32Array(9);
+    // Brass harmonic amplitudes (fundamental + overtones)
+    imag[1] = 1.00;
+    imag[2] = 0.60;
+    imag[3] = 0.42;
+    imag[4] = 0.26;
+    imag[5] = 0.16;
+    imag[6] = 0.10;
+    imag[7] = 0.07;
+    imag[8] = 0.04;
+    this._brassWave = ctx.createPeriodicWave(real, imag, { disableNormalization: false });
+    return this._brassWave;
   }
 
   // ── Reverb impulse response — tight room (0.7 s, drier than before) ───────
