@@ -818,17 +818,18 @@ class A2ElectroswingBeatmap {
         mkTap(1, 7);
         break;
 
-      case 4: // Phase E — max intensity, SYNC-heavy, hits every ~0.8s
-        mkSync(0, 1, 0.0);
-        mkTap(2,   0.8);
-        mkSync(1, 2, 1.6);
-        mkHold(0,  2.4, 0.5);
-        mkSync(0, 2, 3.2);
-        mkTap(1,   4.0);
-        mkSync(0, 1, 4.8);
-        mkHold(2,  5.6, 0.5);
-        mkTap(0,   6.4);
-        mkSync(1, 2, 7.2);
+      case 4: // Phase E — max intensity, SYNC every beat, hold accents
+        // 1.0s grid (same as other phases) ensures same-lane gaps ≥ 1.0s,
+        // including at loop boundaries.  Intensity comes from wall-to-wall
+        // SYNCs (simultaneous presses), not from 0.8s rapid-fire timing.
+        mkSync(0, 1, 0.0);   // lane 0 gap from boundary: 3.0s ✓  lane 1: 1.0s ✓
+        mkSync(1, 2, 1.0);   // lane 1: 1.0s ✓  lane 2: 1.0s ✓
+        mkHold(0,  2.0, 0.5);// lane 0: 2.0s ✓
+        mkSync(0, 2, 3.0);   // lane 0: 1.0s ✓  lane 2: 2.0s ✓
+        mkTap(1,   4.0);     // lane 1: 3.0s ✓
+        mkSync(0, 1, 5.0);   // lane 0: 2.0s ✓  lane 1: 1.0s ✓
+        mkHold(2,  6.0, 0.5);// lane 2: 3.0s ✓
+        mkSync(1, 2, 7.0);   // lane 1: 2.0s ✓  lane 2: 1.0s ✓
         break;
     }
 
