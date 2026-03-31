@@ -1128,18 +1128,14 @@ const P3DAct2BossBattle = (() => {
         stripTop + 11
       );
 
-      // PDB code labels below the citation, one per panel
-      const pdbs = A2MolViewer.pdbsForPhase(pi);
-      const pw   = Math.floor((animW - 2 * 8) / 3);   // PANEL_GAP = 8
+      // PDB accession centered below the citation (all panels show the same structure)
+      const pdbCode = A2MolViewer.pdbsForPhase(pi)[0];
       _ctx.font         = 'bold 11px monospace';
       _ctx.textBaseline = 'middle';
       _ctx.textAlign    = 'center';
-      pdbs.forEach((code, i) => {
-        _ctx.globalAlpha = alpha * 0.90;
-        _ctx.fillStyle   = 'rgba(200,169,81,0.95)';
-        const px = animX + i * (pw + 8) + pw / 2;
-        _ctx.fillText(code, px, stripTop + 34);
-      });
+      _ctx.globalAlpha  = alpha * 0.90;
+      _ctx.fillStyle    = 'rgba(200,169,81,0.95)';
+      _ctx.fillText('PDB: ' + pdbCode, animX + animW / 2, stripTop + 34);
       _ctx.globalAlpha = alpha;
     } else if (window.A2HAAnim) {
       // ── Fallback: schematic Three.js animation ────────────────────────────

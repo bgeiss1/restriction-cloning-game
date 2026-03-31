@@ -24,12 +24,13 @@
 window.A2MolViewer = (() => {
 
   // ── PDB triples per phase [X, Y, Z] ───────────────────────────────────────
+  // One PDB per phase — all three panels show the same structure, different view angles
   const PHASE_PDBS = [
-    ['6Y5G', '6Y5I', '6Y5J'],   // Phase A — entering head loosening
-    ['6Y5G', '6Y5I', '6Y5J'],   // Phase B — stem exposure begins
-    ['6Y5I', '6Y5J', '6Y5K'],   // Phase C — coiled-coil window
-    ['6Y5J', '6Y5K', '1QU1'],   // Phase D — fusion peptide + final
-    ['6Y5J', '6Y5K', '1QU1'],   // Phase E — hemifusion committed
+    ['6Y5G', '6Y5G', '6Y5G'],   // Phase A — pre-fusion / native HA
+    ['6Y5I', '6Y5I', '6Y5I'],   // Phase B — early head loosening
+    ['6Y5J', '6Y5J', '6Y5J'],   // Phase C — coiled-coil extension
+    ['6Y5K', '6Y5K', '6Y5K'],   // Phase D — extended intermediate
+    ['1QU1', '1QU1', '1QU1'],   // Phase E — post-fusion / hairpin
   ];
 
   // ── Config ─────────────────────────────────────────────────────────────────
