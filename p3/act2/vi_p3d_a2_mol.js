@@ -1,49 +1,81 @@
 'use strict';
 /**
- * vi_p3d_a2_mol.js — Real PDB structure viewer for Act 2 phase transition cards.
+ * vi_p3d_a2_mol.js — Local PDB structure viewer for Act 2 phase transition cards.
  *
- * Uses $3Dmol (already loaded by viral_infiltration.html) to render three
- * simultaneously-spinning RCSB structures from Benton et al., Nature 2020
- * (doi:10.1038/s41586-020-2333-6), labeled X · Y · Z.
+ * Loads pre-oriented PDB files from p3/act2/pdbs/ (saved from PyMOL) and renders
+ * them in three simultaneously-spinning panels labeled X · Y · Z.
  *
- * PDB mapping — a sliding window of 3 consecutive conformational states per phase:
- *   Phase A: X=6Y5G  Y=6Y5I  Z=6Y5J   (pre-fusion → early loosening)
- *   Phase B: X=6Y5G  Y=6Y5I  Z=6Y5J   (same early window)
- *   Phase C: X=6Y5I  Y=6Y5J  Z=6Y5K   (mid-transition window)
- *   Phase D: X=6Y5J  Y=6Y5K  Z=1QU1   (late window)
- *   Phase E: X=6Y5J  Y=6Y5K  Z=1QU1   (same late window — fusion committed)
+ * Structures (Benton et al., Nature 583, 2020 · doi:10.1038/s41586-020-2333-6):
+ *   Phase A — 6Y5G.pdb  (pre-fusion / native HA)
+ *   Phase B — 6Y5I.pdb  (early head loosening)
+ *   Phase C — 6Y5J.pdb  (coiled-coil extension)
+ *   Phase D — 6Y5K.pdb  (extended intermediate)
+ *   Phase E — 1QU1.pdb  (post-fusion hairpin)
+ *
+ * Drop oriented PDB files into:  p3/act2/pdbs/
+ * Expected filenames:            6Y5G.pdb  6Y5I.pdb  6Y5J.pdb  6Y5K.pdb  1QU1.pdb
+ *
+ * ── Fusion loop config ────────────────────────────────────────────────────────
+ * Update FUSION_LOOP_CFG below with the correct chain IDs and residue ranges
+ * once you've inspected each structure in PyMOL.  Fusion loop residues are
+ * rendered as bright orange spheres on top of the cartoon backbone.
+ * ─────────────────────────────────────────────────────────────────────────────
  *
  * Public API  (window.A2MolViewer):
- *   .show(x, y, w, h, phaseIdx)  — position overlay and load all three structures
+ *   .show(x, y, w, h, phaseIdx)  — position overlay and load all three panels
  *   .setAlpha(a)                 — sync CSS opacity with canvas card fade
  *   .hide()                      — collapse overlay on card dismiss
  *   .destroy()                   — full teardown when Act 2 ends
  *   .ready                       — true when $3Dmol is available
  *   .panelCenters(animX, animW)  — returns [cx0, cx1, cx2] for label drawing
+ *   .pdbsForPhase(phaseIdx)      — returns [code, code, code] for bottom label
  */
 window.A2MolViewer = (() => {
 
-  // ── PDB triples per phase [X, Y, Z] ───────────────────────────────────────
-  // One PDB per phase — all three panels show the same structure, different view angles
+  // ── Phase → PDB mapping ────────────────────────────────────────────────────
+  // All three panels show the same structure; each panel spins on a different axis.
   const PHASE_PDBS = [
-    ['6Y5G', '6Y5G', '6Y5G'],   // Phase A — pre-fusion / native HA
-    ['6Y5I', '6Y5I', '6Y5I'],   // Phase B — early head loosening
-    ['6Y5J', '6Y5J', '6Y5J'],   // Phase C — coiled-coil extension
-    ['6Y5K', '6Y5K', '6Y5K'],   // Phase D — extended intermediate
-    ['1QU1', '1QU1', '1QU1'],   // Phase E — post-fusion / hairpin
+    '6Y5G',   // Phase A — pre-fusion / native HA
+    '6Y5I',   // Phase B — early head loosening
+    '6Y5J',   // Phase C — coiled-coil extension
+    '6Y5K',   // Phase D — extended intermediate
+    '1QU1',   // Phase E — post-fusion hairpin
   ];
 
+  const PDB_DIR = 'p3/act2/pdbs/';
+
+  // ── Fusion loop config ─────────────────────────────────────────────────────
+  // For each PDB file, list the chain IDs and residue numbers that make up the
+  // fusion loop (HA2 N-terminus).  Update these after inspecting in PyMOL.
+  //
+  // Example — to tell Claude: "for 6Y5G, the fusion loop is chain B residues 1-23,
+  //   chain D residues 1-23, chain F residues 1-23"
+  // → set: '6Y5G': { chains: ['B','D','F'], resi: [1,2,...,23] }
+  //
+  // If a structure's chain IDs differ (e.g. after PyMOL renaming), update here.
+  // Set chains: [] to disable fusion loop highlighting for that structure.
+  const FUSION_LOOP_CFG = {
+    '6Y5G': { chains: ['B', 'D', 'F'], resi: Array.from({ length: 20 }, (_, i) => i + 1) },
+    '6Y5I': { chains: ['B', 'D', 'F'], resi: Array.from({ length: 20 }, (_, i) => i + 1) },
+    '6Y5J': { chains: ['B', 'D', 'F'], resi: Array.from({ length: 20 }, (_, i) => i + 1) },
+    '6Y5K': { chains: ['B', 'D', 'F'], resi: Array.from({ length: 20 }, (_, i) => i + 1) },
+    '1QU1': { chains: ['B', 'D', 'F'], resi: Array.from({ length: 20 }, (_, i) => i + 1) },
+  };
+
   // ── Config ─────────────────────────────────────────────────────────────────
-  const BG_COLOR    = '#080c1e';
-  const PANEL_GAP   = 8;           // px between the three viewer panels
-  const HA2_CHAINS  = ['B', 'D', 'F'];   // HA2 chain IDs in H3 trimers (typical)
-  const FUSION_RESI = Array.from({ length: 20 }, (_, i) => i + 1);  // residues 1–20
-  const FUSION_COLOR = '#ff5500';  // vivid orange for fusion loop
+  const BG_COLOR     = '#080c1e';
+  const PANEL_GAP    = 8;           // px between the three viewer panels
+  const FUSION_COLOR = '#ff6600';   // bright orange for fusion loop spheres
+
+  // X panel → x-axis spin; Y panel → z-axis spin (side view); Z panel → z-axis spin
+  const PANEL_AXES    = ['x', 'z', 'z'];
+  // Y panel (index 1) gets a 90° initial rotation around Y to show a side/lateral view
+  const PANEL_PRETILT = [null, { deg: 90, axis: 'y' }, null];
 
   // ── State ──────────────────────────────────────────────────────────────────
   let _container = null;
-  let _divs      = [null, null, null];    // X, Y, Z viewer host elements
-  let _viewers   = [null, null, null];    // $3Dmol GLViewer instances
+  let _divs      = [null, null, null];
+  let _viewers   = [null, null, null];
 
   // ── DOM helpers ────────────────────────────────────────────────────────────
 
@@ -79,32 +111,50 @@ window.A2MolViewer = (() => {
 
   // ── 3Dmol helpers ──────────────────────────────────────────────────────────
 
-  function _applyStyle(viewer) {
+  function _applyStyle(viewer, pdbCode) {
+    // Base cartoon — chain colours
     viewer.setStyle({ hetflag: false }, { cartoon: { colorscheme: 'chain', opacity: 0.92 } });
-    // Overlay vivid orange on fusion loop (HA2 N-terminus, residues 1–20)
-    HA2_CHAINS.forEach(ch => {
-      viewer.setStyle(
-        { chain: ch, resi: FUSION_RESI, hetflag: false },
-        { cartoon: { color: FUSION_COLOR, opacity: 0.98 } }
-      );
-    });
+
+    // Fusion loop — bright orange spheres overlaid on cartoon
+    const fl = FUSION_LOOP_CFG[pdbCode];
+    if (fl && fl.chains.length > 0) {
+      fl.chains.forEach(ch => {
+        viewer.addStyle(
+          { chain: ch, resi: fl.resi, hetflag: false },
+          { sphere: { color: FUSION_COLOR, radius: 0.8, opacity: 1.0 } }
+        );
+      });
+    }
   }
 
-  // X panel → x-axis spin; Y panel → z-axis spin (side view); Z panel → z-axis spin
-  const PANEL_AXES    = ['x', 'z', 'z'];
-  // Y panel (index 1) gets a 90° initial rotation around Y to show a side/lateral view
-  const PANEL_PRETILT = [null, { deg: 90, axis: 'y' }, null];
-
-  function _loadPDB(viewer, pdbCode, axis, pretilt) {
+  function _loadLocal(viewer, pdbCode, axis, pretilt) {
     viewer.removeAllModels();
     viewer.render();
-    $3Dmol.download('pdb:' + pdbCode, viewer, {}, () => {
-      _applyStyle(viewer);
-      viewer.zoomTo();
-      if (pretilt) viewer.rotate(pretilt.deg, pretilt.axis);
-      viewer.render();
-      viewer.spin(axis, 1);
-    });
+
+    fetch(PDB_DIR + pdbCode + '.pdb')
+      .then(r => {
+        if (!r.ok) throw new Error('HTTP ' + r.status + ' loading ' + pdbCode + '.pdb');
+        return r.text();
+      })
+      .then(data => {
+        viewer.addModel(data, 'pdb');
+        _applyStyle(viewer, pdbCode);
+        viewer.zoomTo();
+        if (pretilt) viewer.rotate(pretilt.deg, pretilt.axis);
+        viewer.render();
+        viewer.spin(axis, 1);
+      })
+      .catch(err => {
+        console.warn('A2MolViewer: falling back to RCSB for', pdbCode, '—', err.message);
+        // Fallback: fetch from RCSB if local file is missing
+        $3Dmol.download('pdb:' + pdbCode, viewer, {}, () => {
+          _applyStyle(viewer, pdbCode);
+          viewer.zoomTo();
+          if (pretilt) viewer.rotate(pretilt.deg, pretilt.axis);
+          viewer.render();
+          viewer.spin(axis, 1);
+        });
+      });
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -120,7 +170,6 @@ window.A2MolViewer = (() => {
 
     const pw = _panelW(w);
 
-    // Position + reveal container
     Object.assign(_container.style, {
       display: 'block',
       left:    x + 'px',
@@ -130,7 +179,6 @@ window.A2MolViewer = (() => {
       opacity: '1',
     });
 
-    // Size and create/resize each viewer panel
     for (let i = 0; i < 3; i++) {
       _divs[i].style.left  = (i * (pw + PANEL_GAP)) + 'px';
       _divs[i].style.width = pw + 'px';
@@ -142,10 +190,9 @@ window.A2MolViewer = (() => {
       }
     }
 
-    // Load all three structures — each spins on its own axis with optional pretilt
-    const pdbs = PHASE_PDBS[phaseIdx];
+    const pdbCode = PHASE_PDBS[phaseIdx];
     for (let i = 0; i < 3; i++) {
-      _loadPDB(_viewers[i], pdbs[i], PANEL_AXES[i], PANEL_PRETILT[i]);
+      _loadLocal(_viewers[i], pdbCode, PANEL_AXES[i], PANEL_PRETILT[i]);
     }
   }
 
@@ -153,6 +200,12 @@ window.A2MolViewer = (() => {
   function panelCenters(animX, animW) {
     const pw = _panelW(animW);
     return [0, 1, 2].map(i => animX + i * (pw + PANEL_GAP) + pw / 2);
+  }
+
+  /** Returns the PDB code for phaseIdx — used by boss for the bottom label. */
+  function pdbsForPhase(phaseIdx) {
+    const code = PHASE_PDBS[phaseIdx] || '';
+    return [code, code, code];
   }
 
   /** Sync overlay opacity with canvas card fade (called every frame). */
@@ -175,11 +228,6 @@ window.A2MolViewer = (() => {
     });
     if (_container) { _container.remove(); _container = null; }
     _divs = [null, null, null];
-  }
-
-  /** Returns the [X, Y, Z] PDB codes for phaseIdx — used by boss to draw per-panel labels. */
-  function pdbsForPhase(phaseIdx) {
-    return PHASE_PDBS[phaseIdx] || ['', '', ''];
   }
 
   return {
