@@ -1069,21 +1069,27 @@ class A2ElectroswingSynth {
     lpf.frequency.value = Math.min(freq * 11, SR * 0.45);
     const fb    = ctx.createGain();
     fb.gain.value = 0.992;
+    // Mute gate in the feedback path: hard-cuts loop at note end so it
+    // doesn't run indefinitely (which would cause buildup across many notes)
+    const mute  = ctx.createGain();
+    mute.gain.setValueAtTime(1, t);
+    mute.gain.setValueAtTime(0, t + noteDur + 0.005);
     const out   = ctx.createGain();
     out.gain.setValueAtTime(0.001, t);
     out.gain.linearRampToValueAtTime(0.085 * vel, t + 0.003);
     out.gain.setValueAtTime(0.085 * vel, t + noteDur * 0.6);
     out.gain.exponentialRampToValueAtTime(0.001, t + noteDur);
-    // Feedback loop: seed→delay→lpf→fb→delay; output tap from delay
+    // Topology: seed→delay→lpf→fb→mute→delay (loop gated); delay→out→bassGain
     seed.connect(delay);
     delay.connect(lpf);
     lpf.connect(fb);
-    fb.connect(delay);
+    fb.connect(mute);
+    mute.connect(delay);
     delay.connect(out);
     out.connect(this._bassGain);
     seed.start(t);
     seed.stop(t + period / SR + 0.003);
-    this._sched.push(seed, delay, lpf, fb, out);
+    this._sched.push(seed, delay, lpf, fb, mute, out);
   }
 
   // ── Brass stabs: PeriodicWave triads on funky upbeats (G major cycle) ───────
