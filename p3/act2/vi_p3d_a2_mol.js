@@ -89,14 +89,16 @@ window.A2MolViewer = (() => {
     });
   }
 
-  function _loadPDB(viewer, pdbCode) {
+  const PANEL_AXES = ['x', 'y', 'z'];   // X panel → x-axis, Y → y-axis, Z → z-axis
+
+  function _loadPDB(viewer, pdbCode, axis) {
     viewer.removeAllModels();
     viewer.render();
     $3Dmol.download('pdb:' + pdbCode, viewer, {}, () => {
       _applyStyle(viewer);
       viewer.zoomTo();
       viewer.render();
-      viewer.spin('z', 1);
+      viewer.spin(axis, 1);
     });
   }
 
@@ -135,10 +137,10 @@ window.A2MolViewer = (() => {
       }
     }
 
-    // Load all three structures
+    // Load all three structures — each spins on its own axis
     const pdbs = PHASE_PDBS[phaseIdx];
     for (let i = 0; i < 3; i++) {
-      _loadPDB(_viewers[i], pdbs[i]);
+      _loadPDB(_viewers[i], pdbs[i], PANEL_AXES[i]);
     }
   }
 
