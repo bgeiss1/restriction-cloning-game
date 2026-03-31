@@ -1115,6 +1115,26 @@ const P3DAct2BossBattle = (() => {
         _ctx.stroke();
       });
 
+      // PDB code labels at the bottom of each viewer panel
+      const pdbs    = A2MolViewer.pdbsForPhase(pi);
+      const viewerB = animY + viewH;    // bottom edge of viewer area
+      const PDB_H   = 18;              // height of the label band
+      _ctx.font         = 'bold 11px monospace';
+      _ctx.textBaseline = 'middle';
+      _ctx.textAlign    = 'center';
+      pdbs.forEach((code, i) => {
+        _ctx.globalAlpha = alpha * 0.82;
+        // dark tinted background strip
+        _ctx.fillStyle = 'rgba(8,12,30,0.72)';
+        const pw = Math.floor((animW - 2 * 8) / 3);   // PANEL_GAP = 8
+        const px = animX + i * (pw + 8);
+        _ctx.fillRect(px, viewerB - PDB_H, pw, PDB_H);
+        // gold text
+        _ctx.fillStyle = 'rgba(200,169,81,0.95)';
+        _ctx.fillText(code, px + pw / 2, viewerB - PDB_H / 2);
+      });
+      _ctx.globalAlpha = alpha;
+
       // Citation strip below the viewers
       _ctx.globalAlpha = alpha * 0.80;
       _ctx.fillStyle    = 'rgba(200,169,81,0.75)';

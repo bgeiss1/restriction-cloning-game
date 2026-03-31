@@ -176,12 +176,18 @@ window.A2MolViewer = (() => {
     _divs = [null, null, null];
   }
 
+  /** Returns the [X, Y, Z] PDB codes for phaseIdx — used by boss to draw per-panel labels. */
+  function pdbsForPhase(phaseIdx) {
+    return PHASE_PDBS[phaseIdx] || ['', '', ''];
+  }
+
   return {
     show,
     hide,
     setAlpha,
     destroy,
     panelCenters,
+    pdbsForPhase,
     get ready() { return !!window.$3Dmol; },
   };
 })();
