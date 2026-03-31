@@ -128,16 +128,25 @@ class P3DEndosomeVehicle {
   }
 
   _buildVATPases() {
-    this._vatpGroup = new THREE.Group();
+    this._vatpGroup    = new THREE.Group();
+    this._vatpMeshes   = [];
+    this._vatpBasePos  = [];   // base world positions (Vector3, relative to group)
+    this._vatpDirs     = [];   // outward radial unit vectors (XZ plane)
+    this._vatpPhase    = 0;
+
     const R = P3D_CFG.A1_ENDO_RADIUS;
     for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      const m = new THREE.Mesh(P3DGeoLib.cylinderThin, P3DMatLib.haStalk);
+      const a    = (i / 6) * Math.PI * 2;
+      const m    = new THREE.Mesh(P3DGeoLib.cylinderThin, P3DMatLib.haStalk);
       const yOff = (Math.sin(a * 1.3) * 0.5) * R;
-      m.position.set(Math.cos(a) * R, yOff, Math.sin(a) * R);
-      // Point outward from centre
+      const bx   = Math.cos(a) * R, bz = Math.sin(a) * R;
+      m.position.set(bx, yOff, bz);
       m.lookAt(new THREE.Vector3(0, yOff, 0));
       m.rotateX(Math.PI / 2);
+      m.scale.y = 0.45;   // shortened — ~0.40 units long at rest
+      this._vatpMeshes.push(m);
+      this._vatpBasePos.push(new THREE.Vector3(bx, yOff, bz));
+      this._vatpDirs.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
       this._vatpGroup.add(m);
     }
     this._group.add(this._vatpGroup);
@@ -177,6 +186,18 @@ class P3DEndosomeVehicle {
     if (cf > 0.02) {
       P3DMatLib.clathrin.opacity     = cf * 0.70;
       P3DMatLib.clathrinNode.opacity = cf * 0.65;
+    }
+
+    // V-ATPase pump animation — staggered piston strokes, rate scales with pH drop
+    this._vatpPhase += dt * (3.5 + Math.max(0, (7.4 - pH)) * 1.2);
+    for (let i = 0; i < this._vatpMeshes.length; i++) {
+      const m       = this._vatpMeshes[i];
+      const stagger = i * (Math.PI * 2 / 6);
+      // Half-rectified sine: smooth outward extension, sharp retract — pump stroke feel
+      const stroke  = Math.max(0, Math.sin(this._vatpPhase + stagger));
+      m.scale.y = 0.45 + 0.25 * stroke;
+      m.position.copy(this._vatpBasePos[i])
+        .addScaledVector(this._vatpDirs[i], 0.18 * stroke);
     }
 
     // Rab5 shed
