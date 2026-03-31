@@ -92,8 +92,8 @@ window.A2MolViewer = (() => {
 
   // X panel → x-axis spin; Y panel → z-axis spin (side view); Z panel → z-axis spin
   const PANEL_AXES    = ['x', 'z', 'z'];
-  // Y panel (index 1) gets a 90° initial tilt around X to show a side/lateral view
-  const PANEL_PRETILT = [null, { deg: 90, axis: 'x' }, null];
+  // Y panel (index 1) gets a 90° initial rotation around Y to show a side/lateral view
+  const PANEL_PRETILT = [null, { deg: 90, axis: 'y' }, null];
 
   function _loadPDB(viewer, pdbCode, axis, pretilt) {
     viewer.removeAllModels();
