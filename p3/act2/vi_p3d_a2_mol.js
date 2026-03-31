@@ -94,7 +94,7 @@ window.A2MolViewer = (() => {
       viewer.setStyle({ hetflag: false }, STYLE_PROT);
       viewer.zoomTo();
       viewer.render();
-      viewer.spin('y', 1);
+      viewer.spin('x', 1);
       if (onDone) onDone();
     });
   }
