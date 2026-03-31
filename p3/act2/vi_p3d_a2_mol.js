@@ -89,14 +89,18 @@ window.A2MolViewer = (() => {
     });
   }
 
-  const PANEL_AXES = ['x', 'y', 'z'];   // X panel → x-axis, Y → y-axis, Z → z-axis
+  // X panel → x-axis spin; Y panel → z-axis spin (side view); Z panel → z-axis spin
+  const PANEL_AXES    = ['x', 'z', 'z'];
+  // Y panel (index 1) gets a 90° initial tilt around X to show a side/lateral view
+  const PANEL_PRETILT = [null, { deg: 90, axis: 'x' }, null];
 
-  function _loadPDB(viewer, pdbCode, axis) {
+  function _loadPDB(viewer, pdbCode, axis, pretilt) {
     viewer.removeAllModels();
     viewer.render();
     $3Dmol.download('pdb:' + pdbCode, viewer, {}, () => {
       _applyStyle(viewer);
       viewer.zoomTo();
+      if (pretilt) viewer.rotate(pretilt.deg, pretilt.axis);
       viewer.render();
       viewer.spin(axis, 1);
     });
@@ -137,10 +141,10 @@ window.A2MolViewer = (() => {
       }
     }
 
-    // Load all three structures — each spins on its own axis
+    // Load all three structures — each spins on its own axis with optional pretilt
     const pdbs = PHASE_PDBS[phaseIdx];
     for (let i = 0; i < 3; i++) {
-      _loadPDB(_viewers[i], pdbs[i], PANEL_AXES[i]);
+      _loadPDB(_viewers[i], pdbs[i], PANEL_AXES[i], PANEL_PRETILT[i]);
     }
   }
 
