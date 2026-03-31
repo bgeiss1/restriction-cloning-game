@@ -841,15 +841,14 @@ class A2ElectroswingBeatmap {
 window.A2ElectroswingBeatmap = new A2ElectroswingBeatmap();
 
 // ── A2ElectroswingSynth ───────────────────────────────────────────────────────
-// Electroswing percussion engine for Act 2.
+// Funk-breakbeat engine for Act 2.  118 BPM, G major / Em.
 //
 // Architecture:
-//   _mainGain  →  ctx.destination  (kicks + chord stabs; muted during cards)
-//   _bassGain  →  ctx.destination  (walking bass; attenuated but alive during cards)
+//   _mainGain  →  ctx.destination  (kicks + stabs + hi-hats + horns; muted during cards)
+//   _bassGain  →  ctx.destination  (slap bass; attenuated but alive during cards)
 //
-// All audio is pre-scheduled on start() so the boss clock drives placement;
-// card-mode fading is done by GainNode ramps — ctx is NOT suspended, letting
-// the baseline carry through phase cards.
+// Percussion is pre-scheduled via _scheduleRange() with 8 s lookahead.
+// kickAt() fires an additional accent kick on gameplay node activations.
 class A2ElectroswingSynth {
   constructor() {
     this._snd            = null;
@@ -857,9 +856,9 @@ class A2ElectroswingSynth {
     this._mainGain       = null;
     this._bassGain       = null;
     this._reverb         = null;
-    this._sched          = [];     // AudioNodes for bulk disconnect on stop()
-    this._startAt        = 0;     // audioCtx time at which music began
-    this._scheduledUntil = 0;     // audioCtx time scheduled up to so far
+    this._sched          = [];
+    this._startAt        = 0;
+    this._scheduledUntil = 0;
   }
 
   // ── Init ────────────────────────────────────────────────────────────────
@@ -897,25 +896,22 @@ class A2ElectroswingSynth {
     const ctx = this._ctx;
     if (!ctx || !this._mainGain) return;
 
-    // ── Reverb — parallel wet/dry via synthetic IR ───────────────────────
+    // ── Reverb — tight room (funk is drier than electroswing) ───────────
     if (!this._reverb) {
       this._reverb = ctx.createConvolver();
       this._reverb.buffer = this._makeReverbIR(ctx);
-      // Darken the tail (real reverb rolls off high frequencies)
       const revHpf = ctx.createBiquadFilter();
-      revHpf.type = 'highpass'; revHpf.frequency.value = 220;
+      revHpf.type = 'highpass'; revHpf.frequency.value = 300;
       const revLpf = ctx.createBiquadFilter();
-      revLpf.type = 'lowpass';  revLpf.frequency.value = 4800;
+      revLpf.type = 'lowpass';  revLpf.frequency.value = 5500;
       const wetGain = ctx.createGain();
-      wetGain.gain.value = 0.20;   // wet level
+      wetGain.gain.value = 0.12;   // drier than electroswing
       this._reverb.connect(revHpf); revHpf.connect(revLpf);
       revLpf.connect(wetGain);     wetGain.connect(ctx.destination);
       this._sched.push(this._reverb, revHpf, revLpf, wetGain);
-      // Main signal (kicks, stabs, hi-hats, horns) → reverb
       this._mainGain.connect(this._reverb);
-      // Bass → reverb at reduced level (avoids low-end mud)
       const bassRevSend = ctx.createGain();
-      bassRevSend.gain.value = 0.38;
+      bassRevSend.gain.value = 0.22;
       this._bassGain.connect(bassRevSend);
       bassRevSend.connect(this._reverb);
       this._sched.push(bassRevSend);
@@ -944,315 +940,324 @@ class A2ElectroswingSynth {
     this._schedStabs(from, to);
     this._schedHiHats(from, to);
     this._schedSnare(from, to);
+    this._schedKickPattern(from, to);
     this._schedHornCalls(from, to);
     this._scheduledUntil = to;
   }
 
-  // ── Kick: public — called by boss at node-activation time ────────────────
-  // audioTime is ctx.currentTime + seconds_until_hit_zone
+  // ── Kick accent: public — called by boss at node-activation time ──────────
   kickAt(audioTime) {
     if (!this._ctx || !this._mainGain) return;
-    this._schedKick(audioTime);
+    this._schedKick(audioTime, 0.52);   // accent on gameplay hit
   }
 
-  // ── Kick: sine sub-thump + filtered noise click ──────────────────────────
-  _schedKick(t) {
-    const ctx = this._ctx;
+  // ── Pre-scheduled breakbeat kick grid ─────────────────────────────────────
+  _schedKickPattern(from, to) {
+    const BEAT = 60 / 118;
+    const SIX  = BEAT / 4;
+    const BAR  = BEAT * 4;
+    // Syncopated breakbeat: slots in 16th-note grid (0 = beat 1)
+    const KICK_SLOTS = [0, 3, 6, 8, 10, 14];
+    const refT = this._startAt;
+    const startBar = Math.floor((from - refT + 1e-9) / BAR);
+    for (let bi = startBar; ; bi++) {
+      const barBase = refT + bi * BAR;
+      if (barBase >= to) break;
+      for (const slot of KICK_SLOTS) {
+        const t = barBase + slot * SIX;
+        if (t >= from && t < to) this._schedKick(t, 0.38);
+      }
+    }
+  }
 
-    // Sub-bass thump
+  // ── Kick: pitched sub-thump + attack click ────────────────────────────────
+  _schedKick(t, gain = 0.42) {
+    const ctx = this._ctx;
     const oscK = ctx.createOscillator();
     const gK   = ctx.createGain();
     oscK.type = 'sine';
-    oscK.frequency.setValueAtTime(85, t);
-    oscK.frequency.exponentialRampToValueAtTime(28, t + 0.18);
-    gK.gain.setValueAtTime(0.42, t);
-    gK.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+    oscK.frequency.setValueAtTime(90, t);
+    oscK.frequency.exponentialRampToValueAtTime(32, t + 0.15);
+    gK.gain.setValueAtTime(gain, t);
+    gK.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
     oscK.connect(gK);  gK.connect(this._mainGain);
-    oscK.start(t);  oscK.stop(t + 0.25);
+    oscK.start(t);  oscK.stop(t + 0.20);
     this._sched.push(oscK, gK);
-
-    // Attack click — short white-noise burst, low-pass filtered
-    const bufLen = Math.ceil(ctx.sampleRate * 0.018);
+    // Attack click
+    const bufLen = Math.ceil(ctx.sampleRate * 0.012);
     const buf    = ctx.createBuffer(1, bufLen, ctx.sampleRate);
     const d      = buf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bufLen);
+    for (let i = 0; i < bufLen; i++) d[i] = (Math.random()*2-1) * (1 - i/bufLen);
     const src = ctx.createBufferSource();
     const lpf = ctx.createBiquadFilter();
     const gN  = ctx.createGain();
     src.buffer = buf;
-    lpf.type = 'lowpass';  lpf.frequency.value = 220;
-    gN.gain.value = 0.22;
+    lpf.type = 'lowpass';  lpf.frequency.value = 240;
+    gN.gain.value = 0.18;
     src.connect(lpf);  lpf.connect(gN);  gN.connect(this._mainGain);
     src.start(t);
     this._sched.push(src, lpf, gN);
   }
 
-  // ── Walking bass: square-wave quarter notes, C major / A minor walk ──────
+  // ── Slap bass: triangle pluck, 2-bar syncopated pattern, G major / Em ─────
   _schedBass(from, to) {
-    // 16-note cycle = 4 bars; chord tones in C / Am (Hz at 2nd octave)
-    const WALK = [
-       65,  82,  98, 110,  98,  82,  87,  98,
-      110,  82,  98, 110, 123, 110,  98,  82,
-    ];
-    const BEAT = 0.5;
+    const BEAT = 60 / 118;
+    const SIX  = BEAT / 4;
     const ctx  = this._ctx;
-    // Align to beat grid from _startAt
-    const niStart = Math.floor((from - this._startAt + 1e-9) / BEAT);
-    for (let ni = niStart; ; ni++) {
-      const t = this._startAt + ni * BEAT;
-      if (t >= to) break;
-      const prevNiNom = ((( ni - 1) % WALK.length) + WALK.length) % WALK.length;
-      const prevFreq  = WALK[prevNiNom];   // nominal (no humanization) for portamento
-      const cents   = (Math.random() - 0.5) * 6;
-      const freq    = WALK[ni % WALK.length] * Math.pow(2, cents / 1200);
-      const noteDur = BEAT * 0.78;
-      const peak    = 0.052 * (0.86 + Math.random() * 0.28);
-      const osc = ctx.createOscillator();
-      const g   = ctx.createGain();
-      osc.type  = 'square';
-      osc.frequency.setValueAtTime(prevFreq, t);
-      osc.frequency.linearRampToValueAtTime(freq, t + 0.012);
-      g.gain.setValueAtTime(0.001, t);
-      g.gain.linearRampToValueAtTime(peak, t + 0.012);
-      g.gain.setValueAtTime(peak, t + noteDur - 0.025);
-      g.gain.linearRampToValueAtTime(0.001, t + noteDur);
-      osc.connect(g);  g.connect(this._bassGain);
-      osc.start(t);  osc.stop(t + noteDur + 0.01);
-      this._sched.push(osc, g);
-    }
-  }
-
-  // ── Chord stabs: sawtooth triads, short attack / quick decay ────────────
-  _schedStabs(from, to) {
-    const CHORDS = [
-      [220, 262, 330],   // Am
-      [262, 330, 392],   // C
-      [175, 220, 262],   // F
-      [196, 247, 294],   // G
+    const G2=98.00, D2=73.42, E2=82.41, C2=65.41, B2=123.47, A2=110.00;
+    // 2-bar pattern: [slot (0–31 in 16th grid), freq, gate_mult]
+    const PAT = [
+       [0,  G2, 3.0],  [3,  D2, 2.0],  [6,  G2, 1.8],
+       [8,  G2, 3.0],  [11, E2, 2.0],  [14, D2, 1.8],
+      [16,  G2, 3.0],  [19, A2, 2.0],  [22, C2, 1.8],
+      [24,  G2, 3.0],  [27, B2, 2.0],  [30, D2, 1.8],
     ];
-    const ctx      = this._ctx;
-    const stabBase = this._startAt + 4.0;
-    const ciStart  = Math.max(0, Math.floor((from - stabBase + 1e-9) / 4.0));
-    for (let ci = ciStart; ; ci++) {
-      const t = stabBase + ci * 4.0;
-      if (t >= to) break;
-      for (const freq of CHORDS[ci % CHORDS.length]) {
+    const CYCLE = 32 * SIX;
+    const refT  = this._startAt;
+    const startC = Math.floor((from - refT + 1e-9) / CYCLE);
+    for (let c = startC; c <= startC + Math.ceil((to - from) / CYCLE) + 1; c++) {
+      const base = refT + c * CYCLE;
+      for (const [slot, freq, gm] of PAT) {
+        const t = base + slot * SIX;
+        if (t < from || t >= to) continue;
+        const noteDur = SIX * gm * 0.55;
+        const f   = freq * Math.pow(2, ((Math.random()-0.5)*6) / 1200);
+        const vel = 0.80 + Math.random() * 0.40;
+        // Triangle body — rounder than square, closer to bass guitar tone
         const osc = ctx.createOscillator();
         const g   = ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.value = freq;
+        osc.type = 'triangle';
+        osc.frequency.value = f;
         g.gain.setValueAtTime(0.001, t);
-        g.gain.linearRampToValueAtTime(0.022, t + 0.012);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
-        osc.connect(g);  g.connect(this._mainGain);
-        osc.start(t);  osc.stop(t + 0.38);
+        g.gain.linearRampToValueAtTime(0.072 * vel, t + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.001, t + noteDur);
+        osc.connect(g);  g.connect(this._bassGain);
+        osc.start(t);  osc.stop(t + noteDur + 0.01);
         this._sched.push(osc, g);
+        // Slap click — bandpass noise burst simulating string snap
+        const bLen = Math.ceil(ctx.sampleRate * 0.009);
+        const sbuf = ctx.createBuffer(1, bLen, ctx.sampleRate);
+        const sd   = sbuf.getChannelData(0);
+        for (let i = 0; i < bLen; i++) sd[i] = (Math.random()*2-1)*(1-i/bLen);
+        const slapSrc = ctx.createBufferSource();
+        const bpf     = ctx.createBiquadFilter();
+        const gN      = ctx.createGain();
+        slapSrc.buffer = sbuf;
+        bpf.type = 'bandpass';  bpf.frequency.value = 900;  bpf.Q.value = 1.2;
+        gN.gain.value = 0.025 * vel;
+        slapSrc.connect(bpf);  bpf.connect(gN);  gN.connect(this._bassGain);
+        slapSrc.start(t);
+        this._sched.push(slapSrc, bpf, gN);
       }
     }
   }
 
-  // ── Hi-hats: closed on beats, open on swing-8th upbeats ─────────────────
-  _schedHiHats(from, to) {
-    const ctx     = this._ctx;
-    const SR      = ctx.sampleRate;
-    const bufLen  = Math.ceil(SR * 0.25);
-    const noiseBuf = ctx.createBuffer(1, bufLen, SR);
-    const nd       = noiseBuf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) nd[i] = Math.random() * 2 - 1;
-
-    const BEAT  = 0.5;
-    const SWING = 0.333;
-
-    const closedHH = (t) => {
-      const src  = ctx.createBufferSource();
-      const bpf  = ctx.createBiquadFilter();
-      const g    = ctx.createGain();
-      const peak = 0.060 * (0.92 + Math.random() * 0.16);
-      src.buffer = noiseBuf;
-      bpf.type = 'bandpass';  bpf.frequency.value = 9000;  bpf.Q.value = 0.8;
-      g.gain.setValueAtTime(peak, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.030);
-      src.connect(bpf);  bpf.connect(g);  g.connect(this._mainGain);
-      src.start(t);  src.stop(t + 0.035);
-      this._sched.push(src, bpf, g);
-    };
-
-    const openHH = (t) => {
-      const src  = ctx.createBufferSource();
-      const bpf  = ctx.createBiquadFilter();
-      const hpf  = ctx.createBiquadFilter();
-      const g    = ctx.createGain();
-      const peak = 0.045 * (0.92 + Math.random() * 0.16);
-      src.buffer = noiseBuf;
-      bpf.type = 'bandpass';  bpf.frequency.value = 6500;  bpf.Q.value = 0.6;
-      hpf.type = 'highpass';  hpf.frequency.value = 4000;
-      g.gain.setValueAtTime(peak, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + 0.180);
-      src.connect(bpf);  bpf.connect(hpf);  hpf.connect(g);  g.connect(this._mainGain);
-      src.start(t);  src.stop(t + 0.200);
-      this._sched.push(src, bpf, hpf, g);
-    };
-
-    // Align to beat grid from _startAt
-    const biStart = Math.floor((from - this._startAt + 1e-9) / BEAT);
-    for (let bi = biStart; ; bi++) {
-      const t = this._startAt + bi * BEAT;
-      if (t >= to) break;
-      closedHH(t);
-      if (t + SWING < to) openHH(t + SWING);
+  // ── Brass stabs: sawtooth triads on funky upbeats (G major cycle) ─────────
+  _schedStabs(from, to) {
+    const BEAT = 60 / 118;
+    const SIX  = BEAT / 4;
+    const BAR  = BEAT * 4;
+    const ctx  = this._ctx;
+    const CHORDS = [
+      [392.00, 493.88, 587.33],   // G:  G4 B4 D5
+      [329.63, 392.00, 493.88],   // Em: E4 G4 B4
+      [261.63, 329.63, 392.00],   // C:  C4 E4 G4
+      [293.66, 369.99, 440.00],   // D:  D4 F#4 A4
+    ];
+    // Stabs on "+" of beat 2 (slot 6) and "+" of beat 4 (slot 14)
+    const STAB_SLOTS = [6, 14];
+    const refT = this._startAt;
+    const startBar = Math.floor((from - refT + 1e-9) / BAR);
+    for (let bi = startBar; ; bi++) {
+      const barBase = refT + bi * BAR;
+      if (barBase >= to) break;
+      const chord = CHORDS[bi % CHORDS.length];
+      for (const slot of STAB_SLOTS) {
+        const t = barBase + slot * SIX;
+        if (t < from || t >= to) continue;
+        for (const freq of chord) {
+          const osc = ctx.createOscillator();
+          const g   = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.value = freq;
+          g.gain.setValueAtTime(0.001, t);
+          g.gain.linearRampToValueAtTime(0.020, t + 0.007);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.070);
+          osc.connect(g);  g.connect(this._mainGain);
+          osc.start(t);  osc.stop(t + 0.08);
+          this._sched.push(osc, g);
+        }
+      }
     }
   }
 
-  // ── Snare: white-noise body + sine thump on beats 2 and 4 ────────────────
-  _schedSnare(from, to) {
-    const ctx    = this._ctx;
-    const SR     = ctx.sampleRate;
-    const bufLen = Math.ceil(SR * 0.18);
-    const snBuf  = ctx.createBuffer(1, bufLen, SR);
-    const sd     = snBuf.getChannelData(0);
-    for (let i = 0; i < bufLen; i++) sd[i] = Math.random() * 2 - 1;
-
-    const BAR  = 2.0;
-    const BEAT = 0.5;
-
-    // Align to bar grid from _startAt
-    const biStart = Math.floor((from - this._startAt + 1e-9) / BAR);
-    for (let bi = biStart; ; bi++) {
-      const bar = this._startAt + bi * BAR;
-      if (bar >= to) break;
-      for (const beatOff of [BEAT, BEAT * 3]) {
-        const t = bar + beatOff;
-        if (t < from || t >= to) continue;
-
-        // ±6% velocity humanization per hit
-        const vel = 0.94 + Math.random() * 0.12;
-
-        // Noise body
+  // ── Hi-hats: straight 16th closed HH, open HH on beat upbeats ────────────
+  _schedHiHats(from, to) {
+    const BEAT = 60 / 118;
+    const SIX  = BEAT / 4;
+    const ctx  = this._ctx;
+    const SR   = ctx.sampleRate;
+    const bufLen   = Math.ceil(SR * 0.22);
+    const noiseBuf = ctx.createBuffer(1, bufLen, SR);
+    const nd = noiseBuf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) nd[i] = Math.random()*2-1;
+    // Open HH on "+" of beats 2 and 4 (16th slots 6 and 14)
+    const OPEN = new Set([6, 14]);
+    // Skip closed HH on beats 1 and 3 (give kick space)
+    const SKIP = new Set([0, 8]);
+    const refT = this._startAt;
+    const startSlot = Math.floor((from - refT + 1e-9) / SIX);
+    for (let si = startSlot; ; si++) {
+      const t = refT + si * SIX;
+      if (t >= to) break;
+      if (t < from) continue;
+      const barSlot = ((si % 16) + 16) % 16;
+      const isOpen  = OPEN.has(barSlot);
+      if (!isOpen && SKIP.has(barSlot)) continue;
+      const vel = 0.70 + Math.random() * 0.60;
+      if (isOpen) {
+        const src = ctx.createBufferSource();
+        const hpf = ctx.createBiquadFilter();
+        const g   = ctx.createGain();
+        src.buffer = noiseBuf;
+        hpf.type = 'highpass';  hpf.frequency.value = 5500;
+        g.gain.setValueAtTime(0.050 * vel, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        src.connect(hpf);  hpf.connect(g);  g.connect(this._mainGain);
+        src.start(t);  src.stop(t + 0.18);
+        this._sched.push(src, hpf, g);
+      } else {
         const src = ctx.createBufferSource();
         const bpf = ctx.createBiquadFilter();
-        const gN  = ctx.createGain();
-        src.buffer = snBuf;
-        bpf.type = 'bandpass';  bpf.frequency.value = 260;  bpf.Q.value = 0.9;
-        gN.gain.setValueAtTime(0.065 * vel, t);
-        gN.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-        src.connect(bpf);  bpf.connect(gN);  gN.connect(this._mainGain);
-        src.start(t);  src.stop(t + 0.14);
-        this._sched.push(src, bpf, gN);
+        const g   = ctx.createGain();
+        src.buffer = noiseBuf;
+        bpf.type = 'bandpass';  bpf.frequency.value = 10000;  bpf.Q.value = 0.7;
+        g.gain.setValueAtTime(0.030 * vel, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.018);
+        src.connect(bpf);  bpf.connect(g);  g.connect(this._mainGain);
+        src.start(t);  src.stop(t + 0.022);
+        this._sched.push(src, bpf, g);
+      }
+    }
+  }
 
-        // Sine body thump
+  // ── Snare: main hits beats 2 & 4, ghost notes on 16th grid ───────────────
+  _schedSnare(from, to) {
+    const BEAT = 60 / 118;
+    const SIX  = BEAT / 4;
+    const BAR  = BEAT * 4;
+    const ctx  = this._ctx;
+    const SR   = ctx.sampleRate;
+    const bufLen = Math.ceil(SR * 0.15);
+    const snBuf  = ctx.createBuffer(1, bufLen, SR);
+    const sd = snBuf.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) sd[i] = Math.random()*2-1;
+
+    const playSnare = (t, ghost) => {
+      const vel = ghost ? 0.15 + Math.random()*0.12 : 0.82 + Math.random()*0.18;
+      const src = ctx.createBufferSource();
+      const bpf = ctx.createBiquadFilter();
+      const gN  = ctx.createGain();
+      src.buffer = snBuf;
+      bpf.type = 'bandpass';  bpf.frequency.value = 260;  bpf.Q.value = 0.9;
+      gN.gain.setValueAtTime(0.068 * vel, t);
+      gN.gain.exponentialRampToValueAtTime(0.001, ghost ? t+0.055 : t+0.105);
+      src.connect(bpf);  bpf.connect(gN);  gN.connect(this._mainGain);
+      src.start(t);  src.stop(ghost ? t+0.065 : t+0.12);
+      this._sched.push(src, bpf, gN);
+      if (!ghost) {
         const osc = ctx.createOscillator();
         const gS  = ctx.createGain();
-        osc.type = 'sine';  osc.frequency.value = 185;
-        gS.gain.setValueAtTime(0.055 * vel, t);
-        gS.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.type = 'sine';  osc.frequency.value = 188;
+        gS.gain.setValueAtTime(0.052 * vel, t);
+        gS.gain.exponentialRampToValueAtTime(0.001, t + 0.072);
         osc.connect(gS);  gS.connect(this._mainGain);
-        osc.start(t);  osc.stop(t + 0.10);
+        osc.start(t);  osc.stop(t + 0.09);
         this._sched.push(osc, gS);
       }
-    }
-  }
+    };
 
-  // ── Horn phrases: 4-note run + resolution, one phrase per chord stab ───────
-  _schedHornCalls(from, to) {
-    const PHRASES = [
-      [ {f:329.63, o:-1.50, d:0.22}, {f:392.00, o:-1.00, d:0.20},
-        {f:440.00, o:-0.55, d:0.22}, {f:392.00, o:-0.22, d:0.15},
-        {f:440.00, o: 0.00, d:0.45} ],
-      [ {f:392.00, o:-1.50, d:0.22}, {f:440.00, o:-1.00, d:0.20},
-        {f:493.88, o:-0.55, d:0.22}, {f:523.25, o:-0.22, d:0.15},
-        {f:659.25, o: 0.00, d:0.45} ],
-      [ {f:261.63, o:-1.50, d:0.22}, {f:293.66, o:-1.00, d:0.20},
-        {f:329.63, o:-0.55, d:0.22}, {f:349.23, o:-0.22, d:0.15},
-        {f:523.25, o: 0.00, d:0.45} ],
-      [ {f:293.66, o:-1.50, d:0.22}, {f:329.63, o:-1.00, d:0.20},
-        {f:369.99, o:-0.55, d:0.22}, {f:392.00, o:-0.22, d:0.15},
-        {f:392.00, o: 0.00, d:0.45} ],
-    ];
-
-    const stabBase = this._startAt + 4.0;
-    // Start from one stab before `from` so horn pickups (-1.5s) aren't clipped
-    const ciStart  = Math.max(0, Math.floor((from - stabBase - 1.5 + 1e-9) / 4.0));
-    for (let ci = ciStart; ; ci++) {
-      const stabT = stabBase + ci * 4.0;
-      if (stabT - 1.5 >= to) break;  // even earliest note past range
-      for (const note of PHRASES[ci % PHRASES.length]) {
-        const t = stabT + note.o;
-        if (t < from || t >= to) continue;
-        this._playHorn(t, note.f, note.d);
+    const refT = this._startAt;
+    const startBar = Math.floor((from - refT + 1e-9) / BAR);
+    for (let bi = startBar; ; bi++) {
+      const barBase = refT + bi * BAR;
+      if (barBase >= to) break;
+      // Main snare: beat 2 (slot 4) and beat 4 (slot 12)
+      for (const slot of [4, 12]) {
+        const t = barBase + slot * SIX;
+        if (t >= from && t < to) playSnare(t, false);
+      }
+      // Ghost notes: slots 2, 10, 14 (before/after main hits)
+      for (const slot of [2, 10, 14]) {
+        const t = barBase + slot * SIX;
+        if (t >= from && t < to) playSnare(t, true);
       }
     }
   }
 
-  // ── Horn voice: 2 detuned sawtooths + vibrato LFO + warm lowpass ─────────
+  // ── Horn hits: short 2-note punches every 2 bars (G major voicings) ───────
+  _schedHornCalls(from, to) {
+    const BEAT = 60 / 118;
+    const BAR  = BEAT * 4;
+    const ctx  = this._ctx;
+    // [freq_Hz, bar_offset_in_seconds]
+    const LICKS = [
+      [[392.00, 0], [493.88, BEAT*0.5]],   // G4 → B4
+      [[440.00, 0], [523.25, BEAT*0.5]],   // A4 → C5
+      [[329.63, 0], [392.00, BEAT*0.5]],   // E4 → G4
+      [[293.66, 0], [369.99, BEAT*0.5]],   // D4 → F#4
+    ];
+    const TWO_BAR = BAR * 2;
+    const refT = this._startAt;
+    const startPhrase = Math.max(0, Math.floor((from - refT - BAR + 1e-9) / TWO_BAR));
+    for (let pi = startPhrase; ; pi++) {
+      const phraseT = refT + pi * TWO_BAR;
+      if (phraseT >= to) break;
+      const lick = LICKS[pi % LICKS.length];
+      for (const [freq, off] of lick) {
+        const t = phraseT + off;
+        if (t < from || t >= to) continue;
+        this._playHorn(t, freq, 0.14);
+      }
+    }
+  }
+
+  // ── Horn voice: 2 detuned sawtooths + warm LPF (punchy stab style) ────────
   _playHorn(t, freq, dur) {
     const ctx = this._ctx;
-
-    // ±5 cent intonation variation — players don't hit exact pitch every time
-    const intonation = (Math.random() - 0.5) * 10;         // cents
-    const targetFreq = freq * Math.pow(2, intonation / 1200);
-
-    // Lip-attack: start 14 cents sharp, settle to pitch over 22 ms
-    // (brass players overshoot slightly on attack before settling)
-    const attackFreq = targetFreq * Math.pow(2, 14 / 1200);
-
-    // ±10% velocity humanization
-    const vel = 0.90 + Math.random() * 0.20;
-
-    // Vibrato LFO: 5.5 Hz, ramps from 0 to ±9 cents over first 80 ms
-    const lfo  = ctx.createOscillator();
-    const lfoG = ctx.createGain();
-    lfo.type = 'sine';
-    lfo.frequency.value = 5.5;
-    lfoG.gain.setValueAtTime(0, t);
-    lfoG.gain.linearRampToValueAtTime(9, t + 0.08);   // cents
-    lfo.connect(lfoG);
-    lfo.start(t);
-    lfo.stop(t + dur + 0.02);
-    this._sched.push(lfo, lfoG);
-
-    // Shared lowpass — warm brass body, cuts harsh high partials
+    const vel = 0.85 + Math.random() * 0.30;
     const lpf = ctx.createBiquadFilter();
-    lpf.type = 'lowpass';
-    lpf.frequency.value = 2600;
-    lpf.Q.value = 0.4;
+    lpf.type = 'lowpass';  lpf.frequency.value = 3000;  lpf.Q.value = 0.5;
     lpf.connect(this._mainGain);
     this._sched.push(lpf);
-
-    // Two sawtooth voices: fundamental (louder) + 9 cents sharp (width)
-    for (const [detuneC, basePeak] of [[0, 0.042], [9, 0.020]]) {
-      const peak = basePeak * vel;
-      const osc  = ctx.createOscillator();
-      const g    = ctx.createGain();
-      osc.type   = 'sawtooth';
-      // Lip attack: start sharp, slide to target pitch
-      osc.frequency.setValueAtTime(attackFreq * Math.pow(2, detuneC / 1200), t);
-      osc.frequency.linearRampToValueAtTime(targetFreq * Math.pow(2, detuneC / 1200), t + 0.022);
-      lfoG.connect(osc.detune);   // vibrato modulates detune in cents
+    for (const [detuneC, basePeak] of [[0, 0.040], [7, 0.018]]) {
+      const osc = ctx.createOscillator();
+      const g   = ctx.createGain();
+      const f   = freq * Math.pow(2, (detuneC + (Math.random()-0.5)*8) / 1200);
+      osc.type = 'sawtooth';
+      osc.frequency.value = f;
       g.gain.setValueAtTime(0.001, t);
-      g.gain.linearRampToValueAtTime(peak, t + 0.015);
-      g.gain.setValueAtTime(peak, Math.max(t + 0.016, t + dur - 0.040));
+      g.gain.linearRampToValueAtTime(basePeak * vel, t + 0.009);
+      g.gain.setValueAtTime(basePeak * vel, Math.max(t+0.010, t + dur - 0.025));
       g.gain.linearRampToValueAtTime(0.001, t + dur);
-      osc.connect(g);
-      g.connect(lpf);
-      osc.start(t);
-      osc.stop(t + dur + 0.01);
+      osc.connect(g);  g.connect(lpf);
+      osc.start(t);  osc.stop(t + dur + 0.01);
       this._sched.push(osc, g);
     }
   }
 
-  // ── Reverb impulse response — synthetic small-club room ─────────────────
+  // ── Reverb impulse response — tight room (0.7 s, drier than before) ───────
   _makeReverbIR(ctx) {
     const SR  = ctx.sampleRate;
-    const dur = 1.4;                          // tail length (s)
+    const dur = 0.7;
     const len = Math.ceil(SR * dur);
-    const PRE = Math.ceil(SR * 0.015);        // 15 ms pre-delay
+    const PRE = Math.ceil(SR * 0.008);
     const buf = ctx.createBuffer(2, len, SR);
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
       for (let i = PRE; i < len; i++) {
-        const t   = (i - PRE) / SR;
-        const env = Math.pow(1 - t / dur, 2.8);   // exponential-ish decay
-        d[i] = (Math.random() * 2 - 1) * env;
+        const t = (i - PRE) / SR;
+        d[i] = (Math.random()*2-1) * Math.pow(1 - t/dur, 3.2);
       }
     }
     return buf;
