@@ -1257,6 +1257,80 @@ const P3DAct2BossBattle = (() => {
     _ctx.restore();
   }
 
+  // ── Virion rendering ───────────────────────────────────────────────────
+
+  /**
+   * Draw an influenza virion disk: sphere-shaded lipid envelope + HA trimer spikes.
+   * Each spike = short stalk + three splayed head arms (Y-shape), representing
+   * the HA1 globular head domains atop the HA2 stalk.
+   * Spikes slowly rotate over time (_t) to imply 3-D tumbling.
+   */
+  function _drawVirion(cx, cy, R, col) {
+    const N     = Math.round(R * 0.44);   // spike count (~10 at R=24, ~8 at R=18)
+    const ST    = R * 0.30;               // stalk length
+    const HD    = R * 0.22;               // head arm length
+    const HANG  = 0.58;                   // radians between each of the 3 head arms
+    const rot   = _t * 0.28;             // slow rotation (rad/s)
+
+    _ctx.save();
+    _ctx.lineCap  = 'round';
+    _ctx.lineJoin = 'round';
+
+    // ── HA spikes (drawn first so body covers their bases) ────────────────
+    _ctx.strokeStyle = col + 'cc';
+    _ctx.lineWidth   = 1.5;
+
+    for (let i = 0; i < N; i++) {
+      const a  = (i / N) * Math.PI * 2 + rot;
+      const bx = cx + Math.cos(a) * R;            // stalk base on membrane
+      const by = cy + Math.sin(a) * R;
+      const tx = cx + Math.cos(a) * (R + ST);     // stalk tip
+      const ty = cy + Math.sin(a) * (R + ST);
+
+      // Stalk
+      _ctx.beginPath();
+      _ctx.moveTo(bx, by);
+      _ctx.lineTo(tx, ty);
+      _ctx.stroke();
+
+      // Three head arms (HA1 globular domains)
+      for (let j = -1; j <= 1; j++) {
+        const ha = a + j * HANG;
+        _ctx.beginPath();
+        _ctx.moveTo(tx, ty);
+        _ctx.lineTo(tx + Math.cos(ha) * HD, ty + Math.sin(ha) * HD);
+        _ctx.stroke();
+      }
+
+      // Tiny dot at each head tip (receptor-binding site)
+      _ctx.fillStyle = col + 'ee';
+      for (let j = -1; j <= 1; j++) {
+        const ha = a + j * HANG;
+        _ctx.beginPath();
+        _ctx.arc(tx + Math.cos(ha) * HD, ty + Math.sin(ha) * HD, 1.8, 0, Math.PI * 2);
+        _ctx.fill();
+      }
+    }
+
+    // ── Lipid envelope body (gradient gives 3-D sphere illusion) ──────────
+    const hiX  = cx - R * 0.28;
+    const hiY  = cy - R * 0.28;
+    const grad = _ctx.createRadialGradient(hiX, hiY, R * 0.05, cx, cy, R);
+    grad.addColorStop(0.00, col + 'ff');   // specular highlight
+    grad.addColorStop(0.40, col + 'cc');
+    grad.addColorStop(1.00, col + '44');   // dark limb
+
+    _ctx.beginPath();
+    _ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    _ctx.fillStyle = grad;
+    _ctx.fill();
+    _ctx.strokeStyle = col + 'dd';
+    _ctx.lineWidth   = 1.5;
+    _ctx.stroke();
+
+    _ctx.restore();
+  }
+
   // ── Node drawing ───────────────────────────────────────────────────────
 
   function _drawNode(n, x0, laneW, gap, hitY) {
@@ -1277,25 +1351,15 @@ const P3DAct2BossBattle = (() => {
     if (n.type === 'HOLD') {
       _drawHoldNode(n, cx, nodeY, col);
     } else if (n.type === 'SYNC') {
+      // Purple outer ring marks SYNC, virion body inside
       _ctx.beginPath();
-      _ctx.arc(cx, nodeY, 24, 0, Math.PI * 2);
-      _ctx.fillStyle   = col + '44';
-      _ctx.fill();
+      _ctx.arc(cx, nodeY, 28, 0, Math.PI * 2);
       _ctx.strokeStyle = '#dd44ff';
       _ctx.lineWidth   = 3;
       _ctx.stroke();
-      _ctx.beginPath();
-      _ctx.arc(cx, nodeY, 8, 0, Math.PI * 2);
-      _ctx.fillStyle = '#dd44ff88';
-      _ctx.fill();
+      _drawVirion(cx, nodeY, 24, col);
     } else {
-      _ctx.beginPath();
-      _ctx.arc(cx, nodeY, 24, 0, Math.PI * 2);
-      _ctx.fillStyle   = col + 'bb';
-      _ctx.fill();
-      _ctx.strokeStyle = col;
-      _ctx.lineWidth   = 2.5;
-      _ctx.stroke();
+      _drawVirion(cx, nodeY, 24, col);
     }
 
     _ctx.globalAlpha = 1;
@@ -1321,13 +1385,7 @@ const P3DAct2BossBattle = (() => {
       _ctx.fill();
     }
 
-    _ctx.beginPath();
-    _ctx.arc(cx, headY, R, 0, Math.PI * 2);
-    _ctx.fillStyle   = col + 'cc';
-    _ctx.fill();
-    _ctx.strokeStyle = col;
-    _ctx.lineWidth   = 2;
-    _ctx.stroke();
+    _drawVirion(cx, headY, R, col);
   }
 
   function _roundRect(x, y, w, h, r) {
