@@ -1005,7 +1005,9 @@ class A2ElectroswingSynth {
     this._sched.push(src, lpf, gN);
   }
 
-  // ── Slap bass: Karplus-Strong pluck, 2-bar syncopated pattern, G major/Em ──
+  // ── Slap bass: triangle pluck, 2-bar syncopated pattern, G major / Em ─────
+  // (KS synthesis removed — DelayNode feedback loops are too DSP-expensive when
+  //  many notes are pre-scheduled, causing audio thread overruns / crackling.)
   _schedBass(from, to) {
     const BEAT = 60 / 118;
     const SIX  = BEAT / 4;
@@ -1028,7 +1030,17 @@ class A2ElectroswingSynth {
         const noteDur = SIX * gm * 0.55;
         const f   = freq * Math.pow(2, ((Math.random()-0.5)*6) / 1200);
         const vel = 0.80 + Math.random() * 0.40;
-        this._ksPluck(t, f, noteDur, vel);
+        // Triangle body — round, bass-guitar-adjacent tone
+        const osc = ctx.createOscillator();
+        const g   = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.value = f;
+        g.gain.setValueAtTime(0.001, t);
+        g.gain.linearRampToValueAtTime(0.072 * vel, t + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.001, t + noteDur);
+        osc.connect(g);  g.connect(this._bassGain);
+        osc.start(t);  osc.stop(t + noteDur + 0.01);
+        this._sched.push(osc, g);
         // Slap click — bandpass noise burst simulating string snap
         const bLen = Math.ceil(ctx.sampleRate * 0.009);
         const sbuf = ctx.createBuffer(1, bLen, ctx.sampleRate);
@@ -1045,52 +1057,6 @@ class A2ElectroswingSynth {
         this._sched.push(slapSrc, bpf, gN);
       }
     }
-  }
-
-  // ── Karplus-Strong string pluck ────────────────────────────────────────────
-  _ksPluck(t, freq, noteDur, vel) {
-    const ctx    = this._ctx;
-    const SR     = ctx.sampleRate;
-    const period = Math.round(SR / freq);
-    // Seed buffer: one period of 1-pole LP-filtered white noise
-    const seedBuf = ctx.createBuffer(1, period, SR);
-    const sd = seedBuf.getChannelData(0);
-    for (let i = 0; i < period; i++) sd[i] = Math.random() * 2 - 1;
-    let prev = 0;
-    for (let i = 0; i < period; i++) {
-      sd[i] = 0.5 * sd[i] + 0.5 * prev;
-      prev  = sd[i];
-    }
-    const seed  = ctx.createBufferSource();
-    seed.buffer = seedBuf;
-    const delay = ctx.createDelay(0.025);
-    delay.delayTime.value = period / SR;
-    const lpf   = ctx.createBiquadFilter();
-    lpf.type    = 'lowpass';
-    lpf.frequency.value = Math.min(freq * 11, SR * 0.45);
-    const fb    = ctx.createGain();
-    fb.gain.value = 0.992;
-    // Mute gate in the feedback path: hard-cuts loop at note end so it
-    // doesn't run indefinitely (which would cause buildup across many notes)
-    const mute  = ctx.createGain();
-    mute.gain.setValueAtTime(1, t);
-    mute.gain.setValueAtTime(0, t + noteDur + 0.005);
-    const out   = ctx.createGain();
-    out.gain.setValueAtTime(0.001, t);
-    out.gain.linearRampToValueAtTime(0.085 * vel, t + 0.003);
-    out.gain.setValueAtTime(0.085 * vel, t + noteDur * 0.6);
-    out.gain.exponentialRampToValueAtTime(0.001, t + noteDur);
-    // Topology: seed→delay→lpf→fb→mute→delay (loop gated); delay→out→bassGain
-    seed.connect(delay);
-    delay.connect(lpf);
-    lpf.connect(fb);
-    fb.connect(mute);
-    mute.connect(delay);
-    delay.connect(out);
-    out.connect(this._bassGain);
-    seed.start(t);
-    seed.stop(t + period / SR + 0.003);
-    this._sched.push(seed, delay, lpf, fb, mute, out);
   }
 
   // ── Brass stabs: PeriodicWave triads on funky upbeats (G major cycle) ───────
