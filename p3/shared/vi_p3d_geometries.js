@@ -5,6 +5,7 @@ const P3DGeoLib = {
   endoSphere:     null,  // kept non-indexed for vertex animation in EndosomeVehicle
   endoSpherePos:  null,  // Float32Array: original vertex positions (copied at init)
   clathrin:       null,
+  clathrinArm:    null,  // small cylinder — one arm of a triskelion node
   lysosomeSphere: null,
   lysoDanger:     null,
   octaM2:         null,
@@ -27,7 +28,8 @@ const P3DGeoLib = {
     const pos = this.endoSphere.attributes.position;
     this.endoSpherePos = new Float32Array(pos.array);
 
-    this.clathrin       = new THREE.IcosahedronGeometry(P3D_CFG.A1_ENDO_RADIUS + 0.2, 1);
+    this.clathrin       = new THREE.IcosahedronGeometry(P3D_CFG.A1_ENDO_RADIUS + 0.2, 2);
+    this.clathrinArm    = new THREE.CylinderGeometry(0.025, 0.025, 0.20, 5);
     this.lysosomeSphere = new THREE.SphereGeometry(1.75, 14, 14);
     this.lysoDanger     = new THREE.SphereGeometry(P3D_CFG.A1_LYSO_DANGER_R, 8, 8);
     this.octaM2         = new THREE.OctahedronGeometry(0.3);

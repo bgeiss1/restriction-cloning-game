@@ -4,7 +4,7 @@
  *
  * Visual layers:
  *   1. Endosome membrane  — shared SphereGeometry with vertex breathing animation
- *   2. Clathrin coat      — wireframe IcosahedronGeometry; fades pH 7.4 → 6.5
+ *   2. Clathrin coat      — EdgesGeometry lattice + triskelion InstancedMesh; fades pH 7.4 → 6.5
  *   3. Rab5 ring markers  — green tori, disappear at pH ≤ A1_RAB5_PH
  *   4. Rab7 ring markers  — amber tori, appear    at pH ≤ A1_RAB7_PH
  *   5. Virus core         — orange sphere inside
@@ -45,8 +45,56 @@ class P3DEndosomeVehicle {
   }
 
   _buildClathrin() {
-    this._clathrinMesh = new THREE.Mesh(P3DGeoLib.clathrin, P3DMatLib.clathrin);
-    this._group.add(this._clathrinMesh);
+    this._clathrinGroup = new THREE.Group();
+    this._clathrinRotY  = 0;
+
+    // ── Edge lattice (LineSegments over EdgesGeometry) ─────────────────
+    const edgesGeo = new THREE.EdgesGeometry(P3DGeoLib.clathrin);
+    this._clathrinEdgesGeo = edgesGeo;   // locally owned — disposed in destroy()
+    this._clathrinGroup.add(new THREE.LineSegments(edgesGeo, P3DMatLib.clathrin));
+
+    // ── Triskelion arms at each unique vertex ──────────────────────────
+    // Real clathrin is built from three-legged triskelion proteins.
+    // One triskelion sits at each lattice vertex with three arms radiating
+    // 120° apart in the local tangent plane of the sphere.
+    const icoPos    = P3DGeoLib.clathrin.attributes.position;
+    const nVerts    = icoPos.count;
+    const armLen    = 0.20;
+
+    this._clathrinIMesh = new THREE.InstancedMesh(
+      P3DGeoLib.clathrinArm, P3DMatLib.clathrinNode, nVerts * 3
+    );
+    this._clathrinIMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+
+    const dummy = new THREE.Object3D();
+    const up    = new THREE.Vector3(0, 1, 0);
+    const _q    = new THREE.Quaternion();
+    let   idx   = 0;
+
+    for (let i = 0; i < nVerts; i++) {
+      const v = new THREE.Vector3(icoPos.getX(i), icoPos.getY(i), icoPos.getZ(i));
+      const n = v.clone().normalize();
+      // Stable tangent vector perpendicular to outward normal
+      const ref = Math.abs(n.y) < 0.9
+        ? new THREE.Vector3(0, 1, 0)
+        : new THREE.Vector3(1, 0, 0);
+      const t0 = new THREE.Vector3().crossVectors(ref, n).normalize();
+
+      for (let j = 0; j < 3; j++) {
+        const armDir = t0.clone().applyAxisAngle(n, j * (Math.PI * 2 / 3));
+        // Place cylinder center at vertex + armDir*(armLen/2)
+        dummy.position.copy(v).addScaledVector(armDir, armLen * 0.5);
+        _q.setFromUnitVectors(up, armDir);
+        dummy.quaternion.copy(_q);
+        dummy.scale.setScalar(1);
+        dummy.updateMatrix();
+        this._clathrinIMesh.setMatrixAt(idx++, dummy.matrix);
+      }
+    }
+    this._clathrinIMesh.instanceMatrix.needsUpdate = true;
+    this._clathrinGroup.add(this._clathrinIMesh);
+
+    this._group.add(this._clathrinGroup);
   }
 
   _buildRabMarkers() {
@@ -121,11 +169,14 @@ class P3DEndosomeVehicle {
     // Vertex breathing
     this._animateBreathing(dt, pH);
 
-    // Clathrin opacity: fully visible pH≥7.4, gone by pH≤6.5
+    // Clathrin: slow rotation + opacity fade pH 7.4 → 6.5
     const cf = Math.max(0, Math.min(1, (pH - 6.5) / (7.4 - 6.5)));
-    if (P3DMatLib.clathrin.transparent) {
-      P3DMatLib.clathrin.opacity    = cf * 0.65;
-      this._clathrinMesh.visible    = cf > 0.02;
+    this._clathrinRotY = (this._clathrinRotY + dt * 0.15) % (Math.PI * 2);
+    this._clathrinGroup.rotation.y = this._clathrinRotY;
+    this._clathrinGroup.visible    = cf > 0.02;
+    if (cf > 0.02) {
+      P3DMatLib.clathrin.opacity     = cf * 0.70;
+      P3DMatLib.clathrinNode.opacity = cf * 0.65;
     }
 
     // Rab5 shed
@@ -173,9 +224,10 @@ class P3DEndosomeVehicle {
     this._scene.remove(this._group);
     this._scene.remove(this._rab5Group);
     this._scene.remove(this._rab7Group);
-    // Dispose only locally-owned materials
+    // Dispose only locally-owned resources
     this._rab5Mat.dispose();
     this._rab7Mat.dispose();
-    // Shared geo/mat (endoSphere, clathrin, virusSphere, haStalk, cylinderThin) left to P3DGeoLib/MatLib
+    if (this._clathrinEdgesGeo) this._clathrinEdgesGeo.dispose();
+    // Shared geo/mat (endoSphere, clathrin, clathrinArm, clathrinNode, virusSphere, haStalk, cylinderThin) left to P3DGeoLib/MatLib
   }
 }

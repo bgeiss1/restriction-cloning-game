@@ -2,7 +2,8 @@
 const P3DMatLib = {
   // Populated by init(); all keys are THREE.Material instances.
   endosome:    null,
-  clathrin:    null,
+  clathrin:     null,  // LineBasicMaterial for edge lattice
+  clathrinNode: null,  // MeshPhongMaterial for triskelion arms
   virus:       null,
   haHead:      null,
   haStalk:     null,
@@ -32,7 +33,8 @@ const P3DMatLib = {
   init() {
     const C = P3D_CFG;
     this.endosome   = new THREE.MeshPhongMaterial({ color: C.PH_KEYFRAMES[0].endo, emissive: 0x112255, emissiveIntensity: 0.6, transparent: true, opacity: 0.72, side: THREE.DoubleSide, depthWrite: false });
-    this.clathrin   = new THREE.MeshBasicMaterial({ color: C.COL_CLATHRIN, wireframe: true, transparent: true, opacity: 1.0 });
+    this.clathrin     = new THREE.LineBasicMaterial({ color: 0xddcc99, transparent: true, opacity: 0.70 });
+    this.clathrinNode = new THREE.MeshPhongMaterial({ color: C.COL_CLATHRIN, emissive: 0x443322, emissiveIntensity: 0.45, shininess: 40, transparent: true, opacity: 0.65 });
     this.virus      = new THREE.MeshPhongMaterial({ color: C.COL_VIRUS, emissive: 0x441100, shininess: 80 });
     this.haHead     = new THREE.MeshPhongMaterial({ color: C.COL_HA, emissive: C.COL_HA_EM, emissiveIntensity: 0.1, shininess: 100 });
     this.haStalk    = new THREE.MeshPhongMaterial({ color: 0x009966, emissive: 0x003322, shininess: 60 });
