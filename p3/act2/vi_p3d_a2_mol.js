@@ -36,7 +36,12 @@ window.A2MolViewer = (() => {
   const BG_COLOR   = '#080c1e';   // matches card background rgba(8,12,30)
   const HOLD_S     = 3.5;        // seconds to display structure A before cross-fade
   const FADE_CSS   = '1.5s ease-in-out';
-  const STYLE_PROT = { cartoon: { color: 'spectrum', opacity: 0.92 } };
+  // HA2 chains in H3 HA trimers are typically B, D, F (HA1 = A, C, E).
+  // Residues 1-20 of HA2 = the fusion loop (GLFGAIAGFIEGGWTGMIDG…).
+  // If chain IDs differ for a given PDB entry the orange simply won't appear — no error.
+  const HA2_CHAINS   = ['B', 'D', 'F'];
+  const FUSION_RESI  = Array.from({ length: 20 }, (_, i) => i + 1);  // 1–20
+  const FUSION_COLOR = '#ff5500';   // vivid orange — distinct from chain palette
 
   // ── State ──────────────────────────────────────────────────────────────────
   let _container = null;   // fixed overlay div
@@ -91,7 +96,15 @@ window.A2MolViewer = (() => {
     viewer.removeAllModels();
     viewer.render();
     $3Dmol.download('pdb:' + pdbCode, viewer, {}, () => {
-      viewer.setStyle({ hetflag: false }, STYLE_PROT);
+      // Base: color each chain a distinct hue
+      viewer.setStyle({ hetflag: false }, { cartoon: { colorscheme: 'chain', opacity: 0.92 } });
+      // Overlay: fusion loop (HA2 N-terminus) in vivid orange
+      HA2_CHAINS.forEach(ch => {
+        viewer.setStyle(
+          { chain: ch, resi: FUSION_RESI, hetflag: false },
+          { cartoon: { color: FUSION_COLOR, opacity: 0.98 } }
+        );
+      });
       viewer.zoomTo();
       viewer.render();
       viewer.spin('z', 1);
