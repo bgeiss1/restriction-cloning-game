@@ -1495,8 +1495,8 @@ const P3DAct2BossBattle = (() => {
     if (_usingMP3 && window.A2MP3Player) {
       // MP3 path: stop loop, compute nearest beat in track for resume seek
       window.A2MP3Player.stopLoop();
-      const BEAT_DUR  = 60 / A2MP3Player.BPM;
-      const DOWNBEAT  = A2MP3Player.DOWNBEAT;
+      const BEAT_DUR  = 60 / A2MP3_BPM;
+      const DOWNBEAT  = A2MP3_DOWNBEAT;
       const pausedAt  = window.A2MP3Player._pausedAt || 0;
       const beatIdx   = Math.ceil((pausedAt - DOWNBEAT) / BEAT_DUR + 0.05);
       _card.resumeSeekT  = DOWNBEAT + beatIdx * BEAT_DUR;

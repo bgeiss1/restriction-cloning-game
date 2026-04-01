@@ -1456,6 +1456,13 @@ class A2MP3Beatmap {
   }
 }
 
+// Module-level constants used by A2MP3Player and vi_p3d_a2_boss.js.
+// Defined here (not as static class fields) for broad browser compatibility.
+const A2MP3_LOOP_START = 28.318;
+const A2MP3_LOOP_END   = 30.717;
+const A2MP3_BPM        = 129.3;
+const A2MP3_DOWNBEAT   = 0.720;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // A2MP3Player
 // Plays the Act 2 MP3 track via an <audio> element routed through Web Audio
@@ -1477,20 +1484,16 @@ class A2MP3Player {
     this._audio    = null;
     this._srcNode  = null;
     this._gainNode = null;
-    this._ready    = false;
-    this._active   = false;
-    this._looping  = false;
-    this._pausedAt = 0;
-    this._preTimer = null;   // setTimeout handle for 3-s pre-loop delay
-    this._beatmap  = null;
+    this._ready        = false;
+    this._active       = false;
+    this._looping      = false;
+    this._pausedAt     = 0;
+    this._preTimer     = null;   // setTimeout handle for 3-s pre-loop delay
+    this._loopInterval = null;   // setInterval handle for loop polling
+    this._beatmap      = null;
     this._pendingStart = false;
-    this._onEndCb  = null;   // called when track naturally ends
+    this._onEndCb      = null;
   }
-
-  static LOOP_START = 28.318;
-  static LOOP_END   = 30.717;
-  static BPM        = 129.3;
-  static DOWNBEAT   = 0.720;
 
   // ── Init — call once per Act 2 start ────────────────────────────────────
   init(snd, mp3Url, jsonUrl) {
@@ -1506,12 +1509,8 @@ class A2MP3Player {
     audio.preload     = 'auto';
     this._audio = audio;
 
-    // Loop section: snap back whenever we pass LOOP_END while _looping
-    audio.addEventListener('timeupdate', () => {
-      if (this._looping && audio.currentTime >= A2MP3Player.LOOP_END) {
-        audio.currentTime = A2MP3Player.LOOP_START;
-      }
-    });
+    // Loop polling is started/stopped explicitly via _startLoopInterval /
+    // _stopLoopInterval rather than relying on timeupdate (~250 ms resolution).
 
     // Route through Web Audio for GainNode fades
     try {
@@ -1554,18 +1553,38 @@ class A2MP3Player {
     // Gain stays at 0 until resumeFromCard() is called after the first countdown
   }
 
+  // ── Loop interval helpers (50 ms poll — reliable cross-browser) ─────────
+  _startLoopInterval() {
+    this._stopLoopInterval();
+    this._loopInterval = setInterval(() => {
+      if (!this._looping || !this._audio) return;
+      if (this._audio.currentTime >= A2MP3_LOOP_END) {
+        this._audio.currentTime = A2MP3_LOOP_START;
+      }
+    }, 50);
+  }
+
+  _stopLoopInterval() {
+    if (this._loopInterval !== null) {
+      clearInterval(this._loopInterval);
+      this._loopInterval = null;
+    }
+  }
+
   // ── Card pause: fade out → pause → 3 s silence → loop section ───────────
   pauseForCard() {
     if (!this._audio) return;
     this._pausedAt = this._audio.currentTime;
     if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
+    this._stopLoopInterval();
 
     this._fadeTo(0, 0.4, () => {
       this._audio.pause();
       this._preTimer = setTimeout(() => {
         this._preTimer = null;
-        this._looping  = true;
-        this._audio.currentTime = A2MP3Player.LOOP_START;
+        this._audio.currentTime = A2MP3_LOOP_START;
+        this._looping = true;
+        this._startLoopInterval();
         this._audio.play().catch(() => {});
         this._fadeTo(0.85, 0.5);
       }, 3000);
@@ -1576,6 +1595,7 @@ class A2MP3Player {
   stopLoop() {
     if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
     this._looping = false;
+    this._stopLoopInterval();
     this._fadeTo(0, 0.3, () => {
       if (this._audio) this._audio.pause();
     });
@@ -1593,6 +1613,7 @@ class A2MP3Player {
   stop() {
     if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
     this._looping = false;
+    this._stopLoopInterval();
     this._active  = false;
     this._ready   = false;
     if (this._audio) {
