@@ -1368,3 +1368,265 @@ class A2ElectroswingSynth {
 
 // Singleton — available globally as window.A2ElectroswingSynth
 window.A2ElectroswingSynth = new A2ElectroswingSynth();
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A2MP3Beatmap
+// Builds rhythm-game node chunks from kick timestamps extracted by
+// beat_extractor.py.  Receives the parsed JSON object at construction time.
+//
+// The 200-second track is divided into 5 equal 40-second sections, one per
+// phase (A–E).  Each section's relative kick timestamps form a looping pattern.
+// Lane assignment varies by phase so the hit pattern evolves across the game:
+//   Phase A — mostly lane 0 (A)
+//   Phase B — A / S alternation
+//   Phase C — S / D focus
+//   Phase D — full A / S / D rotation
+//   Phase E — dense varied rotation
+//
+// buildPhaseLoop(phaseIdx, startT, nextSyncId) matches the interface of
+// A2ElectroswingBeatmap.buildPhaseLoop so the boss can use either transparently.
+// ─────────────────────────────────────────────────────────────────────────────
+class A2MP3Beatmap {
+  constructor(data) {
+    this._bpm      = data.bpm            || 129.3;
+    this._downbeat = data.downbeat_offset || 0.720;
+    this._duration = data.duration        || 200.0;
+    this._kicks    = data.kick            || [];
+    this._patterns = this._buildPatterns();
+    console.log(`[A2MP3Beatmap] loaded — ${this._kicks.length} kick hits, BPM ${this._bpm}`);
+  }
+
+  // Split kick timestamps into 5 equal phase sections; normalise to 0-based.
+  _buildPatterns() {
+    const secDur = this._duration / 5;   // 40 s per phase section
+    return [0, 1, 2, 3, 4].map(i => {
+      const s = i * secDur, e = (i + 1) * secDur;
+      const hits = this._kicks
+        .filter(t => t >= s && t < e)
+        .map(t => parseFloat((t - s).toFixed(4)));
+      return { dur: secDur, hits };
+    });
+  }
+
+  // Per-phase lane sequences.  Hit index mod pattern-length selects the lane,
+  // so the same kick timestamps produce different visual patterns each phase.
+  static LANE_PATTERNS = [
+    [0, 0, 1, 0, 0, 2, 0, 1],          // A — mostly A, occasional S / D
+    [0, 1, 0, 1, 2, 1, 0, 1],          // B — A–S with D accents
+    [1, 2, 1, 2, 0, 2, 1, 2],          // C — S–D focus
+    [0, 1, 2, 0, 1, 2, 0, 1],          // D — full rotation
+    [0, 1, 2, 1, 2, 0, 2, 1, 0, 2],    // E — dense varied rotation
+  ];
+
+  // Return ~8 s of TAP nodes starting at startT, cycling the phase pattern.
+  buildPhaseLoop(phaseIdx, startT, nextSyncId) {
+    const pi      = Math.min(phaseIdx, 4);
+    const pattern = this._patterns[pi];
+    const lanes   = A2MP3Beatmap.LANE_PATTERNS[pi];
+    const CHUNK   = 8.0;
+    const endT    = startT + CHUNK;
+
+    // Guard: fall through to LCG if this phase section has no kicks
+    if (!pattern.hits.length) return { nodes: [], nextSyncId };
+
+    // Collect all hits that fall in [startT, endT) by cycling the pattern
+    const tmpHits = [];
+    const cycleStart = Math.floor(startT / pattern.dur) * pattern.dur;
+    for (let c = cycleStart; c < endT + pattern.dur; c += pattern.dur) {
+      for (const relT of pattern.hits) {
+        const absT = c + relT;
+        if (absT >= startT && absT < endT) tmpHits.push(absT);
+      }
+    }
+    tmpHits.sort((a, b) => a - b);
+
+    const nodes = tmpHits.map((absT, i) => ({
+      type:         'TAP',
+      lane:         lanes[i % lanes.length],
+      hitTime:      absT,
+      state:        'waiting',
+      judgement:    null,
+      flashT:       -1,
+      holdProgress: 0,
+      holdDur:      0,
+      syncId:       null,
+    }));
+
+    return { nodes, nextSyncId };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A2MP3Player
+// Plays the Act 2 MP3 track via an <audio> element routed through Web Audio
+// (MediaElementAudioSourceNode → GainNode → destination) so volume can be
+// faded without interrupting the AudioContext clock.
+//
+// Card-pause flow:
+//   pauseForCard()  → fade out → pause → 3 s delay → loop 28.318–30.717 s
+//   stopLoop()      → stop loop, fade out (called on "GROOVE ON" click)
+//   resumeFromCard(seekT) → seek to nearest beat, fade in, play
+//
+// Exposes extendIfNeeded() and kickAt() as no-ops so the boss can call them
+// unconditionally regardless of which audio path is active.
+// ─────────────────────────────────────────────────────────────────────────────
+class A2MP3Player {
+  constructor() {
+    this._snd      = null;
+    this._ctx      = null;
+    this._audio    = null;
+    this._srcNode  = null;
+    this._gainNode = null;
+    this._ready    = false;
+    this._active   = false;
+    this._looping  = false;
+    this._pausedAt = 0;
+    this._preTimer = null;   // setTimeout handle for 3-s pre-loop delay
+    this._beatmap  = null;
+    this._pendingStart = false;
+    this._onEndCb  = null;   // called when track naturally ends
+  }
+
+  static LOOP_START = 28.318;
+  static LOOP_END   = 30.717;
+  static BPM        = 129.3;
+  static DOWNBEAT   = 0.720;
+
+  // ── Init — call once per Act 2 start ────────────────────────────────────
+  init(snd, mp3Url, jsonUrl) {
+    this._snd    = snd;
+    this._ctx    = snd.audioCtx;
+    this._active = true;
+    this._ready  = false;
+
+    // Create <audio> element
+    const audio = document.createElement('audio');
+    audio.src         = mp3Url;
+    audio.crossOrigin = 'anonymous';
+    audio.preload     = 'auto';
+    this._audio = audio;
+
+    // Loop section: snap back whenever we pass LOOP_END while _looping
+    audio.addEventListener('timeupdate', () => {
+      if (this._looping && audio.currentTime >= A2MP3Player.LOOP_END) {
+        audio.currentTime = A2MP3Player.LOOP_START;
+      }
+    });
+
+    // Route through Web Audio for GainNode fades
+    try {
+      this._srcNode  = this._ctx.createMediaElementSource(audio);
+      this._gainNode = this._ctx.createGain();
+      this._gainNode.gain.value = 0.0;   // start silent; start() will fade in
+      this._srcNode.connect(this._gainNode);
+      this._gainNode.connect(this._ctx.destination);
+    } catch (e) {
+      console.error('[A2MP3Player] WebAudio routing failed:', e);
+    }
+
+    // Fetch beatmap JSON (async — game waits for first card dismiss anyway)
+    fetch(jsonUrl)
+      .then(r => r.json())
+      .then(data => {
+        this._beatmap        = new A2MP3Beatmap(data);
+        window.A2MP3Beatmap  = this._beatmap;   // expose for _appendPhaseLoop
+        this._ready          = true;
+        if (this._pendingStart) { this._pendingStart = false; this._doStart(); }
+      })
+      .catch(e => {
+        console.warn('[A2MP3Player] beatmap JSON failed, LCG fallback will be used:', e);
+        this._ready = true;
+        if (this._pendingStart) { this._pendingStart = false; this._doStart(); }
+      });
+  }
+
+  // ── Start playback (called right after init) ─────────────────────────────
+  start() {
+    if (!this._audio) return;
+    if (this._ready) this._doStart();
+    else             this._pendingStart = true;
+  }
+
+  _doStart() {
+    this._audio.currentTime = 0;
+    this._looping = false;
+    this._audio.play().catch(e => console.warn('[A2MP3Player] play() blocked:', e));
+    // Gain stays at 0 until resumeFromCard() is called after the first countdown
+  }
+
+  // ── Card pause: fade out → pause → 3 s silence → loop section ───────────
+  pauseForCard() {
+    if (!this._audio) return;
+    this._pausedAt = this._audio.currentTime;
+    if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
+
+    this._fadeTo(0, 0.4, () => {
+      this._audio.pause();
+      this._preTimer = setTimeout(() => {
+        this._preTimer = null;
+        this._looping  = true;
+        this._audio.currentTime = A2MP3Player.LOOP_START;
+        this._audio.play().catch(() => {});
+        this._fadeTo(0.85, 0.5);
+      }, 3000);
+    });
+  }
+
+  // ── Stop loop: called when player clicks "GROOVE ON" ────────────────────
+  stopLoop() {
+    if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
+    this._looping = false;
+    this._fadeTo(0, 0.3, () => {
+      if (this._audio) this._audio.pause();
+    });
+  }
+
+  // ── Resume: seek to beat boundary, fade in, play (called on countdown end) ─
+  resumeFromCard(seekT) {
+    if (!this._audio) return;
+    this._audio.currentTime = Math.max(0, seekT);
+    this._audio.play().catch(() => {});
+    this._fadeTo(1.0, 0.4);
+  }
+
+  // ── Stop (game over / destroy) ───────────────────────────────────────────
+  stop() {
+    if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
+    this._looping = false;
+    this._active  = false;
+    this._ready   = false;
+    if (this._audio) {
+      this._audio.pause();
+      this._audio.src = '';
+      this._audio = null;
+    }
+    try { if (this._srcNode)  this._srcNode.disconnect();  } catch (_) {}
+    try { if (this._gainNode) this._gainNode.disconnect(); } catch (_) {}
+    this._srcNode  = null;
+    this._gainNode = null;
+    window.A2MP3Beatmap = null;
+  }
+
+  // ── Gain fade helper ─────────────────────────────────────────────────────
+  _fadeTo(target, dur, onDone) {
+    if (this._gainNode && this._ctx) {
+      const now = this._ctx.currentTime;
+      this._gainNode.gain.cancelScheduledValues(now);
+      this._gainNode.gain.setValueAtTime(this._gainNode.gain.value, now);
+      this._gainNode.gain.linearRampToValueAtTime(target, now + dur);
+    }
+    if (onDone) setTimeout(onDone, dur * 1000);
+  }
+
+  // ── Stubs matching A2ElectroswingSynth interface ─────────────────────────
+  extendIfNeeded() {}
+  kickAt()         {}
+
+  // ── Accessors ─────────────────────────────────────────────────────────────
+  get musicTime() { return this._audio ? this._audio.currentTime : 0; }
+  get duration()  { return this._audio ? (this._audio.duration  || 0) : 0; }
+  get active()    { return this._active; }
+}
+
+// Singleton
+window.A2MP3Player = new A2MP3Player();

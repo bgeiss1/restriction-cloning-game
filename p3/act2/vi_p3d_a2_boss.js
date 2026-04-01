@@ -63,6 +63,10 @@ const P3DAct2BossBattle = (() => {
   // Audio beat reference — set when synth starts, used for beat-sync countdown
   let _synthStartAt = 0;
 
+  // MP3 path flags
+  let _usingMP3      = false;   // true when A2MP3Player is active
+  let _phaseEComplete = false;  // true once Phase E threshold is hit (MP3 path)
+
   // Node pool
   let _nodes       = [];
   let _nodePtr     = 0;
@@ -109,28 +113,30 @@ const P3DAct2BossBattle = (() => {
   function init(p3, act1Stats) {
     _p3 = p3;
 
-    _t              = 0;
-    _nodePtr        = 0;
-    _activeNodes    = [];
-    _kickedTimes    = new Set();
-    _heldNode       = [null, null, null];
-    _judgFlash      = [null, null, null];
-    _score          = 0;
-    _phaseScore     = 0;
-    _combo          = 0;
-    _maxCombo       = 0;
-    _perfect        = 0;
-    _good           = 0;
-    _misses         = 0;
-    _syncHits       = 0;
-    _syncTotal      = 0;
-    _nextSyncId     = 0;
-    _beatFlash      = 0;
-    _orbitAngle     = 0;
-    _phaseIdx       = 0;
-    _fusionProgress = 0;
-    _perf           = 0.4;
-    _card           = null;
+    _t               = 0;
+    _nodePtr         = 0;
+    _activeNodes     = [];
+    _kickedTimes     = new Set();
+    _heldNode        = [null, null, null];
+    _judgFlash       = [null, null, null];
+    _score           = 0;
+    _phaseScore      = 0;
+    _combo           = 0;
+    _maxCombo        = 0;
+    _perfect         = 0;
+    _good            = 0;
+    _misses          = 0;
+    _syncHits        = 0;
+    _syncTotal       = 0;
+    _nextSyncId      = 0;
+    _beatFlash       = 0;
+    _orbitAngle      = 0;
+    _phaseIdx        = 0;
+    _fusionProgress  = 0;
+    _perf            = 0.4;
+    _card            = null;
+    _usingMP3        = false;
+    _phaseEComplete  = false;
     _lastNodeT      = 2.0;   // 2s game-time lead-in before first note
 
     _phaseThresh = P3D_CFG.A2_PHASE_SCORE_THRESH[PHASE_KEYS[0]];
@@ -157,9 +163,25 @@ const P3DAct2BossBattle = (() => {
     _running = true;
     _paused  = false;
 
-    // Start electroswing ambient (bass + stabs), immediately mute for intro card.
-    // Kicks are fired per-node in the tick loop so they stay in sync with _t.
-    if (window.A2ElectroswingSynth) {
+    // ── MP3 player (primary) ───────────────────────────────────────────────
+    if (window.A2MP3Player) {
+      try {
+        window.A2MP3Player.init(
+          _p3._snd,
+          'p3/act2/audio/Let_me_out_the_endosome.mp3',
+          'p3/act2/audio/Let_me_out_the_endosome_beats.json'
+        );
+        window.A2MP3Player.start();
+        window.A2MP3Player.pauseForCard();
+        _usingMP3 = true;
+      } catch(e) {
+        console.error('[A2MP3Player] init failed, falling back to synth:', e);
+        _usingMP3 = false;
+      }
+    }
+
+    // ── Electroswing synth (fallback when MP3 unavailable) ────────────────
+    if (!_usingMP3 && window.A2ElectroswingSynth) {
       try {
         window.A2ElectroswingSynth.init(_p3._snd);
         const ctx = _p3._snd.audioCtx;
@@ -182,10 +204,20 @@ const P3DAct2BossBattle = (() => {
   function tick(dt) {
     if (!_running || _paused) return;
 
-    // Extend music scheduling regardless of card state
-    if (window.A2ElectroswingSynth) {
+    // Extend electroswing scheduling (no-op for MP3 path)
+    if (!_usingMP3 && window.A2ElectroswingSynth) {
       const _ac = _p3._snd && _p3._snd.audioCtx;
       if (_ac) window.A2ElectroswingSynth.extendIfNeeded(_ac.currentTime);
+    }
+
+    // ── MP3 song-end check (outside card guard so it fires even mid-card) ──
+    if (_usingMP3 && window.A2MP3Player && !_card) {
+      const mt  = window.A2MP3Player.musicTime;
+      const dur = window.A2MP3Player.duration;
+      if (dur > 0 && mt >= dur - 0.5) {
+        _complete(_phaseEComplete ? 'done' : 'songfail');
+        return;
+      }
     }
 
     // Camera orbit runs even during intro cards
@@ -211,8 +243,13 @@ const P3DAct2BossBattle = (() => {
           : _card.countdownT >= 3.0;   // plain fallback
         if (resumeNow) {
           if (window.A2MolViewer) A2MolViewer.hide();
+          const seekT = _card.resumeSeekT;
           _card = null;
-          if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.resumeFromCard();
+          if (_usingMP3 && window.A2MP3Player) {
+            window.A2MP3Player.resumeFromCard(seekT || 0);
+          } else if (window.A2ElectroswingSynth) {
+            window.A2ElectroswingSynth.resumeFromCard();
+          }
         }
       }
       _render();
@@ -235,6 +272,23 @@ const P3DAct2BossBattle = (() => {
     if (_phaseScore >= _phaseThresh) {
       _phaseIdx++;
       if (_phaseIdx >= PHASE_KEYS.length) {
+        if (_usingMP3) {
+          // MP3 path: pin at Phase E, wait for song end to succeed
+          _phaseEComplete = true;
+          _phaseIdx       = PHASE_KEYS.length - 1;
+          _phaseScore     = 0;
+          _phaseThresh    = Infinity;   // never trigger again
+          _nodes.length   = _nodePtr;
+          for (let i = _activeNodes.length - 1; i >= 0; i--) {
+            if (_activeNodes[i].state === 'waiting') _activeNodes.splice(i, 1);
+          }
+          _lastNodeT = _t + 2.0;
+          _appendPhaseLoop();
+          for (let li = 0; li < N_LANES; li++) _heldNode[li] = null;
+          _p3._hud.updateA2Phase(PHASE_LABELS[PHASE_KEYS.length - 1] + ' ★');
+          _render();
+          return;
+        }
         _complete('done');
         return;
       }
@@ -252,7 +306,8 @@ const P3DAct2BossBattle = (() => {
       _appendPhaseLoop();
       for (let li = 0; li < N_LANES; li++) _heldNode[li] = null;
       _card = { phaseIdx: _phaseIdx, t: 0, dismissed: false, countdownT: 0, btnRect: null };
-      if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.pauseForCard();
+      if (_usingMP3 && window.A2MP3Player) window.A2MP3Player.pauseForCard();
+      else if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.pauseForCard();
       _render();
       return;
     }
@@ -270,16 +325,20 @@ const P3DAct2BossBattle = (() => {
       const activating = _nodes[_nodePtr++];
       _activeNodes.push(activating);
 
-      // Fire one kick per unique hitTime (deduplicates SYNC pairs)
-      if (window.A2ElectroswingSynth) {
+      // Fire beat accent per unique hitTime (deduplicates SYNC pairs)
+      {
         const kickKey = Math.round(activating.hitTime * 1000);
         if (!_kickedTimes.has(kickKey)) {
           _kickedTimes.add(kickKey);
-          const audioCtx = _p3._snd && _p3._snd.audioCtx;
-          if (audioCtx) {
-            window.A2ElectroswingSynth.kickAt(
-              audioCtx.currentTime + Math.max(0, activating.hitTime - _t)
-            );
+          if (_usingMP3) {
+            _beatFlash = 1.0;   // visual-only pulse for MP3 path
+          } else if (window.A2ElectroswingSynth) {
+            const audioCtx = _p3._snd && _p3._snd.audioCtx;
+            if (audioCtx) {
+              window.A2ElectroswingSynth.kickAt(
+                audioCtx.currentTime + Math.max(0, activating.hitTime - _t)
+              );
+            }
           }
         }
       }
@@ -359,11 +418,13 @@ const P3DAct2BossBattle = (() => {
 
   // Append one 8-second loop of the current phase pattern to _nodes.
   function _appendPhaseLoop() {
-    if (window.A2ElectroswingBeatmap) {
+    // Prefer MP3 beatmap, then Electroswing beatmap, then LCG fallback
+    const bm = window.A2MP3Beatmap || window.A2ElectroswingBeatmap;
+    if (bm) {
       try {
         const startT = _lastNodeT;
         const {nodes: newNodes, nextSyncId} =
-          window.A2ElectroswingBeatmap.buildPhaseLoop(_phaseIdx, startT, _nextSyncId);
+          bm.buildPhaseLoop(_phaseIdx, startT, _nextSyncId);
         for (const n of newNodes) _nodes.push(n);
         _nextSyncId = nextSyncId;
         const newSyncIds = new Set(newNodes
@@ -626,6 +687,7 @@ const P3DAct2BossBattle = (() => {
     _removeInput();
     _destroyCanvas();
     if (window.A2MolViewer) A2MolViewer.hide();
+    if (window.A2MP3Player)        window.A2MP3Player.stop();
     if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.stop();
     if (window.P3DMatLib && P3DMatLib.endosome) {
       P3DMatLib.endosome.emissiveIntensity = 0.6;
@@ -633,6 +695,10 @@ const P3DAct2BossBattle = (() => {
 
     if (reason === 'fail') {
       _p3._fail('Immune resistance overwhelmed the fusion machinery.');
+      return;
+    }
+    if (reason === 'songfail') {
+      _p3._fail('The endosome acidified before membrane fusion was complete.');
       return;
     }
 
@@ -1426,24 +1492,34 @@ const P3DAct2BossBattle = (() => {
     _card.dismissed  = true;
     _card.countdownT = 0;
 
-    // Snap countdown to next beat boundary so numbers land on the pulse.
-    // Each number holds for 2 beats (1 s at 120 BPM); total = 3 s / 6 beats.
-    const BEAT           = 0.5;          // 120 BPM quarter note
-    const BEATS_PER_NUM  = 2;
-    const audioCtx = _p3._snd && _p3._snd.audioCtx;
-    if (audioCtx && _synthStartAt) {
-      const now       = audioCtx.currentTime;
-      const elapsed   = now - _synthStartAt;
-      const beatPhase = ((elapsed % BEAT) + BEAT) % BEAT;  // 0 → BEAT
-      // If we're very close to a beat already (< 5 % of beat), snap to it;
-      // otherwise wait for the next one.
-      const toNext    = beatPhase > BEAT * 0.05 ? BEAT - beatPhase : 0;
-      _card.beat0     = now + toNext;                                   // "3" onset
-      _card.resumeAudioT = _card.beat0 + 3 * BEATS_PER_NUM * BEAT;     // game resumes
-    } else {
-      // Fallback when no audio context: plain 3 s timer
+    if (_usingMP3 && window.A2MP3Player) {
+      // MP3 path: stop loop, compute nearest beat in track for resume seek
+      window.A2MP3Player.stopLoop();
+      const BEAT_DUR  = 60 / A2MP3Player.BPM;
+      const DOWNBEAT  = A2MP3Player.DOWNBEAT;
+      const pausedAt  = window.A2MP3Player._pausedAt || 0;
+      const beatIdx   = Math.ceil((pausedAt - DOWNBEAT) / BEAT_DUR + 0.05);
+      _card.resumeSeekT  = DOWNBEAT + beatIdx * BEAT_DUR;
       _card.beat0        = null;
       _card.resumeAudioT = null;
+    } else {
+      // Electroswing path: snap countdown to next beat boundary on audioCtx clock
+      const BEAT           = 0.5;          // 120 BPM quarter note
+      const BEATS_PER_NUM  = 2;
+      const audioCtx = _p3._snd && _p3._snd.audioCtx;
+      if (audioCtx && _synthStartAt) {
+        const now       = audioCtx.currentTime;
+        const elapsed   = now - _synthStartAt;
+        const beatPhase = ((elapsed % BEAT) + BEAT) % BEAT;
+        const toNext    = beatPhase > BEAT * 0.05 ? BEAT - beatPhase : 0;
+        _card.beat0        = now + toNext;
+        _card.resumeAudioT = _card.beat0 + 3 * BEATS_PER_NUM * BEAT;
+        _card.resumeSeekT  = null;
+      } else {
+        _card.beat0        = null;
+        _card.resumeAudioT = null;
+        _card.resumeSeekT  = null;
+      }
     }
   }
 
@@ -1479,6 +1555,7 @@ const P3DAct2BossBattle = (() => {
     _removeInput();
     _destroyCanvas();
     if (window.A2MolViewer) A2MolViewer.destroy();
+    if (window.A2MP3Player)         window.A2MP3Player.stop();
     if (window.A2ElectroswingSynth) window.A2ElectroswingSynth.stop();
     if (window.P3DMatLib && P3DMatLib.endosome) {
       P3DMatLib.endosome.emissiveIntensity = 0.6;
