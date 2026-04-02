@@ -64,8 +64,9 @@ const P3DAct2BossBattle = (() => {
   let _synthStartAt = 0;
 
   // MP3 path flags
-  let _usingMP3      = false;   // true when A2MP3Player is active
-  let _phaseEComplete = false;  // true once Phase E threshold is hit (MP3 path)
+  let _usingMP3       = false;   // true when A2MP3Player is active
+  let _phaseEComplete = false;   // true once Phase E threshold is hit (MP3 path)
+  let _beatmapSynced  = false;   // true once initial nodes regenerated from A2MP3Beatmap
 
   // Node pool
   let _nodes       = [];
@@ -137,6 +138,7 @@ const P3DAct2BossBattle = (() => {
     _card            = null;
     _usingMP3        = false;
     _phaseEComplete  = false;
+    _beatmapSynced   = false;
     _lastNodeT      = 2.0;   // 2s game-time lead-in before first note
 
     _phaseThresh = P3D_CFG.A2_PHASE_SCORE_THRESH[PHASE_KEYS[0]];
@@ -203,6 +205,18 @@ const P3DAct2BossBattle = (() => {
 
   function tick(dt) {
     if (!_running || _paused) return;
+
+    // One-time: regenerate initial nodes once A2MP3Beatmap JSON has loaded.
+    // init() calls _appendPhaseLoop() before start() triggers the async fetch,
+    // so the first batch uses the electroswing fallback.  Fix it here on the
+    // first tick after the beatmap arrives (still during the intro card).
+    if (_usingMP3 && !_beatmapSynced && window.A2MP3Beatmap) {
+      _beatmapSynced = true;
+      _nodes    = [];
+      _nodePtr  = 0;
+      _lastNodeT = Math.max(2.0, _t + 2.0);
+      _appendPhaseLoop();
+    }
 
     // Extend electroswing scheduling (no-op for MP3 path)
     if (!_usingMP3 && window.A2ElectroswingSynth) {
