@@ -1391,8 +1391,9 @@ class A2MP3Beatmap {
     this._bpm      = data.bpm            || 129.3;
     this._downbeat = data.downbeat_offset || 0.720;
     this._duration = data.duration        || 200.0;
-    this._kicks    = data.kick            || [];
-    this._patterns = this._buildPatterns();
+    this._kicks      = data.kick            || [];
+    this._songOffset = 0;   // set by setSongOffset(seekT) on card dismiss
+    this._patterns   = this._buildPatterns();
     console.log(`[A2MP3Beatmap] loaded — ${this._kicks.length} kick hits, BPM ${this._bpm}`);
   }
 
@@ -1443,6 +1444,12 @@ class A2MP3Beatmap {
     [0, 1, 2, 1, 2, 0, 2, 1, 0, 2],    // E — dense varied rotation
   ];
 
+  // Called by the boss on card dismiss with the song seek position.
+  // game time 0 = song time seekT, so hitTime = songTime - seekT.
+  setSongOffset(seekT) {
+    this._songOffset = seekT || 0;
+  }
+
   // Return ~8 s of TAP nodes starting at startT, cycling the phase pattern.
   buildPhaseLoop(phaseIdx, startT, nextSyncId) {
     const pi      = Math.min(phaseIdx, 4);
@@ -1450,16 +1457,18 @@ class A2MP3Beatmap {
     const lanes   = A2MP3Beatmap.LANE_PATTERNS[pi];
     const CHUNK   = 8.0;
     const endT    = startT + CHUNK;
+    const offset  = this._songOffset;   // convert song time → game time
 
     // Guard: fall through to LCG if this phase section has no kicks
     if (!pattern.hits.length) return { nodes: [], nextSyncId };
 
-    // Collect all hits that fall in [startT, endT) by cycling the pattern
+    // Collect all hits that fall in [startT, endT) by cycling the pattern.
+    // absT = (cycle_base + relT) - offset  converts song time to game time.
     const tmpHits = [];
-    const cycleStart = Math.floor(startT / pattern.dur) * pattern.dur;
-    for (let c = cycleStart; c < endT + pattern.dur; c += pattern.dur) {
+    const cycleStart = Math.floor((startT + offset) / pattern.dur) * pattern.dur;
+    for (let c = cycleStart; c < endT + offset + pattern.dur; c += pattern.dur) {
       for (const relT of pattern.hits) {
-        const absT = c + relT;
+        const absT = c + relT - offset;
         if (absT >= startT && absT < endT) tmpHits.push(absT);
       }
     }

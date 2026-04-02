@@ -1516,6 +1516,14 @@ const P3DAct2BossBattle = (() => {
       _card.resumeSeekT  = DOWNBEAT + beatIdx * BEAT_DUR;
       _card.beat0        = null;
       _card.resumeAudioT = null;
+      // Sync beatmap: game t=0 at card dismiss = song seekT.
+      // Regenerate nodes now so hitTime = songTime - seekT (kick-aligned to game clock).
+      if (window.A2MP3Beatmap) {
+        window.A2MP3Beatmap.setSongOffset(_card.resumeSeekT);
+        _nodes.length = _nodePtr;   // discard queued nodes built without offset
+        _lastNodeT    = Math.max(2.0, _t + 2.0);
+        _appendPhaseLoop();
+      }
     } else {
       // Electroswing path: snap countdown to next beat boundary on audioCtx clock
       const BEAT           = 0.5;          // 120 BPM quarter note
