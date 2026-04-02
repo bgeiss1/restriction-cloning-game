@@ -1397,14 +1397,39 @@ class A2MP3Beatmap {
   }
 
   // Split kick timestamps into 5 equal phase sections; normalise to 0-based.
+  // Gaps larger than 2 beats (e.g. musical breakdowns) are filled with
+  // BPM-spaced synthetic hits so the game stays active throughout.
   _buildPatterns() {
     const secDur = this._duration / 5;   // 40 s per phase section
+    const bi     = 60 / this._bpm;       // beat interval in seconds
+    const maxGap = bi * 2;               // fill any gap wider than 2 beats
+
     return [0, 1, 2, 3, 4].map(i => {
       const s = i * secDur, e = (i + 1) * secDur;
-      const hits = this._kicks
+      const raw = this._kicks
         .filter(t => t >= s && t < e)
         .map(t => parseFloat((t - s).toFixed(4)));
-      return { dur: secDur, hits };
+
+      // Fill large gaps (including the lead-in before the first hit)
+      const filled = [];
+      let prev = 0;
+      for (const t of raw) {
+        if (t - prev > maxGap) {
+          for (let ft = prev + bi; ft < t - bi * 0.5; ft += bi) {
+            filled.push(parseFloat(ft.toFixed(4)));
+          }
+        }
+        filled.push(t);
+        prev = t;
+      }
+      // Fill any trailing gap at the end of the section
+      if (secDur - prev > maxGap) {
+        for (let ft = prev + bi; ft < secDur - bi * 0.5; ft += bi) {
+          filled.push(parseFloat(ft.toFixed(4)));
+        }
+      }
+
+      return { dur: secDur, hits: filled };
     });
   }
 
