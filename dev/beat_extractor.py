@@ -2,290 +2,462 @@
 """
 beat_extractor.py — Extract drum hit timestamps from an MP3 for Act 2 beatmap.
 
-Separates the audio into a percussive component, then splits into three
-frequency bands and runs onset detection on each:
+Pipeline:
+  1. Demucs source separation → clean drum stem (removes vocals, bass, instruments)
+  2. Onset detection on the full drum stem — no frequency-band assumptions
+  3. Feature extraction per onset: MFCCs + spectral centroid + rolloff + ZCR + RMS
+     over a 100 ms window starting at each onset
+  4. K-means clustering into N groups (default 3 = kick / snare / hi-hat)
+  5. Output cluster labels for Audacity inspection, with spectral hints
 
-  Kick   : 20–150 Hz  (low thump)
-  Snare  : 150–800 Hz (body + crack)
-  Hi-hat : 5000–16000 Hz (closed/open HH, cymbal edge)
+Two-phase workflow
+──────────────────
+Phase 1 — Explore (no cluster assignments):
+  Run the script.  It writes Audacity labels C0 / C1 / C2 and prints a
+  summary table showing each cluster's median spectral centroid and hit count.
+  Open the labels in Audacity, listen to a few hits per cluster, and note which
+  cluster number corresponds to kick, snare, and hi-hat.
 
-Also estimates overall BPM and the first beat timestamp (downbeat offset),
-both of which are needed by the boss card-snap logic in vi_p3d_a2_boss.js.
+Phase 2 — Assign (after you know which cluster is which):
+  Re-run with --kick-cluster / --snare-cluster / --hihat-cluster.
+  The script writes the final beats.json with proper kick[] / snare[] / hihat[]
+  arrays for A2MP3Beatmap, and Audacity labels with K / S / H markers.
 
 Usage:
-  python beat_extractor.py track.mp3
-  python beat_extractor.py track.mp3 --out beats.json --start 2.0 --end 120.0
-  python beat_extractor.py track.mp3 --kick-delta 0.05 --snare-delta 0.08
+  # Phase 1: explore
+  conda run -n demucs_env python beat_extractor.py track.mp3
+
+  # Phase 2: assign (example — your cluster numbers may differ)
+  conda run -n demucs_env python beat_extractor.py track.mp3 \\
+    --drums-stem track_drums.mp3 \\
+    --kick-cluster 1 --snare-cluster 0 --hihat-cluster 2
+
+  # Skip Demucs if you already have the drum stem:
+  conda run -n demucs_env python beat_extractor.py track.mp3 \\
+    --drums-stem /path/to/drums.mp3
+
+  # Use more clusters if the track has open/closed hi-hat etc.:
+  conda run -n demucs_env python beat_extractor.py track.mp3 --n-clusters 4
 
 Output:
-  JSON file with fields: bpm, downbeat_offset, duration,
-  kick[], snare[], hihat[], all_beats[]
+  <stem>_beats.json        — bpm, downbeat_offset, clusters[] or kick/snare/hihat[]
+  <stem>_beats_labels.txt  — Audacity label track
+  <stem>_drums.mp3         — saved drum stem (reuse with --drums-stem)
 
-  All timestamps are in seconds from the start of the file.
-
-Dependencies (install once):
-  pip install librosa numpy scipy soundfile
-  MP3 decoding also requires one of:
-    - ffmpeg in PATH  (recommended: sudo apt install ffmpeg)
-    - pip install audioread
+Dependencies (demucs_env):
+  conda create -n demucs_env python=3.11 -y
+  conda run -n demucs_env pip install demucs librosa soundfile scipy scikit-learn
 """
 
 import argparse
 import json
+import os
 import sys
+import tempfile
+
 import numpy as np
 import scipy.signal
 
 try:
     import librosa
 except ImportError:
-    sys.exit('librosa not found. Run:  pip install librosa soundfile')
+    sys.exit('librosa not found.  Run: pip install librosa soundfile')
+
+try:
+    from sklearn.cluster import KMeans
+    from sklearn.preprocessing import StandardScaler
+except ImportError:
+    sys.exit('scikit-learn not found.  Run: pip install scikit-learn')
 
 
-# ── DSP helpers ───────────────────────────────────────────────────────────────
+# ── Demucs source separation ──────────────────────────────────────────────────
 
-def bandpass(y, sr, lo_hz, hi_hz, order=4):
-    """Zero-phase Butterworth bandpass filter using second-order sections (SOS).
-
-    SOS form is far more numerically stable than ba coefficients, especially
-    for extreme cutoffs like 20 Hz at 48 kHz where ba filtfilt produces NaN.
+def separate_drums(mp3_path, out_dir):
     """
-    nyq = sr / 2.0
-    lo  = max(lo_hz, 1.0)      # never 0 Hz
-    hi  = min(hi_hz, nyq - 1)  # never above Nyquist
-    if lo >= hi:
-        return np.zeros_like(y)
-    sos = scipy.signal.butter(order, [lo / nyq, hi / nyq], btype='band', output='sos')
-    out = scipy.signal.sosfiltfilt(sos, y)
-    # Safety clamp: replace any residual NaN/Inf (degenerate input) with 0
-    return np.nan_to_num(out, nan=0.0, posinf=0.0, neginf=0.0)
-
-
-def detect_onsets(y, sr, hop_length, delta, prominence, wait_frames, top_pct=None):
+    Run Demucs via subprocess, return path to drums.mp3.
+    Uses --mp3 output to avoid torchcodec/WAV saving issues.
     """
-    Return onset timestamps (seconds) for a single-band signal.
+    import subprocess
+    import torch
 
-    Uses onset_strength envelope + find_peaks with prominence filtering,
-    which is much more selective than the plain delta threshold approach.
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f'  Device: {device}')
 
-    delta       — minimum absolute height of a peak in the onset envelope
-    prominence  — how much a peak must stand out above its surroundings;
-                  the primary knob for reducing false positives
-    wait_frames — minimum gap between accepted peaks (frames)
-    top_pct     — if set (e.g. 30), keep only the top N% strongest hits;
-                  useful for kick/snare where real hits are the loudest events
+    subprocess.run([
+        sys.executable, '-m', 'demucs',
+        '--two-stems', 'drums',
+        '--mp3',
+        '--out', out_dir,
+        '--device', device,
+        mp3_path,
+    ], check=True)
+
+    track_name = os.path.splitext(os.path.basename(mp3_path))[0]
+    drums_path = os.path.join(out_dir, 'htdemucs', track_name, 'drums.mp3')
+    if not os.path.exists(drums_path):
+        for root, _, files in os.walk(out_dir):
+            for f in files:
+                if f.startswith('drums'):
+                    drums_path = os.path.join(root, f)
+                    break
+    if not os.path.exists(drums_path):
+        sys.exit(f'Demucs finished but drums stem not found under {out_dir}')
+    return drums_path
+
+
+# ── Onset detection ───────────────────────────────────────────────────────────
+
+def detect_all_onsets(y, sr, delta, prominence, min_gap_s):
     """
-    env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
-
-    # Normalize to [0, 1] so that delta/prominence are consistent across tracks
+    Detect all onsets in a drum stem without any frequency-band assumptions.
+    Returns array of onset times in seconds.
+    """
+    HOP = 256
+    env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=HOP)
     env_max = env.max()
     if env_max > 0:
         env = env / env_max
 
-    peaks, props = scipy.signal.find_peaks(
-        env,
-        height=delta,
-        prominence=prominence,
-        distance=wait_frames,
-    )
-
-    if top_pct is not None and len(peaks) > 1:
-        cutoff = np.percentile(props['prominences'], 100.0 - top_pct)
-        mask   = props['prominences'] >= cutoff
-        peaks  = peaks[mask]
-
-    # Backtrack each peak to the local energy minimum just before the attack
+    wait = max(1, int(min_gap_s * sr / HOP))
+    peaks, _ = scipy.signal.find_peaks(env, height=delta, prominence=prominence,
+                                        distance=wait)
     peaks = librosa.onset.onset_backtrack(peaks, env)
+    return librosa.frames_to_time(peaks, sr=sr, hop_length=HOP)
 
-    return librosa.frames_to_time(peaks, sr=sr, hop_length=hop_length)
+
+# ── Feature extraction ────────────────────────────────────────────────────────
+
+def extract_features(y, sr, onset_times, window_s=0.100):
+    """
+    Extract a feature vector from a window_s-wide window at each onset.
+
+    Features (17 total):
+      13 MFCCs       — timbre / tonal character
+       1 spec centroid — brightness (kick=low, hihat=high)
+       1 spec rolloff  — high-frequency content
+       1 zero-crossing rate — noisiness (hihat/snare > kick)
+       1 RMS energy    — loudness
+
+    Returns float32 array shape (n_onsets, 17).
+    """
+    hop   = 256
+    n_fft = 512
+    win   = int(window_s * sr)
+    feats = []
+
+    for t in onset_times:
+        start = int(t * sr)
+        end   = min(len(y), start + win)
+        chunk = y[start:end]
+
+        # Pad if the onset is near the end of the track
+        if len(chunk) < n_fft:
+            chunk = np.pad(chunk, (0, n_fft - len(chunk)))
+
+        S = np.abs(librosa.stft(chunk, n_fft=n_fft, hop_length=hop))
+
+        mfcc      = librosa.feature.mfcc(y=chunk, sr=sr, n_mfcc=13, hop_length=hop)
+        centroid  = librosa.feature.spectral_centroid(S=S, sr=sr)
+        rolloff   = librosa.feature.spectral_rolloff(S=S, sr=sr, roll_percent=0.85)
+        zcr       = librosa.feature.zero_crossing_rate(chunk, hop_length=hop)
+        rms       = librosa.feature.rms(y=chunk, hop_length=hop)
+
+        vec = np.concatenate([
+            np.mean(mfcc, axis=1),
+            [np.mean(centroid)],
+            [np.mean(rolloff)],
+            [np.mean(zcr)],
+            [np.mean(rms)],
+        ]).astype(np.float32)
+
+        feats.append(vec)
+
+    return np.array(feats)
+
+
+# ── Clustering ────────────────────────────────────────────────────────────────
+
+def cluster_onsets(features, n_clusters, random_state=42):
+    """
+    Standardise features and run K-means.
+    Returns cluster labels array (int, shape n_onsets).
+    """
+    scaler = StandardScaler()
+    X      = scaler.fit_transform(features)
+    km     = KMeans(n_clusters=n_clusters, random_state=random_state, n_init=20)
+    km.fit(X)
+    return km.labels_
+
+
+def cluster_summary(onset_times, labels, features, n_clusters):
+    """
+    Print a summary table with hit count and median spectral centroid per cluster.
+    Spectral centroid is feature index 13.
+    Returns a list of (cluster_idx, median_centroid) sorted by centroid ascending
+    so the caller can suggest kick/snare/hihat order.
+    """
+    print(f'\n  {"Cluster":>8}  {"Hits":>6}  {"Med centroid":>14}  Hint')
+    print(f'  {"───────":>8}  {"────":>6}  {"────────────":>14}  ────')
+
+    rows = []
+    for c in range(n_clusters):
+        mask      = labels == c
+        count     = int(mask.sum())
+        centroids = features[mask, 13]
+        med_c     = float(np.median(centroids)) if count > 0 else 0.0
+        rows.append((c, count, med_c))
+
+    rows_sorted = sorted(rows, key=lambda r: r[2])
+    hints = ['← lowest centroid (likely KICK)',
+             '← mid centroid (likely SNARE)',
+             '← highest centroid (likely HI-HAT)']
+
+    for rank, (c, count, med_c) in enumerate(rows_sorted):
+        hint = hints[rank] if rank < len(hints) else ''
+        print(f'  C{c:>7}  {count:>6}  {med_c:>11.0f} Hz  {hint}')
+
+    return rows_sorted
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Extract drum onset timestamps from an MP3 for Act 2 beatmap.'
+        description='Extract drum onset timestamps via Demucs + K-means clustering.'
     )
     parser.add_argument('mp3',
-        help='Input MP3 (or WAV/FLAC) file path')
+        help='Input MP3 (or WAV/FLAC) file')
     parser.add_argument('--out', default=None,
-        help='Output JSON path (default: <stem>_beats.json in same directory)')
+        help='Output JSON path (default: <stem>_beats.json next to input)')
+    parser.add_argument('--drums-stem', default=None,
+        help='Path to an existing Demucs drum stem — skips separation step. '
+             'A saved stem is written to <stem>_drums.mp3 on each run.')
 
-    # Time window — useful for ignoring intros/outros
     parser.add_argument('--start', type=float, default=0.0,
-        help='Ignore hits before this time in seconds (default: 0)')
+        help='Ignore hits before this time (seconds, default: 0)')
     parser.add_argument('--end', type=float, default=None,
-        help='Ignore hits after this time in seconds (default: end of file)')
+        help='Ignore hits after this time (seconds, default: end of file)')
 
-    # Sensitivity tuning — lower delta = more hits detected, higher = fewer
-    # Envelope is normalized 0–1, so these thresholds are always on the same scale.
-    parser.add_argument('--kick-delta', type=float, default=0.15,
-        help='Min normalized onset height for kick, 0–1 (default: 0.15)')
-    parser.add_argument('--snare-delta', type=float, default=0.15,
-        help='Min normalized onset height for snare, 0–1 (default: 0.15)')
-    parser.add_argument('--hihat-delta', type=float, default=0.10,
-        help='Min normalized onset height for hi-hat, 0–1 (default: 0.10)')
+    # Clustering
+    parser.add_argument('--n-clusters', type=int, default=3,
+        help='Number of K-means clusters (default: 3). Use 4+ if the track has '
+             'open and closed hi-hat as separate sounds.')
 
-    # Prominence: how much a peak must stand out above its surroundings (0–1 scale).
-    # This is the primary knob — raise it to get fewer, stronger hits.
-    parser.add_argument('--kick-prominence', type=float, default=0.15,
-        help='Peak prominence for kick, 0–1 — raise to reduce false positives (default: 0.15)')
-    parser.add_argument('--snare-prominence', type=float, default=0.15,
-        help='Peak prominence for snare, 0–1 (default: 0.15)')
-    parser.add_argument('--hihat-prominence', type=float, default=0.10,
-        help='Peak prominence for hi-hat, 0–1 (default: 0.10)')
+    # Cluster assignment (Phase 2)
+    parser.add_argument('--kick-cluster',  type=int, default=None,
+        help='Cluster index to label as kick (from Phase 1 inspection)')
+    parser.add_argument('--snare-cluster', type=int, default=None,
+        help='Cluster index to label as snare')
+    parser.add_argument('--hihat-cluster', type=int, default=None,
+        help='Cluster index to label as hi-hat. With --n-clusters 4+ any '
+             'unassigned clusters are written as extra[] in the JSON.')
 
-    # Top-pct: after prominence filtering, keep only the strongest N% of hits.
-    # e.g. --kick-top-pct 25 keeps only the loudest 25% of detected kicks.
-    parser.add_argument('--kick-top-pct', type=float, default=None,
-        help='Keep only top N%% strongest kick hits, e.g. 25 (default: keep all)')
-    parser.add_argument('--snare-top-pct', type=float, default=None,
-        help='Keep only top N%% strongest snare hits (default: keep all)')
-    parser.add_argument('--hihat-top-pct', type=float, default=None,
-        help='Keep only top N%% strongest hi-hat hits (default: keep all)')
+    # Onset detection sensitivity
+    parser.add_argument('--onset-delta',      type=float, default=0.10,
+        help='Min normalised onset height 0–1 (default: 0.10). '
+             'Raise to reduce false positives; lower for quiet hits.')
+    parser.add_argument('--onset-prominence', type=float, default=0.10,
+        help='Min peak prominence 0–1 (default: 0.10)')
+    parser.add_argument('--onset-gap',        type=float, default=0.04,
+        help='Min seconds between onsets (default: 0.04 = 40 ms)')
 
-    # Minimum gap between successive hits in the same band (seconds)
-    parser.add_argument('--kick-gap', type=float, default=0.20,
-        help='Minimum seconds between kick hits (default: 0.20)')
-    parser.add_argument('--snare-gap', type=float, default=0.15,
-        help='Minimum seconds between snare hits (default: 0.15)')
-    parser.add_argument('--hihat-gap', type=float, default=0.05,
-        help='Minimum seconds between hi-hat hits (default: 0.05)')
+    # Feature window
+    parser.add_argument('--feature-window', type=float, default=0.100,
+        help='Audio window in seconds used for feature extraction (default: 0.100)')
 
     args = parser.parse_args()
 
-    # ── Load audio ────────────────────────────────────────────────────────────
-    print(f'Loading: {args.mp3}')
-    try:
-        y, sr = librosa.load(args.mp3, sr=None, mono=True)
-    except Exception as e:
-        sys.exit(f'Failed to load audio: {e}\n'
-                 'Make sure ffmpeg is installed (sudo apt install ffmpeg) or '
-                 'pip install audioread')
+    # Validate cluster assignments if provided
+    assigned = {name: val for name, val in [
+        ('kick',  args.kick_cluster),
+        ('snare', args.snare_cluster),
+        ('hihat', args.hihat_cluster),
+    ] if val is not None}
 
-    duration = len(y) / sr
-    print(f'  Duration : {duration:.2f}s')
-    print(f'  Sample rate: {sr} Hz')
+    if assigned:
+        if 'kick' not in assigned or 'snare' not in assigned:
+            sys.exit('--kick-cluster and --snare-cluster are required together. '
+                     '--hihat-cluster is optional.')
+        if len(set(assigned.values())) != len(assigned):
+            sys.exit('Cluster indices must be distinct.')
+        for v in assigned.values():
+            if v < 0 or v >= args.n_clusters:
+                sys.exit(f'Cluster index {v} out of range for --n-clusters '
+                         f'{args.n_clusters}')
 
-    # ── HPSS — isolate percussive component ──────────────────────────────────
-    # margin=3 gives strong percussion separation at cost of some bleed
-    print('Separating percussive component (HPSS)...')
-    _, y_perc = librosa.effects.hpss(y, margin=3.0)
+    # ── Step 1: Demucs separation ─────────────────────────────────────────────
+    stem_base = args.mp3.rsplit('.', 1)[0]
+    saved_stem_path = stem_base + '_drums.mp3'
 
-    # ── Frequency band filtering ──────────────────────────────────────────────
-    print('Filtering frequency bands...')
-    y_kick  = bandpass(y_perc, sr,   20,  150)   # sub-bass thump
-    y_snare = bandpass(y_perc, sr,  150,  800)   # snare body + crack
-    y_hihat = bandpass(y_perc, sr, 5000, 16000)  # cymbal / hi-hat
+    if args.drums_stem:
+        drums_path = args.drums_stem
+        print(f'Using drum stem: {drums_path}')
+    else:
+        print(f'Loading: {args.mp3}')
+        tmp_dir = tempfile.mkdtemp(prefix='demucs_')
+        print(f'Running Demucs source separation...')
+        drums_path = separate_drums(args.mp3, tmp_dir)
+        # Save stem next to input for reuse
+        import shutil
+        shutil.copy2(drums_path, saved_stem_path)
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+        print(f'  Drum stem saved → {saved_stem_path}')
+        print(f'  (Re-use with: --drums-stem {saved_stem_path})')
+        drums_path = saved_stem_path
 
-    # ── Onset detection ───────────────────────────────────────────────────────
-    # HOP = 256 samples → ~5.8 ms resolution at 44100 Hz
-    HOP = 256
+    # ── Step 2: Load drum stem ────────────────────────────────────────────────
+    print('\nLoading drum stem...')
+    y_drums, sr = librosa.load(drums_path, sr=None, mono=True)
 
-    def gap_to_frames(gap_s):
-        return max(1, int(gap_s * sr / HOP))
+    # Load original for duration + beat tracking
+    y_orig, sr_orig = librosa.load(args.mp3, sr=None, mono=True)
+    duration = len(y_orig) / sr_orig
+    print(f'  Duration: {duration:.2f}s   sr: {sr} Hz')
 
-    print('Detecting kick onsets...')
-    kick_times  = detect_onsets(y_kick,  sr, HOP,
-                                delta=args.kick_delta,
-                                prominence=args.kick_prominence,
-                                wait_frames=gap_to_frames(args.kick_gap),
-                                top_pct=args.kick_top_pct)
-    print(f'  {len(kick_times)} hits detected')
+    # ── Step 3: Onset detection ───────────────────────────────────────────────
+    print('\nDetecting onsets on drum stem...')
+    onset_times = detect_all_onsets(
+        y_drums, sr,
+        delta      = args.onset_delta,
+        prominence = args.onset_prominence,
+        min_gap_s  = args.onset_gap,
+    )
+    print(f'  {len(onset_times)} total onsets detected')
 
-    print('Detecting snare onsets...')
-    snare_times = detect_onsets(y_snare, sr, HOP,
-                                delta=args.snare_delta,
-                                prominence=args.snare_prominence,
-                                wait_frames=gap_to_frames(args.snare_gap),
-                                top_pct=args.snare_top_pct)
-    print(f'  {len(snare_times)} hits detected')
+    if len(onset_times) < args.n_clusters:
+        sys.exit(f'Only {len(onset_times)} onsets detected — too few to cluster '
+                 f'into {args.n_clusters} groups.  Lower --onset-delta.')
 
-    print('Detecting hi-hat onsets...')
-    hihat_times = detect_onsets(y_hihat, sr, HOP,
-                                delta=args.hihat_delta,
-                                prominence=args.hihat_prominence,
-                                wait_frames=gap_to_frames(args.hihat_gap),
-                                top_pct=args.hihat_top_pct)
-    print(f'  {len(hihat_times)} hits detected')
+    # ── Step 4: Feature extraction ────────────────────────────────────────────
+    print(f'Extracting features ({args.feature_window*1000:.0f} ms window per onset)...')
+    features = extract_features(y_drums, sr, onset_times, window_s=args.feature_window)
+    print(f'  Feature matrix: {features.shape}')
 
-    # ── BPM + beat grid ───────────────────────────────────────────────────────
-    print('Estimating tempo and beat positions...')
-    tempo, beat_frames = librosa.beat.beat_track(y=y_perc, sr=sr, hop_length=HOP)
-    beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=HOP)
-    bpm = float(np.round(np.atleast_1d(tempo)[0], 1))
-    downbeat_offset = float(beat_times[0]) if len(beat_times) > 0 else 0.0
-    print(f'  Estimated BPM    : {bpm}')
-    print(f'  First beat offset: {downbeat_offset:.4f}s')
-    print()
-    print('  NOTE: librosa BPM detection is approximate. Verify with Audacity')
-    print('  (Analyze → Beat Finder) or a DAW for the exact BPM and downbeat.')
+    # ── Step 5: Clustering ────────────────────────────────────────────────────
+    print(f'\nClustering into {args.n_clusters} groups (K-means, n_init=20)...')
+    labels = cluster_onsets(features, args.n_clusters)
 
-    # ── Trim to requested window ──────────────────────────────────────────────
+    print('\nCluster summary (sorted by spectral centroid):')
+    rows_sorted = cluster_summary(onset_times, labels, features, args.n_clusters)
+
+    # ── Step 6: Trim to window ────────────────────────────────────────────────
     def trim(times):
-        t = np.asarray(times)
+        t = np.asarray(list(times), dtype=float)
         t = t[t >= args.start]
         if args.end is not None:
             t = t[t <= args.end]
-        return [round(float(v), 4) for v in t]
+        return [round(float(v), 4) for v in sorted(t)]
 
-    # ── Assemble output ───────────────────────────────────────────────────────
-    result = {
-        '_comment': (
-            'All times in seconds from start of file. '
-            'bpm and downbeat_offset are needed by the boss card-snap logic. '
-            'kick/snare/hihat are candidate beatmap timestamps — review and prune '
-            'before baking into A2MP3Beatmap nodes.'
-        ),
-        'bpm'             : bpm,
-        'downbeat_offset' : round(downbeat_offset, 4),
-        'duration'        : round(duration, 3),
-        'window'          : {'start': args.start, 'end': args.end or round(duration, 3)},
-        'kick'  : trim(kick_times),
-        'snare' : trim(snare_times),
-        'hihat' : trim(hihat_times),
-        'all_beats': trim(beat_times),
-    }
+    # ── Step 7: Beat tracking ─────────────────────────────────────────────────
+    print('\nEstimating BPM and downbeat (librosa)...')
+    _, y_perc = librosa.effects.hpss(y_drums, margin=3.0)
+    tempo, beat_frames = librosa.beat.beat_track(y=y_perc, sr=sr, hop_length=256)
+    beat_times = librosa.frames_to_time(beat_frames, sr=sr, hop_length=256)
+    bpm = float(np.round(np.atleast_1d(tempo)[0], 1))
+    downbeat_offset = float(beat_times[0]) if len(beat_times) > 0 else 0.0
+    print(f'  BPM: {bpm}   first beat: {downbeat_offset:.4f}s')
+
+    # ── Step 8: Assemble output ───────────────────────────────────────────────
+    out_path = args.out or (stem_base + '_beats.json')
+    lbl_path = out_path.replace('.json', '_labels.txt')
+
+    if assigned:
+        # Phase 2: named output
+        cluster_map = {v: k for k, v in assigned.items()}
+        named = {k: [] for k in assigned}
+        extra = {}   # unassigned clusters
+
+        for t, lbl in zip(onset_times, labels):
+            name = cluster_map.get(int(lbl))
+            if name:
+                named[name].append(t)
+            else:
+                extra.setdefault(f'extra_C{lbl}', []).append(t)
+
+        result = {
+            '_comment': (
+                'All times in seconds from start of file. '
+                'Generated by Demucs + K-means clustering.'
+            ),
+            'bpm'            : bpm,
+            'downbeat_offset': round(downbeat_offset, 4),
+            'duration'       : round(duration, 3),
+            'window'         : {'start': args.start,
+                                'end'  : args.end or round(duration, 3)},
+            'kick'  : trim(named.get('kick',  [])),
+            'snare' : trim(named.get('snare', [])),
+            'hihat' : trim(named.get('hihat', [])),
+            'all_beats': trim(beat_times),
+        }
+        result.update({k: trim(v) for k, v in extra.items()})
+
+        label_sym = {'kick': 'K', 'snare': 'S', 'hihat': 'H'}
+        label_map = {v: label_sym[k] for k, v in assigned.items()}
+        audit_labels = (
+            [(t, label_map.get(int(lbl), f'C{lbl}'))
+             for t, lbl in zip(onset_times, labels)] +
+            [(t, '|') for t in beat_times]
+        )
+
+        print(f'\nFinal hit counts:')
+        for name in ('kick', 'snare', 'hihat'):
+            if name in named:
+                print(f'  {name:5s}: {len(result[name])}')
+        for k, v in extra.items():
+            print(f'  {k}: {len(trim(v))}')
+
+    else:
+        # Phase 1: exploration output — use C0/C1/C2 labels
+        clusters_out = {}
+        for c in range(args.n_clusters):
+            times_c = [t for t, lbl in zip(onset_times, labels) if lbl == c]
+            clusters_out[f'C{c}'] = trim(times_c)
+
+        result = {
+            '_comment': (
+                'Phase 1 exploration output. '
+                'Load the _labels.txt in Audacity, listen to each cluster, '
+                'then re-run with --kick-cluster N --snare-cluster N --hihat-cluster N.'
+            ),
+            'bpm'            : bpm,
+            'downbeat_offset': round(downbeat_offset, 4),
+            'duration'       : round(duration, 3),
+            'window'         : {'start': args.start,
+                                'end'  : args.end or round(duration, 3)},
+            'all_beats': trim(beat_times),
+        }
+        result.update(clusters_out)
+
+        audit_labels = (
+            [(t, f'C{lbl}') for t, lbl in zip(onset_times, labels)] +
+            [(t, '|') for t in beat_times]
+        )
+
+        print(f'\nNext step — load labels in Audacity and listen to each cluster:')
+        print(f'  Audacity → File → Import → Labels → {lbl_path}')
+        print(f'\nThen re-run with cluster assignments, e.g.:')
+        # Use the centroid-sorted order as the suggested assignment
+        c_order = [r[0] for r in rows_sorted]  # lowest→highest centroid
+        suggestion = (f'--kick-cluster {c_order[0]} '
+                      f'--snare-cluster {c_order[1]}')
+        if len(c_order) > 2:
+            suggestion += f' --hihat-cluster {c_order[2]}'
+        print(f'  {suggestion}')
+        print(f'  (adjust if your listening reveals a different mapping)')
 
     # ── Write JSON ────────────────────────────────────────────────────────────
-    if args.out:
-        out_path = args.out
-    else:
-        stem = args.mp3.rsplit('.', 1)[0]
-        out_path = stem + '_beats.json'
-
     with open(out_path, 'w') as f:
         json.dump(result, f, indent=2)
 
     # ── Write Audacity label track ────────────────────────────────────────────
-    # Format: start<TAB>end<TAB>label  (start == end for point labels)
-    # Import in Audacity: File → Import → Labels...
-    lbl_path = out_path.replace('.json', '_labels.txt')
-    labels = (
-        [(t, 'K') for t in result['kick']] +
-        [(t, 'S') for t in result['snare']] +
-        [(t, 'H') for t in result['hihat']] +
-        [(t, '|') for t in result['all_beats']]
-    )
-    labels.sort(key=lambda x: x[0])
+    audit_labels.sort(key=lambda x: x[0])
     with open(lbl_path, 'w') as f:
-        for t, lbl in labels:
+        for t, lbl in audit_labels:
             f.write(f'{t:.4f}\t{t:.4f}\t{lbl}\n')
 
     print(f'\nWrote: {out_path}')
-    print(f'  kick   : {len(result["kick"])} hits')
-    print(f'  snare  : {len(result["snare"])} hits')
-    print(f'  hihat  : {len(result["hihat"])} hits')
-    print(f'  beats  : {len(result["all_beats"])} beat positions')
-    print(f'\nWrote Audacity labels: {lbl_path}')
-    print('  Import in Audacity: File → Import → Labels...')
-    print('  Labels: K=kick  S=snare  H=hi-hat  |=beat grid')
-    print()
-    print('Next steps:')
-    print('  1. Open the MP3 in Audacity, then File → Import → Labels → <stem>_labels.txt')
-    print('  2. Verify bpm and downbeat_offset visually against the waveform')
-    print('  3. Adjust --kick-delta / --snare-delta / --hihat-delta and re-run if too many or too few hits')
-    print('  4. Hand-author A2MP3Beatmap nodes in vi_p3d_a2_music.js from these timestamps')
+    print(f'Wrote: {lbl_path}')
+    print(f'  BPM: {bpm}   downbeat: {downbeat_offset:.4f}s')
 
 
 if __name__ == '__main__':
