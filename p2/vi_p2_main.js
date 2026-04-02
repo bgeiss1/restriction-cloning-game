@@ -758,7 +758,7 @@ const P2 = {
     this._resetMeters();
     const subs = ['terrain','player','walls','rbcs','receptors','obstacles','powerups','particles','education'];
     subs.forEach(k => { if (this[k] && this[k].reset) this[k].reset(); });
-    if (this.sounds) this.sounds.startBgDrone();
+    if (this.sounds) this.sounds.startBgMusic();
     this._setState('PLAYING');
     this._updateHUD();
   },
@@ -805,7 +805,7 @@ const P2 = {
     if (this.state !== 'INTRO') return;
     const subs = ['terrain','player','walls','rbcs','receptors','obstacles','powerups','particles','education'];
     subs.forEach(k => { if (this[k] && this[k].reset) this[k].reset(); });
-    if (this.sounds) this.sounds.startBgDrone();
+    if (this.sounds) this.sounds.startBgMusic();
     this._setState('PLAYING');
     this._updateHUD();
   },

@@ -188,8 +188,13 @@ class P2SoundManager {
   constructor() {
     this._ctx    = null;
     this._master = null;
-    this._drone  = [];   // oscillator nodes for background
+    this._drone  = [];   // oscillator nodes (kept as fallback, unused when MP3 loads)
     this._ready  = false;
+
+    // MP3 background music
+    this._musicAudio = null;   // <audio> element
+    this._musicSrc   = null;   // MediaElementAudioSourceNode
+    this._musicGain  = null;   // GainNode for volume control
 
     // Lazy init: create AudioContext on first user gesture
     this._initHandler = () => { this._init(); };
@@ -210,7 +215,47 @@ class P2SoundManager {
     }
   }
 
-  // ── Background drone ─────────────────────────────────────────────────────
+  // ── Background music (MP3) ───────────────────────────────────────────────
+
+  startBgMusic() {
+    if (!this._ready) return;
+    if (this._ctx && this._ctx.state === 'suspended') this._ctx.resume();
+
+    if (!this._musicAudio) {
+      // First call: create <audio> element and route through Web Audio.
+      // MediaElementSource can only be created once per element, so we
+      // cache it and reuse on subsequent calls (retry / new game).
+      const audio       = document.createElement('audio');
+      audio.src         = 'p2/audio/Drip_to_the_Cell_Membrane.mp3';
+      audio.loop        = true;
+      audio.crossOrigin = 'anonymous';
+      audio.preload     = 'auto';
+      this._musicAudio  = audio;
+
+      try {
+        const src  = this._ctx.createMediaElementSource(audio);
+        const gain = this._ctx.createGain();
+        gain.gain.value = 0.55;
+        src.connect(gain);
+        gain.connect(this._master);
+        this._musicSrc  = src;
+        this._musicGain = gain;
+      } catch(e) {
+        // Web Audio routing failed — audio plays at system volume
+      }
+    }
+
+    this._musicAudio.currentTime = 0;
+    this._musicAudio.play().catch(() => {});
+  }
+
+  stopBgMusic() {
+    if (!this._musicAudio) return;
+    this._musicAudio.pause();
+    this._musicAudio.currentTime = 0;
+  }
+
+  // ── Background drone (fallback, kept for reference) ───────────────────────
 
   startBgDrone() {
     if (!this._ready) return;
@@ -337,9 +382,13 @@ class P2SoundManager {
   }
 
   destroy() {
+    this.stopBgMusic();
     this.stopBgDrone();
     window.removeEventListener('keydown',    this._initHandler);
     window.removeEventListener('touchstart', this._initHandler);
+    if (this._musicSrc)  { try { this._musicSrc.disconnect();  } catch(e) {} this._musicSrc  = null; }
+    if (this._musicGain) { try { this._musicGain.disconnect(); } catch(e) {} this._musicGain = null; }
+    this._musicAudio = null;
     if (this._ctx) {
       try { this._ctx.close(); } catch(e) {}
       this._ctx = null;
