@@ -1490,9 +1490,10 @@ class A2MP3Player {
     this._pausedAt     = 0;
     this._preTimer     = null;   // setTimeout handle for 3-s pre-loop delay
     this._loopInterval = null;   // setInterval handle for loop polling
-    this._beatmap      = null;
-    this._pendingStart = false;
-    this._onEndCb      = null;
+    this._beatmap        = null;
+    this._pendingStart   = false;
+    this._pausedForCard  = false;   // set by pauseForCard() before JSON may arrive
+    this._onEndCb        = null;
   }
 
   // ── Init — call once per Act 2 start ────────────────────────────────────
@@ -1549,7 +1550,11 @@ class A2MP3Player {
   _doStart() {
     this._audio.currentTime = 0;
     this._looping = false;
-    this._audio.play().catch(e => console.warn('[A2MP3Player] play() blocked:', e));
+    // Skip play() if pauseForCard() was already called (async JSON load race):
+    // the card-loop setTimeout will start playback on its own schedule.
+    if (!this._pausedForCard) {
+      this._audio.play().catch(e => console.warn('[A2MP3Player] play() blocked:', e));
+    }
     // Gain stays at 0 until resumeFromCard() is called after the first countdown
   }
 
@@ -1574,6 +1579,7 @@ class A2MP3Player {
   // ── Card pause: fade out → pause → 3 s silence → loop section ───────────
   pauseForCard() {
     if (!this._audio) return;
+    this._pausedForCard = true;
     this._pausedAt = this._audio.currentTime;
     if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
     this._stopLoopInterval();
@@ -1604,6 +1610,7 @@ class A2MP3Player {
   // ── Resume: seek to beat boundary, fade in, play (called on countdown end) ─
   resumeFromCard(seekT) {
     if (!this._audio) return;
+    this._pausedForCard = false;
     this._audio.currentTime = Math.max(0, seekT);
     this._audio.play().catch(() => {});
     this._fadeTo(1.0, 0.4);
@@ -1618,7 +1625,8 @@ class A2MP3Player {
     this._ready   = false;
     if (this._audio) {
       this._audio.pause();
-      this._audio.src = '';
+      this._audio.removeAttribute('src');
+      this._audio.load();   // flush buffered data without triggering "Invalid URI"
       this._audio = null;
     }
     try { if (this._srcNode)  this._srcNode.disconnect();  } catch (_) {}
