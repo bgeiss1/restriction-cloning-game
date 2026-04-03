@@ -97,7 +97,7 @@ const P3DAct1Descent = (() => {
     _hp      = 100;
     _score   = 0;
     _alert   = 0;
-    _mitoCooldown = 0;
+    _mitoCooldown = 1.0;   // grace period: defer first mito check until scene matrices are initialised
     _lysoDodged   = 0;
     _nearMisses   = 0;
     _peakAlert    = 0;
