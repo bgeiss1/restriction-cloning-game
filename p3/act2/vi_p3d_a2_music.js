@@ -1398,12 +1398,13 @@ class A2MP3Beatmap {
   }
 
   // Split kick timestamps into 5 equal phase sections; normalise to 0-based.
-  // Gaps larger than 2 beats (e.g. musical breakdowns) are filled with
+  // Gaps larger than 6 s (e.g. the ~14.8 s breakdown) are filled with
   // BPM-spaced synthetic hits so the game stays active throughout.
+  // Normal kick spacing (~3–4 s) is left untouched.
   _buildPatterns() {
     const secDur = this._duration / 5;   // 40 s per phase section
     const bi     = 60 / this._bpm;       // beat interval in seconds
-    const maxGap = bi * 2;               // fill any gap wider than 2 beats
+    const maxGap = 6.0;                  // only fill gaps wider than 6 s
 
     return [0, 1, 2, 3, 4].map(i => {
       const s = i * secDur, e = (i + 1) * secDur;
