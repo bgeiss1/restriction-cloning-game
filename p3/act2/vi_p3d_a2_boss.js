@@ -109,6 +109,10 @@ const P3DAct2BossBattle = (() => {
   // Input
   const _keys = {};
 
+  // Debug
+  let _debugPaused = false;
+  let _debugPauseBtnRect = null;
+
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
   function init(p3, act1Stats) {
@@ -137,6 +141,7 @@ const P3DAct2BossBattle = (() => {
     _perf            = 0.4;
     _card            = null;
     _usingMP3        = false;
+    _debugPaused     = false;
     _phaseEComplete  = false;
     _beatmapSynced   = false;
     _lastNodeT      = 2.0;   // 2s game-time lead-in before first note
@@ -291,6 +296,9 @@ const P3DAct2BossBattle = (() => {
       _render();
       return;
     }
+
+    // ── Debug pause ──────────────────────────────────────────────────────
+    if (_debugPaused) { _render(); return; }
 
     _t += dt;
 
@@ -924,6 +932,30 @@ const P3DAct2BossBattle = (() => {
     _ctx.textBaseline = 'top';
     _ctx.fillText(PHASE_LABELS[_phaseIdx], W / 2, 12);
 
+    // ── Debug overlay: pause button + time display ────────────────────
+    {
+      const bW = 64, bH = 20, bX = W - bW - 6, bY = 6;
+      _debugPauseBtnRect = { x: bX, y: bY, w: bW, h: bH };
+      _ctx.fillStyle = _debugPaused ? 'rgba(255,200,0,0.9)' : 'rgba(60,60,60,0.75)';
+      _ctx.fillRect(bX, bY, bW, bH);
+      _ctx.fillStyle    = _debugPaused ? '#000' : '#ccc';
+      _ctx.font         = 'bold 11px monospace';
+      _ctx.textAlign    = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText(_debugPaused ? '\u25b6 PLAY' : '\u23f8 PAUSE', bX + bW / 2, bY + bH / 2);
+
+      const audioT = (_usingMP3 && window.A2MP3Player && window.A2MP3Player._audio)
+        ? window.A2MP3Player._audio.currentTime : null;
+      const line1 = `t=${_t.toFixed(3)}`;
+      const line2 = audioT !== null ? `a=${audioT.toFixed(3)}` : '';
+      _ctx.fillStyle    = 'rgba(255,255,255,0.65)';
+      _ctx.font         = '10px monospace';
+      _ctx.textAlign    = 'right';
+      _ctx.textBaseline = 'top';
+      _ctx.fillText(line1, W - 6, bY + bH + 3);
+      if (line2) _ctx.fillText(line2, W - 6, bY + bH + 15);
+    }
+
     // ── Countdown before first note (electroswing lead-in) ───────────
     if (!_card && _phaseIdx === 0 && !_usingMP3 && window.A2ElectroswingBeatmap) {
       const LEAD_IN = 2.0;  // must match A2ElectroswingBeatmap.LEAD_IN
@@ -1518,10 +1550,24 @@ const P3DAct2BossBattle = (() => {
   // ── Input ──────────────────────────────────────────────────────────────
 
   function _onCanvasClick(e) {
-    if (!_card || _card.dismissed) return;
     const rect = _canvas.getBoundingClientRect();
     const mx   = (e.clientX - rect.left) * (_canvas.width  / rect.width);
     const my   = (e.clientY - rect.top)  * (_canvas.height / rect.height);
+
+    // Debug pause button (available whenever no card is showing)
+    if (!_card && _debugPauseBtnRect) {
+      const pb = _debugPauseBtnRect;
+      if (mx >= pb.x && mx <= pb.x + pb.w && my >= pb.y && my <= pb.y + pb.h) {
+        _debugPaused = !_debugPaused;
+        if (_usingMP3 && window.A2MP3Player && window.A2MP3Player._audio) {
+          if (_debugPaused) window.A2MP3Player._audio.pause();
+          else window.A2MP3Player._audio.play().catch(() => {});
+        }
+        return;
+      }
+    }
+
+    if (!_card || _card.dismissed) return;
     const b    = _card.btnRect;
     if (!b || mx < b.x || mx > b.x + b.w || my < b.y || my > b.y + b.h) return;
 
