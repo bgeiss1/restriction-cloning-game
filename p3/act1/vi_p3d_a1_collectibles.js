@@ -3,116 +3,141 @@
  * P3DCollectibleMgr — spawns and tracks collectible tokens in Act 1.
  *
  * Token types:
- *   'M2'     — octahedron, blue     — adds to M2 inventory
- *   'NS1'    — box,        purple   — adds to NS1 inventory
- *   'HEALTH' — small sphere, green  — restores HP
+ *   'H_ION'  — H⁺ atom model (white proton sphere + red orbital ring + yellow electron)
+ *   'HEALTH' — small green sphere — restores HP
  *
- * Tokens spin and bob in place.  Collection is detected by simple
- * sphere-sphere overlap with the endosome radius + 0.6 pickup margin.
- *
- * Owns its three materials; never disposes shared geometries.
+ * Collection is detected by sphere–sphere overlap with the endosome radius
+ * + pickup margin.  Pump-specific interaction is added in Chunk 3.
  */
 class P3DCollectibleMgr {
   constructor(scene) {
     this._scene  = scene;
-    this._tokens = [];  // { mesh, type, collected, id }
+    this._tokens = [];  // { object, ring, type, collected, id }
 
-    this._matM2     = new THREE.MeshLambertMaterial({
-      color: P3D_CFG.COL_M2_TOK,    emissive: 0x001133 });
-    this._matNS1    = new THREE.MeshLambertMaterial({
-      color: P3D_CFG.COL_NS1_TOK,   emissive: 0x110022 });
+    // H⁺ ion shared geometries and materials (one set, reused by all tokens)
+    this._hIonCoreGeo = new THREE.SphereGeometry(0.14, 8, 8);
+    this._hIonRingGeo = new THREE.TorusGeometry(0.28, 0.022, 8, 32);
+    this._hIonElecGeo = new THREE.SphereGeometry(0.065, 6, 6);
+    this._hIonCoreMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x666666 });
+    this._hIonRingMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
+    this._hIonElecMat = new THREE.MeshLambertMaterial({ color: 0xffee44, emissive: 0x443300 });
+
+    // Health pickup material
     this._matHealth = new THREE.MeshLambertMaterial({
       color: P3D_CFG.COL_HEALTH_TOK, emissive: 0x001100 });
 
     this._nextId = 0;
   }
 
+  // ── H⁺ atom model builder ──────────────────────────────────────────────
+
+  _buildHIonGroup() {
+    const grp = new THREE.Group();
+
+    // Proton core
+    grp.add(new THREE.Mesh(this._hIonCoreGeo, this._hIonCoreMat));
+
+    // Orbital ring — tilted 35° for visual depth
+    const ring = new THREE.Mesh(this._hIonRingGeo, this._hIonRingMat);
+    ring.rotation.x = Math.PI / 5.1;
+    grp.add(ring);
+
+    // Electron on the ring
+    const elec = new THREE.Mesh(this._hIonElecGeo, this._hIonElecMat);
+    elec.position.set(0.28, 0, 0);   // sits at ring radius
+    ring.add(elec);                   // child of ring → orbits with it
+
+    return { group: grp, ring };
+  }
+
   // ── Spawn ──────────────────────────────────────────────────────────────
 
   /**
    * Spawn a single token at worldPos.
-   * @param {'M2'|'NS1'|'HEALTH'} type
-   * @param {THREE.Vector3}       worldPos
+   * @param {'H_ION'|'HEALTH'} type
+   * @param {THREE.Vector3}    worldPos
    */
   spawn(type, worldPos) {
-    const geo = type === 'M2'     ? P3DGeoLib.octaM2      :
-                type === 'NS1'    ? P3DGeoLib.boxNS1       :
-                                    P3DGeoLib.sphereSmall;
-    const mat = type === 'M2'     ? this._matM2     :
-                type === 'NS1'    ? this._matNS1    :
-                                    this._matHealth;
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.copy(worldPos);
-    mesh.scale.setScalar(1.5);
-    this._scene.add(mesh);
-    this._tokens.push({ mesh, type, collected: false, id: this._nextId++ });
+    let object, ring = null;
+
+    if (type === 'H_ION') {
+      const built = this._buildHIonGroup();
+      object = built.group;
+      ring   = built.ring;
+    } else {
+      // HEALTH
+      object = new THREE.Mesh(P3DGeoLib.sphereSmall, this._matHealth);
+      object.scale.setScalar(1.5);
+    }
+
+    object.position.copy(worldPos);
+    this._scene.add(object);
+    this._tokens.push({ object, ring, type, collected: false, id: this._nextId++ });
   }
 
   /**
    * Spawn a cluster of tokens around a descent depth.
    * Called once per chunk as the vehicle passes the chunk boundary.
    *
-   * @param {number} descentY   current accumulated descent depth
+   * @param {number} descentY  current accumulated descent depth
    */
   spawnGroup(descentY) {
-    const H     = P3D_CFG.A1_CHUNK_H;
-    const R     = P3D_CFG.A1_BOUNDARY_R * 0.65;
-    // Place tokens 30–55 units ahead of current depth, spread vertically
+    const H    = P3D_CFG.A1_CHUNK_H;
+    const R    = P3D_CFG.A1_BOUNDARY_R * 0.7;
     const baseY = -(descentY + H * 0.5);
 
     const _rnd = (spread) => (Math.random() - 0.5) * spread;
-    const _pos = (dy, xOff, zOff) => new THREE.Vector3(
-      _rnd(R * 2) + xOff,
-      baseY + dy,
-      _rnd(R * 2) + zOff
+    const _pos = (dy) => new THREE.Vector3(
+      _rnd(R * 2),
+      baseY + dy + _rnd(H * 0.35),
+      _rnd(R * 2)
     );
 
-    // 1 guaranteed M2 + 50% chance of a second
-    this.spawn('M2', _pos(0,   0,  0));
-    if (Math.random() < 0.5) this.spawn('M2',  _pos(-5,  3, -2));
-
-    // 1 NS1
-    this.spawn('NS1', _pos(-10, -2,  3));
+    // 10 H⁺ ions spread through the chunk
+    for (let i = 0; i < 10; i++) {
+      const dy = (i / 10 - 0.5) * H * 0.7;
+      this.spawn('H_ION', _pos(dy));
+    }
 
     // 1 health pickup, deeper in the chunk
-    this.spawn('HEALTH', _pos(-18,  1, -1));
+    this.spawn('HEALTH', _pos(-H * 0.2));
   }
 
   // ── Per-frame update ───────────────────────────────────────────────────
 
   /**
-   * Spin/bob tokens, check pickup.
+   * Animate tokens, check pickup.
    * @param {number}        dt
    * @param {THREE.Vector3} vehiclePos    world position of endosome centre
-   * @param {number}        vehicleRadius endosome radius (+ pickup margin applied inside)
+   * @param {number}        vehicleRadius endosome radius (pickup margin applied inside)
    * @returns {{ type: string }[]}  array of items collected this frame
    */
   update(dt, vehiclePos, vehicleRadius) {
     const collected = [];
-    const pickR2    = (vehicleRadius + 0.6) ** 2;
+    const pickR2    = (vehicleRadius + 0.5) ** 2;
     const t         = performance.now() * 0.001;
 
     for (const tok of this._tokens) {
       if (tok.collected) continue;
 
       // Animation
-      tok.mesh.rotation.y += dt * 1.3;
-      tok.mesh.rotation.x += dt * 0.5;
-      // Gentle float bob — use token id as phase offset
-      tok.mesh.position.y += Math.sin(t * 1.8 + tok.id * 1.1) * 0.004 * dt * 60;
+      tok.object.rotation.y += dt * 0.9;
+      // Gentle bob
+      tok.object.position.y += Math.sin(t * 1.8 + tok.id * 1.1) * 0.004 * dt * 60;
+      // Electron orbital spin (faster than group rotation)
+      if (tok.ring) tok.ring.rotation.z += dt * 2.8;
 
       // Pickup test
-      const dx = tok.mesh.position.x - vehiclePos.x;
-      const dy = tok.mesh.position.y - vehiclePos.y;
-      const dz = tok.mesh.position.z - vehiclePos.z;
+      const dx = tok.object.position.x - vehiclePos.x;
+      const dy = tok.object.position.y - vehiclePos.y;
+      const dz = tok.object.position.z - vehiclePos.z;
       if (dx*dx + dy*dy + dz*dz < pickR2) {
         tok.collected = true;
-        this._scene.remove(tok.mesh);
+        this._scene.remove(tok.object);
         collected.push({ type: tok.type });
       }
     }
 
-    // Prune collected entries
     if (collected.length) {
       this._tokens = this._tokens.filter(t => !t.collected);
     }
@@ -127,8 +152,8 @@ class P3DCollectibleMgr {
   cullAbove(vehicleWorldY) {
     const threshold = vehicleWorldY + P3D_CFG.A1_CHUNK_H * 1.5;
     this._tokens = this._tokens.filter(tok => {
-      if (tok.mesh.position.y > threshold) {
-        this._scene.remove(tok.mesh);
+      if (tok.object.position.y > threshold) {
+        this._scene.remove(tok.object);
         return false;
       }
       return true;
@@ -138,12 +163,16 @@ class P3DCollectibleMgr {
   // ── Cleanup ───────────────────────────────────────────────────────────
 
   destroy() {
-    for (const tok of this._tokens) {
-      this._scene.remove(tok.mesh);
-    }
+    for (const tok of this._tokens) this._scene.remove(tok.object);
     this._tokens = [];
-    this._matM2.dispose();
-    this._matNS1.dispose();
+
+    // Dispose shared H⁺ ion resources
+    this._hIonCoreGeo.dispose();
+    this._hIonRingGeo.dispose();
+    this._hIonElecGeo.dispose();
+    this._hIonCoreMat.dispose();
+    this._hIonRingMat.dispose();
+    this._hIonElecMat.dispose();
     this._matHealth.dispose();
   }
 }

@@ -43,7 +43,6 @@ const P3DAct1Descent = (() => {
   const _vVel = new THREE.Vector2();
 
   // Inventory / scoring
-  let _m2Count = 0, _ns1Count = 0;
   let _hIonCount = 0;   // hydrogen ions pumped in (drives pH + win condition)
   let _hp      = 100;
   let _score   = 0;
@@ -90,7 +89,6 @@ const P3DAct1Descent = (() => {
     _posX = 0; _posZ = 0;
     _descentY     = 0;
     _descentSpeed = P3D_CFG.A1_DESCENT_BASE;
-    _m2Count = 0; _ns1Count = 0;
     _hIonCount      = 0;
     _completing     = 0;
     _completeReason = '';
@@ -107,7 +105,6 @@ const P3DAct1Descent = (() => {
 
     // Prime initial HUD
     _p3._hud.updateHP(_hp, 100);
-    _p3._hud.updateInventory(_m2Count, _ns1Count);
     _p3._hud.updateScore(_score);
     _p3._hud.updateSpeed(P3D_CFG.A1_DESCENT_BASE);
     _p3._hud.updateAlert(0);
@@ -276,7 +273,6 @@ const P3DAct1Descent = (() => {
 
     // ── HUD ───────────────────────────────────────────────────────────
     _p3._hud.updateHP(_hp, 100);
-    _p3._hud.updateInventory(_m2Count, _ns1Count);
     _p3._hud.updateScore(_score);
     _p3._hud.updateSpeed(_descentSpeed);
 
@@ -310,18 +306,11 @@ const P3DAct1Descent = (() => {
   // ── Collect handler ────────────────────────────────────────────────────
 
   function _onCollect(type) {
-    if (type === 'M2') {
-      _m2Count++;
+    if (type === 'H_ION') {
+      _hIonCount++;
       _score += P3D_CFG.A1_COLLECT_PTS;
-      _p3._snd.playCollectM2?.();
-      _p3._edu.trigger('M2_PREP');
-    } else if (type === 'NS1') {
-      _ns1Count++;
-      _score += P3D_CFG.A1_COLLECT_PTS;
-      _p3._snd.playCollectNS1?.();
-      _p3._edu.trigger('NS1_STOCKPILE');
-    } else {
-      // HEALTH
+      _p3._snd.playCollectHealth?.();   // reuse existing collect SFX for now
+    } else if (type === 'HEALTH') {
       _hp = Math.min(100, _hp + P3D_CFG.A1_HEALTH_RESTORE);
       _p3._snd.playCollectHealth?.();
     }
@@ -362,10 +351,8 @@ const P3DAct1Descent = (() => {
     _p3._snd.stopA1Music();
     const stats = {
       hIons:       _hIonCount,
-      m2:          _m2Count,
-      ns1:         _ns1Count,
-      m2Tokens:    _m2Count,
-      ns1Charges:  _ns1Count,
+      m2Tokens:    0,   // M2/NS1 mechanic removed; kept for Act 2 interface compat
+      ns1Charges:  0,
       hp:          _hp,
       score:       _score,
       depth:       Math.round(_descentY),
