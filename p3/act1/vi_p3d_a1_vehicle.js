@@ -35,6 +35,10 @@ class P3DEndosomeVehicle {
     this._buildRabMarkers();
     this._buildVirus();
     this._buildVATPases();
+
+    // Interior H⁺ ions accumulate here as player pumps ions in
+    this._interiorIons       = [];
+    this._interiorGeosReady  = false;
   }
 
   // ── Build helpers ──────────────────────────────────────────────────────
@@ -125,6 +129,49 @@ class P3DEndosomeVehicle {
     this._virusMesh = new THREE.Mesh(P3DGeoLib.virusSphere, P3DMatLib.virus);
     this._virusMesh.scale.setScalar(1.6);
     this._group.add(this._virusMesh);
+    this._buildHATrimers();
+  }
+
+  _buildHATrimers() {
+    // Locally-owned geo/mat for trimers
+    this._haStemGeo   = new THREE.CylinderGeometry(0.04, 0.055, 0.28, 6);
+    this._haHeadGeo   = new THREE.SphereGeometry(0.085, 7, 5);
+    this._haTrimerMat = new THREE.MeshPhongMaterial({
+      color:     P3D_CFG.COL_HA,
+      emissive:  P3D_CFG.COL_HA_EM,
+      shininess: 80,
+    });
+
+    // 8 evenly-spread directions from cube-corner normals
+    const virusR = 1.65;   // just outside the 1.6-scaled virus sphere
+    const up     = new THREE.Vector3(0, 1, 0);
+    const dirs   = [];
+    for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) {
+      dirs.push(new THREE.Vector3(x, y, z).normalize());
+    }
+
+    for (const dir of dirs) {
+      // Stalk
+      const stalk = new THREE.Mesh(this._haStemGeo, this._haTrimerMat);
+      stalk.position.copy(dir).multiplyScalar(virusR + 0.14);
+      stalk.quaternion.setFromUnitVectors(up, dir);
+      this._group.add(stalk);
+
+      // 3 head spheres arranged 120° apart at stalk tip
+      const tipCenter = dir.clone().multiplyScalar(virusR + 0.30);
+      const ref       = Math.abs(dir.x) < 0.9
+        ? new THREE.Vector3(1, 0, 0)
+        : new THREE.Vector3(0, 1, 0);
+      const tangent   = new THREE.Vector3().crossVectors(dir, ref).normalize();
+      for (let j = 0; j < 3; j++) {
+        const head   = new THREE.Mesh(this._haHeadGeo, this._haTrimerMat);
+        const offset = tangent.clone()
+          .applyAxisAngle(dir, j * (Math.PI * 2 / 3))
+          .multiplyScalar(0.10);
+        head.position.copy(tipCenter).add(offset);
+        this._group.add(head);
+      }
+    }
   }
 
   _buildVATPases() {
@@ -150,6 +197,65 @@ class P3DEndosomeVehicle {
       this._vatpGroup.add(m);
     }
     this._group.add(this._vatpGroup);
+  }
+
+  // ── Interior H⁺ ion helpers ───────────────────────────────────────────
+
+  _initInteriorGeos() {
+    this._intCoreGeo = new THREE.SphereGeometry(0.08, 7, 7);
+    this._intRingGeo = new THREE.TorusGeometry(0.16, 0.012, 7, 24);
+    this._intElecGeo = new THREE.SphereGeometry(0.038, 5, 5);
+    this._intCoreMat = new THREE.MeshLambertMaterial({ color: 0xffffff, emissive: 0x555555 });
+    this._intRingMat = new THREE.MeshBasicMaterial({ color: 0xff2222 });
+    this._intElecMat = new THREE.MeshLambertMaterial({ color: 0xffee44, emissive: 0x443300 });
+    this._interiorGeosReady = true;
+  }
+
+  /**
+   * Return world-space tip positions for all 6 V-ATPase pumps.
+   * Tips are ~0.65 units past the pump base in the outward direction.
+   * @returns {THREE.Vector3[]}
+   */
+  getPumpTipPositions() {
+    const tips = [];
+    for (let i = 0; i < 6; i++) {
+      const local = this._vatpBasePos[i].clone()
+        .addScaledVector(this._vatpDirs[i], 0.65);
+      tips.push(this._group.localToWorld(local));
+    }
+    return tips;
+  }
+
+  /**
+   * Spawn one small H⁺ atom model inside the endosome.
+   * Called when the pump successfully picks up an exterior ion.
+   */
+  addHIon() {
+    if (!this._interiorGeosReady) this._initInteriorGeos();
+
+    const grp = new THREE.Group();
+    grp.add(new THREE.Mesh(this._intCoreGeo, this._intCoreMat));
+
+    const ring = new THREE.Mesh(this._intRingGeo, this._intRingMat);
+    ring.rotation.x = Math.PI / 5.1;
+    grp.add(ring);
+
+    const elec = new THREE.Mesh(this._intElecGeo, this._intElecMat);
+    elec.position.set(0.16, 0, 0);
+    ring.add(elec);
+
+    // Uniform random position inside the endosome interior
+    const r     = P3D_CFG.A1_ENDO_RADIUS * 0.62;
+    const theta = Math.random() * Math.PI * 2;
+    const phi   = Math.acos(2 * Math.random() - 1);
+    const rr    = r * Math.cbrt(Math.random());
+    grp.position.set(
+      rr * Math.sin(phi) * Math.cos(theta),
+      rr * Math.sin(phi) * Math.sin(theta),
+      rr * Math.cos(phi)
+    );
+    this._group.add(grp);
+    this._interiorIons.push({ group: grp, ring, phase: Math.random() * Math.PI * 2 });
   }
 
   // ── Per-frame update ───────────────────────────────────────────────────
@@ -210,6 +316,14 @@ class P3DEndosomeVehicle {
       this._rab7Active         = true;
       this._rab7Group.visible  = true;
     }
+
+    // Animate interior H⁺ ions
+    const tNow = performance.now() * 0.001;
+    for (const ion of this._interiorIons) {
+      ion.group.rotation.y += dt * 0.7;
+      ion.ring.rotation.z  += dt * 2.0;
+      ion.group.position.y += Math.sin(tNow * 1.5 + ion.phase) * 0.003 * dt * 60;
+    }
   }
 
   _animateBreathing(dt, pH) {
@@ -249,6 +363,14 @@ class P3DEndosomeVehicle {
     this._rab5Mat.dispose();
     this._rab7Mat.dispose();
     if (this._clathrinEdgesGeo) this._clathrinEdgesGeo.dispose();
+    // HA trimer geo/mat (stalks and heads are children of _group, removed above)
+    if (this._haStemGeo)   { this._haStemGeo.dispose(); this._haHeadGeo.dispose(); this._haTrimerMat.dispose(); }
+    // Interior H⁺ ions — groups are children of _group (removed above)
+    this._interiorIons = [];
+    if (this._interiorGeosReady) {
+      this._intCoreGeo.dispose(); this._intRingGeo.dispose(); this._intElecGeo.dispose();
+      this._intCoreMat.dispose(); this._intRingMat.dispose(); this._intElecMat.dispose();
+    }
     // Shared geo/mat (endoSphere, clathrin, clathrinArm, clathrinNode, virusSphere, haStalk, cylinderThin) left to P3DGeoLib/MatLib
   }
 }

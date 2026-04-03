@@ -211,7 +211,8 @@ const P3DAct1Descent = (() => {
     _env.update(dt, _descentY, _descentSpeed);
 
     // ── Collectibles ──────────────────────────────────────────────────
-    const picked = _collect.update(dt, _vPos, P3D_CFG.A1_ENDO_RADIUS);
+    const pumpTips = _vehicle.getPumpTipPositions();
+    const picked   = _collect.update(dt, pumpTips, _vPos, P3D_CFG.A1_ENDO_RADIUS);
     for (const item of picked) {
       _onCollect(item.type);
     }
@@ -267,7 +268,7 @@ const P3DAct1Descent = (() => {
     const chunkIdx = Math.floor(_descentY / P3D_CFG.A1_CHUNK_H);
     if (chunkIdx >= _chunksSpawned) {
       _collect.spawnGroup(_descentY);
-      _hazards.spawnForChunk(_descentY, pH);
+      _hazards.spawnForChunk(_descentY, pH, _descentTime);
       _chunksSpawned = chunkIdx + 1;
     }
 
@@ -309,6 +310,7 @@ const P3DAct1Descent = (() => {
     if (type === 'H_ION') {
       _hIonCount++;
       _score += P3D_CFG.A1_COLLECT_PTS;
+      _vehicle.addHIon();
       _p3._snd.playCollectHealth?.();   // reuse existing collect SFX for now
     } else if (type === 'HEALTH') {
       _hp = Math.min(100, _hp + P3D_CFG.A1_HEALTH_RESTORE);

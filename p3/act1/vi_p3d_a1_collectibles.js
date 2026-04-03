@@ -107,14 +107,18 @@ class P3DCollectibleMgr {
 
   /**
    * Animate tokens, check pickup.
-   * @param {number}        dt
-   * @param {THREE.Vector3} vehiclePos    world position of endosome centre
-   * @param {number}        vehicleRadius endosome radius (pickup margin applied inside)
+   * H_ION tokens are collected by pump-tip proximity; HEALTH by endosome sphere.
+   *
+   * @param {number}          dt
+   * @param {THREE.Vector3[]} pumpTips      world positions of the 6 V-ATPase tips
+   * @param {THREE.Vector3}   vehiclePos    world position of endosome centre
+   * @param {number}          vehicleRadius endosome radius (for HEALTH pickup margin)
    * @returns {{ type: string }[]}  array of items collected this frame
    */
-  update(dt, vehiclePos, vehicleRadius) {
+  update(dt, pumpTips, vehiclePos, vehicleRadius) {
     const collected = [];
-    const pickR2    = (vehicleRadius + 0.5) ** 2;
+    const healthR2  = (vehicleRadius + 0.5) ** 2;
+    const pumpR2    = 0.7 * 0.7;   // pump-tip capture radius
     const t         = performance.now() * 0.001;
 
     for (const tok of this._tokens) {
@@ -128,13 +132,30 @@ class P3DCollectibleMgr {
       if (tok.ring) tok.ring.rotation.z += dt * 2.8;
 
       // Pickup test
-      const dx = tok.object.position.x - vehiclePos.x;
-      const dy = tok.object.position.y - vehiclePos.y;
-      const dz = tok.object.position.z - vehiclePos.z;
-      if (dx*dx + dy*dy + dz*dz < pickR2) {
-        tok.collected = true;
-        this._scene.remove(tok.object);
-        collected.push({ type: tok.type });
+      if (tok.type === 'H_ION') {
+        // Must be touched by a pump tip
+        let hit = false;
+        for (const tip of pumpTips) {
+          const dx = tok.object.position.x - tip.x;
+          const dy = tok.object.position.y - tip.y;
+          const dz = tok.object.position.z - tip.z;
+          if (dx*dx + dy*dy + dz*dz < pumpR2) { hit = true; break; }
+        }
+        if (hit) {
+          tok.collected = true;
+          this._scene.remove(tok.object);
+          collected.push({ type: tok.type });
+        }
+      } else {
+        // HEALTH: endosome sphere pickup
+        const dx = tok.object.position.x - vehiclePos.x;
+        const dy = tok.object.position.y - vehiclePos.y;
+        const dz = tok.object.position.z - vehiclePos.z;
+        if (dx*dx + dy*dy + dz*dz < healthR2) {
+          tok.collected = true;
+          this._scene.remove(tok.object);
+          collected.push({ type: tok.type });
+        }
       }
     }
 

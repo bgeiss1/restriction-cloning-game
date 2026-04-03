@@ -110,8 +110,11 @@ const P3DAct2BossBattle = (() => {
   const _keys = {};
 
   // Debug
-  let _debugPaused = false;
+  let _debugPaused      = false;
   let _debugPauseBtnRect = null;
+  let _debugCsvBtnRect   = null;
+  let _csvCopiedFlash    = 0;   // countdown seconds for "COPIED" text
+  let _hitLog            = [];  // { gameT, hitTime, drift, musicT, lane, type }
 
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
@@ -142,6 +145,9 @@ const P3DAct2BossBattle = (() => {
     _card            = null;
     _usingMP3        = false;
     _debugPaused     = false;
+    _debugCsvBtnRect = null;
+    _csvCopiedFlash  = 0;
+    _hitLog          = [];
     _phaseEComplete  = false;
     _beatmapSynced   = false;
     _lastNodeT      = 2.0;   // 2s game-time lead-in before first note
@@ -429,6 +435,21 @@ const P3DAct2BossBattle = (() => {
           _p3._hud.updateCombo(_combo);
         }
         continue;
+      }
+
+      // Hit-zone crossing log — fires once per node when its centre reaches hitY
+      if (n.state === 'waiting' && !n._logged && _t >= n.hitTime) {
+        n._logged = true;
+        const musicT = (_usingMP3 && window.A2MP3Player)
+          ? window.A2MP3Player.musicTime : null;
+        _hitLog.push({
+          gameT:   +_t.toFixed(4),
+          hitTime: +n.hitTime.toFixed(4),
+          drift:   +(_t - n.hitTime).toFixed(4),
+          musicT:  musicT !== null ? +musicT.toFixed(4) : null,
+          lane:    n.lane,
+          type:    n.type,
+        });
       }
 
       // Miss detection
@@ -932,9 +953,11 @@ const P3DAct2BossBattle = (() => {
     _ctx.textBaseline = 'top';
     _ctx.fillText(PHASE_LABELS[_phaseIdx], W / 2, 12);
 
-    // ── Debug overlay: pause button + time display ────────────────────
+    // ── Debug overlay: pause button + CSV button + time display ──────
     {
-      const bW = 64, bH = 20, bX = W - bW - 6, bY = 6;
+      const bH = 20, bY = 6;
+      // Pause button
+      const bW = 64, bX = W - bW - 6;
       _debugPauseBtnRect = { x: bX, y: bY, w: bW, h: bH };
       _ctx.fillStyle = _debugPaused ? 'rgba(255,200,0,0.9)' : 'rgba(60,60,60,0.75)';
       _ctx.fillRect(bX, bY, bW, bH);
@@ -943,6 +966,18 @@ const P3DAct2BossBattle = (() => {
       _ctx.textAlign    = 'center';
       _ctx.textBaseline = 'middle';
       _ctx.fillText(_debugPaused ? '\u25b6 PLAY' : '\u23f8 PAUSE', bX + bW / 2, bY + bH / 2);
+
+      // CSV copy button (to the left of pause)
+      const cW = 56, cX = bX - cW - 4;
+      _debugCsvBtnRect = { x: cX, y: bY, w: cW, h: bH };
+      _ctx.fillStyle = _csvCopiedFlash > 0 ? 'rgba(60,200,60,0.9)' : 'rgba(60,60,60,0.75)';
+      _ctx.fillRect(cX, bY, cW, bH);
+      _ctx.fillStyle    = '#ccc';
+      _ctx.font         = 'bold 11px monospace';
+      _ctx.textAlign    = 'center';
+      _ctx.textBaseline = 'middle';
+      _ctx.fillText(_csvCopiedFlash > 0 ? 'COPIED' : `CSV(${_hitLog.length})`, cX + cW / 2, bY + bH / 2);
+      if (_csvCopiedFlash > 0) _csvCopiedFlash = Math.max(0, _csvCopiedFlash - (1 / 60));
 
       const audioT = (_usingMP3 && window.A2MP3Player && window.A2MP3Player._audio)
         ? window.A2MP3Player._audio.currentTime : null;
@@ -1554,16 +1589,37 @@ const P3DAct2BossBattle = (() => {
     const mx   = (e.clientX - rect.left) * (_canvas.width  / rect.width);
     const my   = (e.clientY - rect.top)  * (_canvas.height / rect.height);
 
-    // Debug pause button (available whenever no card is showing)
-    if (!_card && _debugPauseBtnRect) {
-      const pb = _debugPauseBtnRect;
-      if (mx >= pb.x && mx <= pb.x + pb.w && my >= pb.y && my <= pb.y + pb.h) {
-        _debugPaused = !_debugPaused;
-        if (_usingMP3 && window.A2MP3Player && window.A2MP3Player._audio) {
-          if (_debugPaused) window.A2MP3Player._audio.pause();
-          else window.A2MP3Player._audio.play().catch(() => {});
+    // Debug buttons (available whenever no card is showing)
+    if (!_card) {
+      // CSV copy button
+      if (_debugCsvBtnRect) {
+        const cb = _debugCsvBtnRect;
+        if (mx >= cb.x && mx <= cb.x + cb.w && my >= cb.y && my <= cb.y + cb.h) {
+          const header = 'gameT,hitTime,drift,musicT,lane,laneLabel,type';
+          const rows   = _hitLog.map(r =>
+            `${r.gameT},${r.hitTime},${r.drift},${r.musicT ?? ''},${r.lane},${LANE_LABELS[r.lane]},${r.type}`
+          );
+          const csv = [header, ...rows].join('\n');
+          navigator.clipboard.writeText(csv).then(() => {
+            _csvCopiedFlash = 2.0;
+          }).catch(() => {
+            // Clipboard blocked — fall back to a prompt the user can copy from
+            window.prompt('Copy this CSV (Ctrl+C / Cmd+C):', csv);
+          });
+          return;
         }
-        return;
+      }
+      // Pause button
+      if (_debugPauseBtnRect) {
+        const pb = _debugPauseBtnRect;
+        if (mx >= pb.x && mx <= pb.x + pb.w && my >= pb.y && my <= pb.y + pb.h) {
+          _debugPaused = !_debugPaused;
+          if (_usingMP3 && window.A2MP3Player && window.A2MP3Player._audio) {
+            if (_debugPaused) window.A2MP3Player._audio.pause();
+            else window.A2MP3Player._audio.play().catch(() => {});
+          }
+          return;
+        }
       }
     }
 
