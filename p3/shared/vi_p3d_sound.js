@@ -11,6 +11,11 @@ class P3DSoundManager {
     this._beatRate   = P3D_CFG.A1_BEAT_RATE_S;
     this._beatActive = false;
     this._paused     = false;
+
+    // Act 1 background music
+    this._a1Audio    = null;
+    this._a1Gain     = null;
+    this._a1Src      = null;   // MediaElementAudioSourceNode
   }
 
   // ── Context ──────────────────────────────────────────────────────────
@@ -177,6 +182,51 @@ class P3DSoundManager {
   }
   playHATransition() { this._playImpact(80, 0.04); }
 
+  // ── Act 1 background music ────────────────────────────────────────────
+
+  startA1Music() {
+    const ctx = this._getCtx(); if (!ctx) return;
+    if (this._a1Audio) return;   // already started
+
+    const audio = document.createElement('audio');
+    audio.src     = 'p3/act2/audio/Endosomal_Descent.mp3';
+    audio.preload = 'auto';
+    audio.loop    = false;
+    this._a1Audio = audio;
+
+    try {
+      this._a1Src  = ctx.createMediaElementSource(audio);
+      this._a1Gain = ctx.createGain();
+      this._a1Gain.gain.value = 0.75;
+      this._a1Src.connect(this._a1Gain);
+      this._a1Gain.connect(this._master);
+    } catch(e) {
+      console.warn('[A1Music] Web Audio routing failed:', e);
+      this._a1Gain = null;
+      this._a1Src  = null;
+    }
+
+    audio.play().catch(e => console.warn('[A1Music] play() blocked:', e));
+  }
+
+  fadeA1Music(fadeDur = 1.5) {
+    if (!this._a1Audio) return;
+    if (this._a1Gain && this._ctx) {
+      const now = this._ctx.currentTime;
+      this._a1Gain.gain.cancelScheduledValues(now);
+      this._a1Gain.gain.setValueAtTime(this._a1Gain.gain.value, now);
+      this._a1Gain.gain.linearRampToValueAtTime(0.0001, now + fadeDur);
+    }
+  }
+
+  stopA1Music() {
+    if (!this._a1Audio) return;
+    this._a1Audio.pause();
+    this._a1Audio = null;
+    if (this._a1Src) { try { this._a1Src.disconnect(); } catch(e) {} this._a1Src = null; }
+    this._a1Gain = null;
+  }
+
   _playPing(freq, gain, dur) {
     const ctx = this._getCtx(); if (!ctx) return;
     const osc = ctx.createOscillator(); const g = ctx.createGain();
@@ -229,10 +279,12 @@ class P3DSoundManager {
   // ── Lifecycle ─────────────────────────────────────────────────────────
   pause() {
     if (this._ctx && this._ctx.state === 'running') this._ctx.suspend();
+    if (this._a1Audio) this._a1Audio.pause();
     this._paused = true;
   }
   resume() {
     if (this._ctx && this._ctx.state === 'suspended') this._ctx.resume();
+    if (this._a1Audio) this._a1Audio.play().catch(() => {});
     this._paused = false;
   }
   stopAmbient() {
@@ -241,6 +293,7 @@ class P3DSoundManager {
     if (this._droneNoise) { try { this._droneNoise.stop(); } catch(e) {} this._droneNoise = null; }
     if (this._whooshSrc)  { try { this._whooshSrc.stop();  } catch(e) {} this._whooshSrc  = null; }
     this._whooshGain = null;
+    this.stopA1Music();
   }
   destroy() {
     this.stopAmbient();

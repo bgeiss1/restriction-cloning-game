@@ -15,6 +15,9 @@ class P3DPHSystem {
   setPHRate(r) { this._rateOverride = r; }
   clearPHRate() { this._rateOverride = null; }
 
+  // Directly set pH (used by Act 1 H⁺ collection mechanic).
+  setPH(val) { this.pH = Math.max(P3D_CFG.PH_ACT2_END, Math.min(P3D_CFG.PH_START, val)); }
+
   _piecewiseRate(pH) {
     for (const e of P3D_CFG.PH_RATE_TABLE) {
       if (pH > e.above) return e.rate;

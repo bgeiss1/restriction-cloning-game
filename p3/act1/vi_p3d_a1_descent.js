@@ -44,8 +44,13 @@ const P3DAct1Descent = (() => {
 
   // Inventory / scoring
   let _m2Count = 0, _ns1Count = 0;
+  let _hIonCount = 0;   // hydrogen ions pumped in (drives pH + win condition)
   let _hp      = 100;
   let _score   = 0;
+
+  // Completion sequencing
+  let _completing    = 0;   // > 0: fade-out countdown (seconds) before _complete fires
+  let _completeReason = ''; // stored while _completing winds down
 
   // Hazard / survival tracking
   let _alert        = 0;    // 0–100
@@ -86,6 +91,9 @@ const P3DAct1Descent = (() => {
     _descentY     = 0;
     _descentSpeed = P3D_CFG.A1_DESCENT_BASE;
     _m2Count = 0; _ns1Count = 0;
+    _hIonCount      = 0;
+    _completing     = 0;
+    _completeReason = '';
     _hp      = 100;
     _score   = 0;
     _alert   = 0;
@@ -104,6 +112,10 @@ const P3DAct1Descent = (() => {
     _p3._hud.updateSpeed(P3D_CFG.A1_DESCENT_BASE);
     _p3._hud.updateAlert(0);
 
+    // Freeze automatic pH drop — pH is now driven by H⁺ ion collection.
+    _p3._ph.setPHRate(0);
+    _p3._ph.setPH(P3D_CFG.PH_START);
+
     // First collectible cluster + hazard spawn (placed ahead of start position)
     _collect.spawnGroup(0);
     _hazards.spawnForChunk(0, _p3._ph.pH);
@@ -114,6 +126,7 @@ const P3DAct1Descent = (() => {
     _running = true;
     _paused  = false;
     _p3._snd.startDescendWhoosh?.();
+    _p3._snd.startA1Music();
   }
 
   // ── Main tick ──────────────────────────────────────────────────────────
@@ -121,8 +134,22 @@ const P3DAct1Descent = (() => {
   function tick(dt) {
     if (!_running || _paused) return;
 
-    const pH = _p3._ph.pH;
+    // ── Completion fade countdown ─────────────────────────────────────
+    if (_completing > 0) {
+      _completing -= dt;
+      if (_completing <= 0) _complete(_completeReason);
+      return;
+    }
+
     _descentTime += dt;
+
+    // ── pH driven by H⁺ collection ────────────────────────────────────
+    const targetPH = P3D_CFG.PH_START -
+      (_hIonCount / P3D_CFG.A1_H_ION_TARGET) *
+      (P3D_CFG.PH_START - P3D_CFG.PH_ACT1_END);
+    _p3._ph.setPH(targetPH);
+
+    const pH = _p3._ph.pH;
 
     // ── Descent ───────────────────────────────────────────────────────
     _descentSpeed = Math.min(
@@ -265,8 +292,18 @@ const P3DAct1Descent = (() => {
       _complete('alert_max');
       return;
     }
-    if (pH <= P3D_CFG.PH_ACT1_END) {
-      _complete('ph_done');
+
+    // Primary win: 25 H⁺ ions collected → short music fade then transition
+    if (_hIonCount >= P3D_CFG.A1_H_ION_TARGET) {
+      _p3._snd.fadeA1Music(1.5);
+      _completing     = 0.5;   // fire _complete after 0.5 s
+      _completeReason = 'h_ion_target';
+      return;
+    }
+
+    // Fallback win: song has ended (≥ 2 min 16 s elapsed)
+    if (_descentTime >= P3D_CFG.A1_SONG_DUR) {
+      _complete('song_end');
     }
   }
 
@@ -306,20 +343,25 @@ const P3DAct1Descent = (() => {
   // ── Complete / fail ────────────────────────────────────────────────────
 
   function _complete(reason) {
-    _running = false;
+    _running    = false;
+    _completing = 0;
     _removeInput();
 
     if (reason === 'hp_zero') {
+      _p3._snd.stopA1Music();
       _p3._fail('The endosome membrane was destroyed by lysosomal enzymes.');
       return;
     }
     if (reason === 'alert_max') {
+      _p3._snd.stopA1Music();
       _p3._fail('Immune surveillance detected the viral particle and neutralized it.');
       return;
     }
 
-    // Normal completion — pH reached target
+    // Normal completion — H⁺ target reached or song ended
+    _p3._snd.stopA1Music();
     const stats = {
+      hIons:       _hIonCount,
       m2:          _m2Count,
       ns1:         _ns1Count,
       m2Tokens:    _m2Count,
@@ -331,6 +373,7 @@ const P3DAct1Descent = (() => {
       nearMisses:  _nearMisses,
       peakAlert:   _peakAlert,
       time:        _descentTime,
+      completedBy: reason,   // 'h_ion_target' | 'song_end'
     };
     _p3._act1Done(stats);
   }
@@ -343,8 +386,9 @@ const P3DAct1Descent = (() => {
   // ── Destroy ────────────────────────────────────────────────────────────
 
   function destroy() {
-    _running = false;
-    _paused  = false;
+    _running    = false;
+    _paused     = false;
+    _completing = 0;
     _removeInput();
 
     if (_hazards) { _hazards.destroy(); _hazards = null; }
@@ -353,6 +397,11 @@ const P3DAct1Descent = (() => {
     if (_collect) { _collect.destroy(); _collect = null; }
 
     if (_cam) { _cam.reset(); _cam = null; }
+
+    // Restore automatic pH dynamics for subsequent acts
+    if (_p3 && _p3._ph) _p3._ph.clearPHRate();
+    if (_p3 && _p3._snd) _p3._snd.stopA1Music();
+
     _p3 = null;
   }
 

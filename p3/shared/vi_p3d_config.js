@@ -27,6 +27,9 @@ const P3D_CFG = {
   ],
 
   // ── Act 1: Descent ────────────────────────────────────────────────────
+  A1_SONG_DUR:       136,    // 2 min 16 s — song-length cap (fallback win condition)
+  A1_H_ION_TARGET:   25,     // H⁺ ions to collect for primary win condition
+
   A1_DESCENT_BASE:   4.0,
   A1_DESCENT_ACCEL:  0.015,
   A1_DESCENT_CAP:    7.0,
