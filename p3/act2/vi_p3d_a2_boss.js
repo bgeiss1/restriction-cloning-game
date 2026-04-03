@@ -251,18 +251,40 @@ const P3DAct2BossBattle = (() => {
       _card.t += dt;
       if (_card.dismissed) {
         _card.countdownT += dt;
-        const audioCtx  = _p3._snd && _p3._snd.audioCtx;
-        const resumeNow = (_card.resumeAudioT && audioCtx)
-          ? audioCtx.currentTime >= _card.resumeAudioT
-          : _card.countdownT >= 3.0;   // plain fallback
-        if (resumeNow) {
-          if (window.A2MolViewer) A2MolViewer.hide();
-          const seekT = _card.resumeSeekT;
-          _card = null;
-          if (_usingMP3 && window.A2MP3Player) {
+        if (_usingMP3 && window.A2MP3Player) {
+          // MP3 path: advance game clock during countdown so viruses pre-spawn.
+          // _t starts at -3 s (Phase A) or current value (later phases); song
+          // starts when _t crosses 0.
+          _t += dt;
+          // Activate any nodes that have entered the lookahead window.
+          const _canvasH   = _canvas ? _canvas.height : 600;
+          const _lookahead = (_canvasH - P3D_CFG.A2_HIT_Y + 60) / P3D_CFG.A2_NODE_SPD;
+          if (_lastNodeT < _t + 12) _appendPhaseLoop();
+          while (_nodePtr < _nodes.length &&
+                 _nodes[_nodePtr].hitTime <= _t + _lookahead) {
+            const _act = _nodes[_nodePtr++];
+            _act.state = 'waiting';
+            _activeNodes.push(_act);
+          }
+          if (_t >= 0) {
+            if (window.A2MolViewer) A2MolViewer.hide();
+            const seekT = _card.resumeSeekT;
+            _card = null;
             window.A2MP3Player.resumeFromCard(seekT || 0);
-          } else if (window.A2ElectroswingSynth) {
-            window.A2ElectroswingSynth.resumeFromCard();
+          }
+        } else {
+          // Synth path: beat-synced countdown via audioCtx clock.
+          const audioCtx  = _p3._snd && _p3._snd.audioCtx;
+          const resumeNow = (_card.resumeAudioT && audioCtx)
+            ? audioCtx.currentTime >= _card.resumeAudioT
+            : _card.countdownT >= 3.0;
+          if (resumeNow) {
+            if (window.A2MolViewer) A2MolViewer.hide();
+            const seekT = _card.resumeSeekT;
+            _card = null;
+            if (window.A2ElectroswingSynth) {
+              window.A2ElectroswingSynth.resumeFromCard();
+            }
           }
         }
       }
@@ -1521,7 +1543,17 @@ const P3DAct2BossBattle = (() => {
       if (window.A2MP3Beatmap) {
         window.A2MP3Beatmap.setSongOffset(_card.resumeSeekT);
         _nodes.length = _nodePtr;   // discard queued nodes built without offset
-        _lastNodeT    = Math.max(2.0, _t + 2.0);
+        // Phase A first card: start game clock at -3 s so viruses are already in
+        // flight during the 3/2/1 countdown and the first kick (hitTime ≈ 0.5 s)
+        // reaches the hit zone right when the song starts.  Later phase cards keep
+        // the standard 2-second lead-in anchored to the current game time.
+        if (_phaseIdx === 0) {
+          const LEAD_TIME = 3.0;    // must match countdown duration
+          _t         = -LEAD_TIME;
+          _lastNodeT = -LEAD_TIME;
+        } else {
+          _lastNodeT = Math.max(2.0, _t + 2.0);
+        }
         _appendPhaseLoop();
       }
     } else {
