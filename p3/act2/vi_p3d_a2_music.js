@@ -1465,8 +1465,10 @@ class A2MP3Beatmap {
 
     // Collect all hits that fall in [startT, endT) by cycling the pattern.
     // absT = (cycle_base + relT) - offset  converts song time to game time.
+    // Clamp cycleStart to 0 so pre-game startT values (e.g. -3 during countdown)
+    // don't pull in wrap-around hits from the end of the previous cycle.
     const tmpHits = [];
-    const cycleStart = Math.floor((startT + offset) / pattern.dur) * pattern.dur;
+    const cycleStart = Math.max(0, Math.floor((startT + offset) / pattern.dur) * pattern.dur);
     for (let c = cycleStart; c < endT + offset + pattern.dur; c += pattern.dur) {
       for (const relT of pattern.hits) {
         const absT = c + relT - offset;
