@@ -142,8 +142,9 @@ class P3DEndosomeVehicle {
       shininess: 80,
     });
 
-    // 8 evenly-spread directions from cube-corner normals
-    const virusR = 1.65;   // just outside the 1.6-scaled virus sphere
+    // virusSphere geo radius = 0.5, mesh scale = 1.6 → visual radius = 0.80
+    // Place trimers just outside that surface
+    const virusR = 0.82;
     const up     = new THREE.Vector3(0, 1, 0);
     const dirs   = [];
     for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) {
@@ -255,7 +256,11 @@ class P3DEndosomeVehicle {
       rr * Math.cos(phi)
     );
     this._group.add(grp);
-    this._interiorIons.push({ group: grp, ring, phase: Math.random() * Math.PI * 2 });
+    this._interiorIons.push({
+      group, ring,
+      phase: Math.random() * Math.PI * 2,
+      baseY: grp.position.y,   // stored so bob uses absolute position, never drifts
+    });
   }
 
   // ── Per-frame update ───────────────────────────────────────────────────
@@ -317,12 +322,12 @@ class P3DEndosomeVehicle {
       this._rab7Group.visible  = true;
     }
 
-    // Animate interior H⁺ ions
+    // Animate interior H⁺ ions (absolute bob to prevent drift over time)
     const tNow = performance.now() * 0.001;
     for (const ion of this._interiorIons) {
-      ion.group.rotation.y += dt * 0.7;
-      ion.ring.rotation.z  += dt * 2.0;
-      ion.group.position.y += Math.sin(tNow * 1.5 + ion.phase) * 0.003 * dt * 60;
+      ion.group.rotation.y  += dt * 0.7;
+      ion.ring.rotation.z   += dt * 2.0;
+      ion.group.position.y   = ion.baseY + Math.sin(tNow * 1.5 + ion.phase) * 0.12;
     }
   }
 

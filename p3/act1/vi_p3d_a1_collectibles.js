@@ -133,13 +133,22 @@ class P3DCollectibleMgr {
 
       // Pickup test
       if (tok.type === 'H_ION') {
-        // Must be touched by a pump tip
+        // Guard: ion must be outside the endosome membrane — pump picks up
+        // external H⁺ only; ions already inside the sphere are ignored.
+        const ex = tok.object.position.x - vehiclePos.x;
+        const ey = tok.object.position.y - vehiclePos.y;
+        const ez = tok.object.position.z - vehiclePos.z;
+        const outsideMembrane = (ex*ex + ey*ey + ez*ez) >= vehicleRadius * vehicleRadius;
+
+        // Must also be touched by a pump tip
         let hit = false;
-        for (const tip of pumpTips) {
-          const dx = tok.object.position.x - tip.x;
-          const dy = tok.object.position.y - tip.y;
-          const dz = tok.object.position.z - tip.z;
-          if (dx*dx + dy*dy + dz*dz < pumpR2) { hit = true; break; }
+        if (outsideMembrane) {
+          for (const tip of pumpTips) {
+            const dx = tok.object.position.x - tip.x;
+            const dy = tok.object.position.y - tip.y;
+            const dz = tok.object.position.z - tip.z;
+            if (dx*dx + dy*dy + dz*dz < pumpR2) { hit = true; break; }
+          }
         }
         if (hit) {
           tok.collected = true;
