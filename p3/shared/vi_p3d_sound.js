@@ -189,9 +189,11 @@ class P3DSoundManager {
     if (this._a1Audio) return;   // already started
 
     const audio = document.createElement('audio');
-    audio.src     = 'p3/act2/audio/Endosomal_Descent.mp3';
-    audio.preload = 'auto';
-    audio.loop    = false;
+    audio.src          = 'p3/act2/audio/Endosomal_Descent.mp3';
+    audio.preload      = 'auto';
+    audio.loop         = false;
+    audio.style.display = 'none';
+    document.body.appendChild(audio);   // must be in DOM for some browsers
     this._a1Audio = audio;
 
     try {
@@ -206,7 +208,14 @@ class P3DSoundManager {
       this._a1Src  = null;
     }
 
-    audio.play().catch(e => console.warn('[A1Music] play() blocked:', e));
+    // Resume context first (it may still be suspended from browser autoplay
+    // policy), then start playback so audio flows through the Web Audio graph.
+    const doPlay = () => audio.play().catch(e => console.warn('[A1Music] play() blocked:', e));
+    if (ctx.state !== 'running') {
+      ctx.resume().then(doPlay).catch(doPlay);
+    } else {
+      doPlay();
+    }
   }
 
   fadeA1Music(fadeDur = 1.5) {
@@ -222,6 +231,7 @@ class P3DSoundManager {
   stopA1Music() {
     if (!this._a1Audio) return;
     this._a1Audio.pause();
+    if (this._a1Audio.parentNode) this._a1Audio.parentNode.removeChild(this._a1Audio);
     this._a1Audio = null;
     if (this._a1Src) { try { this._a1Src.disconnect(); } catch(e) {} this._a1Src = null; }
     this._a1Gain = null;
