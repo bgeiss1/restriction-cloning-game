@@ -1493,8 +1493,6 @@ class A2MP3Beatmap {
 
 // Module-level constants used by A2MP3Player and vi_p3d_a2_boss.js.
 // Defined here (not as static class fields) for broad browser compatibility.
-const A2MP3_LOOP_START = 28.318;
-const A2MP3_LOOP_END   = 30.717;
 const A2MP3_BPM        = 129.3;
 const A2MP3_DOWNBEAT   = 0.720;
 
@@ -1505,8 +1503,8 @@ const A2MP3_DOWNBEAT   = 0.720;
 // faded without interrupting the AudioContext clock.
 //
 // Card-pause flow:
-//   pauseForCard()  → fade out → pause → 3 s delay → loop 28.318–30.717 s
-//   stopLoop()      → stop loop, fade out (called on "GROOVE ON" click)
+//   pauseForCard()  → fade out → pause (silent during card)
+//   stopLoop()      → no-op (kept for interface compatibility)
 //   resumeFromCard(seekT) → seek to nearest beat, fade in, play
 //
 // Exposes extendIfNeeded() and kickAt() as no-ops so the boss can call them
@@ -1593,16 +1591,8 @@ class A2MP3Player {
     // Gain stays at 0 until resumeFromCard() is called after the first countdown
   }
 
-  // ── Loop interval helpers (50 ms poll — reliable cross-browser) ─────────
-  _startLoopInterval() {
-    this._stopLoopInterval();
-    this._loopInterval = setInterval(() => {
-      if (!this._looping || !this._audio) return;
-      if (this._audio.currentTime >= A2MP3_LOOP_END) {
-        this._audio.currentTime = A2MP3_LOOP_START;
-      }
-    }, 50);
-  }
+  // ── Loop interval helpers (kept for future loop-section music) ──────────
+  _startLoopInterval() { /* no-op — loop removed */ }
 
   _stopLoopInterval() {
     if (this._loopInterval !== null) {
@@ -1611,7 +1601,7 @@ class A2MP3Player {
     }
   }
 
-  // ── Card pause: fade out → pause → 3 s silence → loop section ───────────
+  // ── Card pause: fade out → silence (no loop for now) ───────────────────
   pauseForCard() {
     if (!this._audio) return;
     this._pausedForCard = true;
@@ -1621,25 +1611,14 @@ class A2MP3Player {
 
     this._fadeTo(0, 0.4, () => {
       this._audio.pause();
-      this._preTimer = setTimeout(() => {
-        this._preTimer = null;
-        this._audio.currentTime = A2MP3_LOOP_START;
-        this._looping = true;
-        this._startLoopInterval();
-        this._audio.play().catch(() => {});
-        this._fadeTo(0.85, 0.5);
-      }, 3000);
     });
   }
 
-  // ── Stop loop: called when player clicks "GROOVE ON" ────────────────────
+  // ── Stop loop: no-op now that pauseForCard no longer starts a loop ───────
   stopLoop() {
     if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
     this._looping = false;
     this._stopLoopInterval();
-    this._fadeTo(0, 0.3, () => {
-      if (this._audio) this._audio.pause();
-    });
   }
 
   // ── Resume: seek to beat boundary, fade in, play (called on countdown end) ─
