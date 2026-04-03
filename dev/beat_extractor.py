@@ -22,6 +22,9 @@ Phase 2 — Assign (after you know which cluster is which):
   Re-run with --kick-cluster / --snare-cluster / --hihat-cluster.
   The script writes the final beats.json with proper kick[] / snare[] / hihat[]
   arrays for A2MP3Beatmap, and Audacity labels with K / S / H markers.
+  Use --types to restrict which drum types appear in the JSON — e.g. --types K
+  writes only the kick array; hits of other types are labeled I in the Audacity
+  file but omitted from the JSON entirely.
 
 Usage:
   # Phase 1: explore
@@ -252,6 +255,13 @@ def main():
         help='Cluster index to label as hi-hat. With --n-clusters 4+ any '
              'unassigned clusters are written as extra[] in the JSON.')
 
+    # Output type filter
+    parser.add_argument('--types', default='K,S,H',
+        help='Comma-separated drum types to include in the output JSON: '
+             'K=kick  S=snare  H=hihat  (default: K,S,H). '
+             'Omitted types and unassigned clusters are labeled I in the '
+             'Audacity labels file but are not written to the JSON.')
+
     # Onset detection sensitivity
     parser.add_argument('--onset-delta',      type=float, default=0.10,
         help='Min normalised onset height 0–1 (default: 0.10). '
@@ -266,6 +276,16 @@ def main():
         help='Audio window in seconds used for feature extraction (default: 0.100)')
 
     args = parser.parse_args()
+
+    # Parse --types
+    raw_types = [t.strip().upper() for t in args.types.split(',') if t.strip()]
+    invalid_types = set(raw_types) - {'K', 'S', 'H'}
+    if invalid_types:
+        sys.exit(f'--types contains unknown values: {", ".join(sorted(invalid_types))}. '
+                 f'Valid values are K, S, H.')
+    types_set = set(raw_types)   # subset of {'K','S','H'} to include in JSON
+
+    TYPE_KEY = {'K': 'kick', 'S': 'snare', 'H': 'hihat'}   # symbol → JSON key
 
     # Validate cluster assignments if provided
     assigned = {name: val for name, val in [
@@ -363,17 +383,15 @@ def main():
 
     if assigned:
         # Phase 2: named output
-        cluster_map = {v: k for k, v in assigned.items()}
+        cluster_map = {v: k for k, v in assigned.items()}   # cluster_idx → 'kick'/'snare'/'hihat'
         named = {k: [] for k in assigned}
-        extra = {}   # unassigned clusters
 
         for t, lbl in zip(onset_times, labels):
             name = cluster_map.get(int(lbl))
             if name:
                 named[name].append(t)
-            else:
-                extra.setdefault(f'extra_C{lbl}', []).append(t)
 
+        # Build JSON — only include types requested via --types
         result = {
             '_comment': (
                 'All times in seconds from start of file. '
@@ -384,27 +402,31 @@ def main():
             'duration'       : round(duration, 3),
             'window'         : {'start': args.start,
                                 'end'  : args.end or round(duration, 3)},
-            'kick'  : trim(named.get('kick',  [])),
-            'snare' : trim(named.get('snare', [])),
-            'hihat' : trim(named.get('hihat', [])),
             'all_beats': trim(beat_times),
         }
-        result.update({k: trim(v) for k, v in extra.items()})
+        for sym in ('K', 'S', 'H'):
+            if sym in types_set:
+                key = TYPE_KEY[sym]
+                result[key] = trim(named.get(key, []))
 
-        label_sym = {'kick': 'K', 'snare': 'S', 'hihat': 'H'}
-        label_map = {v: label_sym[k] for k, v in assigned.items()}
+        # Audacity labels: K/S/H for assigned+requested types; I for everything else
+        key_sym = {'kick': 'K', 'snare': 'S', 'hihat': 'H'}
+        cluster_to_sym = {v: key_sym[k] for k, v in assigned.items()}
         audit_labels = (
-            [(t, label_map.get(int(lbl), f'C{lbl}'))
+            [(t, cluster_to_sym[int(lbl)]
+                if int(lbl) in cluster_to_sym and cluster_to_sym[int(lbl)] in types_set
+                else 'I')
              for t, lbl in zip(onset_times, labels)] +
             [(t, '|') for t in beat_times]
         )
 
-        print(f'\nFinal hit counts:')
-        for name in ('kick', 'snare', 'hihat'):
-            if name in named:
-                print(f'  {name:5s}: {len(result[name])}')
-        for k, v in extra.items():
-            print(f'  {k}: {len(trim(v))}')
+        print(f'\nFinal hit counts (types filter: {", ".join(sorted(types_set))}):')
+        for sym in ('K', 'S', 'H'):
+            key = TYPE_KEY[sym]
+            if sym in types_set and key in result:
+                print(f'  {key:5s} [{sym}]: {len(result[key])}')
+            elif key in named:
+                print(f'  {key:5s} [{sym}]: {len(named[key])}  (excluded — not in --types)')
 
     else:
         # Phase 1: exploration output — use C0/C1/C2 labels
