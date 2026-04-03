@@ -402,21 +402,22 @@ def main():
             'duration'       : round(duration, 3),
             'window'         : {'start': args.start,
                                 'end'  : args.end or round(duration, 3)},
-            'all_beats': trim(beat_times),
         }
+        # Only include all_beats when all three drum types are requested
+        if types_set == {'K', 'S', 'H'}:
+            result['all_beats'] = trim(beat_times)
         for sym in ('K', 'S', 'H'):
             if sym in types_set:
                 key = TYPE_KEY[sym]
                 result[key] = trim(named.get(key, []))
 
-        # Audacity labels: K/S/H for assigned+requested types; I for everything else
+        # Audacity labels: K/S/H for requested types only; excluded hits omitted
         key_sym = {'kick': 'K', 'snare': 'S', 'hihat': 'H'}
         cluster_to_sym = {v: key_sym[k] for k, v in assigned.items()}
         audit_labels = (
-            [(t, cluster_to_sym[int(lbl)]
-                if int(lbl) in cluster_to_sym and cluster_to_sym[int(lbl)] in types_set
-                else 'I')
-             for t, lbl in zip(onset_times, labels)] +
+            [(t, cluster_to_sym[int(lbl)])
+             for t, lbl in zip(onset_times, labels)
+             if int(lbl) in cluster_to_sym and cluster_to_sym[int(lbl)] in types_set] +
             [(t, '|') for t in beat_times]
         )
 
