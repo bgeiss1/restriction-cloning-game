@@ -925,7 +925,7 @@ const P3DAct2BossBattle = (() => {
     _ctx.fillText(PHASE_LABELS[_phaseIdx], W / 2, 12);
 
     // ── Countdown before first note (electroswing lead-in) ───────────
-    if (!_card && _phaseIdx === 0 && window.A2ElectroswingBeatmap) {
+    if (!_card && _phaseIdx === 0 && !_usingMP3 && window.A2ElectroswingBeatmap) {
       const LEAD_IN = 2.0;  // must match A2ElectroswingBeatmap.LEAD_IN
       if (_t < LEAD_IN + 0.5) {
         let label, alpha;

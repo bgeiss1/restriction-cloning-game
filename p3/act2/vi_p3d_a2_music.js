@@ -1404,7 +1404,7 @@ class A2MP3Beatmap {
   _buildPatterns() {
     const secDur = this._duration / 5;   // 40 s per phase section
     const bi     = 60 / this._bpm;       // beat interval in seconds
-    const maxGap = 6.0;                  // only fill gaps wider than 6 s
+    const maxGap = 2.0;                  // fill gaps wider than 2 s with BPM-spaced synthetic hits
 
     return [0, 1, 2, 3, 4].map(i => {
       const s = i * secDur, e = (i + 1) * secDur;
