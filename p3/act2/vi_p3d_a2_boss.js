@@ -1640,20 +1640,18 @@ const P3DAct2BossBattle = (() => {
       _card.resumeSeekT  = DOWNBEAT + beatIdx * BEAT_DUR;
       _card.beat0        = null;
       _card.resumeAudioT = null;
-      // Sync beatmap: regenerate nodes anchored to the live game clock.
-      // Phase A resets _t to 0 at resume, so gameAtResume = 0.
-      // Phase B–E resume immediately (next frame), so gameAtResume = current _t.
+      // Sync beatmap: all phases use LEAD_TIME countdown so browser has time to seek.
+      // gameAtResume = 0 for all phases (_t = -LEAD_TIME, song resumes when _t >= 0).
       if (window.A2MP3Beatmap) {
-        const gameAtResume = (_phaseIdx === 0) ? 0 : _t;
-        window.A2MP3Beatmap.setSongOffset(_card.resumeSeekT, gameAtResume);
-        _nodes.length = _nodePtr;   // discard queued nodes built with old offset
-        if (_phaseIdx === 0) {
-          const LEAD_TIME = 3.0;    // must match countdown duration
-          _t         = -LEAD_TIME;
-          _lastNodeT = -LEAD_TIME;
-        } else {
-          _lastNodeT = Math.max(2.0, _t + 2.0);
-        }
+        const LEAD_TIME = 3.0;
+        window.A2MP3Beatmap.setSongOffset(_card.resumeSeekT, 0);
+        _nodes        = [];
+        _nodePtr      = 0;
+        _activeNodes.length = 0;   // clear stale hit/miss nodes from previous phase
+        _t         = -LEAD_TIME;
+        // Phase A: lead-in counts from -LEAD_TIME (no kicks before song start anyway).
+        // Phase B+: start from 0 so buildPhaseLoop only picks kicks at/after seekT.
+        _lastNodeT = (_phaseIdx === 0) ? -LEAD_TIME : 0;
         _appendPhaseLoop();
       }
     } else {
