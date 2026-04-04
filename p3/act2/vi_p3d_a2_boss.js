@@ -57,6 +57,9 @@ const P3DAct2BossBattle = (() => {
   // Game time (frozen during intro cards)
   let _t = 0;
 
+  // Song seek point used at last resumeFromCard — drives audio-locked _t after resume
+  let _resumeSeekT = 0;
+
   // Phase
   let _phaseIdx = 0;
 
@@ -280,8 +283,9 @@ const P3DAct2BossBattle = (() => {
           if (_t >= 0) {
             if (window.A2MolViewer) A2MolViewer.hide();
             const seekT = _card.resumeSeekT;
+            _resumeSeekT = seekT || 0;
             _card = null;
-            window.A2MP3Player.resumeFromCard(seekT || 0);
+            window.A2MP3Player.resumeFromCard(_resumeSeekT);
           }
         } else {
           // Synth path: beat-synced countdown via audioCtx clock.
@@ -306,7 +310,14 @@ const P3DAct2BossBattle = (() => {
     // ── Debug pause ──────────────────────────────────────────────────────
     if (_debugPaused) { _render(); return; }
 
-    _t += dt;
+    // Lock game clock to audio when MP3 is playing — eliminates frame-delta drift.
+    // Falls back to dt accumulation for synth path or if audio hasn't started yet.
+    const _mp3Audio = _usingMP3 && window.A2MP3Player && window.A2MP3Player._audio;
+    if (_mp3Audio && !_mp3Audio.paused) {
+      _t = _mp3Audio.currentTime - _resumeSeekT;
+    } else {
+      _t += dt;
+    }
 
     // ── Perf drift toward neutral (0.4) at 0.5 u/s ──────────────────
     if (_perf > 0.4) _perf = Math.max(0.4, _perf - 0.5 * dt);
@@ -982,7 +993,8 @@ const P3DAct2BossBattle = (() => {
       const audioT = (_usingMP3 && window.A2MP3Player && window.A2MP3Player._audio)
         ? window.A2MP3Player._audio.currentTime : null;
       const line1 = `t=${_t.toFixed(3)}`;
-      const line2 = audioT !== null ? `a=${audioT.toFixed(3)}` : '';
+      // a= shows raw audio position; a-t should equal _resumeSeekT when in sync
+      const line2 = audioT !== null ? `a=${audioT.toFixed(3)} s=${_resumeSeekT.toFixed(1)}` : '';
       _ctx.fillStyle    = 'rgba(255,255,255,0.65)';
       _ctx.font         = '10px monospace';
       _ctx.textAlign    = 'right';
