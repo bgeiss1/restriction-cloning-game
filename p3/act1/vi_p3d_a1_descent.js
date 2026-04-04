@@ -211,8 +211,7 @@ const P3DAct1Descent = (() => {
     _env.update(dt, _descentY, _descentSpeed);
 
     // ── Collectibles ──────────────────────────────────────────────────
-    const pumpTips = _vehicle.getPumpTipPositions();
-    const picked   = _collect.update(dt, pumpTips, _vPos, P3D_CFG.A1_ENDO_RADIUS);
+    const picked = _collect.update(dt, _vPos, P3D_CFG.A1_ENDO_RADIUS);
     for (const item of picked) {
       _onCollect(item.type);
     }
@@ -298,9 +297,9 @@ const P3DAct1Descent = (() => {
       return;
     }
 
-    // Fallback win: song has ended (≥ 2 min 16 s elapsed)
+    // Song ended without reaching H⁺ target → fail
     if (_descentTime >= P3D_CFG.A1_SONG_DUR) {
-      _complete('song_end');
+      _complete('song_end_fail');
     }
   }
 
@@ -348,8 +347,13 @@ const P3DAct1Descent = (() => {
       _p3._fail('Immune surveillance detected the viral particle and neutralized it.');
       return;
     }
+    if (reason === 'song_end_fail') {
+      _p3._snd.stopA1Music();
+      _p3._fail(`The V-ATPase pumps failed to acidify the endosome — only ${_hIonCount} of ${P3D_CFG.A1_H_ION_TARGET} H⁺ ions collected. Endosome recycled before fusion could occur.`);
+      return;
+    }
 
-    // Normal completion — H⁺ target reached or song ended
+    // Normal completion — H⁺ target reached
     _p3._snd.stopA1Music();
     const stats = {
       hIons:       _hIonCount,
@@ -362,7 +366,7 @@ const P3DAct1Descent = (() => {
       nearMisses:  _nearMisses,
       peakAlert:   _peakAlert,
       time:        _descentTime,
-      completedBy: reason,   // 'h_ion_target' | 'song_end'
+      completedBy: reason,   // 'h_ion_target'
     };
     _p3._act1Done(stats);
   }

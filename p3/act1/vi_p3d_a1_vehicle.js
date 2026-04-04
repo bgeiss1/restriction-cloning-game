@@ -176,25 +176,33 @@ class P3DEndosomeVehicle {
   }
 
   _buildVATPases() {
-    this._vatpGroup    = new THREE.Group();
-    this._vatpMeshes   = [];
-    this._vatpBasePos  = [];   // base world positions (Vector3, relative to group)
-    this._vatpDirs     = [];   // outward radial unit vectors (XZ plane)
-    this._vatpPhase    = 0;
+    this._vatpGroup   = new THREE.Group();
+    this._vatpMeshes  = [];
+    this._vatpBasePos = [];   // base positions (Vector3, relative to group)
+    this._vatpDirs    = [];   // outward radial unit vectors
+    this._vatpPhase   = 0;
 
-    const R = P3D_CFG.A1_ENDO_RADIUS;
+    const R  = P3D_CFG.A1_ENDO_RADIUS;
+    const up = new THREE.Vector3(0, 1, 0);
+
     for (let i = 0; i < 6; i++) {
-      const a    = (i / 6) * Math.PI * 2;
-      const m    = new THREE.Mesh(P3DGeoLib.cylinderThin, P3DMatLib.haStalk);
-      const yOff = (Math.sin(a * 1.3) * 0.5) * R;
-      const bx   = Math.cos(a) * R, bz = Math.sin(a) * R;
-      m.position.set(bx, yOff, bz);
-      m.lookAt(new THREE.Vector3(0, yOff, 0));
-      m.rotateX(Math.PI / 2);
+      // Uniform random point on sphere surface
+      const phi   = Math.acos(2 * Math.random() - 1);
+      const theta = Math.random() * Math.PI * 2;
+      const dir   = new THREE.Vector3(
+        Math.sin(phi) * Math.cos(theta),
+        Math.cos(phi),
+        Math.sin(phi) * Math.sin(theta)
+      );
+
+      const m = new THREE.Mesh(P3DGeoLib.cylinderThin, P3DMatLib.haStalk);
+      m.position.copy(dir).multiplyScalar(R);
+      m.quaternion.setFromUnitVectors(up, dir);
       m.scale.y = 0.45;   // shortened — ~0.40 units long at rest
+
       this._vatpMeshes.push(m);
-      this._vatpBasePos.push(new THREE.Vector3(bx, yOff, bz));
-      this._vatpDirs.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a)));
+      this._vatpBasePos.push(dir.clone().multiplyScalar(R));
+      this._vatpDirs.push(dir.clone());
       this._vatpGroup.add(m);
     }
     this._group.add(this._vatpGroup);

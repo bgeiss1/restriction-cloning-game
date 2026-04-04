@@ -107,18 +107,16 @@ class P3DCollectibleMgr {
 
   /**
    * Animate tokens, check pickup.
-   * H_ION tokens are collected by pump-tip proximity; HEALTH by endosome sphere.
+   * Both H_ION and HEALTH tokens are collected by endosome sphere contact.
    *
-   * @param {number}          dt
-   * @param {THREE.Vector3[]} pumpTips      world positions of the 6 V-ATPase tips
-   * @param {THREE.Vector3}   vehiclePos    world position of endosome centre
-   * @param {number}          vehicleRadius endosome radius (for HEALTH pickup margin)
+   * @param {number}        dt
+   * @param {THREE.Vector3} vehiclePos    world position of endosome centre
+   * @param {number}        vehicleRadius endosome radius
    * @returns {{ type: string }[]}  array of items collected this frame
    */
-  update(dt, pumpTips, vehiclePos, vehicleRadius) {
+  update(dt, vehiclePos, vehicleRadius) {
     const collected = [];
-    const healthR2  = (vehicleRadius + 0.5) ** 2;
-    const pumpR2    = 0.7 * 0.7;   // pump-tip capture radius
+    const pickupR2  = (vehicleRadius + 0.5) ** 2;
     const t         = performance.now() * 0.001;
 
     for (const tok of this._tokens) {
@@ -131,40 +129,14 @@ class P3DCollectibleMgr {
       // Electron orbital spin (faster than group rotation)
       if (tok.ring) tok.ring.rotation.z += dt * 2.8;
 
-      // Pickup test
-      if (tok.type === 'H_ION') {
-        // Guard: ion must be outside the endosome membrane — pump picks up
-        // external H⁺ only; ions already inside the sphere are ignored.
-        const ex = tok.object.position.x - vehiclePos.x;
-        const ey = tok.object.position.y - vehiclePos.y;
-        const ez = tok.object.position.z - vehiclePos.z;
-        const outsideMembrane = (ex*ex + ey*ey + ez*ez) >= vehicleRadius * vehicleRadius;
-
-        // Must also be touched by a pump tip
-        let hit = false;
-        if (outsideMembrane) {
-          for (const tip of pumpTips) {
-            const dx = tok.object.position.x - tip.x;
-            const dy = tok.object.position.y - tip.y;
-            const dz = tok.object.position.z - tip.z;
-            if (dx*dx + dy*dy + dz*dz < pumpR2) { hit = true; break; }
-          }
-        }
-        if (hit) {
-          tok.collected = true;
-          this._scene.remove(tok.object);
-          collected.push({ type: tok.type });
-        }
-      } else {
-        // HEALTH: endosome sphere pickup
-        const dx = tok.object.position.x - vehiclePos.x;
-        const dy = tok.object.position.y - vehiclePos.y;
-        const dz = tok.object.position.z - vehiclePos.z;
-        if (dx*dx + dy*dy + dz*dz < healthR2) {
-          tok.collected = true;
-          this._scene.remove(tok.object);
-          collected.push({ type: tok.type });
-        }
+      // Pickup test — endosome sphere contact for both token types
+      const dx = tok.object.position.x - vehiclePos.x;
+      const dy = tok.object.position.y - vehiclePos.y;
+      const dz = tok.object.position.z - vehiclePos.z;
+      if (dx*dx + dy*dy + dz*dz < pickupR2) {
+        tok.collected = true;
+        this._scene.remove(tok.object);
+        collected.push({ type: tok.type });
       }
     }
 
