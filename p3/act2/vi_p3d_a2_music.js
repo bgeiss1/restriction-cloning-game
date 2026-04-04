@@ -1424,37 +1424,41 @@ class A2MP3Beatmap {
     [0, 1, 2, 1, 2, 0, 2, 1, 0, 2],    // E — dense varied rotation
   ];
 
-  // Called by the boss on card dismiss with the song seek position.
-  // game time 0 = song time seekT, so hitTime = songTime - seekT.
-  setSongOffset(seekT) {
-    this._songOffset = seekT || 0;
+  // Called by the boss on card dismiss.
+  // seekT    = song position the audio will seek to before playing.
+  // gameT    = game clock value (_t) at the moment the song resumes.
+  //            Phase A always passes 0 (clock is reset to 0 on resume).
+  //            Phases B–E pass the current _t (song resumes immediately).
+  // offset   = seekT - gameT, so hitTime = kick_song_t - offset
+  //          = kick_song_t - seekT + gameT  (anchored to the live game clock).
+  setSongOffset(seekT, gameT) {
+    this._songOffset = (seekT || 0) - (gameT || 0);
   }
 
-  // Return ~8 s of TAP nodes starting at startT, cycling the phase pattern.
+  // Return ~8 s of TAP nodes starting at startT (game time).
+  // Uses the actual kick timestamps that will be playing during [startT, endT),
+  // rather than pre-sliced section patterns — this keeps beats in sync
+  // regardless of when the player transitions between phases.
   buildPhaseLoop(phaseIdx, startT, nextSyncId) {
-    const pi      = Math.min(phaseIdx, 4);
-    const pattern = this._patterns[pi];
-    const lanes   = A2MP3Beatmap.LANE_PATTERNS[pi];
-    const CHUNK   = 8.0;
-    const endT    = startT + CHUNK;
-    const offset  = this._songOffset;   // convert song time → game time
+    const pi     = Math.min(phaseIdx, 4);
+    const lanes  = A2MP3Beatmap.LANE_PATTERNS[pi];
+    const CHUNK  = 8.0;
+    const endT   = startT + CHUNK;
+    const offset = this._songOffset;   // = seekT - gameT
 
-    // Guard: fall through to LCG if this phase section has no kicks
-    if (!pattern.hits.length) return { nodes: [], nextSyncId };
+    if (!this._kicks.length) return { nodes: [], nextSyncId };
 
-    // Collect all hits that fall in [startT, endT) by cycling the pattern.
-    // absT = (cycle_base + relT) - offset  converts song time to game time.
-    // Clamp cycleStart to 0 so pre-game startT values (e.g. -3 during countdown)
-    // don't pull in wrap-around hits from the end of the previous cycle.
-    const tmpHits = [];
-    const cycleStart = Math.max(0, Math.floor((startT + offset) / pattern.dur) * pattern.dur);
-    for (let c = cycleStart; c < endT + offset + pattern.dur; c += pattern.dur) {
-      for (const relT of pattern.hits) {
-        const absT = c + relT - offset;
-        if (absT >= startT && absT < endT) tmpHits.push(absT);
-      }
-    }
-    tmpHits.sort((a, b) => a - b);
+    // Convert game-time window to the song-time window that will be playing.
+    // song_t = game_t + offset  (derived from: at resume, song_t=seekT, game_t=gameT).
+    const songStart = startT + offset;
+    const songEnd   = endT   + offset;
+
+    // Select all real kicks in that song window and convert back to game time.
+    const tmpHits = this._kicks
+      .filter(k => k >= songStart && k < songEnd)
+      .map(k => parseFloat((k - offset).toFixed(4)));
+
+    if (!tmpHits.length) return { nodes: [], nextSyncId };
 
     const nodes = tmpHits.map((absT, i) => ({
       type:         'TAP',
@@ -1466,6 +1470,7 @@ class A2MP3Beatmap {
       holdProgress: 0,
       holdDur:      0,
       syncId:       null,
+      _logged:      false,
     }));
 
     return { nodes, nextSyncId };

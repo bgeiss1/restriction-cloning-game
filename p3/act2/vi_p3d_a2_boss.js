@@ -1640,15 +1640,13 @@ const P3DAct2BossBattle = (() => {
       _card.resumeSeekT  = DOWNBEAT + beatIdx * BEAT_DUR;
       _card.beat0        = null;
       _card.resumeAudioT = null;
-      // Sync beatmap: game t=0 at card dismiss = song seekT.
-      // Regenerate nodes now so hitTime = songTime - seekT (kick-aligned to game clock).
+      // Sync beatmap: regenerate nodes anchored to the live game clock.
+      // Phase A resets _t to 0 at resume, so gameAtResume = 0.
+      // Phase B–E resume immediately (next frame), so gameAtResume = current _t.
       if (window.A2MP3Beatmap) {
-        window.A2MP3Beatmap.setSongOffset(_card.resumeSeekT);
-        _nodes.length = _nodePtr;   // discard queued nodes built without offset
-        // Phase A first card: start game clock at -3 s so viruses are already in
-        // flight during the 3/2/1 countdown and the first kick (hitTime ≈ 0.5 s)
-        // reaches the hit zone right when the song starts.  Later phase cards keep
-        // the standard 2-second lead-in anchored to the current game time.
+        const gameAtResume = (_phaseIdx === 0) ? 0 : _t;
+        window.A2MP3Beatmap.setSongOffset(_card.resumeSeekT, gameAtResume);
+        _nodes.length = _nodePtr;   // discard queued nodes built with old offset
         if (_phaseIdx === 0) {
           const LEAD_TIME = 3.0;    // must match countdown duration
           _t         = -LEAD_TIME;
