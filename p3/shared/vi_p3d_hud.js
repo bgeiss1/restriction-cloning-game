@@ -266,6 +266,27 @@ class P3DHUD {
     }, P3D_CFG.EDU_SHOW_DUR * 1000);
   }
 
+  // ── Act 1 Stage Clear ────────────────────────────────────────────────
+  showAct1Complete(stats, onContinue) {
+    const el = this._el.gameOver; if (!el) return;
+    el.innerHTML = `
+      <div class="p3d-comp-title" style="color:#00ff88">ACT 1 COMPLETE</div>
+      <div style="color:#a8c5a0;font-size:0.82rem;margin-bottom:14px">Endosome acidified — fusion threshold reached</div>
+      <dl class="p3d-stat-grid" style="margin-bottom:18px">
+        <dt>H⁺ ions collected</dt><dd>${stats.hIons||0} / ${P3D_CFG.A1_H_ION_TARGET}</dd>
+        <dt>Score</dt><dd>${Math.floor(stats.score||0).toLocaleString()}</dd>
+        <dt>Lysosomes dodged</dt><dd>${stats.lysoDodged||0}</dd>
+        <dt>Time</dt><dd>${(stats.time||0).toFixed(0)}s</dd>
+      </dl>
+      <button class="p3d-continue" id="p3dAct1ContBtn">Continue to Act 2 →</button>`;
+    el.style.display = 'flex';
+    const btn = document.getElementById('p3dAct1ContBtn');
+    if (btn) btn.addEventListener('click', () => {
+      el.style.display = 'none';
+      onContinue();
+    }, { once: true });
+  }
+
   // ── Game Over ─────────────────────────────────────────────────────────
   showGameOver(reason, stats) {
     const el = this._el.gameOver; if (!el) return;

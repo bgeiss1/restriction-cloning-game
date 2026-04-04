@@ -368,7 +368,7 @@ const P3DAct1Descent = (() => {
       time:        _descentTime,
       completedBy: reason,   // 'h_ion_target'
     };
-    _p3._act1Done(stats);
+    _p3._hud.showAct1Complete(stats, () => _p3._act1Done(stats));
   }
 
   // ── Pause / resume ─────────────────────────────────────────────────────

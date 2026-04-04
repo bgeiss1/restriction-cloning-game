@@ -264,10 +264,16 @@ class P3DEndosomeVehicle {
       rr * Math.cos(phi)
     );
     this._group.add(grp);
+
+    // Random velocity for drift animation
+    const speed  = 0.9 + Math.random() * 0.9;   // 0.9–1.8 u/s
+    const vPhi   = Math.acos(2 * Math.random() - 1);
+    const vTheta = Math.random() * Math.PI * 2;
     this._interiorIons.push({
-      group, ring,
-      phase: Math.random() * Math.PI * 2,
-      baseY: grp.position.y,   // stored so bob uses absolute position, never drifts
+      grp, ring,
+      vx: speed * Math.sin(vPhi) * Math.cos(vTheta),
+      vy: speed * Math.sin(vPhi) * Math.sin(vTheta),
+      vz: speed * Math.cos(vPhi),
     });
   }
 
@@ -330,12 +336,39 @@ class P3DEndosomeVehicle {
       this._rab7Group.visible  = true;
     }
 
-    // Animate interior H⁺ ions (absolute bob to prevent drift over time)
-    const tNow = performance.now() * 0.001;
+    // Animate interior H⁺ ions — drift with sphere-wall bounce
+    const INNER_R  = P3D_CFG.A1_ENDO_RADIUS * 0.86;  // ≈ 2.15 — inner membrane surface
+    const VIRUS_R  = 0.92;                             // keep clear of virus core
+    const INNER_R2 = INNER_R * INNER_R;
+    const VIRUS_R2 = VIRUS_R * VIRUS_R;
     for (const ion of this._interiorIons) {
-      ion.group.rotation.y  += dt * 0.7;
-      ion.ring.rotation.z   += dt * 2.0;
-      ion.group.position.y   = ion.baseY + Math.sin(tNow * 1.5 + ion.phase) * 0.12;
+      const pos = ion.grp.position;
+      pos.x += ion.vx * dt;
+      pos.y += ion.vy * dt;
+      pos.z += ion.vz * dt;
+
+      const d2 = pos.x*pos.x + pos.y*pos.y + pos.z*pos.z;
+
+      // Bounce off endosome inner wall
+      if (d2 > INNER_R2) {
+        const d  = Math.sqrt(d2);
+        const nx = pos.x/d, ny = pos.y/d, nz = pos.z/d;
+        pos.x = nx*INNER_R; pos.y = ny*INNER_R; pos.z = nz*INNER_R;
+        const vn = ion.vx*nx + ion.vy*ny + ion.vz*nz;
+        ion.vx -= 2*vn*nx; ion.vy -= 2*vn*ny; ion.vz -= 2*vn*nz;
+      }
+
+      // Bounce off virus core
+      if (d2 < VIRUS_R2) {
+        const d  = Math.sqrt(d2) || 0.001;
+        const nx = pos.x/d, ny = pos.y/d, nz = pos.z/d;
+        pos.x = nx*VIRUS_R; pos.y = ny*VIRUS_R; pos.z = nz*VIRUS_R;
+        const vn = ion.vx*nx + ion.vy*ny + ion.vz*nz;
+        ion.vx -= 2*vn*nx; ion.vy -= 2*vn*ny; ion.vz -= 2*vn*nz;
+      }
+
+      ion.grp.rotation.y += dt * 0.7;
+      ion.ring.rotation.z += dt * 2.0;
     }
   }
 
