@@ -270,8 +270,7 @@ class P3DHUD {
   showAct1Complete(stats, onContinue) {
     const el = this._el.gameOver; if (!el) return;
     el.innerHTML = `
-      <div class="p3d-comp-title" style="color:#00ff88">ACT 1 COMPLETE</div>
-      <div style="color:#a8c5a0;font-size:0.82rem;margin-bottom:14px">Endosome acidified — fusion threshold reached</div>
+      <div class="p3d-comp-title" style="color:#00ff88">Endosome Acidified, Ready to Fuse</div>
       <dl class="p3d-stat-grid" style="margin-bottom:18px">
         <dt>H⁺ ions collected</dt><dd>${stats.hIons||0} / ${P3D_CFG.A1_H_ION_TARGET}</dd>
         <dt>Score</dt><dd>${Math.floor(stats.score||0).toLocaleString()}</dd>

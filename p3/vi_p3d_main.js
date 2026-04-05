@@ -215,12 +215,14 @@ const P3Descent = (() => {
       _ph.setPHRate(P3D_CFG.PH_ACT2_RATE);
       _act = 'TRANS_12';
       P3DTransition.startAct1To2(() => {
-        _act = 'ACT2';
-        if (typeof P3DAct2BossBattle !== 'undefined') {
-          P3DAct2BossBattle.init(pub, act1Stats);
-          P3DAct2BossBattle.start();
-        }
-        _hud.setAct(2);
+        _hud.showAct1Complete(act1Stats, () => {
+          _act = 'ACT2';
+          if (typeof P3DAct2BossBattle !== 'undefined') {
+            P3DAct2BossBattle.init(pub, act1Stats);
+            P3DAct2BossBattle.start();
+          }
+          _hud.setAct(2);
+        });
       });
     },
 
