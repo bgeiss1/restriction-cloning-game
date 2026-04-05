@@ -1591,11 +1591,11 @@ class A2MP3Player {
   pauseForCard() {
     if (!this._audio) return;
     this._pausedForCard = true;
+    this._pausedAt = this._audio.currentTime;   // capture immediately — before fade
     if (this._preTimer) { clearTimeout(this._preTimer); this._preTimer = null; }
     this._stopLoopInterval();
 
     this._fadeTo(0, 0.4, () => {
-      this._pausedAt = this._audio.currentTime;   // capture after fade, not before
       this._audio.pause();
     });
   }

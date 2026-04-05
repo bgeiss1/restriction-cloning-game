@@ -313,10 +313,28 @@ const P3DAct2BossBattle = (() => {
     // Lock game clock to audio when MP3 is playing — eliminates frame-delta drift.
     // Falls back to dt accumulation for synth path or if audio hasn't started yet.
     const _mp3Audio = _usingMP3 && window.A2MP3Player && window.A2MP3Player._audio;
+    const _prevT = _t;
     if (_mp3Audio && !_mp3Audio.paused) {
       _t = _mp3Audio.currentTime - _resumeSeekT;
     } else {
       _t += dt;
+    }
+
+    // Guard against large _t jumps (tab backgrounded / browser throttled).
+    // If the clock jumped > 300 ms, silently discard nodes whose hitTime has
+    // already passed so they don't all pile up in one frame.
+    if (_t - _prevT > 0.3) {
+      const goodT = P3D_CFG.A2_T_GOOD_MS / 1000;
+      while (_nodePtr < _nodes.length && _nodes[_nodePtr].hitTime < _t - goodT) {
+        _nodePtr++;   // skip without activating
+      }
+      for (let _si = _activeNodes.length - 1; _si >= 0; _si--) {
+        const _sn = _activeNodes[_si];
+        if (_sn.state === 'waiting' && _sn.hitTime < _t - goodT) {
+          _sn.state  = 'miss';
+          _sn.flashT = _t;
+        }
+      }
     }
 
     // ── Perf drift toward neutral (0.4) at 0.5 u/s ──────────────────
