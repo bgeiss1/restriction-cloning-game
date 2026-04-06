@@ -38,19 +38,36 @@ const P1AerosolOdyssey = (() => {
   let _introShown  = false;
   let _introOverlay = null;
 
+  // ── preload ───────────────────────────────────────────────────────────────
+  // Builds the classroom scene and activates rendering without showing the
+  // title overlay. Called by showBriefing(0) so the classroom renders behind
+  // the briefing panel instead of the cell world.
+
+  function preload() {
+    if (_active) return;   // already loaded (or launch() was called directly)
+    _active   = true;
+    _elapsed  = 0;
+    _t        = 0;
+    _lastTime = performance.now();
+    _buildScene();
+    // Title overlay shown later by launch() when the user dismisses the briefing
+  }
+
   // ── launch ────────────────────────────────────────────────────────────────
 
   function launch(carryover, onComplete, onFail) {
-    if (_active) destroy();
-
     _onComplete = onComplete || (() => {});
     _onFail     = onFail    || null;
-    _active     = true;
-    _elapsed    = 0;
-    _t          = 0;
-    _lastTime   = performance.now();
 
-    _buildScene();
+    if (!_active) {
+      // Not preloaded — build everything now
+      _active   = true;
+      _elapsed  = 0;
+      _t        = 0;
+      _lastTime = performance.now();
+      _buildScene();
+    }
+
     _showTitleOverlay();
   }
 
@@ -252,6 +269,7 @@ const P1AerosolOdyssey = (() => {
 
   // ── Public object ─────────────────────────────────────────────────────────
   return {
+    preload,
     launch,
     destroy,
     _tick,
