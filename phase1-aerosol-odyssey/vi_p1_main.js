@@ -350,14 +350,14 @@ const P1AerosolOdyssey = (() => {
 
   // ── Win / Fail ─────────────────────────────────────────────────────────────
 
-  function _onWin() {
+  function _handleWin() {
     _phase = 'WIN';
     _removeKeyHandlers();
     const state = P1Droplet.getState();
     _showResultOverlay(true, state);
   }
 
-  function _onFail() {
+  function _handleFail() {
     _phase = 'FAIL';
     _removeKeyHandlers();
     const reason = P1Droplet.getFailReason();
@@ -505,9 +505,9 @@ const P1AerosolOdyssey = (() => {
       P1HUD.update({ ...state, distToTarget });
 
       if (!P1Droplet.isAlive()) {
-        _onFail();
+        _handleFail();
       } else if (P1Droplet.hasWon()) {
-        _onWin();
+        _handleWin();
       }
     }
 
