@@ -1707,16 +1707,24 @@ function showBriefing(phaseIndex) {
 function dismissBriefing() {
   // Phase 0 (Aerosol Odyssey) is entirely the P1AerosolOdyssey mini-game —
   // launch it directly here; it owns the renderer until complete.
-  if (G.phase === 0 && typeof P1AerosolOdyssey !== 'undefined') {
+  if (G.phase === 0) {
+    if (typeof P1AerosolOdyssey === 'undefined') {
+      showToast('ERROR: P1AerosolOdyssey not loaded — check console for script errors', 'danger', 8000);
+      return;
+    }
     setOverlay(null);
     document.getElementById('hud').classList.add('hidden');
     G.state = 'PLAYING';
     if (!G.clock.running) { G.clock.start(); G.clock.getDelta(); }
-    P1AerosolOdyssey.launch(
-      G.stats || {},
-      () => { G.state = 'PLAYING'; completePhase(); },
-      null
-    );
+    try {
+      P1AerosolOdyssey.launch(
+        G.stats || {},
+        () => { G.state = 'PLAYING'; completePhase(); },
+        null
+      );
+    } catch(e) {
+      showToast('ERROR launching P1: ' + e.message, 'danger', 8000);
+    }
     return;
   }
 
@@ -1726,7 +1734,7 @@ function dismissBriefing() {
     setOverlay(null);
     document.getElementById('hud').classList.add('hidden');
     P2Attachment.launch(
-      { boundSites: 0, totalSites: AB_SITES },
+      { boundSites: 0, totalSites: 4 },
       () => { G.state = 'PLAYING'; completePhase(); },
       null
     );
