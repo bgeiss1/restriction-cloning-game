@@ -145,11 +145,6 @@ const P1Droplet = (() => {
     _failReason = '';
 
     _build();
-
-    // Snap camera
-    const co = P1_CFG.CAM_OFFSET;
-    _camera.position.set(_pos.x + co.x, _pos.y + co.y, _pos.z + co.z);
-    _camera.lookAt(_pos.x, _pos.y + 0.1, _pos.z + 1.0);
   }
 
   function tick(dt) {
@@ -186,7 +181,15 @@ const P1Droplet = (() => {
     _pos.z += P1_CFG.BASE_FORWARD_SPEED * dt;
 
     // ── Boundaries ───────────────────────────────────────────────────────────
-    _pos.x = Math.max(P1_CFG.X_MIN, Math.min(P1_CFG.X_MAX, _pos.x));
+    // X walls — absorb velocity so player doesn't slide along wall
+    if (_pos.x < P1_CFG.X_MIN) { _pos.x = P1_CFG.X_MIN; if (_velX < 0) _velX = 0; }
+    if (_pos.x > P1_CFG.X_MAX) { _pos.x = P1_CFG.X_MAX; if (_velX > 0) _velX = 0; }
+
+    // Z walls — front and back of room
+    const Z_WALL_BACK  = -5.88;
+    const Z_WALL_FRONT =  5.88;
+    if (_pos.z < Z_WALL_BACK)  _pos.z = Z_WALL_BACK;
+    if (_pos.z > Z_WALL_FRONT) _pos.z = Z_WALL_FRONT;
 
     if (_pos.y >= P1_CFG.Y_MAX) {
       _pos.y = P1_CFG.Y_MAX;
@@ -252,17 +255,6 @@ const P1Droplet = (() => {
                         / P1_CFG.MAX_LATERAL_SPEED;
 
     _group.position.set(_pos.x, _pos.y, _pos.z);
-
-    // ── Camera follow ─────────────────────────────────────────────────────────
-    const target = P1Students.getTargetHead();
-    const inApproach = target && (_pos.z > target.z - P1_CFG.APPROACH_Z_THRESHOLD);
-    const co = inApproach ? P1_CFG.CAM_OFFSET_APPROACH : P1_CFG.CAM_OFFSET;
-
-    const l = P1_CFG.CAM_LERP;
-    _camera.position.x += (_pos.x + co.x - _camera.position.x) * l;
-    _camera.position.y += (_pos.y + co.y - _camera.position.y) * l;
-    _camera.position.z += (_pos.z + co.z - _camera.position.z) * l;
-    _camera.lookAt(_pos.x, _pos.y, _pos.z + 0.6);
 
     // ── Win check — must reach inhalation zone during inhale phase ───────────
     if (target) {

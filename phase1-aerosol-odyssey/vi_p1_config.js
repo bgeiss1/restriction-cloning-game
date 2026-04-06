@@ -73,7 +73,7 @@ const P1_CFG = Object.freeze({
   DROPLET_COLLISION_DAMAGE: 5.0,// % Droplet Integrity per hit
 
   // ── Player movement ─────────────────────────────────────────────────────
-  BASE_FORWARD_SPEED:  1.0,
+  BASE_FORWARD_SPEED:  0.5,
   MIN_FORWARD_SPEED:   0.5,
   LATERAL_ACCEL:       6.0,
   MAX_LATERAL_SPEED:   2.5,

@@ -46,6 +46,17 @@ const P1AerosolOdyssey = (() => {
   let _kd      = null;   // keydown handler ref
   let _ku      = null;   // keyup  handler ref
 
+  // Orbital camera state (used during PLAYING)
+  let _camAzimuth   = Math.PI;   // behind droplet (droplet moves toward +Z)
+  let _camElevation = 0.30;      // radians above horizontal
+  let _camRadius    = 2.0;       // distance from droplet
+  let _camDragging  = false;
+  let _camLastX     = 0;
+  let _camLastY     = 0;
+  let _camMD = null; let _camMM = null; let _camMU = null;
+  let _camTS = null; let _camTM = null; let _camTE = null;
+  let _camWH = null;
+
   // Result overlay
   let _resultOverlay = null;
 
@@ -329,6 +340,18 @@ const P1AerosolOdyssey = (() => {
     P1HUD.init();
     P1Audio.startAmbient();
 
+    // Reset orbit camera to start behind the droplet looking toward target
+    _camAzimuth   = Math.PI;
+    _camElevation = 0.30;
+    _camRadius    = 2.0;
+    _camDragging  = false;
+    // Snap camera position immediately (no lerp on first frame)
+    const sp = startPos;
+    const co = P1_CFG.CAM_OFFSET;
+    camera.position.set(sp.x + co.x, sp.y + co.y, sp.z + co.z);
+    camera.lookAt(sp.x, sp.y + 0.1, sp.z);
+    _addCamHandlers();
+
     // Keyboard handlers
     _keys = { left: false, right: false, up: false, down: false };
     _kd = (e) => {
@@ -352,6 +375,72 @@ const P1AerosolOdyssey = (() => {
   function _removeKeyHandlers() {
     if (_kd) { document.removeEventListener('keydown', _kd); _kd = null; }
     if (_ku) { document.removeEventListener('keyup',   _ku); _ku = null; }
+  }
+
+  // ── Orbital camera ─────────────────────────────────────────────────────────
+  // During PLAYING the camera orbits the droplet. Mouse drag to rotate,
+  // scroll wheel to zoom. No pointer lock needed.
+
+  function _addCamHandlers() {
+    _camMD = (e) => { _camDragging = true; _camLastX = e.clientX; _camLastY = e.clientY; };
+    _camMM = (e) => {
+      if (!_camDragging) return;
+      _camAzimuth   += (e.clientX - _camLastX) * 0.007;
+      _camElevation  = Math.max(-0.05, Math.min(1.25,
+                         _camElevation - (e.clientY - _camLastY) * 0.007));
+      _camLastX = e.clientX; _camLastY = e.clientY;
+    };
+    _camMU = () => { _camDragging = false; };
+    _camTS = (e) => {
+      if (e.touches.length === 1) {
+        _camDragging = true;
+        _camLastX = e.touches[0].clientX; _camLastY = e.touches[0].clientY;
+      }
+    };
+    _camTM = (e) => {
+      if (!_camDragging || e.touches.length !== 1) return;
+      _camAzimuth   += (e.touches[0].clientX - _camLastX) * 0.007;
+      _camElevation  = Math.max(-0.05, Math.min(1.25,
+                         _camElevation - (e.touches[0].clientY - _camLastY) * 0.007));
+      _camLastX = e.touches[0].clientX; _camLastY = e.touches[0].clientY;
+    };
+    _camTE = () => { _camDragging = false; };
+    _camWH = (e) => {
+      _camRadius = Math.max(0.8, Math.min(9.0, _camRadius + e.deltaY * 0.005));
+    };
+    document.addEventListener('mousedown',  _camMD);
+    document.addEventListener('mousemove',  _camMM);
+    document.addEventListener('mouseup',    _camMU);
+    document.addEventListener('touchstart', _camTS, { passive: true });
+    document.addEventListener('touchmove',  _camTM, { passive: true });
+    document.addEventListener('touchend',   _camTE);
+    document.addEventListener('wheel',      _camWH, { passive: true });
+  }
+
+  function _removeCamHandlers() {
+    document.removeEventListener('mousedown',  _camMD);
+    document.removeEventListener('mousemove',  _camMM);
+    document.removeEventListener('mouseup',    _camMU);
+    document.removeEventListener('touchstart', _camTS);
+    document.removeEventListener('touchmove',  _camTM);
+    document.removeEventListener('touchend',   _camTE);
+    document.removeEventListener('wheel',      _camWH);
+    _camMD = _camMM = _camMU = _camTS = _camTM = _camTE = _camWH = null;
+  }
+
+  function _updateOrbitCamera() {
+    const pos = P1Droplet.getPos();
+    const cosEl = Math.cos(_camElevation);
+    const sinEl = Math.sin(_camElevation);
+    const ox = Math.sin(_camAzimuth) * cosEl * _camRadius;
+    const oy = sinEl * _camRadius;
+    const oz = Math.cos(_camAzimuth) * cosEl * _camRadius;
+    // Soft-follow so sudden droplet direction changes don't whip the camera
+    const l = 0.08;
+    camera.position.x += (pos.x + ox - camera.position.x) * l;
+    camera.position.y += (pos.y + oy - camera.position.y) * l;
+    camera.position.z += (pos.z + oz - camera.position.z) * l;
+    camera.lookAt(pos.x, pos.y + 0.1, pos.z);
   }
 
   // ── Win / Fail ─────────────────────────────────────────────────────────────
@@ -471,6 +560,7 @@ const P1AerosolOdyssey = (() => {
     if (_hud) { P1HUD.destroy(); _hud = null; }
     if (_droplet) { P1Droplet.destroy(); _droplet = null; }
     _removeKeyHandlers();
+    _removeCamHandlers();
     _removeCoughCloud();
     P1Companions.destroy();
   }
@@ -527,6 +617,9 @@ const P1AerosolOdyssey = (() => {
         : 0;
       P1Audio.setBreathPhase(state.breathPhase, prox);
 
+      // Orbital camera follows the droplet
+      _updateOrbitCamera();
+
       if (!P1Droplet.isAlive()) {
         _handleFail();
       } else if (P1Droplet.hasWon()) {
@@ -554,6 +647,7 @@ const P1AerosolOdyssey = (() => {
     _removeResultOverlay();
     _removeCoughCloud();
     _removeKeyHandlers();
+    _removeCamHandlers();
 
     if (_hud) { P1HUD.destroy(); _hud = null; }
     if (_droplet) { P1Droplet.destroy(); _droplet = null; }
