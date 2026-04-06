@@ -1715,12 +1715,6 @@ function showBriefing(phaseIndex) {
   document.getElementById('hud').classList.add('hidden');
   document.getElementById('powerupBar').classList.add('hidden');
   document.getElementById('minimapWrap').classList.add('hidden');
-
-  // Pre-render the classroom scene behind the briefing for Phase 0 so the
-  // background is the classroom instead of the cell world.
-  if (phaseIndex === 0 && typeof P1AerosolOdyssey !== 'undefined') {
-    P1AerosolOdyssey.preload();
-  }
 }
 
 function dismissBriefing() {
