@@ -17,7 +17,7 @@
  *   P1Droplet.getFailReason()→ string
  */
 
-/* global THREE, P1_CFG, P1Students */
+/* global THREE, P1_CFG, P1Students, P1Zones */
 
 const P1Droplet = (() => {
 
@@ -42,6 +42,9 @@ const P1Droplet = (() => {
 
   // Keys
   let _keys = { left: false, right: false, up: false, down: false };
+
+  // Zone state
+  let _zoneName = null;
 
   // Result
   let _alive      = true;
@@ -114,6 +117,7 @@ const P1Droplet = (() => {
     _dropletIntegrity = 100;
     _viralViability   = 100;
     _currentRadius    = P1_CFG.DROPLET_START_RADIUS;
+    _zoneName   = null;
     _alive      = true;
     _won        = false;
     _failReason = '';
@@ -129,6 +133,11 @@ const P1Droplet = (() => {
   function tick(dt) {
     if (!_alive || _won) return;
 
+    // ── Zone detection (uses position at frame start) ─────────────────────────
+    const zone = P1Zones.getZoneState(_pos);
+    _zoneName  = zone.zoneName;
+    const airF = P1Zones.getAirForce(_pos);
+
     // ── Input → velocity ─────────────────────────────────────────────────────
     if (_keys.left)  _velX -= P1_CFG.LATERAL_ACCEL  * dt;
     if (_keys.right) _velX += P1_CFG.LATERAL_ACCEL  * dt;
@@ -143,6 +152,10 @@ const P1Droplet = (() => {
 
     // Gravity
     _velY -= P1_CFG.GRAVITY * dt;
+
+    // Air currents
+    _velX += airF.fx * dt;
+    _velY += airF.fy * dt;
 
     // ── Position update ──────────────────────────────────────────────────────
     _pos.x += _velX * dt;
@@ -163,14 +176,17 @@ const P1Droplet = (() => {
       return;
     }
 
-    // ── Evaporation (base rate; zones added Chunk 3) ─────────────────────────
-    _dropletIntegrity -= P1_CFG.EVAP_BASE_RATE * dt;
-    _dropletIntegrity  = Math.max(0, _dropletIntegrity);
+    // ── Evaporation (zone-aware rate) ─────────────────────────────────────────
+    // zone.evapRate is %/sec; negative in humid zone = DI recovery.
+    _dropletIntegrity -= zone.evapRate * dt;
+    _dropletIntegrity  = Math.max(0, Math.min(100, _dropletIntegrity));
 
-    // ── Viral viability ──────────────────────────────────────────────────────
-    const desiccated = _dropletIntegrity <= 0;
-    _viralViability -= P1_CFG.VIAB_BASE_DECAY
-                       * (desiccated ? P1_CFG.VIAB_DESICCATED_MULT : 1) * dt;
+    // ── Viral viability (base decay + zone extra) ─────────────────────────────
+    const desiccated   = _dropletIntegrity <= 0;
+    const totalViabDecay = P1_CFG.VIAB_BASE_DECAY
+                         * (desiccated ? P1_CFG.VIAB_DESICCATED_MULT : 1)
+                         + zone.viabExtraDecay;
+    _viralViability -= totalViabDecay * dt;
     _viralViability  = Math.max(0, _viralViability);
 
     if (_viralViability <= 0) {
@@ -239,7 +255,14 @@ const P1Droplet = (() => {
   }
 
   function getPos()       { return { ..._pos }; }
-  function getState()     { return { dropletIntegrity: _dropletIntegrity, viralViability: _viralViability, radius: _currentRadius }; }
+  function getState()     {
+    return {
+      dropletIntegrity: _dropletIntegrity,
+      viralViability:   _viralViability,
+      radius:           _currentRadius,
+      zoneName:         _zoneName,
+    };
+  }
   function setKeys(k)     { _keys = k; }
   function isAlive()      { return _alive; }
   function hasWon()       { return _won; }
