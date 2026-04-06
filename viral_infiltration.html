@@ -3658,6 +3658,14 @@ const PLAYER_RADIUS = 1.2;
 // Organelle types the player collides with (cannot walk through)
 const SOLID_TYPES = new Set(['nucleus', 'golgi', 'mito']);
 
+// Returns a starting position on the outer membrane ring (used by buildPlayer).
+// _phase0SpawnPos was previously the Antibody Gauntlet extracellular spawn;
+// replaced with a simple membrane-edge position now that Phase 0 is P1AerosolOdyssey.
+function _phase0SpawnPos() {
+  const angle = Math.random() * Math.PI * 2;
+  return { x: Math.cos(angle) * 44, z: Math.sin(angle) * 44 };
+}
+
 // ── Build Player Mesh ─────────────────────────────────────────────────────
 function buildPlayer() {
   // Clean up old player objects if restarting
