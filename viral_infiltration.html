@@ -6,6 +6,12 @@
 <title>Viral Infiltration — A Stealth Replication Mission</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+<!-- Phase 1: Aerosol Odyssey -->
+<script src="phase1-aerosol-odyssey/vi_p1_config.js"></script>
+<script src="phase1-aerosol-odyssey/vi_p1_classroom.js"></script>
+<script src="phase1-aerosol-odyssey/vi_p1_furniture.js"></script>
+<script src="phase1-aerosol-odyssey/vi_p1_students.js"></script>
+<script src="phase1-aerosol-odyssey/vi_p1_main.js"></script>
 <script src="p2/vi_p2_config.js"></script>
 <script src="p2/vi_p2_motion.js"></script>
 <script src="p2/vi_p2_main.js"></script>
@@ -334,42 +340,7 @@ html, body {
 @keyframes toastIn  { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
 @keyframes toastOut { from { opacity:1; } to   { opacity:0; } }
 
-/* ── Antibody Gauntlet HUD ──────────────────────────────────────────────── */
-#abGauntletHUD {
-  position: absolute;
-  top: 12px; right: 12px;
-  background: rgba(5,10,8,0.82);
-  border: 1px solid rgba(200,169,81,0.4);
-  border-radius: 8px;
-  padding: 10px 14px;
-  pointer-events: none;
-  min-width: 170px;
-}
-.abg-label {
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--gold);
-  margin-bottom: 8px;
-}
-#abgSites {
-  display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px;
-}
-.abs {
-  display: inline-block;
-  width: 14px; height: 14px;
-  border-radius: 50%;
-  border: 1.5px solid rgba(255,255,255,0.2);
-  transition: background 0.2s;
-}
-.abs-free  { background: #00ff88; box-shadow: 0 0 5px #00ff88; }
-.abs-igm   { background: #ff9800; box-shadow: 0 0 5px #ff9800; }
-.abs-igg   { background: #f44336; box-shadow: 0 0 6px #f44336; }
-.abg-tip {
-  font-size: 0.66rem;
-  color: var(--text-muted);
-  line-height: 1.4;
-}
+/* (Antibody Gauntlet HUD CSS removed — backed up to phase0-antibody-gauntlet-backup/) */
 
 /* ── Guard Tooltip ──────────────────────────────────────────────────────── */
 #guardTooltip {
@@ -1192,10 +1163,10 @@ const VIRUS_TYPES = {
 const PHASE_DATA = [
   {
     index: 0,
-    name: 'Antibody Gauntlet',
-    shortName: 'Evade',
-    objective: 'Navigate the extracellular antibody cloud and reach the cell surface with ≥1 binding site free',
-    bio: 'The humoral immune response deploys antibodies into extracellular fluids to intercept virions before they reach host cells. IgG antibodies bind tightly and permanently block receptor-binding sites — this is neutralization. Pentameric IgM antibodies also neutralize but bind transiently. Non-matching antibodies are non-neutralizing and pass harmlessly. A virion must reach the cell surface with at least one receptor-binding site unoccupied to initiate entry.',
+    name: 'Aerosol Odyssey',
+    shortName: 'Launch',
+    objective: 'Navigate the classroom air inside a respiratory droplet and reach the susceptible student\'s respiratory tract',
+    bio: 'Influenza spreads primarily through respiratory droplets and aerosols expelled during coughing, sneezing, and talking. Larger droplets (>10μm) settle quickly due to gravity, while smaller aerosol particles (<5μm) can remain airborne for hours. Environmental factors — UV light, humidity, temperature, and ventilation — all influence how long the virus remains viable during airborne transmission.',
   },
   {
     index: 1,
@@ -1469,10 +1440,7 @@ window.addEventListener('resize', () => {
   G.renderer.setSize(w, h);
   G.camera.aspect = w / h;
   G.camera.updateProjectionMatrix();
-  // Recompute extracellular bounds when viewport changes during phase 0
-  if (G.state === 'PLAYING' && G.phase === 0) {
-    G.abBounds = computePhase0Bounds(8);
-  }
+  // Phase 1 Aerosol Odyssey handles its own camera resize internally
 });
 
 // ── Input ────────────────────────────────────────────────────────────────
@@ -1729,6 +1697,21 @@ function showBriefing(phaseIndex) {
 }
 
 function dismissBriefing() {
+  // Phase 0 (Aerosol Odyssey) is entirely the P1AerosolOdyssey mini-game —
+  // launch it directly here; it owns the renderer until complete.
+  if (G.phase === 0 && typeof P1AerosolOdyssey !== 'undefined') {
+    setOverlay(null);
+    document.getElementById('hud').classList.add('hidden');
+    G.state = 'PLAYING';
+    if (!G.clock.running) { G.clock.start(); G.clock.getDelta(); }
+    P1AerosolOdyssey.launch(
+      G.stats || {},
+      () => { G.state = 'PLAYING'; completePhase(); },
+      null
+    );
+    return;
+  }
+
   // Phase 1 (Attachment) is entirely the P2Attachment lane-runner mini-game —
   // it is never entered via normal 3D dismissal, so launch it directly here.
   if (G.phase === 1 && typeof P2Attachment !== 'undefined') {
@@ -2821,9 +2804,7 @@ function setupPhaseTarget(n) {
 
   switch (n) {
     case 0: {
-      // Phase 0: Antibody Gauntlet — spawns field + receptor beacon internally
-      buildPhase1AntibodyField();
-      showToast('Navigate to the glowing receptor on the cell surface!', 'info');
+      // Phase 0: Aerosol Odyssey — self-contained mini-game, no 3D world setup needed
       break;
     }
     case 1: {
@@ -2889,7 +2870,7 @@ function checkPhaseCompletion() {
   const px = G.player.pos.x, pz = G.player.pos.z;
 
   switch (G.phase) {
-    case 0: phaseCheck_Penetration(px, pz);   break;  // Antibody Gauntlet
+    case 0: break;  // Aerosol Odyssey — handled entirely by P1AerosolOdyssey mini-game
     case 1: phaseCheck_Attachment(px, pz);    break;  // Attachment
     case 2: phaseCheck_Uncoating(px, pz);     break;
     case 3: phaseCheck_NuclearImport(px, pz); break;
@@ -2923,690 +2904,18 @@ function phaseCheck_Attachment(px, pz) {
   }
 }
 
-// ── Phase 1: Antibody Gauntlet ─────────────────────────────────────────────
-// Constants
-const AB_FIELD_OUTER  = 74;    // outer navigable radius while outside cell (circular, unused in rect mode)
+// (Antibody Gauntlet code removed — backed up to phase0-antibody-gauntlet-backup/)
 
-// Random spawn position on the outer ring — outside membrane (~49), inside visible bounds (~80)
-function _phase0SpawnPos() {
-  const ang = Math.random() * Math.PI * 2;
-  const r   = 66 + Math.random() * 6;   // 66–72
-  return { x: Math.cos(ang) * r, z: Math.sin(ang) * r };
-}
-const AB_RECT_XMIN    = -80;   // fallback bounds (overridden by computePhase0Bounds at runtime)
-const AB_RECT_XMAX    =  80;
-const AB_RECT_ZMIN    = -44;
-const AB_RECT_ZMAX    =  44;
-const AB_BIND_DIST    = 2.4;   // proximity (units) that triggers antibody binding
-const AB_IgM_DURATION = 5.0;   // seconds an IgM remains bound before releasing
-const AB_SITES        = 4;     // virion binding sites
-// Erythrocyte hemagglutination binding constants
-const RBC_BIND_DIST     = 6.5; // center-to-center distance to trigger HA→sialic acid bond
-const RBC_BIND_DURATION = 8.0; // seconds before neuraminidase cleaves the bond
-const RBC_BIND_COOLDOWN = 8.0; // per-RBC cooldown after release
-const RBC_SPEED_MULT    = 0.30; // speed fraction per bound RBC (strong drag)
-const RBC_MAX_BINDS     = 2;   // max simultaneous RBC attachments
-const AB_NON_COLORS   = [0x2196f3, 0xaaaaaa, 0xe91e63, 0x00bcd4, 0x8bc34a];
-const AB_IgG_COUNT    = 54;    // total IgG antibodies in field (3× original)
-const AB_IgM_COUNT    = 120;   // total IgM antibodies in field (10× original)
-const AB_NEUTRAL_FRAC = 0.42;  // fraction of each type that are neutralizing
-
-// ── Compute visible world-space bounds at y=0 for the fixed Phase 0 camera ──
-// Unprojects the four screen corners through the camera frustum to the ground
-// plane (y=0), then expands by `padding` world units on each side.
+// ── (computePhase0Bounds and antibody/erythrocyte functions removed) ──────────
+// see phase0-antibody-gauntlet-backup/antibody_gauntlet.js
+// Placeholder to prevent accidental reference errors:
 function computePhase0Bounds(padding) {
-  padding = padding || 8;
-  const cam = G.camera;
-  cam.updateProjectionMatrix();
-  const camPos = cam.position;
-  const ndcCorners = [
-    new THREE.Vector3(-1, -1, 0.5),
-    new THREE.Vector3( 1, -1, 0.5),
-    new THREE.Vector3(-1,  1, 0.5),
-    new THREE.Vector3( 1,  1, 0.5),
-  ];
-  let xmin = Infinity, xmax = -Infinity, zmin = Infinity, zmax = -Infinity;
-  ndcCorners.forEach(ndc => {
-    const world = ndc.unproject(cam);
-    const dir   = world.sub(camPos).normalize();
-    if (dir.y >= 0) return; // ray pointing upward won't hit ground
-    const t  = -camPos.y / dir.y;
-    const wx = camPos.x + t * dir.x;
-    const wz = camPos.z + t * dir.z;
-    xmin = Math.min(xmin, wx);
-    xmax = Math.max(xmax, wx);
-    zmin = Math.min(zmin, wz);
-    zmax = Math.max(zmax, wz);
-  });
-  // Fallback if projection fails
-  if (!isFinite(xmin)) return { xmin: AB_RECT_XMIN - padding, xmax: AB_RECT_XMAX + padding, zmin: AB_RECT_ZMIN - padding, zmax: AB_RECT_ZMAX + padding };
-  return { xmin: xmin - padding, xmax: xmax + padding, zmin: zmin - padding, zmax: zmax + padding };
+  // Removed — see backup. Stub retained to avoid ReferenceError if called.
+  return { xmin: -80, xmax: 80, zmin: -44, zmax: 44 };
 }
+// (computePhase0Bounds body removed — see backup)
 
-// Build a single IgG Y-shape mesh
-function _abIgGMesh(color, s) {
-  s = s || 1;
-  const g = new THREE.Group();
-  const m = new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.5 });
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.13*s, 0.13*s, 1.6*s, 6), m);
-  const aL = new THREE.Mesh(new THREE.CylinderGeometry(0.09*s, 0.09*s, 1.0*s, 6), m.clone());
-  const aR = new THREE.Mesh(new THREE.CylinderGeometry(0.09*s, 0.09*s, 1.0*s, 6), m.clone());
-  aL.rotation.z =  Math.PI / 4; aL.position.set(-0.48*s, 1.08*s, 0);
-  aR.rotation.z = -Math.PI / 4; aR.position.set( 0.48*s, 1.08*s, 0);
-  const tM = new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 1.1 });
-  const tL = new THREE.Mesh(new THREE.SphereGeometry(0.14*s, 6, 6), tM);
-  const tR = new THREE.Mesh(new THREE.SphereGeometry(0.14*s, 6, 6), tM.clone());
-  tL.position.set(-0.82*s, 1.42*s, 0);
-  tR.position.set( 0.82*s, 1.42*s, 0);
-  g.add(stem, aL, aR, tL, tR);
-  return g;
-}
-
-// Build a flat pentameric IgM — snowflake shape lying in the XZ plane.
-// Hub at center, 5 monomers radiating outward; each monomer has an Fc stem
-// and two Fab arms diverging at the tip (like a Y on its side).
-function _abIgMMesh(color) {
-  const g = new THREE.Group();
-  const mat    = new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 0.5 });
-  const tipMat = new THREE.MeshPhongMaterial({ color, emissive: color, emissiveIntensity: 1.1 });
-
-  // Central J-chain hub (flat disc)
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.12, 10), mat.clone());
-  g.add(hub);
-
-  for (let i = 0; i < 5; i++) {
-    const a = (i / 5) * Math.PI * 2;
-    // One group per monomer, rotated to point outward at angle a
-    const mono = new THREE.Group();
-    mono.rotation.y = a;
-
-    // Fc stem: horizontal cylinder from hub edge outward along local +X
-    const fcLen = 0.72;
-    const fc = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, fcLen, 6), mat.clone());
-    fc.rotation.z = Math.PI / 2;           // lay in XZ plane
-    fc.position.x = 0.24 + fcLen / 2;     // start at hub edge
-    mono.add(fc);
-
-    // Hinge: small sphere at the Fc/Fab junction
-    const hingeX = 0.24 + fcLen;
-    const hinge = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 6), mat.clone());
-    hinge.position.x = hingeX;
-    mono.add(hinge);
-
-    // Two Fab arms forking from hinge, diverging ±35° in the XZ plane
-    const fabLen  = 0.75;
-    const fabAng  = 0.61; // radians (~35°)
-    [-1, 1].forEach(sign => {
-      const fg = new THREE.Group();
-      fg.position.x = hingeX;
-      fg.rotation.y = sign * fabAng;
-
-      const fab = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, fabLen, 6), mat.clone());
-      fab.rotation.z = Math.PI / 2;
-      fab.position.x = fabLen / 2;
-      fg.add(fab);
-
-      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.14, 6, 6), tipMat.clone());
-      tip.position.x = fabLen;
-      fg.add(tip);
-
-      mono.add(fg);
-    });
-
-    g.add(mono);
-  }
-  return g;
-}
-
-function buildPhase1AntibodyField() {
-  clearPhase1Field();
-  const neutColor = G.virusType ? G.virusType.playerColor : 0xff6f00;
-
-  G._abField = {
-    antibodies: [],
-    sites: new Array(AB_SITES).fill(null), // null = free, otherwise = bound ab ref
-    siteMeshes: [],
-    active: true,
-    failPending: false,
-  };
-
-  // ── Binding site dots on the virion surface (8 evenly spaced in XZ) ────
-  for (let i = 0; i < AB_SITES; i++) {
-    const geo = new THREE.SphereGeometry(0.18, 6, 6);
-    const mat = new THREE.MeshPhongMaterial({
-      color: 0x88ffcc, emissive: 0x00ff88, emissiveIntensity: 1.2,
-      transparent: true, opacity: 0.9,
-    });
-    const sm = new THREE.Mesh(geo, mat);
-    sm.userData.worldObject = true;
-    G.scene.add(sm);
-    G._abField.siteMeshes.push({ mesh: sm, baseAngle: (i / AB_SITES) * Math.PI * 2 });
-  }
-
-  // ── Compute (or refresh) the viewport-filling extracellular bounds ────
-  G.abBounds = computePhase0Bounds(8);
-
-  // ── Spawn antibodies randomly in the extracellular field ─────────────
-  const spawnAb = (type, neutralizing) => {
-    const b = G.abBounds;
-    let x, z;
-    do {
-      x = b.xmin + Math.random() * (b.xmax - b.xmin);
-      z = b.zmin + Math.random() * (b.zmax - b.zmin);
-    } while (Math.sqrt(x*x + z*z) < 52); // reject positions inside the plasma membrane
-    const y = 0.5 + Math.random() * 3.0;
-    const color = neutralizing
-      ? neutColor
-      : AB_NON_COLORS[Math.floor(Math.random() * AB_NON_COLORS.length)];
-    const mesh = type === 'IgG' ? _abIgGMesh(color) : _abIgMMesh(color);
-    mesh.position.set(x, y, z);
-    mesh.rotation.set(Math.random()*Math.PI*2, Math.random()*Math.PI*2, Math.random()*Math.PI*2);
-    mesh.userData.worldObject = true;
-    G.scene.add(mesh);
-    G._abField.antibodies.push({
-      mesh, type, neutralizing,
-      pos: { x, y, z },
-      vel: {
-        x: (Math.random()-0.5) * 2.8,
-        y: (Math.random()-0.5) * 0.4,
-        z: (Math.random()-0.5) * 2.8,
-      },
-      rotVel: {
-        x: (Math.random()-0.5) * 2.0,
-        y: (Math.random()-0.5) * 2.0,
-        z: (Math.random()-0.5) * 2.0,
-      },
-      boundSite:      null,
-      bindTimer:      0,
-      releaseCooldown: 0,  // prevents immediate rebind after IgM releases
-    });
-  };
-
-  const nIgG = Math.round(AB_IgG_COUNT * AB_NEUTRAL_FRAC);
-  for (let i = 0; i < AB_IgG_COUNT; i++) spawnAb('IgG', i < nIgG);
-  const nIgM = Math.round(AB_IgM_COUNT * AB_NEUTRAL_FRAC);
-  for (let i = 0; i < AB_IgM_COUNT; i++) spawnAb('IgM', i < nIgM);
-
-  // Store spawn function so the update loop can add reinforcements over time
-  G._abField.spawnAb    = spawnAb;
-  G._abField.spawnTimer = 0;
-
-  buildAntibodyCrowd();
-  buildErythrocytes();
-
-  // Highlight the target receptor so the player knows where to navigate
-  const rec = G.receptors && G.receptors[0];
-  if (rec) {
-    G._beaconGroup = createBeacon(rec.pos.x, rec.pos.z, 0x00e676);
-    rec.mesh.material.emissiveIntensity = 2.5;
-    rec.mesh.material.opacity = 1.0;
-  }
-
-  buildPhase1HUD();
-}
-
-function updatePhase1Antibodies(dt) {
-  if (!G._abField || !G._abField.active || G._abField.failPending) return;
-  const px = G.player.pos.x, pz = G.player.pos.z;
-  const t  = G.totalTime;
-
-  // ── Timed reinforcements ─────────────────────────────────────────────
-  // 0–15s:  +3 IgM + 1 IgG per second
-  // 15s+:   +0 IgM + 6 IgG per second (IgG wave)
-  if (G._abField.spawnAb) {
-    if (!G._abField.elapsed) G._abField.elapsed = 0;
-    G._abField.elapsed   += dt;
-    G._abField.spawnTimer += dt;
-    const late = G._abField.elapsed >= 15;
-    while (G._abField.spawnTimer >= 1.0) {
-      G._abField.spawnTimer -= 1.0;
-      if (!late) {
-        G._abField.spawnAb('IgM', true);
-        G._abField.spawnAb('IgM', true);
-        G._abField.spawnAb('IgM', true);
-        G._abField.spawnAb('IgG', true);
-      } else {
-        for (let i = 0; i < 6; i++) G._abField.spawnAb('IgG', true);
-      }
-    }
-  }
-
-  G._abField.antibodies.forEach(ab => {
-    if (ab.boundSite !== null) {
-      // ── Bound antibody ───────────────────────────────────────────────
-      if (ab.type === 'IgM') {
-        ab.bindTimer -= dt;
-        if (ab.bindTimer <= 0) {
-          // IgM releases — free the site, kick away, set cooldown
-          G._abField.sites[ab.boundSite] = null;
-          ab.boundSite = null;
-          ab.releaseCooldown = 7.0; // cannot rebind for 7 seconds
-          const ang = Math.atan2(ab.pos.z - pz, ab.pos.x - px);
-          ab.vel.x = Math.cos(ang) * 10; // strong kick outward
-          ab.vel.z = Math.sin(ang) * 10;
-          showToast('IgM released — binding site freed!', 'good');
-          return;
-        }
-      }
-      // Follow virion: orbit at its binding-site angle
-      const sa = ab.siteMeshes
-        ? ab.siteMeshes.baseAngle
-        : (ab.boundSite / AB_SITES) * Math.PI * 2 + t * 0.25;
-      const orbitAngle = (ab.boundSite / AB_SITES) * Math.PI * 2 + t * 0.25;
-      const r = 1.7;
-      ab.pos.x = px + Math.cos(orbitAngle) * r;
-      ab.pos.z = pz + Math.sin(orbitAngle) * r;
-      ab.pos.y = 0.8 + 0.25 * Math.sin(t * 2.2 + ab.boundSite);
-      ab.mesh.position.set(ab.pos.x, ab.pos.y, ab.pos.z);
-
-    } else {
-      // ── Free antibody — drift and tumble ─────────────────────────────
-      ab.pos.x += ab.vel.x * dt;
-      ab.pos.y += ab.vel.y * dt;
-      ab.pos.z += ab.vel.z * dt;
-
-      // Y bounds
-      if (ab.pos.y < 0.3) { ab.pos.y = 0.3; ab.vel.y =  Math.abs(ab.vel.y) * 0.6; }
-      if (ab.pos.y > 4.8) { ab.pos.y = 4.8; ab.vel.y = -Math.abs(ab.vel.y) * 0.6; }
-
-      // Soft radial push — keep antibodies in the extracellular zone
-      const r   = Math.sqrt(ab.pos.x**2 + ab.pos.z**2);
-      const ang = Math.atan2(ab.pos.z, ab.pos.x);
-      if (r < 49) { ab.vel.x += Math.cos(ang)*4*dt; ab.vel.z += Math.sin(ang)*4*dt; }
-      // Rectangular outer soft walls (screen-filling bounds)
-      const ab_b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
-      if (ab.pos.x < ab_b.xmin + 3) ab.vel.x += 4*dt;
-      if (ab.pos.x > ab_b.xmax - 3) ab.vel.x -= 4*dt;
-      if (ab.pos.z < ab_b.zmin + 3) ab.vel.z += 4*dt;
-      if (ab.pos.z > ab_b.zmax - 3) ab.vel.z -= 4*dt;
-
-      // Speed cap
-      const spd = Math.sqrt(ab.vel.x**2 + ab.vel.z**2);
-      if (spd > 5) { ab.vel.x = ab.vel.x/spd*5; ab.vel.z = ab.vel.z/spd*5; }
-
-      ab.mesh.position.set(ab.pos.x, ab.pos.y, ab.pos.z);
-
-      // Cooldown tick (prevents IgM from immediately rebinding after release)
-      if (ab.releaseCooldown > 0) ab.releaseCooldown -= dt;
-
-      // Binding check — neutralizing antibodies only, not in cooldown
-      if (ab.neutralizing && ab.releaseCooldown <= 0) {
-        const dx = ab.pos.x - px, dz = ab.pos.z - pz;
-        if (dx*dx + dz*dz < AB_BIND_DIST * AB_BIND_DIST) {
-          const freeSite = G._abField.sites.indexOf(null);
-          if (freeSite !== -1) {
-            G._abField.sites[freeSite] = ab;
-            ab.boundSite = freeSite;
-            if (ab.type === 'IgM') {
-              ab.bindTimer = AB_IgM_DURATION;
-              const left = G._abField.sites.filter(s => s === null).length;
-              showToast(`IgM bound — temporary! (${left} sites free)`, 'warn');
-            } else {
-              const left = G._abField.sites.filter(s => s === null).length;
-              showToast(`IgG locked site! (${left} sites free)`, 'danger');
-            }
-          }
-        }
-      }
-    }
-
-    // Always tumble (slower when bound)
-    const tumbleMult = ab.boundSite !== null ? 0.3 : 1.0;
-    ab.mesh.rotation.x += ab.rotVel.x * dt * tumbleMult;
-    ab.mesh.rotation.y += ab.rotVel.y * dt * tumbleMult;
-    ab.mesh.rotation.z += ab.rotVel.z * dt * tumbleMult;
-  });
-
-  // ── Update binding-site dot positions on virion ─────────────────────
-  G._abField.siteMeshes.forEach((s, i) => {
-    const a = s.baseAngle + t * 0.35;
-    s.mesh.position.set(px + Math.cos(a) * 1.5, 0.8, pz + Math.sin(a) * 1.5);
-    const bound = G._abField.sites[i];
-    if (!bound) {
-      s.mesh.material.color.setHex(0x88ffcc);
-      s.mesh.material.emissive.setHex(0x00ff88);
-      s.mesh.material.emissiveIntensity = 1.2;
-    } else if (bound.type === 'IgM') {
-      s.mesh.material.color.setHex(0xff9800);
-      s.mesh.material.emissive.setHex(0xff6f00);
-      s.mesh.material.emissiveIntensity = 1.6;
-    } else {
-      s.mesh.material.color.setHex(0xf44336);
-      s.mesh.material.emissive.setHex(0xb71c1c);
-      s.mesh.material.emissiveIntensity = 1.9;
-    }
-  });
-
-  updatePhase1HUD();
-}
-
-function buildPhase1HUD() {
-  clearPhase1HUD();
-  const hud = document.createElement('div');
-  hud.id = 'abGauntletHUD';
-  hud.innerHTML =
-    '<div class="abg-label">Binding Sites</div>' +
-    '<div id="abgSites"></div>' +
-    '<div class="abg-tip">Reach the glowing receptor with \u22651 free site</div>';
-  document.getElementById('hud').appendChild(hud);
-  G._abField.hudEl = hud;
-  updatePhase1HUD();
-}
-
-function updatePhase1HUD() {
-  if (!G._abField || !G._abField.hudEl) return;
-  const el = document.getElementById('abgSites');
-  if (!el) return;
-  el.innerHTML = G._abField.sites.map(s => {
-    const st = s === null ? 'free' : s.type === 'IgM' ? 'igm' : 'igg';
-    const title = st === 'free' ? 'Open' : st === 'igm' ? 'IgM (temporary)' : 'IgG (locked)';
-    return '<span class="abs abs-' + st + '" title="' + title + '"></span>';
-  }).join('');
-}
-
-function clearPhase1HUD() {
-  const el = document.getElementById('abGauntletHUD');
-  if (el) el.remove();
-}
-
-// ── Non-neutralizing antibody crowd (InstancedMesh for performance) ─────────
-// ~250 visually diverse antibodies that tumble through the field but cannot bind.
-// Uses 10 InstancedMesh draw calls total (5 colors × IgG proxy + IgM proxy).
-const AB_CROWD_PER_COLOR = 25; // instances per color per type → 5×2×25 = 250
-
-function buildAntibodyCrowd() {
-  const igGGeo = new THREE.OctahedronGeometry(0.38, 0);
-  // Flat ring proxy for IgM crowd
-  const igMGeo = new THREE.TorusGeometry(0.68, 0.09, 4, 8);
-
-  const crowd = { groups: [], dummy: new THREE.Object3D() };
-  G._abField.crowd = crowd;
-
-  AB_NON_COLORS.forEach(color => {
-    const mat = new THREE.MeshPhongMaterial({
-      color, emissive: color, emissiveIntensity: 0.35, transparent: true, opacity: 0.82,
-    });
-    [{ geo: igGGeo, label: 'IgG' }, { geo: igMGeo, label: 'IgM' }].forEach(({ geo, label }) => {
-      const n = AB_CROWD_PER_COLOR;
-      const inst = new THREE.InstancedMesh(geo, mat.clone(), n);
-      inst.userData.worldObject = true;
-      G.scene.add(inst);
-
-      const pos = [], vel = [], rot = [], rotV = [];
-      const cb = G.abBounds;
-      for (let i = 0; i < n; i++) {
-        let cx, cz;
-        do {
-          cx = cb.xmin + Math.random() * (cb.xmax - cb.xmin);
-          cz = cb.zmin + Math.random() * (cb.zmax - cb.zmin);
-        } while (Math.sqrt(cx*cx + cz*cz) < 52);
-        pos.push({ x: cx, y: 0.5+Math.random()*3.5, z: cz });
-        vel.push({ x:(Math.random()-0.5)*3, y:(Math.random()-0.5)*0.4, z:(Math.random()-0.5)*3 });
-        rot.push({ x:Math.random()*Math.PI*2, y:Math.random()*Math.PI*2, z:Math.random()*Math.PI*2 });
-        rotV.push({ x:(Math.random()-0.5)*2.2, y:(Math.random()-0.5)*2.2, z:(Math.random()-0.5)*2.2 });
-        crowd.dummy.position.set(pos[i].x, pos[i].y, pos[i].z);
-        crowd.dummy.rotation.set(rot[i].x, rot[i].y, rot[i].z);
-        crowd.dummy.updateMatrix();
-        inst.setMatrixAt(i, crowd.dummy.matrix);
-      }
-      inst.instanceMatrix.needsUpdate = true;
-      crowd.groups.push({ inst, pos, vel, rot, rotV });
-    });
-  });
-}
-
-function updateCrowdAntibodies(dt) {
-  if (!G._abField || !G._abField.crowd) return;
-  const { groups, dummy } = G._abField.crowd;
-  groups.forEach(({ inst, pos, vel, rot, rotV }) => {
-    for (let i = 0; i < pos.length; i++) {
-      const p = pos[i], v = vel[i], r = rot[i], rv = rotV[i];
-      p.x += v.x*dt; p.y += v.y*dt; p.z += v.z*dt;
-      if (p.y < 0.3) { p.y = 0.3; v.y =  Math.abs(v.y)*0.6; }
-      if (p.y > 4.8) { p.y = 4.8; v.y = -Math.abs(v.y)*0.6; }
-      const rad = Math.sqrt(p.x*p.x + p.z*p.z);
-      const ang = Math.atan2(p.z, p.x);
-      if (rad < 49) { v.x += Math.cos(ang)*4*dt; v.z += Math.sin(ang)*4*dt; }
-      // Rectangular outer soft walls (screen-filling bounds)
-      const cw_b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
-      if (p.x < cw_b.xmin + 3) v.x += 4*dt;
-      if (p.x > cw_b.xmax - 3) v.x -= 4*dt;
-      if (p.z < cw_b.zmin + 3) v.z += 4*dt;
-      if (p.z > cw_b.zmax - 3) v.z -= 4*dt;
-      const spd = Math.sqrt(v.x*v.x + v.z*v.z);
-      if (spd > 5) { v.x = v.x/spd*5; v.z = v.z/spd*5; }
-      r.x += rv.x*dt; r.y += rv.y*dt; r.z += rv.z*dt;
-      dummy.position.set(p.x, p.y, p.z);
-      dummy.rotation.set(r.x, r.y, r.z);
-      dummy.updateMatrix();
-      inst.setMatrixAt(i, dummy.matrix);
-    }
-    inst.instanceMatrix.needsUpdate = true;
-  });
-}
-
-// ── Erythrocytes (red blood cells) — true biconcave discs with HA-binding ───
-// Drift through extracellular space; HA on virion surface binds sialic acid on
-// RBC glycoproteins (hemagglutination). Neuraminidase eventually cleaves the bond.
-function buildErythrocytes() {
-  const N = 80;
-
-  // True biconcave disc profile: LatheGeometry revolved around Y axis.
-  // Points are (radius, height) tracing the outer boundary from top-center → rim → bottom-center.
-  const profile = [
-    new THREE.Vector2(0.00,  0.56),  // center top — floor of dimple
-    new THREE.Vector2(1.20,  0.28),  // entering concavity
-    new THREE.Vector2(2.20,  0.08),  // deepest concavity
-    new THREE.Vector2(3.40,  0.84),  // rising toward rim
-    new THREE.Vector2(4.00,  1.00),  // rim peak
-    new THREE.Vector2(4.40,  0.60),  // outer edge top
-    new THREE.Vector2(4.40, -0.60),  // outer edge bottom
-    new THREE.Vector2(4.00, -1.00),  // rim peak bottom
-    new THREE.Vector2(3.40, -0.84),  // descending from bottom rim
-    new THREE.Vector2(2.20, -0.08),  // bottom concavity
-    new THREE.Vector2(1.20, -0.28),  // bottom concavity approaching center
-    new THREE.Vector2(0.00, -0.56),  // center bottom — floor of bottom dimple
-  ];
-  const geo = new THREE.LatheGeometry(profile, 18);
-  const mat = new THREE.MeshPhongMaterial({
-    color: 0xcc1a00, emissive: 0x5a0000, emissiveIntensity: 0.25,
-    transparent: true, opacity: 0.80,
-  });
-  const inst = new THREE.InstancedMesh(geo, mat, N);
-  inst.userData.worldObject = true;
-  G.scene.add(inst);
-
-  const dummy = new THREE.Object3D();
-  const pos = [], vel = [], rotY = [], tiltX = [], tiltZ = [];
-  const bound = [], bindTimer = [], rbcCooldown = [];
-  const b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
-
-  for (let i = 0; i < N; i++) {
-    let x, z;
-    do {
-      x = b.xmin + Math.random() * (b.xmax - b.xmin);
-      z = b.zmin + Math.random() * (b.zmax - b.zmin);
-    } while (Math.sqrt(x*x + z*z) < 54); // stay outside plasma membrane
-
-    const y = 0.5 + Math.random() * 2.8;
-    pos.push({ x, y, z });
-    vel.push({ x: (Math.random()-0.5) * 1.0, z: (Math.random()-0.5) * 1.0 });
-    rotY.push(Math.random() * Math.PI * 2);
-    tiltX.push(Math.PI * (0.2 + Math.random() * 0.6));
-    tiltZ.push((Math.random()-0.5) * 0.6);
-    bound.push(false);
-    bindTimer.push(0);
-    rbcCooldown.push(0);
-
-    dummy.position.set(x, y, z);
-    dummy.rotation.set(tiltX[i], rotY[i], tiltZ[i]);
-    dummy.scale.set(1, 1, 1);
-    dummy.updateMatrix();
-    inst.setMatrixAt(i, dummy.matrix);
-  }
-  inst.instanceMatrix.needsUpdate = true;
-  G._erythrocytes = { inst, dummy: new THREE.Object3D(), pos, vel, rotY, tiltX, tiltZ, bound, bindTimer, rbcCooldown };
-}
-
-function updateErythrocytes(dt) {
-  if (!G._erythrocytes) return;
-  const { inst, dummy, pos, vel, rotY, tiltX, tiltZ, bound, bindTimer, rbcCooldown } = G._erythrocytes;
-  const b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
-  const pp = G.player.pos;
-
-  // Count binds from last frame so we can gate new ones without double-binding in one pass
-  let totalBound = 0;
-  for (let i = 0; i < bound.length; i++) if (bound[i]) totalBound++;
-
-  let newBind = false, newRelease = false;
-
-  for (let i = 0; i < pos.length; i++) {
-    const p = pos[i], v = vel[i];
-
-    // Advance cooldown timer
-    if (rbcCooldown[i] > 0) rbcCooldown[i] = Math.max(0, rbcCooldown[i] - dt);
-
-    if (bound[i]) {
-      // ── Bound: pull RBC toward player (visual attachment) ──────────────
-      bindTimer[i] -= dt;
-      const dx = pp.x - p.x, dz = pp.z - p.z;
-      const d  = Math.sqrt(dx*dx + dz*dz);
-      if (d > 0.1) {
-        p.x += dx * Math.min(1, 5 * dt);
-        p.z += dz * Math.min(1, 5 * dt);
-      }
-      // Dampen own velocity — RBC is carried with the player cluster
-      v.x *= Math.max(0, 1 - 5 * dt);
-      v.z *= Math.max(0, 1 - 5 * dt);
-      rotY[i] += 0.08 * dt; // slower tumble while bound
-
-      if (bindTimer[i] <= 0) {
-        // Neuraminidase cleaved the sialic acid bond
-        bound[i] = false;
-        rbcCooldown[i] = RBC_BIND_COOLDOWN;
-        totalBound--;
-        // Give RBC a gentle push away from player
-        const ang = Math.atan2(p.z - pp.z, p.x - pp.x);
-        v.x = Math.cos(ang) * 1.2;
-        v.z = Math.sin(ang) * 1.2;
-        newRelease = true;
-      }
-    } else {
-      // ── Drifting: normal movement physics ──────────────────────────────
-      p.x += v.x * dt;
-      p.z += v.z * dt;
-      // Push away from cell membrane
-      const r = Math.sqrt(p.x*p.x + p.z*p.z);
-      if (r < 54) {
-        const a = Math.atan2(p.z, p.x);
-        v.x += Math.cos(a) * 2 * dt;
-        v.z += Math.sin(a) * 2 * dt;
-      }
-      // Soft outer wall bounce
-      if (p.x < b.xmin + 5) v.x += 2*dt;
-      if (p.x > b.xmax - 5) v.x -= 2*dt;
-      if (p.z < b.zmin + 5) v.z += 2*dt;
-      if (p.z > b.zmax - 5) v.z -= 2*dt;
-      // Speed cap
-      const spd = Math.sqrt(v.x*v.x + v.z*v.z);
-      if (spd > 1.2) { v.x = v.x/spd*1.2; v.z = v.z/spd*1.2; }
-      rotY[i] += 0.25 * dt;
-
-      // ── HA-sialic acid bind check ───────────────────────────────────────
-      if (rbcCooldown[i] <= 0 && totalBound < RBC_MAX_BINDS) {
-        const dx = pp.x - p.x, dz = pp.z - p.z;
-        if (dx*dx + dz*dz < RBC_BIND_DIST * RBC_BIND_DIST) {
-          bound[i]     = true;
-          bindTimer[i] = RBC_BIND_DURATION;
-          totalBound++;
-          newBind = true;
-        }
-      }
-    }
-
-    dummy.position.set(p.x, p.y, p.z);
-    dummy.rotation.set(tiltX[i], rotY[i], tiltZ[i]);
-    dummy.scale.set(1, 1, 1);
-    dummy.updateMatrix();
-    inst.setMatrixAt(i, dummy.matrix);
-  }
-  inst.instanceMatrix.needsUpdate = true;
-
-  // Sync bind count to player state
-  G.player.rbcBindCount = totalBound;
-
-  // Toast feedback (first bind only until fully released, then rearm)
-  if (newBind && !G._rbcBindToastShown) {
-    showToast('RBC captured by HA — neuraminidase cleaving…', 'warn', 3200);
-    G._rbcBindToastShown = true;
-  }
-  if (newRelease && totalBound === 0) {
-    showToast('NA cleaved sialic acid — released!', 'info', 2000);
-    G._rbcBindToastShown = false;
-  }
-}
-
-function clearErythrocytes() {
-  if (!G._erythrocytes) return;
-  disposeObject(G._erythrocytes.inst);
-  G.scene.remove(G._erythrocytes.inst);
-  G._erythrocytes = null;
-}
-
-function clearPhase1Field() {
-  if (!G._abField) return;
-  G._abField.antibodies.forEach(ab => { disposeObject(ab.mesh); G.scene.remove(ab.mesh); });
-  G._abField.siteMeshes.forEach(s  => { disposeObject(s.mesh);  G.scene.remove(s.mesh); });
-  if (G._abField.crowd) {
-    G._abField.crowd.groups.forEach(cg => { disposeObject(cg.inst); G.scene.remove(cg.inst); });
-  }
-  clearBeacon();
-  clearPhase1HUD();
-  clearErythrocytes();
-  G._abField = null;
-}
-
-function triggerPhase1Fail() {
-  if (!G._abField || G._abField.failPending) return;
-  G._abField.failPending = true;
-  flashScreen('rgba(244,67,54,0.55)', 500);
-  showToast('Neutralized! All 4 binding sites blocked — virion repelled.', 'danger');
-  // Bounce player outward
-  const ang = Math.atan2(G.player.pos.z, G.player.pos.x);
-  const bounce = 56;
-  G.player.pos.x = Math.cos(ang) * bounce;
-  G.player.pos.z = Math.sin(ang) * bounce;
-  if (G.player.mesh)    G.player.mesh.position.set(G.player.pos.x, 0.8, G.player.pos.z);
-  if (G.player.envelope) G.player.envelope.position.set(G.player.pos.x, 0.8, G.player.pos.z);
-  // Rebuild after 2.5 s
-  setTimeout(() => {
-    if (G.state === 'PLAYING' && G.phase === 0) {
-      clearPhase1Field();
-      const _rsp = _phase0SpawnPos();
-      G.player.pos.x = _rsp.x; G.player.pos.z = _rsp.z;
-      if (G.player.mesh)     G.player.mesh.position.set(_rsp.x, 0.8, _rsp.z);
-      if (G.player.envelope)  G.player.envelope.position.set(_rsp.x, 0.8, _rsp.z);
-      buildPhase1AntibodyField();
-      showToast('Approach again — find a gap in the antibody cloud!', 'info');
-    }
-  }, 2500);
-}
-
-// Phase 0 completion check: must reach the specific receptor on the membrane
-function phaseCheck_Penetration(px, pz) {
-  if (!G._abField || !G._abField.active || G._abField.failPending) return;
-  const rec = G.receptors && G.receptors[0];
-  if (!rec) return;
-  const dx = px - rec.pos.x, dz = pz - rec.pos.z;
-  if (dx*dx + dz*dz > 9) return; // must be within 3 units of receptor
-  const boundCount = G._abField.sites.filter(Boolean).length;
-  if (boundCount >= AB_SITES) {
-    triggerPhase1Fail();
-  } else {
-    G.stats.abGauntletFree = AB_SITES - boundCount;
-    completePhase();
-  }
-}
+// (All antibody gauntlet functions removed — see phase0-antibody-gauntlet-backup/)
 
 // -- Phase 2: Uncoating ----------------------------------------------------
 function phaseCheck_Uncoating(px, pz) {
@@ -3725,26 +3034,21 @@ function completePhase() {
   const completedPhase = G.phase;
   G.phase++;
 
-  // Phase 0 → 1: gauntlet cleared — launch Phase 2 Attachment lane runner
-  if (completedPhase === 0 && G.player.mesh) {
-    const freeCount  = G._abField ? G._abField.sites.filter(s => s === null).length : AB_SITES;
-    const boundSites = AB_SITES - freeCount;
-    clearPhase1Field();
-    const qual = freeCount === AB_SITES ? 'Perfect!' : freeCount >= 3 ? 'Good!' : 'Barely made it!';
-    showToast(`Gauntlet cleared — ${freeCount}/4 sites free. ${qual} Initiating attachment phase.`, freeCount >= 3 ? 'good' : 'warn');
+  // Phase 0 → 1: Aerosol Odyssey complete — launch Attachment lane runner
+  if (completedPhase === 0) {
+    showToast('Virus inhaled — receptor binding phase initiated!', 'good');
     setTimeout(() => {
       if (typeof P2Attachment !== 'undefined') {
         P2Attachment.launch(
-          { boundSites, totalSites: AB_SITES },
-          () => { G.state = 'PLAYING'; completePhase(); },  // onComplete → advance to Uncoating
-          null                                               // onFail: retry handled inside P2
+          { boundSites: 0, totalSites: 4 },
+          () => { G.state = 'PLAYING'; completePhase(); },
+          null
         );
       } else {
-        // Fallback if Phase 2 files not loaded
         showBriefing(G.phase);
       }
     }, 1200);
-    return; // skip showBriefing(G.phase) at bottom of completePhase()
+    return;
   }
   // Phase 1 → 2: attachment complete — launch endosomal escape
   if (completedPhase === 1 && G.player.mesh) {
@@ -4412,9 +3716,6 @@ function updatePlayer(dt) {
 
   let speed = (sneaking ? 5.28 : 10.56) * vt.speedMult;  // +10% then +20%
   if (G.player.boosted) speed *= 1.5;
-  // RBC hemagglutination drag: each bound RBC multiplies speed by RBC_SPEED_MULT
-  const rbcBinds = (G.phase === 0 && G.player.rbcBindCount > 0) ? G.player.rbcBindCount : 0;
-  if (rbcBinds > 0) speed *= Math.pow(RBC_SPEED_MULT, rbcBinds);
 
   let inputX = 0, inputZ = 0;
   if (G.keys.has('KeyW') || G.keys.has('ArrowUp'))    inputZ -= 1;
@@ -4447,36 +3748,7 @@ function updatePlayer(dt) {
 
   // ── Membrane boundary ─────────────────────────────────────────────────
   const distFromCenter = Math.sqrt(nx * nx + nz * nz);
-  if (G.phase === 0) {
-    // Phase 0: Gauntlet — player confined to screen-filling extracellular bounds
-    const pl_b = G.abBounds || { xmin: AB_RECT_XMIN, xmax: AB_RECT_XMAX, zmin: AB_RECT_ZMIN, zmax: AB_RECT_ZMAX };
-    if (nx < pl_b.xmin) nx = pl_b.xmin;
-    if (nx > pl_b.xmax) nx = pl_b.xmax;
-    if (nz < pl_b.zmin) nz = pl_b.zmin;
-    if (nz > pl_b.zmax) nz = pl_b.zmax;
-    // Plasma membrane wall: block cell entry everywhere except near the target receptor
-    const dist0 = Math.sqrt(nx * nx + nz * nz);
-    if (dist0 < 48) {
-      const rec0 = G.receptors && G.receptors[0];
-      let nearReceptor = false;
-      if (rec0) {
-        const rdx = nx - rec0.pos.x, rdz = nz - rec0.pos.z;
-        nearReceptor = (rdx * rdx + rdz * rdz < 16); // within 4 units of receptor opening
-      }
-      if (!nearReceptor) {
-        const ang0 = Math.atan2(nz, nx);
-        nx = Math.cos(ang0) * 48;
-        nz = Math.sin(ang0) * 48;
-        // Reflect velocity off membrane and double it (2× bounce)
-        const normX = Math.cos(ang0), normZ = Math.sin(ang0); // outward normal
-        const dot = G.player.vel.x * normX + G.player.vel.z * normZ;
-        if (dot < 0) { // moving inward — reflect and boost
-          G.player.vel.x = (G.player.vel.x - 2 * dot * normX) * 3;
-          G.player.vel.z = (G.player.vel.z - 2 * dot * normZ) * 3;
-        }
-      }
-    }
-  } else if (G.phase === 1) {
+  if (G.phase === 1) {
     // Phase 1: Attachment — outside, inner membrane wall blocks cell entry
     if (distFromCenter < 47.5) {
       const ang = Math.atan2(nz, nx);
@@ -4579,13 +3851,8 @@ function updatePlayer(dt) {
   G.player.inCover = inCover;
 
   // ── Camera follow ─────────────────────────────────────────────────────
-  if (G.phase === 0) {
-    // Phase 0: static overview — cell stays centered, virion moves through field
-    G.camera.position.set(0, 180, 56);
-    G.camera._target.set(0, 180, 56);
-    G.camera.lookAt(0, 0, 0);
-  } else {
-    // Smooth lerp — camera trails slightly behind player
+  // Smooth lerp — camera trails slightly behind player
+  {
     const camY  = 180;
     const camDZ = 56;
     G.camera._target.set(nx, camY, nz + camDZ);
@@ -5517,7 +4784,7 @@ function initHUDExtras() {
   makeBadge('badgeCloak',  '◉ Cloaked', '#ce93d8');
   makeBadge('badgeBoost',  '▶ Boosted', '#ffcc02');
   makeBadge('badgeAlert',  '⚠ Alerted', '#ff9800');
-  makeBadge('badgeRBC',    '⊕ HA Bound','#ff5555');
+  // badgeRBC removed (Antibody Gauntlet backed up to phase0-antibody-gauntlet-backup/)
 }
 
 function updateHUDExtras() {
@@ -5534,12 +4801,6 @@ function updateHUDExtras() {
   show('badgeCloak',  G.player.cloaked);
   show('badgeBoost',  G.player.boosted);
   show('badgeAlert',  G.guards.some(g => g.alertState === 'chase'));
-  const rbcN = (G.phase === 0 && G.player.rbcBindCount > 0) ? G.player.rbcBindCount : 0;
-  show('badgeRBC', rbcN > 0);
-  if (rbcN > 0) {
-    const el = document.getElementById('badgeRBC');
-    if (el) el.textContent = rbcN > 1 ? `⊕ HA Bound ×${rbcN}` : '⊕ HA Bound';
-  }
 
   // Cloak badge: show remaining time
   if (G.player.cloaked) {
@@ -5559,9 +4820,8 @@ function updateHUDExtras() {
 function updateWorldState(dt) {
   // Fog thickens as alert rises — creates tension
   if (G.scene.fog) {
-    // Phase 0: overhead static camera — use minimal fog so full extracellular space is visible
-    const baseDensity  = G.phase === 0 ? 0.0015 : 0.008;
-    const alertBonus   = G.phase === 0 ? 0 : (G.alertMeter / 100) * 0.010;
+    const baseDensity  = 0.008;
+    const alertBonus   = (G.alertMeter / 100) * 0.010;
     const target       = baseDensity + alertBonus;
     G.scene.fog.density += (target - G.scene.fog.density) * 0.04;
   }
@@ -5742,11 +5002,11 @@ function gameLoop() {
   G.totalTime += dt;
   updateTitleScene(dt);
 
+  const p1Active = typeof P1AerosolOdyssey !== 'undefined' && P1AerosolOdyssey._active;
   const p2Active = typeof P2Attachment !== 'undefined' && P2Attachment._active;
   const p3Active = typeof P3Descent !== 'undefined' && P3Descent._active;
   const p4Active = typeof P4NuclearFactory !== 'undefined' && P4NuclearFactory._active;
-  if (G.state === 'PLAYING' && !p2Active && !p3Active && !p4Active) {
-    if (G.phase === 0) { updatePhase1Antibodies(dt); updateCrowdAntibodies(dt); updateErythrocytes(dt); }
+  if (G.state === 'PLAYING' && !p1Active && !p2Active && !p3Active && !p4Active) {
     updatePlayer(dt);
     updateGuards(dt);
     updateGuardIdleAnimations(dt);
@@ -5762,8 +5022,12 @@ function gameLoop() {
     updateGuardTooltip();
   }
 
+  // Phase 1 Aerosol Odyssey takes over rendering when active
+  if (p1Active) {
+    P1AerosolOdyssey._tick(dt);
+    G.renderer.render(P1AerosolOdyssey.scene, P1AerosolOdyssey.camera);
   // Phase 4 Nuclear Factory takes over rendering when active
-  if (p4Active) {
+  } else if (p4Active) {
     P4NuclearFactory._tick(dt);
     G.renderer.render(P4NuclearFactory.scene, P4NuclearFactory.camera);
   // Phase 3 Endosomal Escape takes over rendering when active

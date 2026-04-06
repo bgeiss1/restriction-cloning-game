@@ -1,0 +1,36 @@
+/* ── Antibody Gauntlet HUD ──────────────────────────────────────────────── */
+#abGauntletHUD {
+  position: absolute;
+  top: 12px; right: 12px;
+  background: rgba(5,10,8,0.82);
+  border: 1px solid rgba(200,169,81,0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  pointer-events: none;
+  min-width: 170px;
+}
+.abg-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+#abgSites {
+  display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 6px;
+}
+.abs {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.2);
+  transition: background 0.2s;
+}
+.abs-free  { background: #00ff88; box-shadow: 0 0 5px #00ff88; }
+.abs-igm   { background: #ff9800; box-shadow: 0 0 5px #ff9800; }
+.abs-igg   { background: #f44336; box-shadow: 0 0 6px #f44336; }
+.abg-tip {
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
