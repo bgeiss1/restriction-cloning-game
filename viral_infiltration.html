@@ -1757,6 +1757,21 @@ function dismissBriefing() {
     return;
   }
 
+  // Phase 3 (Nuclear Factory) is entirely the P4NuclearFactory mini-game —
+  // launch it directly here, same as the completePhase() path.
+  if (G.phase === 3 && typeof P4NuclearFactory !== 'undefined') {
+    setOverlay(null);
+    document.getElementById('hud').classList.add('hidden');
+    G.state = 'PLAYING';
+    if (!G.clock.running) { G.clock.start(); G.clock.getDelta(); }
+    P4NuclearFactory.launch(
+      G.stats || {},
+      () => { G.state = 'PLAYING'; completePhase(); },
+      null
+    );
+    return;
+  }
+
   G.state = 'PLAYING';
   G.clock.getDelta(); // consume accumulated delta so first frame isn't huge
   setOverlay(null);
