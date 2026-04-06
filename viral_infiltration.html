@@ -1636,35 +1636,12 @@ function startGame() {
   G.clock.start();
 
   // Build (or rebuild) the 3D world
-  try {
-    buildWorld();
-  } catch(e) {
-    var _bwErr = document.createElement('div');
-    _bwErr.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;font-family:monospace;font-size:13px;padding:8px 12px;z-index:9999';
-    _bwErr.textContent = 'buildWorld() THREW: ' + e.message + ' (' + e.constructor.name + ')';
-    document.body.appendChild(_bwErr);
-    return;
-  }
+  buildWorld();
   initHUDExtras();
-
-  // Confirm we reached showBriefing (debug banner — remove after diagnosis)
-  var _dbg = document.createElement('div');
-  _dbg.id = '_dbgBriefingReach';
-  _dbg.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a6b3c;color:#fff;font-family:monospace;font-size:12px;padding:6px 12px;z-index:9999';
-  _dbg.textContent = 'startGame(): reached showBriefing(0) — if briefing not visible, showBriefing threw or setOverlay failed';
-  document.body.appendChild(_dbg);
-  setTimeout(function(){ var el=document.getElementById('_dbgBriefingReach'); if(el)el.remove(); }, 5000);
 
   // Guards will be spawned in Section 5 (spawnGuardsForPhase(0))
   // Show the first phase briefing
-  try {
-    showBriefing(0);
-  } catch(e) {
-    var _sbErr = document.createElement('div');
-    _sbErr.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#8e44ad;color:#fff;font-family:monospace;font-size:13px;padding:8px 12px;z-index:9999';
-    _sbErr.textContent = 'showBriefing(0) THREW: ' + e.message + ' (' + e.constructor.name + ')';
-    document.body.appendChild(_sbErr);
-  }
+  showBriefing(0);
 }
 
 function pauseGame() {
