@@ -34,6 +34,32 @@
 <script src="p3/act2/vi_p3d_a2_mol.js"></script>
 <script src="p3/act2/vi_p3d_a2_boss.js"></script>
 <script src="p3/act3/vi_p3d_a3_epilogue.js"></script>
+<!-- Phase 4: Nuclear Factory -->
+<script src="p4/vi_p4_config.js"></script>
+<script src="p4/env/vi_p4_nucleus.js"></script>
+<script src="p4/env/vi_p4_polii.js"></script>
+<script src="p4/shared/vi_p4_camera.js"></script>
+<script src="p4/shared/vi_p4_interaction.js"></script>
+<script src="p4/shared/vi_p4_steering.js"></script>
+<script src="p4/viral/vi_p4_templates.js"></script>
+<script src="p4/viral/vi_p4_polymerase.js"></script>
+<script src="p4/viral/vi_p4_polyman.js"></script>
+<script src="p4/viral/vi_p4_capsnatch.js"></script>
+<script src="p4/viral/vi_p4_transcription.js"></script>
+<script src="p4/viral/vi_p4_mrna.js"></script>
+<script src="p4/env/vi_p4_npc.js"></script>
+<script src="p4/economy/vi_p4_resources.js"></script>
+<script src="p4/economy/vi_p4_protein.js"></script>
+<script src="p4/economy/vi_p4_assembly.js"></script>
+<script src="p4/viral/vi_p4_replication.js"></script>
+<script src="p4/viral/vi_p4_crna.js"></script>
+<script src="p4/economy/vi_p4_inventory.js"></script>
+<script src="p4/viral/vi_p4_ns1.js"></script>
+<script src="p4/env/vi_p4_antiviral.js"></script>
+<script src="p4/shared/vi_p4_sound.js"></script>
+<script src="p4/ui/vi_p4_minimap.js"></script>
+<script src="p4/ui/vi_p4_hud.js"></script>
+<script src="p4/vi_p4_main.js"></script>
 <style>
 /* ── Reset & Root ──────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -3724,6 +3750,18 @@ function completePhase() {
     if (G.player.envelope) G.player.envelope.position.set(38, 0.8, 2);
     showToast('Receptor bound — endocytosis pulls you inside!', 'good');
   }
+  // Phase 2 → 3: endosomal escape complete — launch nuclear factory
+  if (completedPhase === 2 && typeof P4NuclearFactory !== 'undefined') {
+    showToast('vRNP segments have entered the nucleus — viral genome replication begins!', 'good');
+    setTimeout(() => {
+      P4NuclearFactory.launch(
+        G.stats || {},
+        () => { G.state = 'PLAYING'; completePhase(); },
+        null
+      );
+    }, 1200);
+    return;
+  }
 
   if (G.phase >= PHASE_DATA.length) {
     triggerVictory();
@@ -5691,7 +5729,8 @@ function gameLoop() {
 
   const p2Active = typeof P2Attachment !== 'undefined' && P2Attachment._active;
   const p3Active = typeof P3Descent !== 'undefined' && P3Descent._active;
-  if (G.state === 'PLAYING' && !p2Active && !p3Active) {
+  const p4Active = typeof P4NuclearFactory !== 'undefined' && P4NuclearFactory._active;
+  if (G.state === 'PLAYING' && !p2Active && !p3Active && !p4Active) {
     if (G.phase === 0) { updatePhase1Antibodies(dt); updateCrowdAntibodies(dt); updateErythrocytes(dt); }
     updatePlayer(dt);
     updateGuards(dt);
@@ -5708,8 +5747,12 @@ function gameLoop() {
     updateGuardTooltip();
   }
 
+  // Phase 4 Nuclear Factory takes over rendering when active
+  if (p4Active) {
+    P4NuclearFactory._tick(dt);
+    G.renderer.render(P4NuclearFactory.scene, P4NuclearFactory.camera);
   // Phase 3 Endosomal Escape takes over rendering when active
-  if (p3Active) {
+  } else if (p3Active) {
     P3Descent._tick(dt);
     G.renderer.render(P3Descent.scene, P3Descent.camera);
   // Phase 2 Attachment takes over rendering when active
