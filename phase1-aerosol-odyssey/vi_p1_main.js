@@ -13,7 +13,7 @@
  *   P1AerosolOdyssey.camera            — THREE.PerspectiveCamera
  */
 
-/* global THREE, P1_CFG, P1Classroom, P1Furniture, P1Students, P1Droplet, P1HUD, P1Companions */
+/* global THREE, P1_CFG, P1Classroom, P1Furniture, P1Students, P1Droplet, P1HUD, P1Companions, P1Audio */
 
 const P1AerosolOdyssey = (() => {
 
@@ -167,6 +167,7 @@ const P1AerosolOdyssey = (() => {
   }
 
   function _onStartClicked() {
+    P1Audio.init();
     _removeIntroOverlay();
     _startCinematic();
   }
@@ -256,6 +257,7 @@ const P1AerosolOdyssey = (() => {
     } else if (_cinT < 1.1) {
       // Phase B: cough burst visible
       if (_coughCloud) {
+        if (!_coughCloud.visible) P1Audio.playCough();   // first frame of phase B
         _coughCloud.visible = true;
         _coughT += dt;
         const pos = _coughCloud.geometry.attributes.position.array;
@@ -325,6 +327,7 @@ const P1AerosolOdyssey = (() => {
     P1Droplet.init(scene, camera, startPos);
 
     P1HUD.init();
+    P1Audio.startAmbient();
 
     // Keyboard handlers
     _keys = { left: false, right: false, up: false, down: false };
@@ -356,6 +359,8 @@ const P1AerosolOdyssey = (() => {
   function _handleWin() {
     _phase = 'WIN';
     _removeKeyHandlers();
+    P1Audio.stopAmbient();
+    P1Audio.playWin();
     const state = P1Droplet.getState();
     _showResultOverlay(true, state);
   }
@@ -363,6 +368,8 @@ const P1AerosolOdyssey = (() => {
   function _handleFail() {
     _phase = 'FAIL';
     _removeKeyHandlers();
+    P1Audio.stopAmbient();
+    P1Audio.playFail();
     const reason = P1Droplet.getFailReason();
     _showResultOverlay(false, null, reason);
   }
@@ -460,6 +467,7 @@ const P1AerosolOdyssey = (() => {
 
   function _cleanupGame() {
     _removeResultOverlay();
+    P1Audio.stopAmbient();
     if (_hud) { P1HUD.destroy(); _hud = null; }
     if (_droplet) { P1Droplet.destroy(); _droplet = null; }
     _removeKeyHandlers();
@@ -498,6 +506,11 @@ const P1AerosolOdyssey = (() => {
       P1Droplet.setKeys(_keys);
       P1Droplet.tick(dt);
 
+      // Hit SFX
+      const hit = P1Droplet.consumeHit();
+      if (hit === 'furniture') P1Audio.playHit();
+      else if (hit === 'mask') P1Audio.playMaskHit();
+
       const pos   = P1Droplet.getPos();
       const state = P1Droplet.getState();
       const target = P1Students.getTargetHead();
@@ -507,6 +520,12 @@ const P1AerosolOdyssey = (() => {
         distToTarget = Math.max(0, dz);
       }
       P1HUD.update({ ...state, distToTarget });
+
+      // Breath SFX — proximity 0→1 as droplet approaches inhalation zone
+      const prox = target
+        ? Math.max(0, 1 - distToTarget / (P1_CFG.APPROACH_Z_THRESHOLD * 1.5))
+        : 0;
+      P1Audio.setBreathPhase(state.breathPhase, prox);
 
       if (!P1Droplet.isAlive()) {
         _handleFail();
@@ -540,6 +559,7 @@ const P1AerosolOdyssey = (() => {
     if (_droplet) { P1Droplet.destroy(); _droplet = null; }
     P1Companions.destroy();
 
+    P1Audio.destroy();
     P1Students.destroy();
     P1Furniture.destroy();
     P1Classroom.destroy();

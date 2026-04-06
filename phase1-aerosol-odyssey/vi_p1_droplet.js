@@ -55,6 +55,9 @@ const P1Droplet = (() => {
   let _hitCooldown  = 0;
   let _maskCooldown = 0;
 
+  // Hit type flag — consumed by main each frame to trigger SFX
+  let _hitType = null;   // 'furniture' | 'mask' | null
+
   // Pre-allocated vectors for collision (avoids per-frame GC)
   const _posV    = new THREE.Vector3();
   const _closest = new THREE.Vector3();
@@ -154,7 +157,8 @@ const P1Droplet = (() => {
 
     // ── Zone detection (uses position at frame start) ─────────────────────────
     const zone = P1Zones.getZoneState(_pos);
-    _zoneName  = zone.zoneName;
+    _zoneName = zone.zoneName;
+    _hitType  = null;   // reset each frame; set below if hit occurs
     const airF = P1Zones.getAirForce(_pos);
 
     // ── Input → velocity ─────────────────────────────────────────────────────
@@ -316,6 +320,7 @@ const P1Droplet = (() => {
           _dropletIntegrity  = Math.max(0, _dropletIntegrity);
           _viralViability    = Math.max(0, _viralViability);
           _hitCooldown = 0.6;   // 0.6s before next furniture hit can damage
+          _hitType = 'furniture';
         }
 
         break;   // one collision resolved per frame is enough
@@ -362,6 +367,7 @@ const P1Droplet = (() => {
       _viralViability    = Math.max(0, _viralViability);
       _zoneName = 'MASK BLOCKED';
       _maskCooldown = 1.5;
+      _hitType = 'mask';
     }
   }
 
@@ -443,7 +449,8 @@ const P1Droplet = (() => {
   function isAlive()      { return _alive; }
   function hasWon()       { return _won; }
   function getFailReason(){ return _failReason; }
+  function consumeHit()   { const h = _hitType; _hitType = null; return h; }
 
-  return { init, tick, destroy, getPos, getState, setKeys, isAlive, hasWon, getFailReason };
+  return { init, tick, destroy, getPos, getState, setKeys, isAlive, hasWon, getFailReason, consumeHit };
 
 })();

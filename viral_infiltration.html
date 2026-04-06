@@ -15,6 +15,7 @@
 <script src="phase1-aerosol-odyssey/vi_p1_droplet.js"></script>
 <script src="phase1-aerosol-odyssey/vi_p1_hud.js"></script>
 <script src="phase1-aerosol-odyssey/vi_p1_companions.js"></script>
+<script src="phase1-aerosol-odyssey/vi_p1_audio.js"></script>
 <script src="phase1-aerosol-odyssey/vi_p1_main.js"></script>
 <script>
 // Diagnostic: confirm P1 modules loaded. Runs once after DOM ready.
@@ -28,6 +29,7 @@ window.addEventListener('DOMContentLoaded', function() {
   if (typeof P1Droplet        === 'undefined') missing.push('P1Droplet');
   if (typeof P1HUD            === 'undefined') missing.push('P1HUD');
   if (typeof P1Companions     === 'undefined') missing.push('P1Companions');
+  if (typeof P1Audio          === 'undefined') missing.push('P1Audio');
   if (typeof P1AerosolOdyssey === 'undefined') missing.push('P1AerosolOdyssey');
   if (missing.length) {
     // showToast may not be ready yet — use a plain DOM banner
