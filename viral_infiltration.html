@@ -12,6 +12,25 @@
 <script src="phase1-aerosol-odyssey/vi_p1_furniture.js"></script>
 <script src="phase1-aerosol-odyssey/vi_p1_students.js"></script>
 <script src="phase1-aerosol-odyssey/vi_p1_main.js"></script>
+<script>
+// Diagnostic: confirm P1 modules loaded. Runs once after DOM ready.
+window.addEventListener('DOMContentLoaded', function() {
+  var missing = [];
+  if (typeof P1_CFG          === 'undefined') missing.push('P1_CFG');
+  if (typeof P1Classroom     === 'undefined') missing.push('P1Classroom');
+  if (typeof P1Furniture     === 'undefined') missing.push('P1Furniture');
+  if (typeof P1Students      === 'undefined') missing.push('P1Students');
+  if (typeof P1AerosolOdyssey=== 'undefined') missing.push('P1AerosolOdyssey');
+  if (missing.length) {
+    // showToast may not be ready yet — use a plain DOM banner
+    var b = document.createElement('div');
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;' +
+                      'font-family:monospace;font-size:13px;padding:8px 12px;z-index:9999';
+    b.textContent = 'P1 LOAD ERROR — missing: ' + missing.join(', ');
+    document.body.appendChild(b);
+  }
+});
+</script>
 <script src="p2/vi_p2_config.js"></script>
 <script src="p2/vi_p2_motion.js"></script>
 <script src="p2/vi_p2_main.js"></script>
