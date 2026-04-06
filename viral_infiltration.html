@@ -1686,6 +1686,22 @@ function triggerVictory() {
 
 // ── Briefing System ───────────────────────────────────────────────────────
 function showBriefing(phaseIndex) {
+  // Phase 0 (Aerosol Odyssey) has its own title overlay — skip the game briefing panel
+  // and launch the mini-game directly so the classroom renders immediately.
+  if (phaseIndex === 0 && typeof P1AerosolOdyssey !== 'undefined') {
+    G.state = 'PLAYING';
+    setOverlay(null);
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('powerupBar').classList.add('hidden');
+    document.getElementById('minimapWrap').classList.add('hidden');
+    if (!G.clock.running) { G.clock.start(); G.clock.getDelta(); }
+    P1AerosolOdyssey.launch(
+      G.stats || {},
+      () => { G.state = 'PLAYING'; completePhase(); },
+      null
+    );
+    return;
+  }
   G.state = 'PHASE_TRANSITION';
   const pd = PHASE_DATA[phaseIndex];
   document.getElementById('briefingPhaseLabel').textContent = `Phase ${phaseIndex + 1} of ${PHASE_DATA.length}`;
