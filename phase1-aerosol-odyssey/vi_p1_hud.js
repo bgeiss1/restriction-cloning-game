@@ -102,11 +102,14 @@ const P1HUD = (() => {
     // Zone flash
     if (_zoneEl) {
       const ZONE_STYLE = {
-        'UV ZONE':  { color: '#ffee44', bg: 'rgba(90,70,0,0.65)'  },
-        'WARM AIR': { color: '#ffaa44', bg: 'rgba(70,35,0,0.65)'  },
-        'COOL AIR': { color: '#88ccff', bg: 'rgba(0,25,70,0.65)'  },
-        'DRY ZONE': { color: '#ffddaa', bg: 'rgba(70,55,15,0.65)' },
-        'HUMID':    { color: '#aaffcc', bg: 'rgba(0,45,25,0.65)'  },
+        'UV ZONE':     { color: '#ffee44', bg: 'rgba(90,70,0,0.65)'   },
+        'WARM AIR':    { color: '#ffaa44', bg: 'rgba(70,35,0,0.65)'   },
+        'COOL AIR':    { color: '#88ccff', bg: 'rgba(0,25,70,0.65)'   },
+        'DRY ZONE':    { color: '#ffddaa', bg: 'rgba(70,55,15,0.65)'  },
+        'HUMID':       { color: '#aaffcc', bg: 'rgba(0,45,25,0.65)'   },
+        'INHALING':    { color: '#44ffaa', bg: 'rgba(0,60,35,0.75)'   },
+        'EXHALING':    { color: '#ff9966', bg: 'rgba(70,30,0,0.75)'   },
+        'MASK BLOCKED':{ color: '#ffffff', bg: 'rgba(60,0,80,0.80)'   },
       };
       if (zoneName && ZONE_STYLE[zoneName]) {
         const s = ZONE_STYLE[zoneName];
