@@ -11,16 +11,20 @@
 <script src="phase1-aerosol-odyssey/vi_p1_classroom.js"></script>
 <script src="phase1-aerosol-odyssey/vi_p1_furniture.js"></script>
 <script src="phase1-aerosol-odyssey/vi_p1_students.js"></script>
+<script src="phase1-aerosol-odyssey/vi_p1_droplet.js"></script>
+<script src="phase1-aerosol-odyssey/vi_p1_hud.js"></script>
 <script src="phase1-aerosol-odyssey/vi_p1_main.js"></script>
 <script>
 // Diagnostic: confirm P1 modules loaded. Runs once after DOM ready.
 window.addEventListener('DOMContentLoaded', function() {
   var missing = [];
-  if (typeof P1_CFG          === 'undefined') missing.push('P1_CFG');
-  if (typeof P1Classroom     === 'undefined') missing.push('P1Classroom');
-  if (typeof P1Furniture     === 'undefined') missing.push('P1Furniture');
-  if (typeof P1Students      === 'undefined') missing.push('P1Students');
-  if (typeof P1AerosolOdyssey=== 'undefined') missing.push('P1AerosolOdyssey');
+  if (typeof P1_CFG           === 'undefined') missing.push('P1_CFG');
+  if (typeof P1Classroom      === 'undefined') missing.push('P1Classroom');
+  if (typeof P1Furniture      === 'undefined') missing.push('P1Furniture');
+  if (typeof P1Students       === 'undefined') missing.push('P1Students');
+  if (typeof P1Droplet        === 'undefined') missing.push('P1Droplet');
+  if (typeof P1HUD            === 'undefined') missing.push('P1HUD');
+  if (typeof P1AerosolOdyssey === 'undefined') missing.push('P1AerosolOdyssey');
   if (missing.length) {
     // showToast may not be ready yet — use a plain DOM banner
     var b = document.createElement('div');

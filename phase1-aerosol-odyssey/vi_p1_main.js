@@ -1,12 +1,8 @@
 /**
  * vi_p1_main.js — Phase 1 "Aerosol Odyssey" game entry point.
  *
- * Chunk 1 (current): Static classroom environment renders correctly.
- *   - Sets up Three.js scene, camera, calls P1Classroom / P1Furniture / P1Students
- *   - Shows a title overlay with "CLICK TO BEGIN" (click calls launch internally)
- *   - Intro camera orbits the classroom for visual testing
- *
- * Later chunks will add: player droplet, physics, HUD, audio, hazards.
+ * Chunk 1: Static classroom environment + title overlay.
+ * Chunk 2: Cough launch cinematic → player droplet + controls + HUD + win/fail.
  *
  * API (matches P2Attachment / P3Descent / P4NuclearFactory pattern):
  *   P1AerosolOdyssey.launch(carryover, onComplete, onFail)
@@ -17,87 +13,91 @@
  *   P1AerosolOdyssey.camera            — THREE.PerspectiveCamera
  */
 
-/* global THREE, P1_CFG, P1Classroom, P1Furniture, P1Students */
+/* global THREE, P1_CFG, P1Classroom, P1Furniture, P1Students, P1Droplet, P1HUD */
 
 const P1AerosolOdyssey = (() => {
 
-  // ── State ─────────────────────────────────────────────────────────────────
-  let _active    = false;
+  // ── State ──────────────────────────────────────────────────────────────────
+  let _active     = false;
   let _onComplete = null;
   let _onFail     = null;
 
   let scene  = null;
   let camera = null;
 
-  let _animFrameId = null;
-  let _lastTime    = 0;
-  let _elapsed     = 0.0;
-  let _t           = 0.0;
+  let _t       = 0.0;
+  let _elapsed = 0.0;
 
-  // Intro / title state
-  let _introShown  = false;
+  // Sub-states: 'TITLE' | 'CINEMATIC' | 'PLAYING' | 'WIN' | 'FAIL'
+  let _phase = 'TITLE';
   let _introOverlay = null;
 
-  // ── preload ───────────────────────────────────────────────────────────────
-  // Builds the classroom scene and activates rendering without showing the
-  // title overlay. Called by showBriefing(0) so the classroom renders behind
-  // the briefing panel instead of the cell world.
+  // Cinematic
+  let _cinT       = 0;          // time within cinematic
+  const _CIN_DUR  = 1.8;        // total cinematic seconds
+  let _coughCloud = null;       // THREE.Points for cough particle burst
+  let _coughVels  = null;       // Float32Array (velocity per particle, flat xyz)
+  let _coughT     = 0;          // age of cough cloud
+
+  // Gameplay
+  let _droplet = null;
+  let _hud     = null;
+  let _keys    = { left: false, right: false, up: false, down: false };
+  let _kd      = null;   // keydown handler ref
+  let _ku      = null;   // keyup  handler ref
+
+  // Result overlay
+  let _resultOverlay = null;
+
+  // ── Preload ────────────────────────────────────────────────────────────────
+  // Called by showBriefing(0) so the classroom renders behind the briefing panel.
 
   function preload() {
-    if (_active) return;   // already loaded (or launch() was called directly)
-    _active   = true;
-    _elapsed  = 0;
-    _t        = 0;
-    _lastTime = performance.now();
+    if (_active) return;
+    _active  = true;
+    _elapsed = 0;
+    _t       = 0;
     _buildScene();
-    // Title overlay shown later by launch() when the user dismisses the briefing
   }
 
-  // ── launch ────────────────────────────────────────────────────────────────
+  // ── Launch ─────────────────────────────────────────────────────────────────
 
   function launch(carryover, onComplete, onFail) {
     _onComplete = onComplete || (() => {});
-    _onFail     = onFail    || null;
+    _onFail     = onFail     || null;
 
     if (!_active) {
-      // Not preloaded — build everything now
-      _active   = true;
-      _elapsed  = 0;
-      _t        = 0;
-      _lastTime = performance.now();
+      _active  = true;
+      _elapsed = 0;
+      _t       = 0;
       _buildScene();
     }
 
     _showTitleOverlay();
   }
 
-  // ── Scene setup ───────────────────────────────────────────────────────────
+  // ── Scene setup ────────────────────────────────────────────────────────────
 
   function _buildScene() {
-    // Create our own scene — the main game loop renders it with G.renderer
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1510);
     scene.fog = new THREE.Fog(0x1a1510, 18, 32);
 
-    // Camera — PerspectiveCamera for immersive forward-flying perspective
     const aspect = window.innerWidth / window.innerHeight;
     camera = new THREE.PerspectiveCamera(P1_CFG.CAM_FOV_NORMAL, aspect, 0.01, 60);
-
-    // Intro overview camera: elevated corner angle looking across the classroom
     camera.position.set(5.5, 4.8, -9.0);
     camera.lookAt(0, 1.2, 0);
-    camera._introTarget = new THREE.Vector3(5.5, 4.8, -9.0);
 
-    // Build all classroom subsystems
     P1Classroom.init(scene);
     P1Furniture.init(scene);
     const deskPositions = P1Furniture.getDeskPositions();
     P1Students.init(scene, deskPositions);
   }
 
-  // ── Title overlay ─────────────────────────────────────────────────────────
+  // ── Title overlay ──────────────────────────────────────────────────────────
 
   function _showTitleOverlay() {
+    _phase = 'TITLE';
     _introOverlay = document.createElement('div');
     _introOverlay.id = 'p1TitleOverlay';
     _introOverlay.style.cssText = [
@@ -105,8 +105,7 @@ const P1AerosolOdyssey = (() => {
       'display:flex', 'flex-direction:column',
       'align-items:center', 'justify-content:center',
       'background:rgba(10,8,6,0.72)',
-      'z-index:500',
-      'pointer-events:auto',
+      'z-index:500', 'pointer-events:auto',
       'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
     ].join(';');
 
@@ -128,7 +127,8 @@ const P1AerosolOdyssey = (() => {
           Avoid UV light, air currents, and dry zones.<br>
           Reach the susceptible student before the droplet evaporates.
         </div>
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
+                    margin-bottom:32px">
           <kbd style="font-size:0.70rem;padding:4px 10px;
                       border:1px solid rgba(255,255,255,0.25);border-radius:4px;
                       color:#ccc;background:rgba(255,255,255,0.05)">A/D</kbd>
@@ -139,36 +139,36 @@ const P1AerosolOdyssey = (() => {
           <span style="color:#555;font-size:0.75rem;padding-top:4px">altitude</span>
         </div>
         <button id="p1StartBtn" style="
-          margin-top:36px;
           padding:12px 48px;
           font-size:0.88rem;letter-spacing:0.16em;text-transform:uppercase;
           background:rgba(200,140,60,0.18);
           border:1px solid rgba(200,140,60,0.55);
           border-radius:6px;color:#e0b870;
-          cursor:pointer;
-          transition:background 0.2s,border-color 0.2s">
+          cursor:pointer;transition:background 0.2s,border-color 0.2s">
           CLICK TO BEGIN
         </button>
       </div>
     `;
 
     document.body.appendChild(_introOverlay);
-    _introShown = true;
 
-    // Hover effect
     const btn = document.getElementById('p1StartBtn');
     if (btn) {
-      btn.addEventListener('mouseover', () => { btn.style.background = 'rgba(200,140,60,0.32)'; btn.style.borderColor = 'rgba(200,140,60,0.80)'; });
-      btn.addEventListener('mouseout',  () => { btn.style.background = 'rgba(200,140,60,0.18)'; btn.style.borderColor = 'rgba(200,140,60,0.55)'; });
+      btn.addEventListener('mouseover', () => {
+        btn.style.background  = 'rgba(200,140,60,0.32)';
+        btn.style.borderColor = 'rgba(200,140,60,0.80)';
+      });
+      btn.addEventListener('mouseout', () => {
+        btn.style.background  = 'rgba(200,140,60,0.18)';
+        btn.style.borderColor = 'rgba(200,140,60,0.55)';
+      });
       btn.addEventListener('click', _onStartClicked);
     }
   }
 
   function _onStartClicked() {
     _removeIntroOverlay();
-    // Chunk 2 will animate the cough launch sequence.
-    // For now, proceed directly to game (placeholder).
-    _beginGame();
+    _startCinematic();
   }
 
   function _removeIntroOverlay() {
@@ -176,85 +176,359 @@ const P1AerosolOdyssey = (() => {
       _introOverlay.parentNode.removeChild(_introOverlay);
     }
     _introOverlay = null;
-    _introShown   = false;
   }
 
-  // ── Placeholder game begin ────────────────────────────────────────────────
-  // (Chunk 2 will replace this with the cough launch cinematic + droplet player)
+  // ── Cough launch cinematic ─────────────────────────────────────────────────
+  // Timeline (seconds):
+  //   0.0 – 0.6  camera sweeps to just behind infected student's mouth
+  //   0.6 – 1.1  cough cloud bursts; camera holds
+  //   1.1 – 1.8  camera pulls back to behind-droplet launch position
+  //   1.8        gameplay begins
 
-  function _beginGame() {
-    // For Chunk 1 testing: show a "game in progress" note and a skip button
-    const skipOverlay = document.createElement('div');
-    skipOverlay.id = 'p1SkipOverlay';
-    skipOverlay.style.cssText = [
-      'position:fixed', 'bottom:24px', 'left:50%',
-      'transform:translateX(-50%)',
-      'background:rgba(10,8,6,0.80)',
-      'border:1px solid rgba(200,140,60,0.35)',
-      'border-radius:8px', 'padding:10px 20px',
-      'z-index:500', 'pointer-events:auto',
-      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
-      'font-size:0.72rem', 'color:#888',
-      'display:flex', 'align-items:center', 'gap:16px',
-    ].join(';');
+  function _startCinematic() {
+    _phase = 'CINEMATIC';
+    _cinT  = 0;
+    _buildCoughCloud();
+  }
 
-    skipOverlay.innerHTML = `
-      <span style="color:#aaa">Phase 1 — Classroom environment loaded (Chunk 1)</span>
-      <button id="p1SkipBtn" style="
-        padding:4px 14px;font-size:0.70rem;letter-spacing:0.10em;text-transform:uppercase;
-        background:rgba(0,220,120,0.12);border:1px solid rgba(0,220,120,0.40);
-        border-radius:4px;color:#44cc88;cursor:pointer">
-        SKIP TO PHASE 2
-      </button>
-    `;
+  function _buildCoughCloud() {
+    const mouth = P1Students.getInfectedMouth();
+    if (!mouth) return;
 
-    document.body.appendChild(skipOverlay);
+    const N = 40;
+    const positions = new Float32Array(N * 3);
+    _coughVels = new Float32Array(N * 3);
 
-    document.getElementById('p1SkipBtn').addEventListener('click', () => {
-      if (skipOverlay.parentNode) skipOverlay.parentNode.removeChild(skipOverlay);
-      destroy();
-      if (_onComplete) _onComplete({ viralViability: 100 });
+    for (let i = 0; i < N; i++) {
+      // Start at mouth, slight random offset
+      positions[i * 3    ] = mouth.x + (Math.random() - 0.5) * 0.05;
+      positions[i * 3 + 1] = mouth.y + (Math.random() - 0.5) * 0.05;
+      positions[i * 3 + 2] = mouth.z + (Math.random() - 0.5) * 0.05;
+
+      // Forward (+Z) cone with random spread
+      const spread = 0.30;
+      _coughVels[i * 3    ] = (Math.random() - 0.5) * spread;
+      _coughVels[i * 3 + 1] = (Math.random() - 0.2) * spread * 0.6;
+      _coughVels[i * 3 + 2] = 1.2 + Math.random() * 1.8;   // forward speed
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = new THREE.PointsMaterial({
+      color:       0xffffff,
+      size:        0.045,
+      transparent: true,
+      opacity:     0.70,
+      depthWrite:  false,
     });
 
-    // Move camera to behind-droplet position for the classroom view
-    camera.position.set(-1.5, 1.4, -5.5);
-    camera.lookAt(0, 1.4, 2);
+    _coughCloud = new THREE.Points(geo, mat);
+    _coughCloud.visible = false;   // shown at t=0.6
+    scene.add(_coughCloud);
+    _coughT = 0;
   }
 
-  // ── _tick (called every frame by the main game loop) ──────────────────────
+  function _updateCinematic(dt) {
+    _cinT += dt;
+
+    const mouth = P1Students.getInfectedMouth();
+    if (!mouth) { _cinT = _CIN_DUR; }  // skip if no mouth pos
+
+    if (_cinT < 0.6) {
+      // Phase A: sweep camera toward mouth
+      const frac = _cinT / 0.6;
+      const ease = 1 - Math.pow(1 - frac, 3);
+
+      // "Cinematic 1" target: looking at mouth from slightly in front & above
+      const tgtX = mouth ? mouth.x      : 0;
+      const tgtY = mouth ? mouth.y + 0.3 : 1.5;
+      const tgtZ = mouth ? mouth.z - 0.7 : -5.2;
+
+      camera.position.x += (tgtX - camera.position.x) * ease * 0.12;
+      camera.position.y += (tgtY - camera.position.y) * ease * 0.12;
+      camera.position.z += (tgtZ - camera.position.z) * ease * 0.12;
+      if (mouth) camera.lookAt(mouth.x, mouth.y, mouth.z);
+
+    } else if (_cinT < 1.1) {
+      // Phase B: cough burst visible
+      if (_coughCloud) {
+        _coughCloud.visible = true;
+        _coughT += dt;
+        const pos = _coughCloud.geometry.attributes.position.array;
+        const N = pos.length / 3;
+        for (let i = 0; i < N; i++) {
+          pos[i * 3    ] += _coughVels[i * 3    ] * dt;
+          pos[i * 3 + 1] += _coughVels[i * 3 + 1] * dt;
+          pos[i * 3 + 2] += _coughVels[i * 3 + 2] * dt;
+        }
+        _coughCloud.geometry.attributes.position.needsUpdate = true;
+        // Fade cloud
+        const age = _cinT - 0.6;
+        _coughCloud.material.opacity = Math.max(0, 0.70 - age * 1.2);
+      }
+
+    } else if (_cinT < _CIN_DUR) {
+      // Phase C: camera pulls back toward droplet launch position
+      const dropletStart = _getDropletStartPos();
+      const co = P1_CFG.CAM_OFFSET;
+      const camTgt = {
+        x: dropletStart.x + co.x,
+        y: dropletStart.y + co.y,
+        z: dropletStart.z + co.z,
+      };
+      camera.position.x += (camTgt.x - camera.position.x) * 0.10;
+      camera.position.y += (camTgt.y - camera.position.y) * 0.10;
+      camera.position.z += (camTgt.z - camera.position.z) * 0.10;
+      camera.lookAt(dropletStart.x, dropletStart.y, dropletStart.z + 0.6);
+
+      // Continue fading cloud
+      if (_coughCloud) {
+        _coughCloud.material.opacity = Math.max(0, _coughCloud.material.opacity - dt * 1.5);
+      }
+
+    } else {
+      // Cinematic complete
+      _removeCoughCloud();
+      _startDropletGame();
+    }
+  }
+
+  function _getDropletStartPos() {
+    const mouth = P1Students.getInfectedMouth();
+    if (mouth) {
+      return { x: mouth.x, y: mouth.y, z: mouth.z + 0.35 };
+    }
+    // Fallback: back-left area
+    return { x: P1_CFG.DESK_X[0], y: P1_CFG.MOUTH_Y, z: P1_CFG.Z_START + 0.3 };
+  }
+
+  function _removeCoughCloud() {
+    if (_coughCloud) {
+      if (_coughCloud.parent) _coughCloud.parent.remove(_coughCloud);
+      _coughCloud.geometry.dispose();
+      _coughCloud.material.dispose();
+      _coughCloud = null;
+    }
+    _coughVels = null;
+  }
+
+  // ── Gameplay ───────────────────────────────────────────────────────────────
+
+  function _startDropletGame() {
+    _phase = 'PLAYING';
+
+    const startPos = _getDropletStartPos();
+    P1Droplet.init(scene, camera, startPos);
+
+    P1HUD.init();
+
+    // Keyboard handlers
+    _keys = { left: false, right: false, up: false, down: false };
+    _kd = (e) => {
+      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  _keys.left  = true;
+      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') _keys.right = true;
+      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    _keys.up    = true;
+      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  _keys.down  = true;
+    };
+    _ku = (e) => {
+      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  _keys.left  = false;
+      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') _keys.right = false;
+      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    _keys.up    = false;
+      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  _keys.down  = false;
+    };
+    document.addEventListener('keydown', _kd);
+    document.addEventListener('keyup',   _ku);
+
+    P1Droplet.setKeys(_keys);
+  }
+
+  function _removeKeyHandlers() {
+    if (_kd) { document.removeEventListener('keydown', _kd); _kd = null; }
+    if (_ku) { document.removeEventListener('keyup',   _ku); _ku = null; }
+  }
+
+  // ── Win / Fail ─────────────────────────────────────────────────────────────
+
+  function _onWin() {
+    _phase = 'WIN';
+    _removeKeyHandlers();
+    const state = P1Droplet.getState();
+    _showResultOverlay(true, state);
+  }
+
+  function _onFail() {
+    _phase = 'FAIL';
+    _removeKeyHandlers();
+    const reason = P1Droplet.getFailReason();
+    _showResultOverlay(false, null, reason);
+  }
+
+  function _showResultOverlay(won, state, reason) {
+    _resultOverlay = document.createElement('div');
+    _resultOverlay.style.cssText = [
+      'position:fixed', 'inset:0',
+      'display:flex', 'flex-direction:column',
+      'align-items:center', 'justify-content:center',
+      'background:rgba(8,6,4,0.80)', 'z-index:500',
+      'pointer-events:auto',
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+    ].join(';');
+
+    if (won) {
+      const vv = state ? state.viralViability.toFixed(0) : '?';
+      const di = state ? state.dropletIntegrity.toFixed(0) : '?';
+      _resultOverlay.innerHTML = `
+        <div style="text-align:center;max-width:460px;padding:0 24px">
+          <div style="font-size:1.0rem;letter-spacing:0.20em;text-transform:uppercase;
+                      color:#44ffaa;margin-bottom:10px">INHALED</div>
+          <div style="font-size:2.0rem;font-weight:800;color:#eeddcc;
+                      margin-bottom:20px;line-height:1.1">Transmission Successful</div>
+          <div style="display:flex;gap:24px;justify-content:center;margin-bottom:24px">
+            <div style="text-align:center">
+              <div style="font-size:1.4rem;font-weight:700;color:#55bbff">${di}%</div>
+              <div style="font-size:0.65rem;color:#888;letter-spacing:0.12em;text-transform:uppercase">Droplet Integrity</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:1.4rem;font-weight:700;color:#ff7744">${vv}%</div>
+              <div style="font-size:0.65rem;color:#888;letter-spacing:0.12em;text-transform:uppercase">Viral Viability</div>
+            </div>
+          </div>
+          <button id="p1WinBtn" style="
+            padding:10px 40px;font-size:0.82rem;letter-spacing:0.14em;text-transform:uppercase;
+            background:rgba(0,200,120,0.18);border:1px solid rgba(0,200,120,0.50);
+            border-radius:6px;color:#44ffaa;cursor:pointer">
+            CONTINUE →
+          </button>
+        </div>
+      `;
+    } else {
+      _resultOverlay.innerHTML = `
+        <div style="text-align:center;max-width:460px;padding:0 24px">
+          <div style="font-size:1.0rem;letter-spacing:0.20em;text-transform:uppercase;
+                      color:#ff5544;margin-bottom:10px">FAILED</div>
+          <div style="font-size:2.0rem;font-weight:800;color:#eeddcc;
+                      margin-bottom:16px;line-height:1.1">Transmission Failed</div>
+          <div style="font-size:0.88rem;color:#aaa;margin-bottom:24px;line-height:1.5">
+            ${reason || 'The droplet did not reach its target.'}
+          </div>
+          <div style="display:flex;gap:12px;justify-content:center">
+            <button id="p1RetryBtn" style="
+              padding:10px 32px;font-size:0.82rem;letter-spacing:0.14em;text-transform:uppercase;
+              background:rgba(200,140,60,0.18);border:1px solid rgba(200,140,60,0.50);
+              border-radius:6px;color:#e0b870;cursor:pointer">
+              TRY AGAIN
+            </button>
+            <button id="p1SkipBtn2" style="
+              padding:10px 32px;font-size:0.82rem;letter-spacing:0.14em;text-transform:uppercase;
+              background:rgba(0,180,100,0.12);border:1px solid rgba(0,180,100,0.40);
+              border-radius:6px;color:#44cc88;cursor:pointer">
+              SKIP
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    document.body.appendChild(_resultOverlay);
+
+    // Button wiring
+    const winBtn = document.getElementById('p1WinBtn');
+    if (winBtn) winBtn.addEventListener('click', () => {
+      _cleanupGame();
+      const vv = state ? Math.round(state.viralViability) : 80;
+      destroy();
+      if (_onComplete) _onComplete({ viralViability: vv });
+    });
+
+    const retryBtn = document.getElementById('p1RetryBtn');
+    if (retryBtn) retryBtn.addEventListener('click', () => {
+      _cleanupGame();
+      _startCinematic();
+    });
+
+    const skipBtn = document.getElementById('p1SkipBtn2');
+    if (skipBtn) skipBtn.addEventListener('click', () => {
+      _cleanupGame();
+      destroy();
+      if (_onComplete) _onComplete({ viralViability: 80 });
+    });
+  }
+
+  function _cleanupGame() {
+    _removeResultOverlay();
+    if (_hud) { P1HUD.destroy(); _hud = null; }
+    if (_droplet) { P1Droplet.destroy(); _droplet = null; }
+    _removeKeyHandlers();
+    _removeCoughCloud();
+  }
+
+  function _removeResultOverlay() {
+    if (_resultOverlay && _resultOverlay.parentNode) {
+      _resultOverlay.parentNode.removeChild(_resultOverlay);
+    }
+    _resultOverlay = null;
+  }
+
+  // ── _tick ──────────────────────────────────────────────────────────────────
 
   function _tick(dt) {
     if (!_active) return;
     _t       += dt;
     _elapsed += dt;
 
-    // Intro camera: gentle slow orbit of the classroom
-    if (_introShown) {
-      const r  = 10.5;
-      const angle = -Math.PI * 0.55 + _t * 0.06;   // slow pan
+    // ── Sub-state updates ────────────────────────────────────────────────────
+    if (_phase === 'TITLE') {
+      // Gentle orbit during title card
+      const r = 10.5;
+      const angle = -Math.PI * 0.55 + _t * 0.06;
       camera.position.x = Math.cos(angle) * r * 0.7;
       camera.position.z = Math.sin(angle) * r - 1.0;
       camera.position.y = 4.2 + Math.sin(_t * 0.12) * 0.3;
       camera.lookAt(0, 1.2, 1.0);
+
+    } else if (_phase === 'CINEMATIC') {
+      _updateCinematic(dt);
+
+    } else if (_phase === 'PLAYING') {
+      P1Droplet.setKeys(_keys);
+      P1Droplet.tick(dt);
+
+      const pos   = P1Droplet.getPos();
+      const state = P1Droplet.getState();
+      const target = P1Students.getTargetHead();
+      let distToTarget;
+      if (target) {
+        const dz = target.z - pos.z;
+        distToTarget = Math.max(0, dz);
+      }
+      P1HUD.update({ ...state, distToTarget });
+
+      if (!P1Droplet.isAlive()) {
+        _onFail();
+      } else if (P1Droplet.hasWon()) {
+        _onWin();
+      }
     }
 
-    // Update subsystems
+    // ── Always update classroom subsystems ───────────────────────────────────
     P1Classroom.tick(dt);
     P1Students.tick(dt);
-
-    // Ceiling light LOD: keep only the 3 nearest lights active
-    // (deferred to Chunk 4 when player position is tracked)
   }
 
-  // ── destroy ───────────────────────────────────────────────────────────────
+  // ── destroy ────────────────────────────────────────────────────────────────
 
   function destroy() {
     _active = false;
+    _phase  = 'TITLE';
 
     _removeIntroOverlay();
+    _removeResultOverlay();
+    _removeCoughCloud();
+    _removeKeyHandlers();
 
-    const skip = document.getElementById('p1SkipOverlay');
-    if (skip && skip.parentNode) skip.parentNode.removeChild(skip);
+    if (_hud) { P1HUD.destroy(); _hud = null; }
+    if (_droplet) { P1Droplet.destroy(); _droplet = null; }
 
     P1Students.destroy();
     P1Furniture.destroy();
@@ -262,12 +536,10 @@ const P1AerosolOdyssey = (() => {
 
     scene  = null;
     camera = null;
-    _lastTime = 0;
-    _elapsed  = 0;
-    _t        = 0;
+    _t = _elapsed = _cinT = _coughT = 0;
   }
 
-  // ── Public object ─────────────────────────────────────────────────────────
+  // ── Public object ──────────────────────────────────────────────────────────
   return {
     preload,
     launch,
