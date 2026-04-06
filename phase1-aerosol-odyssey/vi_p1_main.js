@@ -565,8 +565,8 @@ const P1AerosolOdyssey = (() => {
   function _cleanupGame() {
     _removeResultOverlay();
     P1Audio.stopAmbient();
-    if (_hud) { P1HUD.destroy(); _hud = null; }
-    if (_droplet) { P1Droplet.destroy(); _droplet = null; }
+    P1HUD.destroy();
+    P1Droplet.destroy();
     _removeKeyHandlers();
     _removeCamHandlers();
     _removeCoughCloud();
@@ -657,8 +657,8 @@ const P1AerosolOdyssey = (() => {
     _removeKeyHandlers();
     _removeCamHandlers();
 
-    if (_hud) { P1HUD.destroy(); _hud = null; }
-    if (_droplet) { P1Droplet.destroy(); _droplet = null; }
+    P1HUD.destroy();
+    P1Droplet.destroy();
     P1Companions.destroy();
 
     P1Audio.destroy();
