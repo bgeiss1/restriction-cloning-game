@@ -340,16 +340,24 @@ const P1AerosolOdyssey = (() => {
     P1HUD.init();
     P1Audio.startAmbient();
 
-    // Reset orbit camera to start behind the droplet looking toward target
+    // Reset orbit camera — start elevated and slightly left of the room center
+    // so the whole classroom is visible.  azimuth=π puts camera behind the
+    // droplet (lower Z); elevation=0.65 rad (~37°) gives a clear overhead angle.
     _camAzimuth   = Math.PI;
-    _camElevation = 0.30;
-    _camRadius    = 2.0;
+    _camElevation = 0.65;
+    _camRadius    = 4.0;
     _camDragging  = false;
-    // Snap camera position immediately (no lerp on first frame)
-    const sp = startPos;
-    const co = P1_CFG.CAM_OFFSET;
-    camera.position.set(sp.x + co.x, sp.y + co.y, sp.z + co.z);
-    camera.lookAt(sp.x, sp.y + 0.1, sp.z);
+    // Snap camera immediately so first frame looks right
+    {
+      const p   = startPos;
+      const cEl = Math.cos(_camElevation), sEl = Math.sin(_camElevation);
+      camera.position.set(
+        p.x + Math.sin(_camAzimuth) * cEl * _camRadius,
+        p.y + sEl * _camRadius,
+        p.z + Math.cos(_camAzimuth) * cEl * _camRadius
+      );
+      camera.lookAt(p.x, p.y + 0.1, p.z);
+    }
     _addCamHandlers();
 
     // Keyboard handlers

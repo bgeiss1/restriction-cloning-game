@@ -257,6 +257,7 @@ const P1Droplet = (() => {
     _group.position.set(_pos.x, _pos.y, _pos.z);
 
     // ── Win check — must reach inhalation zone during inhale phase ───────────
+    const target = P1Students.getTargetHead();
     if (target) {
       const dx = _pos.x - target.x;
       const dy = _pos.y - target.y;
