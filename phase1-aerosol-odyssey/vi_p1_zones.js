@@ -21,7 +21,7 @@
  *   P1Zones.getAirForce(pos)  → { fx, fy }   (units/sec², scaled by proximity)
  */
 
-/* global P1_CFG */
+/* global P1_CFG, P1Students */
 
 const P1Zones = (() => {
 
@@ -162,6 +162,20 @@ const P1Zones = (() => {
     // ── Thermal convection — weak upward lift in warm ceiling layer ────────
     if (pos.y > P1_CFG.WARM_ZONE_Y_MIN) {
       fy += P1_CFG.THERMAL_CONVECT_FORCE;
+    }
+
+    // ── Student body heat — upward plume above each seated student ─────────
+    {
+      const students = P1Students.getStudentPositions();
+      const sr = P1_CFG.STUDENT_THERMAL_RADIUS;
+      for (const sp of students) {
+        const dx = pos.x - sp.x;
+        const dz = pos.z - sp.z;
+        const d2 = Math.sqrt(dx * dx + dz * dz);
+        if (d2 < sr && pos.y > P1_CFG.HEAD_Y - 0.1) {
+          fy += P1_CFG.STUDENT_THERMAL_FORCE * (1 - d2 / sr);
+        }
+      }
     }
 
     return { fx, fy };

@@ -13,7 +13,7 @@
  *   P1AerosolOdyssey.camera            — THREE.PerspectiveCamera
  */
 
-/* global THREE, P1_CFG, P1Classroom, P1Furniture, P1Students, P1Droplet, P1HUD */
+/* global THREE, P1_CFG, P1Classroom, P1Furniture, P1Students, P1Droplet, P1HUD, P1Companions */
 
 const P1AerosolOdyssey = (() => {
 
@@ -227,6 +227,9 @@ const P1AerosolOdyssey = (() => {
     _coughCloud.visible = false;   // shown at t=0.6
     scene.add(_coughCloud);
     _coughT = 0;
+
+    // Spawn companion droplets + thermal plumes
+    P1Companions.init(scene, mouth, P1Students.getStudentPositions());
   }
 
   function _updateCinematic(dt) {
@@ -461,6 +464,7 @@ const P1AerosolOdyssey = (() => {
     if (_droplet) { P1Droplet.destroy(); _droplet = null; }
     _removeKeyHandlers();
     _removeCoughCloud();
+    P1Companions.destroy();
   }
 
   function _removeResultOverlay() {
@@ -514,6 +518,11 @@ const P1AerosolOdyssey = (() => {
     // ── Always update classroom subsystems ───────────────────────────────────
     P1Classroom.tick(dt);
     P1Students.tick(dt);
+
+    // Companion droplets + thermal plumes (active from cinematic onward)
+    if (_phase === 'CINEMATIC' || _phase === 'PLAYING') {
+      P1Companions.tick(dt);
+    }
   }
 
   // ── destroy ────────────────────────────────────────────────────────────────
@@ -529,6 +538,7 @@ const P1AerosolOdyssey = (() => {
 
     if (_hud) { P1HUD.destroy(); _hud = null; }
     if (_droplet) { P1Droplet.destroy(); _droplet = null; }
+    P1Companions.destroy();
 
     P1Students.destroy();
     P1Furniture.destroy();
