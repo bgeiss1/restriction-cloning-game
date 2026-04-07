@@ -38,6 +38,11 @@ const P1Level = (() => {
   let _dryAirParticles = [];
   let _dryAirVels = [];
 
+  // Companion droplets
+  let _companionGroup = null;
+  let _companions = [];
+  let _companionTime = 0;
+
   // Dispose tracking
   const _geos = [];
   const _mats = [];
@@ -56,6 +61,7 @@ const P1Level = (() => {
     _buildCamTheRam();
     _buildBreathParticles();
     _buildHazardZones();
+    _buildCompanionDroplets();
   }
 
   function _buildLevel() {
@@ -339,12 +345,83 @@ const P1Level = (() => {
     return particles;
   }
 
+  function _buildCompanionDroplets() {
+    _companionGroup = new THREE.Group();
+    _scene.add(_companionGroup);
+    _companions = [];
+
+    P1_CFG.COMPANION_DROPLETS_2D.forEach((data, index) => {
+      const companion = { ...data };
+      companion.id = index;
+      companion.active = true;
+      companion.driftOffset = Math.random() * Math.PI * 2; // Random phase for bobbing
+      companion.driftDirection = (Math.random() - 0.5) * 2; // Random drift direction
+
+      // Create visual mesh
+      const group = new THREE.Group();
+      group.position.set(data.x, data.y, 1.8);
+
+      // Outer water droplet (slightly smaller than player)
+      const outerGeo = _geo(new THREE.SphereGeometry(data.size, 12, 10));
+      const outerMat = _mat(new THREE.MeshPhongMaterial({
+        color: 0x66bbff,
+        transparent: true,
+        opacity: 0.45,
+        shininess: 80,
+        depthWrite: false,
+      }));
+      const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+      outerMesh.scale.z = 0.25; // flatten for side view
+      group.add(outerMesh);
+
+      // Inner viral content (smaller, orange)
+      const virusSize = data.size * 0.25;
+      const virusGeo = _geo(new THREE.IcosahedronGeometry(virusSize, 1));
+      const virusMat = _mat(new THREE.MeshPhongMaterial({
+        color: 0xff7744,
+        emissive: new THREE.Color(0x441100),
+        emissiveIntensity: 0.3,
+        shininess: 15,
+      }));
+      const virusMesh = new THREE.Mesh(virusGeo, virusMat);
+      group.add(virusMesh);
+
+      // Sparkle effect based on viral content
+      const sparkleCount = Math.floor(data.viralContent * 0.3);
+      for (let i = 0; i < sparkleCount; i++) {
+        const sparkleGeo = _geo(new THREE.SphereGeometry(0.02, 4, 4));
+        const sparkleMat = _mat(new THREE.MeshBasicMaterial({
+          color: 0xffaa44,
+          transparent: true,
+          opacity: 0.6
+        }));
+        const sparkle = new THREE.Mesh(sparkleGeo, sparkleMat);
+
+        const angle = (i / sparkleCount) * Math.PI * 2;
+        const radius = data.size * 0.8;
+        sparkle.position.set(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius,
+          (Math.random() - 0.5) * 0.2
+        );
+        group.add(sparkle);
+      }
+
+      _companionGroup.add(group);
+      companion.mesh = group;
+      companion.outerMesh = outerMesh;
+      companion.virusMesh = virusMesh;
+      _companions.push(companion);
+    });
+  }
+
   // ── Breathing cycle ────────────────────────────────────────────────────────
 
   function tick(dt) {
     _updateBreathingCycle(dt);
     _updateBreathParticles(dt);
     _updateHazardZones(dt);
+    _updateCompanionDroplets(dt);
   }
 
   function _updateBreathingCycle(dt) {
@@ -455,6 +532,35 @@ const P1Level = (() => {
     });
   }
 
+  function _updateCompanionDroplets(dt) {
+    _companionTime += dt;
+
+    _companions.forEach(companion => {
+      if (!companion.active || !companion.mesh) return;
+
+      // Gentle vertical bobbing
+      const bobOffset = Math.sin(_companionTime * P1_CFG.COMPANION_BOB_FREQUENCY_2D + companion.driftOffset)
+                       * P1_CFG.COMPANION_BOB_AMPLITUDE_2D;
+      companion.mesh.position.y = companion.y + bobOffset;
+
+      // Slow horizontal drift
+      const driftOffset = Math.sin(_companionTime * 0.3 + companion.driftOffset)
+                         * companion.driftDirection * P1_CFG.COMPANION_DRIFT_SPEED_2D * dt;
+      companion.mesh.position.x += driftOffset;
+
+      // Gentle rotation
+      if (companion.virusMesh) {
+        companion.virusMesh.rotation.y += dt * 0.6;
+      }
+
+      // Subtle pulsing opacity
+      if (companion.outerMesh) {
+        const pulseFactor = 1 + Math.sin(_companionTime * 2.5 + companion.driftOffset) * 0.15;
+        companion.outerMesh.material.opacity = 0.45 * pulseFactor;
+      }
+    });
+  }
+
   // ── Collision detection ────────────────────────────────────────────────────
 
   function checkPlatformHit(worldX, worldY, radius) {
@@ -468,6 +574,39 @@ const P1Level = (() => {
       }
     }
     return false;
+  }
+
+  function checkCompanionFusion(dropletX, dropletY, dropletRadius) {
+    const fusedCompanions = [];
+
+    _companions.forEach(companion => {
+      if (!companion.active) return;
+
+      const dx = dropletX - companion.x;
+      const dy = dropletY - companion.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const fuseRange = P1_CFG.COMPANION_FUSION_RANGE_2D + dropletRadius + companion.size;
+
+      if (dist < fuseRange) {
+        // Mark for fusion
+        companion.active = false;
+
+        // Hide the mesh
+        if (companion.mesh) {
+          companion.mesh.visible = false;
+        }
+
+        fusedCompanions.push({
+          size: companion.size,
+          viralContent: companion.viralContent,
+          benefit: companion.benefit,
+          x: companion.x,
+          y: companion.y
+        });
+      }
+    });
+
+    return fusedCompanions;
   }
 
   // ── Breathing forces ───────────────────────────────────────────────────────
@@ -580,6 +719,7 @@ const P1Level = (() => {
     if (_camGroup && _camGroup.parent) _camGroup.parent.remove(_camGroup);
     if (_breathParticles && _breathParticles.parent) _breathParticles.parent.remove(_breathParticles);
     if (_hazardGroup && _hazardGroup.parent) _hazardGroup.parent.remove(_hazardGroup);
+    if (_companionGroup && _companionGroup.parent) _companionGroup.parent.remove(_companionGroup);
 
     _levelGroup = null;
     _camGroup = null;
@@ -590,6 +730,9 @@ const P1Level = (() => {
     _hazardZones = [];
     _dryAirParticles = [];
     _dryAirVels = [];
+    _companionGroup = null;
+    _companions = [];
+    _companionTime = 0;
 
     for (const g of _geos) g.dispose();
     for (const m of _mats) m.dispose();
@@ -606,7 +749,8 @@ const P1Level = (() => {
     tick,
     destroy,
     checkPlatformHit,
-    getBreathState
+    getBreathState,
+    checkCompanionFusion
   };
 
 })();

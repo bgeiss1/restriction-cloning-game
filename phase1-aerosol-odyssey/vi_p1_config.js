@@ -278,4 +278,31 @@ const P1_CFG = Object.freeze({
 
   DRY_AIR_WIND_SCALE_2D:    1.0,  // Wind force scaling for dry air zones
 
+  // ── Companion Droplets ─────────────────────────────────────────────────────
+  COMPANION_DROPLETS_2D: [
+    // Early game companions (smaller benefits)
+    { x: 12, y: 6.5, size: 0.35, viralContent: 15, benefit: 'size' },
+    { x: 28, y: 4.0, size: 0.40, viralContent: 20, benefit: 'viability' },
+    { x: 38, y: 8.5, size: 0.32, viralContent: 12, benefit: 'size' },
+
+    // Mid-game companions (moderate benefits)
+    { x: 48, y: 3.5, size: 0.45, viralContent: 25, benefit: 'both' },
+    { x: 58, y: 7.0, size: 0.38, viralContent: 18, benefit: 'viability' },
+    { x: 67, y: 5.5, size: 0.42, viralContent: 22, benefit: 'size' },
+
+    // Late game companions (larger benefits, riskier positions)
+    { x: 76, y: 9.0, size: 0.50, viralContent: 30, benefit: 'both' },
+    { x: 84, y: 2.5, size: 0.38, viralContent: 20, benefit: 'viability' },
+    { x: 91, y: 6.8, size: 0.45, viralContent: 28, benefit: 'both' },
+  ],
+
+  COMPANION_FUSION_RANGE_2D:   1.2,   // Fusion trigger distance
+  COMPANION_SIZE_BOOST_2D:     0.15,  // Radius increase per fusion
+  COMPANION_VIAB_BOOST_2D:     8.0,   // Viability increase per fusion
+  COMPANION_INTEGRITY_BOOST_2D: 12.0, // Droplet integrity increase per fusion
+
+  COMPANION_DRIFT_SPEED_2D:    0.8,   // Slow lateral drift speed
+  COMPANION_BOB_AMPLITUDE_2D:  0.12,  // Vertical bobbing amplitude
+  COMPANION_BOB_FREQUENCY_2D:  1.8,   // Bobbing cycles per second
+
 });

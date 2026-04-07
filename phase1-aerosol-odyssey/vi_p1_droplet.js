@@ -198,6 +198,36 @@ const P1Droplet = (() => {
       return;
     }
 
+    // ── Companion droplet fusion ──────────────────────────────────────────────
+    const fusedCompanions = P1Level.checkCompanionFusion(_worldX, _worldY, _radius);
+    if (fusedCompanions.length > 0) {
+      fusedCompanions.forEach(companion => {
+        // Size increase (visual radius)
+        const sizeBoost = P1_CFG.COMPANION_SIZE_BOOST_2D * companion.size;
+        _radius = Math.min(_radius + sizeBoost, P1_CFG.DROPLET_RADIUS_2D * 1.5); // cap at 1.5x max
+
+        // Viability boost
+        const viabBoost = P1_CFG.COMPANION_VIAB_BOOST_2D * companion.viralContent / 20;
+        _viralViability = Math.min(100, _viralViability + viabBoost);
+
+        // Integrity boost (beneficial)
+        const integrityBoost = P1_CFG.COMPANION_INTEGRITY_BOOST_2D * companion.size;
+        _dropletIntegrity = Math.min(100, _dropletIntegrity + integrityBoost);
+
+        // Visual flash effect for successful fusion
+        if (_outerMat) {
+          // Temporary brightness boost
+          _outerMat.emissive = new THREE.Color(0x004488);
+          setTimeout(() => {
+            if (_outerMat) _outerMat.emissive = new THREE.Color(0x000000);
+          }, 200);
+        }
+
+        // Audio feedback would be triggered here
+        // P1Audio.playFusion(); // TODO: Add in audio chunk
+      });
+    }
+
     // ── Evaporation & viral decay ─────────────────────────────────────────────
     // Apply hazard zone effects
     const hazardEffects = (breathState && breathState.hazardEffects) ||
