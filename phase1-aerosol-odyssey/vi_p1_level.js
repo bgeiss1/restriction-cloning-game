@@ -353,9 +353,9 @@ const P1Level = (() => {
 
     const mat = _mat(new THREE.PointsMaterial({
       color,
-      size: 0.08 + Math.random() * 0.04,
+      size: 0.5 + Math.random() * 0.3,
       transparent: true,
-      opacity: 0.6,
+      opacity: 0.5,
       depthWrite: false,
     }));
 
@@ -363,35 +363,40 @@ const P1Level = (() => {
   }
 
   function _createCloudShapes(zone) {
-    // Create fluffy cloud shapes using overlapping spheres
+    // Build transparent cloud puffs that fill the zone area.
+    // Each puff is a flattened sphere sized relative to the zone dimensions.
     const cloudGroup = new THREE.Group();
-    const numClouds = Math.min(6, Math.max(3, Math.floor(zone.w / 3)));
 
-    for (let i = 0; i < numClouds; i++) {
-      // Vary cloud sphere sizes for natural look
-      const radius = 0.8 + Math.random() * 1.2;
-      const cloudGeo = _geo(new THREE.SphereGeometry(radius, 16, 12));
-      const cloudMat = _mat(new THREE.MeshBasicMaterial({
-        color: 0x88ccee,
-        transparent: true,
-        opacity: 0.25 + Math.random() * 0.15, // Increased opacity to make more visible
-        depthWrite: false,
-      }));
+    // Place 3-5 cloud clusters across the zone width
+    const numClusters = Math.min(5, Math.max(3, Math.floor(zone.w / 15)));
 
-      const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+    for (let c = 0; c < numClusters; c++) {
+      // Each cluster is 2-4 overlapping spheres
+      const puffsInCluster = 2 + Math.floor(Math.random() * 3);
+      const clusterCenterX = zone.x + (c + 0.5) * (zone.w / numClusters);
+      const clusterCenterY = zone.y + zone.h * 0.5 + (Math.random() - 0.5) * zone.h * 0.3;
 
-      // Position clouds within zone bounds more carefully
-      const centerX = zone.x + zone.w * 0.5;
-      const centerY = zone.y + zone.h * 0.5;
-      const xPos = centerX + (i - numClouds/2) * (zone.w / numClouds) + (Math.random() - 0.5) * 1.0;
-      const yPos = centerY + (Math.random() - 0.5) * zone.h * 0.6;
-      const zPos = 1.2; // Fixed Z position for visibility
+      for (let p = 0; p < puffsInCluster; p++) {
+        // Puff radius proportional to zone height
+        const radius = zone.h * (0.3 + Math.random() * 0.35);
+        const puffGeo = _geo(new THREE.SphereGeometry(radius, 14, 10));
+        const puffMat = _mat(new THREE.MeshBasicMaterial({
+          color: 0xbbddff,
+          transparent: true,
+          opacity: 0.15 + Math.random() * 0.10,
+          depthWrite: false,
+        }));
 
-      cloudMesh.position.set(xPos, yPos, zPos);
-      cloudMesh.scale.x = 1.2 + Math.random() * 0.6; // Stretch horizontally
-      cloudMesh.scale.y = 0.6 + Math.random() * 0.4; // Flatten vertically
+        const puffMesh = new THREE.Mesh(puffGeo, puffMat);
 
-      cloudGroup.add(cloudMesh);
+        // Offset each puff within the cluster
+        const ox = (Math.random() - 0.5) * zone.h * 1.2;
+        const oy = (Math.random() - 0.5) * zone.h * 0.5;
+        puffMesh.position.set(clusterCenterX + ox, clusterCenterY + oy, 1.0);
+        puffMesh.scale.set(1.6 + Math.random() * 0.8, 0.6 + Math.random() * 0.3, 1);
+
+        cloudGroup.add(puffMesh);
+      }
     }
 
     return cloudGroup;
@@ -399,107 +404,117 @@ const P1Level = (() => {
 
   function _createFanWithWindLines(zone) {
     const fanGroup = new THREE.Group();
+    const direction = (zone.windX || 0) >= 0 ? 1 : -1; // blow right or left
 
-    // Create fan at left side of zone
-    const fanRadius = Math.min(1.5, zone.h * 0.4);
-    const fanX = zone.x + fanRadius;
+    // Fan sized proportionally to the zone height
+    const fanRadius = zone.h * 0.35;
+    const fanX = direction > 0
+      ? zone.x + fanRadius * 1.2          // left edge if blowing right
+      : zone.x + zone.w - fanRadius * 1.2; // right edge if blowing left
     const fanY = zone.y + zone.h * 0.5;
 
-    // Fan housing (dark gray circle)
-    const housingGeo = _geo(new THREE.CircleGeometry(fanRadius * 1.1, 16));
+    // Fan housing — dark circle
+    const housingGeo = _geo(new THREE.CircleGeometry(fanRadius * 1.15, 20));
     const housingMat = _mat(new THREE.MeshBasicMaterial({
-      color: 0x444444,
-      transparent: true,
-      opacity: 0.8,
-      depthWrite: false,
+      color: 0x3a3a3a, transparent: true, opacity: 0.85, depthWrite: false,
     }));
     const housingMesh = new THREE.Mesh(housingGeo, housingMat);
     housingMesh.position.set(fanX, fanY, 1.2);
     fanGroup.add(housingMesh);
 
-    // Fan blades (3 simple rectangles instead of lines for better visibility)
+    // Fan centre hub
+    const hubGeo = _geo(new THREE.CircleGeometry(fanRadius * 0.15, 12));
+    const hubMat = _mat(new THREE.MeshBasicMaterial({ color: 0x555555 }));
+    const hubMesh = new THREE.Mesh(hubGeo, hubMat);
+    hubMesh.position.set(fanX, fanY, 1.35);
+    fanGroup.add(hubMesh);
+
+    // Three wide blades (tapered rectangles)
     const bladeGroup = new THREE.Group();
     for (let i = 0; i < 3; i++) {
-      const bladeGeo = _geo(new THREE.PlaneGeometry(fanRadius * 1.6, fanRadius * 0.15));
+      const bladeW = fanRadius * 0.9;
+      const bladeH = fanRadius * 0.28;
+      const bladeGeo = _geo(new THREE.PlaneGeometry(bladeW, bladeH));
       const bladeMat = _mat(new THREE.MeshBasicMaterial({
-        color: 0x666666,
-        transparent: true,
-        opacity: 0.8,
+        color: 0x777777, transparent: true, opacity: 0.8, depthWrite: false,
       }));
-      const bladeMesh = new THREE.Mesh(bladeGeo, bladeMat);
-      bladeMesh.rotation.z = (i * Math.PI * 2) / 3;
-      bladeGroup.add(bladeMesh);
+      const blade = new THREE.Mesh(bladeGeo, bladeMat);
+      blade.position.x = bladeW * 0.45;           // offset so pivot is at hub
+      const wrapper = new THREE.Group();
+      wrapper.add(blade);
+      wrapper.rotation.z = (i * Math.PI * 2) / 3;
+      bladeGroup.add(wrapper);
     }
     bladeGroup.position.set(fanX, fanY, 1.3);
-    // Store animation data
-    bladeGroup.userData = { type: 'rotating_fan', speed: 8.0 };
+    bladeGroup.userData = { type: 'rotating_fan', speed: 6.0 };
     fanGroup.add(bladeGroup);
 
-    // Wind lines with curled ends
-    const windLineCount = Math.max(8, Math.floor(zone.w / 2));
-    for (let i = 0; i < windLineCount; i++) {
-      const windLine = _createCurlyWindLine(zone, fanX, fanY, i, windLineCount);
-      if (windLine) fanGroup.add(windLine);
+    // Wind streamlines with curled tails
+    const lineSpacing = zone.h / 7;
+    const numLines = Math.max(5, Math.min(9, Math.floor(zone.h / lineSpacing)));
+
+    for (let i = 0; i < numLines; i++) {
+      const yOffset = zone.y + lineSpacing * (i + 0.5);
+      _addWindStreamline(fanGroup, zone, fanX, yOffset, direction);
     }
 
     return fanGroup;
   }
 
-  function _createCurlyWindLine(zone, fanX, fanY, index, totalLines) {
-    // Create a simpler wind line with a gentle curve
-    const points = [];
-    const lineLength = zone.w - (fanX - zone.x) - 1.5;
-    const startY = fanY + (index - totalLines/2) * 0.4;
+  /**
+   * Draw one wind streamline as a chain of small white dots.
+   * The line travels straight for ~70 % of the zone width,
+   * then curls back in a tight loop at the end.
+   */
+  function _addWindStreamline(parent, zone, fanX, startY, dir) {
+    const reach   = zone.w * 0.85;      // how far the line extends
+    const curlR   = zone.h * 0.18;      // radius of the end-curl
+    const segCount = 40;                 // dots per line
+    const positions = new Float32Array(segCount * 3);
 
-    // Create a gently curved line with a curl at the end
-    for (let i = 0; i <= 30; i++) {
-      const progress = i / 30;
-      const x = fanX + lineLength * progress;
+    for (let s = 0; s < segCount; s++) {
+      const t = s / (segCount - 1);               // 0→1
+      let x, y;
 
-      // Gentle curve with stronger curve at the end
-      let y = startY;
-      if (progress > 0.7) {
-        const endProgress = (progress - 0.7) / 0.3;
-        const curlAmount = endProgress * endProgress * 2.0; // Quadratic curve
-        y = startY + Math.sin(endProgress * Math.PI * 2) * curlAmount;
+      if (t < 0.72) {
+        // ── straight portion with gentle sine wave ──
+        const frac = t / 0.72;
+        x = fanX + dir * reach * frac;
+        y = startY + Math.sin(frac * Math.PI * 2) * zone.h * 0.04;
+      } else {
+        // ── curling tail ──
+        const curlT   = (t - 0.72) / 0.28;        // 0→1 within the curl
+        const angle   = curlT * Math.PI * 1.6;     // ~280 ° arc
+        const r       = curlR * (1 - curlT * 0.5); // shrinking spiral
+        x = fanX + dir * reach * 0.72 + dir * Math.sin(angle) * r;
+        y = startY + Math.cos(angle) * r - curlR;  // curl downward
       }
 
-      const z = 1.1;
-      points.push(new THREE.Vector3(x, y, z));
+      positions[s * 3]     = x;
+      positions[s * 3 + 1] = y;
+      positions[s * 3 + 2] = 1.1;
     }
 
-    // Use particles instead of lines for better visibility
-    const windGeo = _geo(new THREE.BufferGeometry());
-    const positions = new Float32Array(points.length * 3);
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
-    for (let i = 0; i < points.length; i++) {
-      positions[i * 3] = points[i].x;
-      positions[i * 3 + 1] = points[i].y;
-      positions[i * 3 + 2] = points[i].z;
-    }
-
-    windGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-
-    const windMat = _mat(new THREE.PointsMaterial({
-      color: 0xffffff,
-      size: 0.15,
-      transparent: true,
-      opacity: 0.7,
-      depthWrite: false,
+    const mat = _mat(new THREE.PointsMaterial({
+      color: 0xffffff, size: 0.35, transparent: true,
+      opacity: 0.45 + Math.random() * 0.2, depthWrite: false,
     }));
 
-    const windLine = new THREE.Points(windGeo, windMat);
-    windLine.userData = {
+    const stream = new THREE.Points(geo, mat);
+    stream.userData = {
       type: 'wind_line',
-      originalOpacity: windMat.opacity,
-      phase: Math.random() * Math.PI * 2
+      originalOpacity: mat.opacity,
+      phase: Math.random() * Math.PI * 2,
     };
-
-    return windLine;
+    parent.add(stream);
   }
 
   function _createDryAirParticles(zone) {
-    const count = Math.floor(zone.w * zone.h * 0.8);
+    // Cap particle count for performance but ensure coverage
+    const count = Math.min(80, Math.max(30, Math.floor(zone.w * 0.5)));
     const positions = new Float32Array(count * 3);
     const velocities = new Float32Array(count * 3);
 
@@ -517,10 +532,10 @@ const P1Level = (() => {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     const mat = _mat(new THREE.PointsMaterial({
-      color: 0xccaa88,
-      size: 0.06,
+      color: 0xddccaa,
+      size: 0.3,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.35,
       depthWrite: false,
     }));
 
@@ -550,7 +565,7 @@ const P1Level = (() => {
 
     const mat = _mat(new THREE.PointsMaterial({
       color: 0xffffcc,
-      size: 0.03,
+      size: 0.25,
       transparent: true,
       opacity: 0.6,
       depthWrite: false,
@@ -591,18 +606,18 @@ const P1Level = (() => {
   }
 
   function _createUpdraftParticles(zone) {
-    const count = Math.min(18, P1_CFG.MAX_PARTICLES_PER_ZONE_2D);
+    // More particles, spread across the full zone, visible size
+    const count = Math.max(30, Math.min(60, Math.floor(zone.w * 0.5)));
     const positions = new Float32Array(count * 3);
     const velocities = new Float32Array(count * 3);
 
     for (let i = 0; i < count; i++) {
-      // Rising thermal particles
-      positions[i * 3] = zone.x + Math.random() * zone.w;
+      positions[i * 3]     = zone.x + Math.random() * zone.w;
       positions[i * 3 + 1] = zone.y + Math.random() * zone.h;
       positions[i * 3 + 2] = 1.0;
 
-      velocities[i * 3] = (Math.random() - 0.5) * 0.3;
-      velocities[i * 3 + 1] = 1.5 + Math.random() * 1.0; // Upward motion
+      velocities[i * 3]     = (Math.random() - 0.5) * 0.6;
+      velocities[i * 3 + 1] = 2.0 + Math.random() * 1.5;  // upward
       velocities[i * 3 + 2] = 0;
     }
 
@@ -611,9 +626,9 @@ const P1Level = (() => {
 
     const mat = _mat(new THREE.PointsMaterial({
       color: 0xff8844,
-      size: 0.04,
+      size: 0.4,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.55,
       depthWrite: false,
     }));
 
@@ -626,18 +641,17 @@ const P1Level = (() => {
   }
 
   function _createDowndraftParticles(zone) {
-    const count = Math.min(15, P1_CFG.MAX_PARTICLES_PER_ZONE_2D);
+    const count = Math.max(25, Math.min(50, Math.floor(zone.w * 0.4)));
     const positions = new Float32Array(count * 3);
     const velocities = new Float32Array(count * 3);
 
     for (let i = 0; i < count; i++) {
-      // Slowly descending cold air particles
-      positions[i * 3] = zone.x + Math.random() * zone.w;
+      positions[i * 3]     = zone.x + Math.random() * zone.w;
       positions[i * 3 + 1] = zone.y + Math.random() * zone.h;
       positions[i * 3 + 2] = 1.0;
 
-      velocities[i * 3] = (Math.random() - 0.5) * 0.1;
-      velocities[i * 3 + 1] = -0.5 - Math.random() * 0.5; // Downward motion
+      velocities[i * 3]     = (Math.random() - 0.5) * 0.2;
+      velocities[i * 3 + 1] = -1.0 - Math.random() * 0.8;  // downward
       velocities[i * 3 + 2] = 0;
     }
 
@@ -645,10 +659,10 @@ const P1Level = (() => {
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     const mat = _mat(new THREE.PointsMaterial({
-      color: 0xaaccff,
-      size: 0.035,
+      color: 0xaaddff,
+      size: 0.35,
       transparent: true,
-      opacity: 0.4,
+      opacity: 0.45,
       depthWrite: false,
     }));
 
