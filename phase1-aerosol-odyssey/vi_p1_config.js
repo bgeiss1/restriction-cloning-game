@@ -212,7 +212,7 @@ const P1_CFG = Object.freeze({
   CEIL_Y_2D:            24.0,   // ceiling level (y coordinate) - matches new view height
 
   DROPLET_START_Y_2D:      12.0, // droplet spawn altitude (y coordinate) - centered in new view
-  DROPLET_RADIUS_2D:       0.55,// droplet visual radius (meters)
+  DROPLET_RADIUS_2D:       0.35,// droplet visual radius (meters) - reduced for better virus-to-droplet ratio
   DROPLET_RADIUS_MIN_2D:   0.12,// minimum radius when desiccated
 
   DROPLET_GRAVITY_2D:      3.0, // base gravity (m/s²)
