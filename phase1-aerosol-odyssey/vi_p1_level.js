@@ -287,6 +287,13 @@ const P1Level = (() => {
         const fanGroup = _createFanWithWindLines(zone);
         if (fanGroup) _hazardGroup.add(fanGroup);
 
+        // Still need particles for physics effects
+        const dryParticles = _createDryAirParticles(zone);
+        if (dryParticles) {
+          _hazardGroup.add(dryParticles);
+          _dryAirParticles.push(dryParticles);
+        }
+
       } else if (zone.type === 'HUMID') {
         // Transparent cloud shapes instead of boring rectangle
         const cloudGroup = _createCloudShapes(zone);
@@ -367,16 +374,18 @@ const P1Level = (() => {
       const cloudMat = _mat(new THREE.MeshBasicMaterial({
         color: 0x88ccee,
         transparent: true,
-        opacity: 0.12 + Math.random() * 0.08,
+        opacity: 0.25 + Math.random() * 0.15, // Increased opacity to make more visible
         depthWrite: false,
       }));
 
       const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
 
-      // Position clouds randomly within zone
-      const xPos = zone.x + (i / (numClouds - 1)) * zone.w + (Math.random() - 0.5) * 1.5;
-      const yPos = zone.y + zone.h * 0.5 + (Math.random() - 0.5) * zone.h * 0.8;
-      const zPos = 1.0 + Math.random() * 0.5;
+      // Position clouds within zone bounds more carefully
+      const centerX = zone.x + zone.w * 0.5;
+      const centerY = zone.y + zone.h * 0.5;
+      const xPos = centerX + (i - numClouds/2) * (zone.w / numClouds) + (Math.random() - 0.5) * 1.0;
+      const yPos = centerY + (Math.random() - 0.5) * zone.h * 0.6;
+      const zPos = 1.2; // Fixed Z position for visibility
 
       cloudMesh.position.set(xPos, yPos, zPos);
       cloudMesh.scale.x = 1.2 + Math.random() * 0.6; // Stretch horizontally
@@ -408,21 +417,18 @@ const P1Level = (() => {
     housingMesh.position.set(fanX, fanY, 1.2);
     fanGroup.add(housingMesh);
 
-    // Fan blades (3 rotating lines)
+    // Fan blades (3 simple rectangles instead of lines for better visibility)
     const bladeGroup = new THREE.Group();
     for (let i = 0; i < 3; i++) {
-      const points = [
-        new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(fanRadius * 0.8, 0, 0)
-      ];
-      const bladeGeo = _geo(new THREE.BufferGeometry().setFromPoints(points));
-      const bladeMat = _mat(new THREE.LineBasicMaterial({
+      const bladeGeo = _geo(new THREE.PlaneGeometry(fanRadius * 1.6, fanRadius * 0.15));
+      const bladeMat = _mat(new THREE.MeshBasicMaterial({
         color: 0x666666,
-        linewidth: 3,
+        transparent: true,
+        opacity: 0.8,
       }));
-      const bladeLine = new THREE.Line(bladeGeo, bladeMat);
-      bladeLine.rotation.z = (i * Math.PI * 2) / 3;
-      bladeGroup.add(bladeLine);
+      const bladeMesh = new THREE.Mesh(bladeGeo, bladeMat);
+      bladeMesh.rotation.z = (i * Math.PI * 2) / 3;
+      bladeGroup.add(bladeMesh);
     }
     bladeGroup.position.set(fanX, fanY, 1.3);
     // Store animation data
@@ -440,44 +446,49 @@ const P1Level = (() => {
   }
 
   function _createCurlyWindLine(zone, fanX, fanY, index, totalLines) {
-    // Create a wind line that starts straight then curls back at the end
+    // Create a simpler wind line with a gentle curve
     const points = [];
     const lineLength = zone.w - (fanX - zone.x) - 1.5;
     const startY = fanY + (index - totalLines/2) * 0.4;
 
-    // Straight portion (first 70% of line)
-    const straightPortion = lineLength * 0.7;
-    for (let i = 0; i <= 20; i++) {
-      const progress = i / 20;
-      const x = fanX + straightPortion * progress;
-      const y = startY + Math.sin(progress * Math.PI * 2) * 0.1; // Gentle wave
+    // Create a gently curved line with a curl at the end
+    for (let i = 0; i <= 30; i++) {
+      const progress = i / 30;
+      const x = fanX + lineLength * progress;
+
+      // Gentle curve with stronger curve at the end
+      let y = startY;
+      if (progress > 0.7) {
+        const endProgress = (progress - 0.7) / 0.3;
+        const curlAmount = endProgress * endProgress * 2.0; // Quadratic curve
+        y = startY + Math.sin(endProgress * Math.PI * 2) * curlAmount;
+      }
+
       const z = 1.1;
       points.push(new THREE.Vector3(x, y, z));
     }
 
-    // Curly end portion (last 30% of line)
-    const curlStart = fanX + straightPortion;
-    const curlLength = lineLength * 0.3;
-    for (let i = 1; i <= 15; i++) {
-      const progress = i / 15;
-      const spiralT = progress * Math.PI * 3; // 1.5 full rotations
-      const spiralRadius = 0.5 * (1 - progress * 0.7); // Shrinking spiral
+    // Use particles instead of lines for better visibility
+    const windGeo = _geo(new THREE.BufferGeometry());
+    const positions = new Float32Array(points.length * 3);
 
-      const x = curlStart + curlLength * progress * 0.5; // Move forward slowly
-      const y = startY + Math.sin(spiralT) * spiralRadius;
-      const z = 1.1 + Math.cos(spiralT) * spiralRadius * 0.3;
-      points.push(new THREE.Vector3(x, y, z));
+    for (let i = 0; i < points.length; i++) {
+      positions[i * 3] = points[i].x;
+      positions[i * 3 + 1] = points[i].y;
+      positions[i * 3 + 2] = points[i].z;
     }
 
-    const windGeo = _geo(new THREE.BufferGeometry().setFromPoints(points));
-    const windMat = _mat(new THREE.LineBasicMaterial({
+    windGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const windMat = _mat(new THREE.PointsMaterial({
       color: 0xffffff,
+      size: 0.15,
       transparent: true,
-      opacity: 0.6 + Math.random() * 0.3,
-      linewidth: 2,
+      opacity: 0.7,
+      depthWrite: false,
     }));
 
-    const windLine = new THREE.Line(windGeo, windMat);
+    const windLine = new THREE.Points(windGeo, windMat);
     windLine.userData = {
       type: 'wind_line',
       originalOpacity: windMat.opacity,
