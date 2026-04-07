@@ -43,6 +43,14 @@ const P1Level = (() => {
   let _companions = [];
   let _companionTime = 0;
 
+  // Advanced level design (Chunk E)
+  let _movingObstacles = [];
+  let _movingObstacleGroup = null;
+  let _levelTime = 0;
+  let _combinedHazardGroup = null;
+  let _advancedCurrents = [];
+  let _currentScrollX = 0;
+
   // Dispose tracking
   const _geos = [];
   const _mats = [];
@@ -62,6 +70,9 @@ const P1Level = (() => {
     _buildBreathParticles();
     _buildHazardZones();
     _buildCompanionDroplets();
+    _buildMovingObstacles();
+    _buildCombinedHazards();
+    _buildAdvancedCurrents();
   }
 
   function _buildLevel() {
@@ -415,13 +426,164 @@ const P1Level = (() => {
     });
   }
 
+  function _buildMovingObstacles() {
+    _movingObstacleGroup = new THREE.Group();
+    _scene.add(_movingObstacleGroup);
+    _movingObstacles = [];
+
+    const obstacleMat = _mat(new THREE.MeshPhongMaterial({ color: 0x5a4838 }));
+
+    P1_CFG.MOVING_OBSTACLES_2D.forEach(data => {
+      const obstacle = { ...data };
+      obstacle.currentY = data.startY;
+
+      // Create visual mesh
+      const geo = _geo(new THREE.BoxGeometry(data.w, data.h, 0.6));
+      const mesh = new THREE.Mesh(geo, obstacleMat);
+      mesh.position.set(data.x + data.w/2, data.startY + data.h/2, 1.5);
+
+      _movingObstacleGroup.add(mesh);
+      obstacle.mesh = mesh;
+      _movingObstacles.push(obstacle);
+    });
+  }
+
+  function _buildCombinedHazards() {
+    _combinedHazardGroup = new THREE.Group();
+    _scene.add(_combinedHazardGroup);
+
+    P1_CFG.COMBINED_HAZARDS_2D.forEach(zone => {
+      const centerX = zone.x + zone.w / 2;
+      const centerY = zone.y + zone.h / 2;
+      const z = 0.6; // in front of regular hazards
+
+      // Visual overlay combining multiple hazard types
+      let overlayColor = 0xff4444; // default danger red
+      if (zone.types.includes('UV') && zone.types.includes('HEAT')) {
+        overlayColor = 0xffaa44; // orange-yellow (UV+Heat)
+      } else if (zone.types.includes('DRY_AIR') && zone.types.includes('HEAT')) {
+        overlayColor = 0xdd6644; // reddish-orange (DryAir+Heat)
+      }
+
+      const hazardGeo = _geo(new THREE.PlaneGeometry(zone.w, zone.h));
+      const hazardMat = _mat(new THREE.MeshBasicMaterial({
+        color: overlayColor,
+        transparent: true,
+        opacity: 0.25 + zone.intensity * 0.1,
+        depthWrite: false,
+      }));
+      const hazardMesh = new THREE.Mesh(hazardGeo, hazardMat);
+      hazardMesh.position.set(centerX, centerY, z);
+      _combinedHazardGroup.add(hazardMesh);
+
+      // Danger warning particles
+      const warningCount = Math.floor(zone.w * zone.h * 0.5);
+      const warningPositions = new Float32Array(warningCount * 3);
+      for (let i = 0; i < warningCount; i++) {
+        warningPositions[i*3  ] = zone.x + Math.random() * zone.w;
+        warningPositions[i*3+1] = zone.y + Math.random() * zone.h;
+        warningPositions[i*3+2] = z + 0.1 + Math.random() * 0.2;
+      }
+
+      const warningGeo = _geo(new THREE.BufferGeometry());
+      warningGeo.setAttribute('position', new THREE.BufferAttribute(warningPositions, 3));
+
+      const warningMat = _mat(new THREE.PointsMaterial({
+        color: 0xff2222,
+        size: 0.12,
+        transparent: true,
+        opacity: 0.8,
+        depthWrite: false,
+      }));
+
+      const warningParticles = new THREE.Points(warningGeo, warningMat);
+      _combinedHazardGroup.add(warningParticles);
+    });
+  }
+
+  function _buildAdvancedCurrents() {
+    _advancedCurrents = [];
+
+    P1_CFG.ADVANCED_AIR_CURRENTS_2D.forEach(current => {
+      const particles = _createAdvancedCurrentParticles(current);
+      if (particles) {
+        _hazardGroup.add(particles);
+        _advancedCurrents.push({
+          ...current,
+          particles,
+          time: Math.random() * Math.PI * 2 // random phase
+        });
+      }
+    });
+  }
+
+  function _createAdvancedCurrentParticles(current) {
+    let count = Math.floor(current.w * current.h * 0.6);
+    if (current.type === 'TURBULENCE') count *= 1.5;
+
+    const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      positions[i*3  ] = current.x + Math.random() * current.w;
+      positions[i*3+1] = current.y + Math.random() * current.h;
+      positions[i*3+2] = 1.1 + Math.random() * 0.3;
+
+      // Different velocity patterns based on type
+      if (current.type === 'VORTEX') {
+        const cx = current.x + current.w/2;
+        const cy = current.y + current.h/2;
+        const dx = positions[i*3] - cx;
+        const dy = positions[i*3+1] - cy;
+        const angle = Math.atan2(dy, dx) + Math.PI/2;
+        velocities[i*3  ] = Math.cos(angle) * current.strength;
+        velocities[i*3+1] = Math.sin(angle) * current.strength;
+      } else if (current.type === 'DOWNDRAFT') {
+        velocities[i*3  ] = (Math.random() - 0.5) * 0.3;
+        velocities[i*3+1] = -current.strength;
+      } else if (current.type === 'TURBULENCE') {
+        velocities[i*3  ] = (Math.random() - 0.5) * current.strength * 2;
+        velocities[i*3+1] = (Math.random() - 0.5) * current.strength * 2;
+      }
+      velocities[i*3+2] = 0;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    let particleColor = 0xcccccc;
+    if (current.type === 'VORTEX') particleColor = 0x88ccff;
+    else if (current.type === 'DOWNDRAFT') particleColor = 0xffcc88;
+    else if (current.type === 'TURBULENCE') particleColor = 0xff8888;
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: particleColor,
+      size: 0.08,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    }));
+
+    const particles = new THREE.Points(geo, mat);
+
+    // Store velocities for animation
+    particles.userData = { velocities, current };
+
+    return particles;
+  }
+
   // ── Breathing cycle ────────────────────────────────────────────────────────
 
-  function tick(dt) {
+  function tick(dt, scrollX) {
+    _levelTime += dt;
+    _currentScrollX = scrollX || 0;
+
     _updateBreathingCycle(dt);
     _updateBreathParticles(dt);
     _updateHazardZones(dt);
     _updateCompanionDroplets(dt);
+    _updateMovingObstacles(dt);
+    _updateAdvancedCurrents(dt);
   }
 
   function _updateBreathingCycle(dt) {
@@ -561,9 +723,85 @@ const P1Level = (() => {
     });
   }
 
+  function _updateMovingObstacles(dt) {
+    _movingObstacles.forEach(obstacle => {
+      if (!obstacle.mesh) return;
+
+      // Sinusoidal movement between startY and endY
+      const range = obstacle.endY - obstacle.startY;
+      const center = (obstacle.startY + obstacle.endY) / 2;
+      const oscillation = Math.sin(_levelTime * obstacle.speed + obstacle.phase) * (range / 2);
+      obstacle.currentY = center + oscillation;
+
+      obstacle.mesh.position.y = obstacle.currentY + obstacle.h / 2;
+    });
+  }
+
+  function _updateAdvancedCurrents(dt) {
+    _advancedCurrents.forEach(current => {
+      if (!current.particles) return;
+
+      current.time += dt;
+      const pos = current.particles.geometry.attributes.position.array;
+      const vels = current.particles.userData.velocities;
+      const N = pos.length / 3;
+
+      for (let i = 0; i < N; i++) {
+        if (current.type === 'VORTEX') {
+          // Update vortex pattern dynamically
+          const cx = current.x + current.w/2;
+          const cy = current.y + current.h/2;
+          const dx = pos[i*3] - cx;
+          const dy = pos[i*3+1] - cy;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+
+          if (dist > 0.1) {
+            const angle = Math.atan2(dy, dx) + Math.PI/2;
+            const strength = current.strength * (1 - Math.min(dist / current.radius, 1));
+            vels[i*3  ] = Math.cos(angle) * strength;
+            vels[i*3+1] = Math.sin(angle) * strength;
+          }
+        } else if (current.type === 'TURBULENCE') {
+          // Chaotic turbulence with time variation
+          const chaos = Math.sin(current.time * 3 + i * 0.1) * 0.5;
+          vels[i*3  ] += (Math.random() - 0.5) * current.strength * chaos * dt;
+          vels[i*3+1] += (Math.random() - 0.5) * current.strength * chaos * dt;
+
+          // Damping to prevent runaway velocities
+          vels[i*3  ] *= Math.pow(0.95, dt * 60);
+          vels[i*3+1] *= Math.pow(0.95, dt * 60);
+        }
+
+        // Apply velocity
+        pos[i*3  ] += vels[i*3  ] * dt;
+        pos[i*3+1] += vels[i*3+1] * dt;
+
+        // Keep particles within current bounds
+        if (pos[i*3] < current.x) {
+          pos[i*3] = current.x;
+          vels[i*3  ] = Math.abs(vels[i*3  ]);
+        } else if (pos[i*3] > current.x + current.w) {
+          pos[i*3] = current.x + current.w;
+          vels[i*3  ] = -Math.abs(vels[i*3  ]);
+        }
+
+        if (pos[i*3+1] < current.y) {
+          pos[i*3+1] = current.y;
+          vels[i*3+1] = Math.abs(vels[i*3+1]);
+        } else if (pos[i*3+1] > current.y + current.h) {
+          pos[i*3+1] = current.y + current.h;
+          vels[i*3+1] = -Math.abs(vels[i*3+1]);
+        }
+      }
+
+      current.particles.geometry.attributes.position.needsUpdate = true;
+    });
+  }
+
   // ── Collision detection ────────────────────────────────────────────────────
 
   function checkPlatformHit(worldX, worldY, radius) {
+    // Check static platforms
     for (const p of _platforms) {
       // Circle-AABB collision
       const closestX = Math.max(p.x, Math.min(p.x + p.w, worldX));
@@ -573,6 +811,17 @@ const P1Level = (() => {
         return true;
       }
     }
+
+    // Check moving obstacles
+    for (const obstacle of _movingObstacles) {
+      const closestX = Math.max(obstacle.x, Math.min(obstacle.x + obstacle.w, worldX));
+      const closestY = Math.max(obstacle.currentY, Math.min(obstacle.currentY + obstacle.h, worldY));
+      const distSq = (worldX - closestX) ** 2 + (worldY - closestY) ** 2;
+      if (distSq < radius ** 2) {
+        return true;
+      }
+    }
+
     return false;
   }
 
@@ -668,37 +917,112 @@ const P1Level = (() => {
     let zoneName = null;
     let zoneIntensity = 0;
 
-    // Check each hazard zone
-    for (const zone of _hazardZones) {
+    // Difficulty progression based on x position
+    const progressFrac = Math.min(1, dropletX / P1_CFG.WORLD_WIDTH_2D);
+    const difficultyMult = P1_CFG.DIFFICULTY_PROGRESSION_2D.hazardIntensityStart +
+      progressFrac * (P1_CFG.DIFFICULTY_PROGRESSION_2D.hazardIntensityEnd -
+                      P1_CFG.DIFFICULTY_PROGRESSION_2D.hazardIntensityStart);
+
+    const evapProgression = P1_CFG.DIFFICULTY_PROGRESSION_2D.evaporationStart +
+      progressFrac * (P1_CFG.DIFFICULTY_PROGRESSION_2D.evaporationEnd -
+                      P1_CFG.DIFFICULTY_PROGRESSION_2D.evaporationStart);
+
+    // Apply base evaporation progression
+    evapMult *= evapProgression;
+
+    // Check combined hazard zones first (higher priority)
+    for (const zone of P1_CFG.COMBINED_HAZARDS_2D) {
       if (dropletX >= zone.x && dropletX <= zone.x + zone.w &&
           dropletY >= zone.y && dropletY <= zone.y + zone.h) {
 
-        const intensity = zone.intensity || 1.0;
+        const intensity = (zone.intensity || 1.0) * difficultyMult;
 
-        if (zone.type === 'UV') {
+        if (zone.types.includes('UV') && zone.types.includes('HEAT')) {
           viabMult *= P1_CFG.ZONE_UV_VIAB_MULT_2D * intensity;
-          zoneName = 'UV EXPOSURE';
-          zoneIntensity = Math.max(zoneIntensity, intensity);
-
-        } else if (zone.type === 'HEAT') {
           evapMult *= P1_CFG.ZONE_HEAT_EVAP_MULT_2D * intensity;
-          zoneName = 'HEAT ZONE';
+          zoneName = 'EXTREME DANGER';
           zoneIntensity = Math.max(zoneIntensity, intensity);
 
-        } else if (zone.type === 'DRY_AIR') {
-          evapMult *= P1_CFG.ZONE_DRY_EVAP_MULT_2D * intensity;
-          // Add wind force
+        } else if (zone.types.includes('DRY_AIR') && zone.types.includes('HEAT')) {
+          evapMult *= P1_CFG.ZONE_DRY_EVAP_MULT_2D * P1_CFG.ZONE_HEAT_EVAP_MULT_2D * intensity;
           if (zone.windX) {
             windForce = windForce || { fx: 0, fy: 0 };
             windForce.fx += zone.windX * P1_CFG.DRY_AIR_WIND_SCALE_2D * intensity;
           }
-          zoneName = 'DRY AIR';
+          zoneName = 'SCORCHING WINDS';
           zoneIntensity = Math.max(zoneIntensity, intensity);
+        }
+      }
+    }
 
-        } else if (zone.type === 'HUMID') {
-          evapMult *= P1_CFG.ZONE_HUMID_EVAP_MULT_2D / intensity; // beneficial
-          zoneName = 'HUMID AIR';
-          zoneIntensity = Math.max(zoneIntensity, intensity);
+    // Check regular hazard zones if not in combined zone
+    if (!zoneName) {
+      for (const zone of _hazardZones) {
+        if (dropletX >= zone.x && dropletX <= zone.x + zone.w &&
+            dropletY >= zone.y && dropletY <= zone.y + zone.h) {
+
+          const intensity = (zone.intensity || 1.0) * difficultyMult;
+
+          if (zone.type === 'UV') {
+            viabMult *= P1_CFG.ZONE_UV_VIAB_MULT_2D * intensity;
+            zoneName = 'UV EXPOSURE';
+            zoneIntensity = Math.max(zoneIntensity, intensity);
+
+          } else if (zone.type === 'HEAT') {
+            evapMult *= P1_CFG.ZONE_HEAT_EVAP_MULT_2D * intensity;
+            zoneName = 'HEAT ZONE';
+            zoneIntensity = Math.max(zoneIntensity, intensity);
+
+          } else if (zone.type === 'DRY_AIR') {
+            evapMult *= P1_CFG.ZONE_DRY_EVAP_MULT_2D * intensity;
+            // Add wind force
+            if (zone.windX) {
+              windForce = windForce || { fx: 0, fy: 0 };
+              windForce.fx += zone.windX * P1_CFG.DRY_AIR_WIND_SCALE_2D * intensity;
+            }
+            zoneName = 'DRY AIR';
+            zoneIntensity = Math.max(zoneIntensity, intensity);
+
+          } else if (zone.type === 'HUMID') {
+            evapMult *= P1_CFG.ZONE_HUMID_EVAP_MULT_2D / intensity; // beneficial
+            zoneName = 'HUMID AIR';
+            zoneIntensity = Math.max(zoneIntensity, intensity);
+          }
+        }
+      }
+    }
+
+    // Check advanced air currents for additional forces
+    for (const current of _advancedCurrents) {
+      if (dropletX >= current.x && dropletX <= current.x + current.w &&
+          dropletY >= current.y && dropletY <= current.y + current.h) {
+
+        windForce = windForce || { fx: 0, fy: 0 };
+
+        if (current.type === 'VORTEX') {
+          const cx = current.x + current.w/2;
+          const cy = current.y + current.h/2;
+          const dx = dropletX - cx;
+          const dy = dropletY - cy;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+
+          if (dist < current.radius && dist > 0.1) {
+            const angle = Math.atan2(dy, dx) + Math.PI/2;
+            const strength = current.strength * (1 - dist / current.radius);
+            windForce.fx += Math.cos(angle) * strength;
+            windForce.fy += Math.sin(angle) * strength;
+          }
+          if (!zoneName) zoneName = 'VORTEX';
+
+        } else if (current.type === 'DOWNDRAFT') {
+          windForce.fy -= current.strength;
+          if (!zoneName) zoneName = 'DOWNDRAFT';
+
+        } else if (current.type === 'TURBULENCE') {
+          const chaos = Math.sin(_levelTime * 5 + dropletX * 0.1) * 0.7;
+          windForce.fx += chaos * current.strength;
+          windForce.fy += (Math.sin(_levelTime * 3 + dropletY * 0.1) - 0.5) * current.strength;
+          if (!zoneName) zoneName = 'TURBULENCE';
         }
       }
     }
@@ -708,7 +1032,8 @@ const P1Level = (() => {
       viabMult,
       windForce,
       zoneName,
-      intensity: zoneIntensity
+      intensity: zoneIntensity,
+      difficultyMult
     };
   }
 
@@ -720,6 +1045,8 @@ const P1Level = (() => {
     if (_breathParticles && _breathParticles.parent) _breathParticles.parent.remove(_breathParticles);
     if (_hazardGroup && _hazardGroup.parent) _hazardGroup.parent.remove(_hazardGroup);
     if (_companionGroup && _companionGroup.parent) _companionGroup.parent.remove(_companionGroup);
+    if (_movingObstacleGroup && _movingObstacleGroup.parent) _movingObstacleGroup.parent.remove(_movingObstacleGroup);
+    if (_combinedHazardGroup && _combinedHazardGroup.parent) _combinedHazardGroup.parent.remove(_combinedHazardGroup);
 
     _levelGroup = null;
     _camGroup = null;
@@ -733,6 +1060,12 @@ const P1Level = (() => {
     _companionGroup = null;
     _companions = [];
     _companionTime = 0;
+    _movingObstacles = [];
+    _movingObstacleGroup = null;
+    _levelTime = 0;
+    _combinedHazardGroup = null;
+    _advancedCurrents = [];
+    _currentScrollX = 0;
 
     for (const g of _geos) g.dispose();
     for (const m of _mats) m.dispose();

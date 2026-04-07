@@ -594,9 +594,19 @@ const P1AerosolOdyssey = (() => {
   }
 
   function _tick2D(dt) {
-    // Auto-scroll (ramps up speed over time)
-    _scrollSpeed = Math.min(P1_CFG.SCROLL_SPEED_MAX_2D,
-                           _scrollSpeed + P1_CFG.SCROLL_RAMP_2D * dt);
+    // Auto-scroll with dynamic speed progression
+    let targetSpeed = P1_CFG.SCROLL_SPEED_INIT_2D;
+
+    // Add speed boosts at specific points
+    for (const boostPoint of P1_CFG.DIFFICULTY_PROGRESSION_2D.speedBoostPoints) {
+      if (_scrollX >= boostPoint) {
+        targetSpeed += P1_CFG.DIFFICULTY_PROGRESSION_2D.speedBoostAmount;
+      }
+    }
+
+    // Natural ramp up to max speed
+    targetSpeed = Math.min(P1_CFG.SCROLL_SPEED_MAX_2D, targetSpeed);
+    _scrollSpeed = Math.min(targetSpeed, _scrollSpeed + P1_CFG.SCROLL_RAMP_2D * dt);
     _scrollX += _scrollSpeed * dt;
 
     // Update camera to follow scroll
@@ -604,7 +614,7 @@ const P1AerosolOdyssey = (() => {
     camera.lookAt(_scrollX + _viewW/2, P1_CFG.VIEW_HEIGHT_2D/2, 0);
 
     // Tick subsystems
-    P1Level.tick(dt);
+    P1Level.tick(dt, _scrollX);
     const breathState = P1Level.getBreathState(P1Droplet.getPos().x, P1Droplet.getPos().y);
     P1Droplet.tick(dt, _scrollX, _scrollSpeed, _viewW, _keys, breathState);
 

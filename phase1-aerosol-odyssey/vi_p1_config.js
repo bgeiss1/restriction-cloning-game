@@ -305,4 +305,57 @@ const P1_CFG = Object.freeze({
   COMPANION_BOB_AMPLITUDE_2D:  0.12,  // Vertical bobbing amplitude
   COMPANION_BOB_FREQUENCY_2D:  1.8,   // Bobbing cycles per second
 
+  // ── Advanced Level Design ──────────────────────────────────────────────────
+  MOVING_OBSTACLES_2D: [
+    // Early game - simple vertical movers
+    { id: 'early_1', x: 20, startY: 2, endY: 6, w: 3, h: 1.5, speed: 1.2, phase: 0 },
+    { id: 'early_2', x: 32, startY: 8, endY: 11, w: 4, h: 1.0, speed: 0.8, phase: Math.PI },
+
+    // Mid game - faster, more complex patterns
+    { id: 'mid_1', x: 46, startY: 1, endY: 5, w: 2.5, h: 2.0, speed: 1.8, phase: Math.PI/2 },
+    { id: 'mid_2', x: 54, startY: 7, endY: 10.5, w: 3.5, h: 1.2, speed: 1.5, phase: 0 },
+    { id: 'mid_3', x: 62, startY: 3, endY: 8, w: 3, h: 1.8, speed: 2.0, phase: Math.PI/3 },
+
+    // Late game - narrow gaps with synchronized movement
+    { id: 'late_1', x: 74, startY: 2, endY: 6, w: 2, h: 2.5, speed: 2.2, phase: 0 },
+    { id: 'late_2', x: 74, startY: 8, endY: 10, w: 2, h: 2.0, speed: 2.2, phase: Math.PI },
+    { id: 'late_3', x: 81, startY: 4, endY: 9, w: 2.5, h: 2.2, speed: 1.9, phase: Math.PI/4 },
+  ],
+
+  // Combined hazard zones (late game challenge areas)
+  COMBINED_HAZARDS_2D: [
+    // UV + Heat combination (extreme viral decay + evaporation)
+    { x: 70, y: 4, w: 8, h: 6, types: ['UV', 'HEAT'], intensity: 1.2 },
+
+    // Dry Air + Heat (extreme evaporation with wind)
+    { x: 87, y: 6, w: 6, h: 5, types: ['DRY_AIR', 'HEAT'], intensity: 1.0, windX: -2.5 },
+  ],
+
+  // Difficulty progression multipliers (applied based on x position)
+  DIFFICULTY_PROGRESSION_2D: {
+    // Hazard intensity scaling (multiplier increases with distance)
+    hazardIntensityStart: 0.7,    // 70% intensity at start
+    hazardIntensityEnd: 1.4,      // 140% intensity at end
+
+    // Evaporation base rate scaling
+    evaporationStart: 0.8,        // 80% evaporation rate early
+    evaporationEnd: 1.3,          // 130% evaporation rate late
+
+    // Scroll speed scaling points
+    speedBoostPoints: [25, 50, 75], // x positions where speed increases
+    speedBoostAmount: 0.5,          // m/s increase per boost point
+  },
+
+  // Advanced air currents (more complex patterns)
+  ADVANCED_AIR_CURRENTS_2D: [
+    // Swirling current near start
+    { x: 15, y: 6, w: 8, h: 8, type: 'VORTEX', strength: 1.5, radius: 4 },
+
+    // Downdraft near middle
+    { x: 50, y: 8, w: 6, h: 4, type: 'DOWNDRAFT', strength: 2.0 },
+
+    // Chaotic turbulence near end
+    { x: 85, y: 2, w: 10, h: 8, type: 'TURBULENCE', strength: 1.8 },
+  ],
+
 });
