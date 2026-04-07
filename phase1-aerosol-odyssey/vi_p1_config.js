@@ -406,15 +406,31 @@ const P1_CFG = Object.freeze({
     scale: 0.02,  // Very small scale since droplet perspective
     depth: -50,   // Far behind droplet
     elements: [
+      // Basic classroom structure
+      { type: 'wall', x: 0, y: 0, w: 1000, h: 60 },
+      { type: 'board', x: 0, y: 25, w: 150, h: 30 },
+
+      // Desks with items
       { type: 'desk', x: 100, y: 0, w: 80, h: 40 },
       { type: 'desk', x: 300, y: 0, w: 80, h: 40 },
       { type: 'desk', x: 500, y: 0, w: 80, h: 40 },
       { type: 'desk', x: 700, y: 0, w: 80, h: 40 },
-      { type: 'window', x: 350, y: 35, w: 60, h: 20 },
-      { type: 'window', x: 450, y: 35, w: 60, h: 20 },
-      { type: 'window', x: 720, y: 35, w: 80, h: 20 },
-      { type: 'board', x: 0, y: 25, w: 150, h: 30 },
-      { type: 'wall', x: 0, y: 0, w: 1000, h: 60 }
+
+      // Enhanced windows (aligned with UV zones)
+      { type: 'window', x: 350, y: 35, w: 80, h: 25, enhanced: true, hasFrame: true },
+      { type: 'window', x: 450, y: 35, w: 60, h: 25, enhanced: true, hasFrame: true },
+      { type: 'window', x: 720, y: 35, w: 100, h: 25, enhanced: true, hasFrame: true },
+
+      // Coffee cups (aligned with heat zones at x: 250, 600)
+      { type: 'coffee', x: 250, y: 40, w: 8, h: 6, steam: true },
+      { type: 'coffee', x: 600, y: 40, w: 8, h: 6, steam: true },
+
+      // Fans (aligned with wind gust zones at x: 200, 400, 650, 750, 900)
+      { type: 'fan', x: 200, y: 45, w: 12, h: 8, direction: 'forward' },
+      { type: 'fan', x: 400, y: 45, w: 12, h: 8, direction: 'backward' },
+      { type: 'fan', x: 650, y: 45, w: 12, h: 8, direction: 'forward' },
+      { type: 'fan', x: 750, y: 45, w: 12, h: 8, direction: 'backward' },
+      { type: 'fan', x: 900, y: 45, w: 12, h: 8, direction: 'forward' },
     ]
   },
 

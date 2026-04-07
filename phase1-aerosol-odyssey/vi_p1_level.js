@@ -258,23 +258,12 @@ const P1Level = (() => {
         uvMesh.rotation.z = Math.PI * 0.1;
         _hazardGroup.add(uvMesh);
 
+        // Create sunbeam shaft extending from distant window to zone
+        _createSunbeamShaft(zone, centerX, centerY);
+
         // Dust motes floating in sunbeam
         const dustParticles = _createSunbeamDustParticles(zone);
         if (dustParticles) _hazardGroup.add(dustParticles);
-
-        // Window frame in background (very small scale)
-        if (zone.sunbeam) {
-          const windowGeo = _geo(new THREE.PlaneGeometry(zone.w * 0.3, zone.h * 0.2));
-          const windowMat = _mat(new THREE.MeshBasicMaterial({
-            color: 0x4488aa,
-            transparent: true,
-            opacity: 0.3,
-            depthWrite: false,
-          }));
-          const windowMesh = new THREE.Mesh(windowGeo, windowMat);
-          windowMesh.position.set(centerX, centerY + zone.h * 0.8, -30);
-          _hazardGroup.add(windowMesh);
-        }
 
       } else if (zone.type === 'HEAT') {
         // Orange/red heat zone with thermal updraft visualization
@@ -441,6 +430,32 @@ const P1Level = (() => {
     _dryAirParticles.push(particles);
     _dryAirVels.push(velocities);
     return particles;
+  }
+
+  function _createSunbeamShaft(zone, centerX, centerY) {
+    // Create a shaft of light extending from distant window to the zone
+    const shaftLength = 40; // Distance from background to foreground
+    const shaftWidth = zone.w * 0.8;
+    const shaftHeight = 2;
+
+    const shaftGeo = _geo(new THREE.PlaneGeometry(shaftWidth, shaftHeight));
+    const shaftMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0xfffff0,
+      transparent: true,
+      opacity: 0.1,
+      depthWrite: false,
+    }));
+
+    // Create multiple shaft segments to show the beam extending through space
+    for (let i = 0; i < 3; i++) {
+      const shaftMesh = new THREE.Mesh(shaftGeo, shaftMat);
+      const depth = -40 + (i * 15); // From background toward foreground
+      const yOffset = (centerY + zone.h * 0.6) - (i * 3); // Slight angle downward
+
+      shaftMesh.position.set(centerX, yOffset, depth);
+      shaftMesh.rotation.z = Math.PI * 0.05; // Slight angle
+      _hazardGroup.add(shaftMesh);
+    }
   }
 
   function _createUpdraftParticles(zone) {
@@ -822,11 +837,11 @@ const P1Level = (() => {
 
       switch(zone.type) {
         case 'UV':
-          text = 'UV SUNBEAM';
+          text = 'SUNLIGHT FROM WINDOW';
           color = '#FFE135';
           break;
         case 'HEAT':
-          text = 'THERMAL UPDRAFT';
+          text = 'COFFEE CUP STEAM';
           color = '#FF6B35';
           break;
         case 'COLD':
@@ -900,7 +915,7 @@ const P1Level = (() => {
 
     // Label wind gusts
     P1_CFG.WIND_GUSTS_2D.forEach((gust, i) => {
-      const text = gust.direction === 'forward' ? 'TAILWIND BOOST' : 'HEADWIND DRAG';
+      const text = gust.direction === 'forward' ? 'FAN TAILWIND' : 'FAN HEADWIND';
       const color = gust.direction === 'forward' ? '#44FF44' : '#FF4444';
 
       _createLabel({
@@ -995,47 +1010,356 @@ const P1Level = (() => {
     const config = P1_CFG.BACKGROUND_CLASSROOM_2D;
 
     config.elements.forEach(element => {
-      let geometry, material, color;
-
-      switch(element.type) {
-        case 'desk':
-          color = 0x8B5A2B;
-          break;
-        case 'window':
-          color = 0x87CEEB;
-          break;
-        case 'board':
-          color = 0x2F4F2F;
-          break;
-        case 'wall':
-          color = 0xF5F5DC;
-          break;
-        default:
-          color = 0x888888;
-      }
-
-      geometry = _geo(new THREE.BoxGeometry(
-        element.w * config.scale,
-        element.h * config.scale,
-        0.5 * config.scale
-      ));
-
-      material = _mat(new THREE.MeshBasicMaterial({
-        color: color,
-        transparent: true,
-        opacity: 0.3,
-        depthWrite: false,
-      }));
-
-      const mesh = new THREE.Mesh(geometry, material);
-      mesh.position.set(
-        (element.x + element.w/2) * config.scale,
-        (element.y + element.h/2) * config.scale,
-        config.depth
-      );
-
-      _backgroundGroup.add(mesh);
+      _buildClassroomElement(element, config);
     });
+  }
+
+  function _buildClassroomElement(element, config) {
+    let geometry, material, color;
+
+    switch(element.type) {
+      case 'desk':
+        color = 0x8B5A2B;
+        _buildBasicElement(element, config, color, 0.3);
+        break;
+
+      case 'window':
+        if (element.enhanced) {
+          _buildEnhancedWindow(element, config);
+        } else {
+          _buildBasicElement(element, config, 0x87CEEB, 0.4);
+        }
+        break;
+
+      case 'board':
+        _buildBasicElement(element, config, 0x2F4F2F, 0.3);
+        break;
+
+      case 'wall':
+        _buildBasicElement(element, config, 0xF5F5DC, 0.2);
+        break;
+
+      case 'coffee':
+        _buildCoffeeCup(element, config);
+        break;
+
+      case 'fan':
+        _buildFan(element, config);
+        break;
+
+      default:
+        _buildBasicElement(element, config, 0x888888, 0.3);
+    }
+  }
+
+  function _buildBasicElement(element, config, color, opacity) {
+    const geometry = _geo(new THREE.BoxGeometry(
+      element.w * config.scale,
+      element.h * config.scale,
+      0.5 * config.scale
+    ));
+
+    const material = _mat(new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: opacity,
+      depthWrite: false,
+    }));
+
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(
+      (element.x + element.w/2) * config.scale,
+      (element.y + element.h/2) * config.scale,
+      config.depth
+    );
+
+    _backgroundGroup.add(mesh);
+  }
+
+  function _buildEnhancedWindow(element, config) {
+    // Window frame
+    const frameGeo = _geo(new THREE.BoxGeometry(
+      element.w * config.scale,
+      element.h * config.scale,
+      0.8 * config.scale
+    ));
+
+    const frameMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0x654321,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    }));
+
+    const frameMesh = new THREE.Mesh(frameGeo, frameMat);
+    frameMesh.position.set(
+      (element.x + element.w/2) * config.scale,
+      (element.y + element.h/2) * config.scale,
+      config.depth + 0.2
+    );
+    _backgroundGroup.add(frameMesh);
+
+    // Glass panes
+    const glassGeo = _geo(new THREE.PlaneGeometry(
+      element.w * config.scale * 0.8,
+      element.h * config.scale * 0.8
+    ));
+
+    const glassMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0x87CEEB,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false,
+    }));
+
+    const glassMesh = new THREE.Mesh(glassGeo, glassMat);
+    glassMesh.position.set(
+      (element.x + element.w/2) * config.scale,
+      (element.y + element.h/2) * config.scale,
+      config.depth + 0.3
+    );
+    _backgroundGroup.add(glassMesh);
+
+    // Outdoor scene hint (distant trees/sky)
+    const outdoorGeo = _geo(new THREE.PlaneGeometry(
+      element.w * config.scale * 0.7,
+      element.h * config.scale * 0.7
+    ));
+
+    const outdoorMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0x90EE90,
+      transparent: true,
+      opacity: 0.2,
+      depthWrite: false,
+    }));
+
+    const outdoorMesh = new THREE.Mesh(outdoorGeo, outdoorMat);
+    outdoorMesh.position.set(
+      (element.x + element.w/2) * config.scale,
+      (element.y + element.h/2) * config.scale,
+      config.depth - 0.5
+    );
+    _backgroundGroup.add(outdoorMesh);
+  }
+
+  function _buildCoffeeCup(element, config) {
+    // Coffee cup body
+    const cupGeo = _geo(new THREE.CylinderGeometry(
+      element.w * config.scale * 0.3,
+      element.w * config.scale * 0.4,
+      element.h * config.scale,
+      8
+    ));
+
+    const cupMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0x8B4513,
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
+    }));
+
+    const cupMesh = new THREE.Mesh(cupGeo, cupMat);
+    cupMesh.position.set(
+      (element.x + element.w/2) * config.scale,
+      (element.y + element.h/2) * config.scale,
+      config.depth
+    );
+    _backgroundGroup.add(cupMesh);
+
+    // Coffee surface
+    const coffeeGeo = _geo(new THREE.CircleGeometry(element.w * config.scale * 0.25, 8));
+    const coffeeMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0x3E2723,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false,
+    }));
+
+    const coffeeMesh = new THREE.Mesh(coffeeGeo, coffeeMat);
+    coffeeMesh.position.set(
+      (element.x + element.w/2) * config.scale,
+      (element.y + element.h * 0.8) * config.scale,
+      config.depth + 0.1
+    );
+    coffeeMesh.rotation.x = -Math.PI / 2;
+    _backgroundGroup.add(coffeeMesh);
+
+    // Steam particles
+    if (element.steam) {
+      _createSteamParticles(element, config);
+    }
+  }
+
+  function _buildFan(element, config) {
+    // Fan housing
+    const housingGeo = _geo(new THREE.BoxGeometry(
+      element.w * config.scale,
+      element.h * config.scale * 0.3,
+      element.h * config.scale
+    ));
+
+    const housingMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0x708090,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    }));
+
+    const housingMesh = new THREE.Mesh(housingGeo, housingMat);
+    housingMesh.position.set(
+      (element.x + element.w/2) * config.scale,
+      (element.y + element.h/2) * config.scale,
+      config.depth
+    );
+    _backgroundGroup.add(housingMesh);
+
+    // Fan blades (simplified as rotating disk)
+    const bladeGeo = _geo(new THREE.CircleGeometry(element.w * config.scale * 0.4, 6));
+    const bladeMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0xC0C0C0,
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+    }));
+
+    const bladeMesh = new THREE.Mesh(bladeGeo, bladeMat);
+    bladeMesh.position.set(
+      (element.x + element.w/2) * config.scale,
+      (element.y + element.h/2) * config.scale,
+      config.depth + 0.1
+    );
+
+    // Store blade mesh for rotation animation
+    bladeMesh.userData = {
+      type: 'fanBlade',
+      direction: element.direction,
+      rotationSpeed: element.direction === 'forward' ? 2.0 : -2.0
+    };
+
+    _backgroundGroup.add(bladeMesh);
+
+    // Wind stream particles
+    _createWindStreamFromFan(element, config);
+  }
+
+  function _createSteamParticles(element, config) {
+    const count = 8;
+    const positions = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = (element.x + element.w/2 + (Math.random() - 0.5) * element.w * 0.5) * config.scale;
+      positions[i * 3 + 1] = (element.y + element.h + Math.random() * 10) * config.scale;
+      positions[i * 3 + 2] = config.depth + 0.5;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: 0xF5F5F5,
+      size: 0.1,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false,
+    }));
+
+    const steam = new THREE.Points(geo, mat);
+    steam.userData = { type: 'steam', element };
+    _backgroundGroup.add(steam);
+
+    // Store for animation
+    _dryAirParticles.push(steam);
+    _dryAirVels.push(new Float32Array(count * 3));
+  }
+
+  function _createWindStreamFromFan(element, config) {
+    const count = 15;
+    const positions = new Float32Array(count * 3);
+
+    // Create wind stream extending from fan
+    const streamLength = 200; // extend wind effect
+    const startX = element.x + (element.direction === 'forward' ? element.w : 0);
+
+    for (let i = 0; i < count; i++) {
+      const progress = i / count;
+      positions[i * 3] = (startX + progress * streamLength * (element.direction === 'forward' ? 1 : -1)) * config.scale;
+      positions[i * 3 + 1] = (element.y + element.h/2 + (Math.random() - 0.5) * element.h) * config.scale;
+      positions[i * 3 + 2] = config.depth + 1;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: element.direction === 'forward' ? 0x88ff88 : 0xff8888,
+      size: 0.05,
+      transparent: true,
+      opacity: 0.3,
+      depthWrite: false,
+    }));
+
+    const windStream = new THREE.Points(geo, mat);
+    windStream.userData = { type: 'fanWind', element, direction: element.direction };
+    _backgroundGroup.add(windStream);
+
+    // Store for animation
+    _dryAirParticles.push(windStream);
+    _dryAirVels.push(new Float32Array(count * 3));
+  }
+
+  function _updateBackgroundElements(dt) {
+    if (!_backgroundGroup) return;
+
+    // Update fan blade rotations and background particles
+    _backgroundGroup.traverse(child => {
+      if (child.userData) {
+        if (child.userData.type === 'fanBlade') {
+          child.rotation.z += child.userData.rotationSpeed * dt;
+        }
+      }
+    });
+
+    // Update steam and wind stream particles
+    _dryAirParticles.forEach((particles, index) => {
+      if (!particles || !particles.userData) return;
+
+      const userData = particles.userData;
+      const positions = particles.geometry.attributes.position.array;
+
+      if (userData.type === 'steam') {
+        // Animate steam rising upward with some drift
+        for (let i = 0; i < positions.length / 3; i++) {
+          positions[i * 3 + 1] += dt * 0.5; // Rise upward
+          positions[i * 3] += (Math.sin(_levelTime + i) * 0.1) * dt; // Gentle drift
+
+          // Reset steam particle if it gets too high
+          if (positions[i * 3 + 1] > (userData.element.y + 25) * P1_CFG.BACKGROUND_CLASSROOM_2D.scale) {
+            positions[i * 3 + 1] = (userData.element.y + userData.element.h) * P1_CFG.BACKGROUND_CLASSROOM_2D.scale;
+          }
+        }
+        particles.geometry.attributes.position.needsUpdate = true;
+
+      } else if (userData.type === 'fanWind') {
+        // Animate wind stream particles flowing from fan
+        for (let i = 0; i < positions.length / 3; i++) {
+          const windSpeed = userData.direction === 'forward' ? 2.0 : -2.0;
+          positions[i * 3] += windSpeed * dt * P1_CFG.BACKGROUND_CLASSROOM_2D.scale;
+          positions[i * 3 + 1] += (Math.sin(_levelTime * 2 + i) * 0.2) * dt * P1_CFG.BACKGROUND_CLASSROOM_2D.scale;
+
+          // Reset wind particle if it gets too far
+          const maxDistance = 200 * P1_CFG.BACKGROUND_CLASSROOM_2D.scale;
+          const startX = (userData.element.x + (userData.direction === 'forward' ? userData.element.w : 0)) * P1_CFG.BACKGROUND_CLASSROOM_2D.scale;
+
+          if (userData.direction === 'forward' && positions[i * 3] > startX + maxDistance ||
+              userData.direction === 'backward' && positions[i * 3] < startX - maxDistance) {
+            positions[i * 3] = startX;
+            positions[i * 3 + 1] = (userData.element.y + userData.element.h/2) * P1_CFG.BACKGROUND_CLASSROOM_2D.scale;
+          }
+        }
+        particles.geometry.attributes.position.needsUpdate = true;
+      }
+    });
+  }
   }
 
   // ── Wind Gust System ───────────────────────────────────────────────────────
@@ -1165,6 +1489,7 @@ const P1Level = (() => {
     _updateCompanionDroplets(dt);
     _updateMovingObstacles(dt);
     _updateAdvancedCurrents(dt);
+    _updateBackgroundElements(dt);
     _updatePolishEffects(dt, dropletPos);
   }
 
