@@ -296,6 +296,31 @@ const P1Students = (() => {
     }
   }
 
+  /**
+   * setSneezePose(t) — drive infected student's sneeze animation from main.js.
+   *
+   * t = 0.0 : neutral / hunched (initial pose)
+   * t = 0.5 : head fully tipped back (inhale before sneeze)
+   * t = 1.0 : head snapped forward (sneeze expulsion)
+   *
+   * Called each frame during the cinematic; main.js controls t.
+   */
+  function setSneezePose(t) {
+    if (!_infectedStudent) return;
+    const head = _infectedStudent.head;
+    if (t <= 0) {
+      head.rotation.x = 0.18;           // baseline hunch
+    } else if (t < 0.5) {
+      // Tip back: 0.18 → -0.50
+      const f = t / 0.5;
+      head.rotation.x = 0.18 + f * (-0.50 - 0.18);
+    } else {
+      // Snap forward into sneeze: -0.50 → +0.62
+      const f = (t - 0.5) / 0.5;
+      head.rotation.x = -0.50 + f * (0.62 + 0.50);
+    }
+  }
+
   function destroy() {
     // Remove scene lights added by students
     for (const s of _students) {
@@ -347,6 +372,6 @@ const P1Students = (() => {
     return _students.map(s => s.pos);
   }
 
-  return { init, tick, destroy, getTargetHead, getInfectedMouth, getMaskedStudent, getStudentPositions };
+  return { init, tick, destroy, getTargetHead, getInfectedMouth, getMaskedStudent, getStudentPositions, setSneezePose };
 
 })();
