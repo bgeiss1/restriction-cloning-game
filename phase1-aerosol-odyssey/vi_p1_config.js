@@ -253,7 +253,7 @@ const P1_CFG = Object.freeze({
   // ── Hazard Zones ───────────────────────────────────────────────────────────
   HAZARD_ZONES_2D: [
     // UV Light zones (increase viral decay significantly)
-    { type: 'UV', x: 15, y: 8, w: 8, h: 4, intensity: 1.0 },
+    { type: 'UV', x: 35, y: 8, w: 8, h: 4, intensity: 1.0 },
     { type: 'UV', x: 45, y: 2, w: 6, h: 5, intensity: 0.8 },
     { type: 'UV', x: 72, y: 6, w: 10, h: 6, intensity: 1.2 },
 
@@ -266,12 +266,13 @@ const P1_CFG = Object.freeze({
     { type: 'DRY_AIR', x: 85, y: 2, w: 8, h: 8, intensity: 0.8, windX: 1.5 },
 
     // Humidity zones (BENEFICIAL - decrease evaporation)
-    { type: 'HUMID', x: 5, y: 4, w: 8, h: 6, intensity: 1.0 },
+    { type: 'HUMID', x: 2, y: 4, w: 6, h: 6, intensity: 0.8 },
+    { type: 'HUMID', x: 15, y: 6, w: 8, h: 4, intensity: 1.0 },
     { type: 'HUMID', x: 52, y: 1, w: 6, h: 4, intensity: 0.6 },
   ],
 
   // Zone effect multipliers
-  ZONE_UV_VIAB_MULT_2D:     8.0,  // UV increases viral decay by 8x
+  ZONE_UV_VIAB_MULT_2D:     5.0,  // UV increases viral decay by 5x
   ZONE_HEAT_EVAP_MULT_2D:   3.0,  // Heat increases evaporation by 3x
   ZONE_DRY_EVAP_MULT_2D:    2.5,  // Dry air increases evaporation by 2.5x
   ZONE_HUMID_EVAP_MULT_2D:  0.3,  // Humidity reduces evaporation to 30%
@@ -385,7 +386,7 @@ const P1_CFG = Object.freeze({
 
   // Balance refinements (Chunk F adjustments)
   EVAP_RATE_BALANCED_2D: 0.006,      // Reduced from 0.008 (was too harsh)
-  VIAB_DECAY_BALANCED_2D: 0.3,       // Reduced from 0.4 (better progression)
+  VIAB_DECAY_BALANCED_2D: 0.025,     // ~2.5%/sec - survives full level naturally
   COMPANION_SIZE_BALANCED_2D: 0.12,  // Reduced from 0.15 (less OP size growth)
   COMPANION_VIAB_BALANCED_2D: 6.0,   // Reduced from 8.0 (balanced healing)
 
