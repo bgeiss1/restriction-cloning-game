@@ -73,8 +73,8 @@ const P1Droplet = (() => {
     _outerMesh.scale.z = 0.35;  // flatten for 2D side view
     _group.add(_outerMesh);
 
-    // Inner virus (icosahedron)
-    const virusGeo = _geo(new THREE.IcosahedronGeometry(0.32, 1));
+    // Inner virus (smooth sphere)
+    const virusGeo = _geo(new THREE.SphereGeometry(0.32, 16, 12));
     const virusMat = _mat(new THREE.MeshPhongMaterial({
       color: 0xff6644,
       emissive: new THREE.Color(0x441100),
@@ -88,7 +88,7 @@ const P1Droplet = (() => {
     const dirs = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]];
     dirs.forEach(([dx, dy, dz]) => {
       const trimerGroup = new THREE.Group();
-      const trimerPos = new THREE.Vector3(dx, dy, dz).multiplyScalar(0.40);
+      const trimerPos = new THREE.Vector3(dx, dy, dz).multiplyScalar(0.32); // Contact virus surface
       trimerGroup.position.copy(trimerPos);
 
       // Align trimer to point outward from virus center

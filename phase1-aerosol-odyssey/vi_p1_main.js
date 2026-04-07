@@ -313,8 +313,8 @@ const P1AerosolOdyssey = (() => {
     });
     group.add(new THREE.Mesh(outerGeo, outerMat));
 
-    // Inner virus — icosahedron
-    const virusGeo = new THREE.IcosahedronGeometry(0.056, 1);
+    // Inner virus — smooth sphere
+    const virusGeo = new THREE.SphereGeometry(0.056, 12, 8);
     const virusMat = new THREE.MeshPhongMaterial({
       color:             0xff6644,
       emissive:          new THREE.Color(0x441100),
@@ -327,7 +327,7 @@ const P1AerosolOdyssey = (() => {
     const dirs = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
     dirs.forEach(([dx, dy, dz]) => {
       const trimerGroup = new THREE.Group();
-      const trimerPos = new THREE.Vector3(dx, dy, dz).multiplyScalar(0.068);
+      const trimerPos = new THREE.Vector3(dx, dy, dz).multiplyScalar(0.056); // Contact virus surface
       trimerGroup.position.copy(trimerPos);
 
       // Align trimer to point outward from virus center
