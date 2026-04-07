@@ -283,25 +283,14 @@ const P1Level = (() => {
         if (updraftParticles) _hazardGroup.add(updraftParticles);
 
       } else if (zone.type === 'DRY_AIR') {
-        // Moving air particles
-        const dryParticles = _createDryAirParticles(zone);
-        if (dryParticles) {
-          _hazardGroup.add(dryParticles);
-          _dryAirParticles.push(dryParticles);
-        }
+        // Fan blowing white wind lines with curled ends
+        const fanGroup = _createFanWithWindLines(zone);
+        if (fanGroup) _hazardGroup.add(fanGroup);
 
       } else if (zone.type === 'HUMID') {
-        // Beneficial misty blue zone
-        const humidGeo = _geo(new THREE.PlaneGeometry(zone.w, zone.h));
-        const humidMat = _mat(new THREE.MeshBasicMaterial({
-          color: 0x4488cc,
-          transparent: true,
-          opacity: 0.08 + zone.intensity * 0.06,
-          depthWrite: false,
-        }));
-        const humidMesh = new THREE.Mesh(humidGeo, humidMat);
-        humidMesh.position.set(centerX, centerY, z);
-        _hazardGroup.add(humidMesh);
+        // Transparent cloud shapes instead of boring rectangle
+        const cloudGroup = _createCloudShapes(zone);
+        if (cloudGroup) _hazardGroup.add(cloudGroup);
 
         // Gentle mist particles
         const mistParticles = _createZoneEdgeParticles(zone, 0x88bbff, 8);
@@ -364,6 +353,138 @@ const P1Level = (() => {
     }));
 
     return new THREE.Points(geo, mat);
+  }
+
+  function _createCloudShapes(zone) {
+    // Create fluffy cloud shapes using overlapping spheres
+    const cloudGroup = new THREE.Group();
+    const numClouds = Math.min(6, Math.max(3, Math.floor(zone.w / 3)));
+
+    for (let i = 0; i < numClouds; i++) {
+      // Vary cloud sphere sizes for natural look
+      const radius = 0.8 + Math.random() * 1.2;
+      const cloudGeo = _geo(new THREE.SphereGeometry(radius, 16, 12));
+      const cloudMat = _mat(new THREE.MeshBasicMaterial({
+        color: 0x88ccee,
+        transparent: true,
+        opacity: 0.12 + Math.random() * 0.08,
+        depthWrite: false,
+      }));
+
+      const cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+
+      // Position clouds randomly within zone
+      const xPos = zone.x + (i / (numClouds - 1)) * zone.w + (Math.random() - 0.5) * 1.5;
+      const yPos = zone.y + zone.h * 0.5 + (Math.random() - 0.5) * zone.h * 0.8;
+      const zPos = 1.0 + Math.random() * 0.5;
+
+      cloudMesh.position.set(xPos, yPos, zPos);
+      cloudMesh.scale.x = 1.2 + Math.random() * 0.6; // Stretch horizontally
+      cloudMesh.scale.y = 0.6 + Math.random() * 0.4; // Flatten vertically
+
+      cloudGroup.add(cloudMesh);
+    }
+
+    return cloudGroup;
+  }
+
+  function _createFanWithWindLines(zone) {
+    const fanGroup = new THREE.Group();
+
+    // Create fan at left side of zone
+    const fanRadius = Math.min(1.5, zone.h * 0.4);
+    const fanX = zone.x + fanRadius;
+    const fanY = zone.y + zone.h * 0.5;
+
+    // Fan housing (dark gray circle)
+    const housingGeo = _geo(new THREE.CircleGeometry(fanRadius * 1.1, 16));
+    const housingMat = _mat(new THREE.MeshBasicMaterial({
+      color: 0x444444,
+      transparent: true,
+      opacity: 0.8,
+      depthWrite: false,
+    }));
+    const housingMesh = new THREE.Mesh(housingGeo, housingMat);
+    housingMesh.position.set(fanX, fanY, 1.2);
+    fanGroup.add(housingMesh);
+
+    // Fan blades (3 rotating lines)
+    const bladeGroup = new THREE.Group();
+    for (let i = 0; i < 3; i++) {
+      const points = [
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(fanRadius * 0.8, 0, 0)
+      ];
+      const bladeGeo = _geo(new THREE.BufferGeometry().setFromPoints(points));
+      const bladeMat = _mat(new THREE.LineBasicMaterial({
+        color: 0x666666,
+        linewidth: 3,
+      }));
+      const bladeLine = new THREE.Line(bladeGeo, bladeMat);
+      bladeLine.rotation.z = (i * Math.PI * 2) / 3;
+      bladeGroup.add(bladeLine);
+    }
+    bladeGroup.position.set(fanX, fanY, 1.3);
+    // Store animation data
+    bladeGroup.userData = { type: 'rotating_fan', speed: 8.0 };
+    fanGroup.add(bladeGroup);
+
+    // Wind lines with curled ends
+    const windLineCount = Math.max(8, Math.floor(zone.w / 2));
+    for (let i = 0; i < windLineCount; i++) {
+      const windLine = _createCurlyWindLine(zone, fanX, fanY, i, windLineCount);
+      if (windLine) fanGroup.add(windLine);
+    }
+
+    return fanGroup;
+  }
+
+  function _createCurlyWindLine(zone, fanX, fanY, index, totalLines) {
+    // Create a wind line that starts straight then curls back at the end
+    const points = [];
+    const lineLength = zone.w - (fanX - zone.x) - 1.5;
+    const startY = fanY + (index - totalLines/2) * 0.4;
+
+    // Straight portion (first 70% of line)
+    const straightPortion = lineLength * 0.7;
+    for (let i = 0; i <= 20; i++) {
+      const progress = i / 20;
+      const x = fanX + straightPortion * progress;
+      const y = startY + Math.sin(progress * Math.PI * 2) * 0.1; // Gentle wave
+      const z = 1.1;
+      points.push(new THREE.Vector3(x, y, z));
+    }
+
+    // Curly end portion (last 30% of line)
+    const curlStart = fanX + straightPortion;
+    const curlLength = lineLength * 0.3;
+    for (let i = 1; i <= 15; i++) {
+      const progress = i / 15;
+      const spiralT = progress * Math.PI * 3; // 1.5 full rotations
+      const spiralRadius = 0.5 * (1 - progress * 0.7); // Shrinking spiral
+
+      const x = curlStart + curlLength * progress * 0.5; // Move forward slowly
+      const y = startY + Math.sin(spiralT) * spiralRadius;
+      const z = 1.1 + Math.cos(spiralT) * spiralRadius * 0.3;
+      points.push(new THREE.Vector3(x, y, z));
+    }
+
+    const windGeo = _geo(new THREE.BufferGeometry().setFromPoints(points));
+    const windMat = _mat(new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.6 + Math.random() * 0.3,
+      linewidth: 2,
+    }));
+
+    const windLine = new THREE.Line(windGeo, windMat);
+    windLine.userData = {
+      type: 'wind_line',
+      originalOpacity: windMat.opacity,
+      phase: Math.random() * Math.PI * 2
+    };
+
+    return windLine;
   }
 
   function _createDryAirParticles(zone) {
@@ -1318,6 +1439,22 @@ const P1Level = (() => {
         }
       }
     });
+
+    // Update hazard zone animations (fans and wind lines)
+    if (_hazardGroup) {
+      _hazardGroup.traverse(child => {
+        if (child.userData) {
+          if (child.userData.type === 'rotating_fan') {
+            // Rotate fan blades
+            child.rotation.z += child.userData.speed * dt;
+          } else if (child.userData.type === 'wind_line') {
+            // Animate wind line opacity with pulsing effect
+            const pulse = Math.sin(_levelTime * 3.0 + child.userData.phase) * 0.2 + 0.8;
+            child.material.opacity = child.userData.originalOpacity * pulse;
+          }
+        }
+      });
+    }
 
     // Update steam and wind stream particles
     _dryAirParticles.forEach((particles, index) => {
