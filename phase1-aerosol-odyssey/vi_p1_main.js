@@ -74,6 +74,10 @@ const P1AerosolOdyssey = (() => {
   let _kDown       = false;
   let _kUp         = false;
 
+  // Polish effects (Chunk F)
+  let _lastSpeedBoostX = -1;
+  let _screenEffectTime = 0;
+
   // ── Preload ────────────────────────────────────────────────────────────────
   // Called by viral_infiltration.html showBriefing(0) so the classroom renders
   // behind the briefing panel while the user reads the intro text.
@@ -594,12 +598,23 @@ const P1AerosolOdyssey = (() => {
   }
 
   function _tick2D(dt) {
-    // Auto-scroll with dynamic speed progression
+    // Auto-scroll with dynamic speed progression (enhanced in Chunk F)
     let targetSpeed = P1_CFG.SCROLL_SPEED_INIT_2D;
 
-    // Add speed boosts at specific points
+    // Add speed boosts at specific points with enhanced feedback
     for (const boostPoint of P1_CFG.DIFFICULTY_PROGRESSION_2D.speedBoostPoints) {
-      if (_scrollX >= boostPoint) {
+      if (_scrollX >= boostPoint && _lastSpeedBoostX < boostPoint) {
+        targetSpeed += P1_CFG.DIFFICULTY_PROGRESSION_2D.speedBoostAmount;
+        _lastSpeedBoostX = boostPoint;
+
+        // Enhanced speed boost feedback (Chunk F)
+        _screenEffectTime = P1_CFG.SPEED_BOOST_EFFECT_2D;
+
+        // Audio feedback for speed boost
+        if (typeof P1Audio !== 'undefined' && P1Audio.playSpeedBoost) {
+          P1Audio.playSpeedBoost(0.6);
+        }
+      } else if (_scrollX >= boostPoint) {
         targetSpeed += P1_CFG.DIFFICULTY_PROGRESSION_2D.speedBoostAmount;
       }
     }
@@ -609,28 +624,48 @@ const P1AerosolOdyssey = (() => {
     _scrollSpeed = Math.min(targetSpeed, _scrollSpeed + P1_CFG.SCROLL_RAMP_2D * dt);
     _scrollX += _scrollSpeed * dt;
 
+    // Update screen effects
+    if (_screenEffectTime > 0) {
+      _screenEffectTime -= dt;
+
+      // Create subtle screen flash effect for speed boosts
+      if (_screenEffectTime > P1_CFG.SPEED_BOOST_EFFECT_2D * 0.8) {
+        const intensity = (_screenEffectTime - P1_CFG.SPEED_BOOST_EFFECT_2D * 0.8) / (P1_CFG.SPEED_BOOST_EFFECT_2D * 0.2);
+        // Could add scene.background color flash here if desired
+      }
+    }
+
     // Update camera to follow scroll
     camera.position.set(_scrollX + _viewW/2, P1_CFG.VIEW_HEIGHT_2D/2, 10);
     camera.lookAt(_scrollX + _viewW/2, P1_CFG.VIEW_HEIGHT_2D/2, 0);
 
     // Tick subsystems
-    P1Level.tick(dt, _scrollX);
-    const breathState = P1Level.getBreathState(P1Droplet.getPos().x, P1Droplet.getPos().y);
+    const dropletPos = P1Droplet.getPos();
+    P1Level.tick(dt, _scrollX, dropletPos);
+    const breathState = P1Level.getBreathState(dropletPos.x, dropletPos.y);
     P1Droplet.tick(dt, _scrollX, _scrollSpeed, _viewW, _keys, breathState);
 
-    // Update HUD
+    // Update HUD with enhanced feedback (Chunk F polish)
     const dropletState = P1Droplet.getState();
-    const dropletPos = P1Droplet.getPos();
     const distToTarget = Math.sqrt(
       (dropletPos.x - P1_CFG.MOUTH_WORLD_X_2D) ** 2 +
       (dropletPos.y - P1_CFG.MOUTH_WORLD_Y_2D) ** 2
     );
 
+    // Enhanced zone name with difficulty indicators
+    let enhancedZoneName = breathState.zoneName || 'AIRBORNE';
+    if (breathState.hazardEffects && breathState.hazardEffects.difficultyMult > 1.2) {
+      enhancedZoneName += ' ⚠'; // Warning indicator for high difficulty areas
+    }
+
     P1HUD.update({
       dropletIntegrity: dropletState.dropletIntegrity,
       viralViability: dropletState.viralViability,
       distToTarget,
-      zoneName: breathState.zoneName || 'AIRBORNE'
+      zoneName: enhancedZoneName,
+      // Additional polish data for enhanced HUD
+      scrollSpeed: _scrollSpeed.toFixed(1),
+      progressPercent: Math.min(100, (_scrollX / P1_CFG.WORLD_WIDTH_2D) * 100)
     });
 
     // Check win/fail conditions

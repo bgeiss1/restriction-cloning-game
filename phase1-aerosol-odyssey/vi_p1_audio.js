@@ -287,6 +287,64 @@ const P1Audio = (() => {
     _masterGain.gain.setTargetAtTime(Math.max(0, Math.min(1, v)), _ctx.currentTime, 0.05);
   }
 
+  // ── Enhanced Audio (Chunk F) ───────────────────────────────────────────────
+
+  function playFusion(volume = 0.7) {
+    if (!_ctx) return;
+    const t = _ctx.currentTime;
+
+    // Bright fusion chime with sparkle
+    _toneShot(523.3, t + 0.00, 0.15, volume * 0.3);  // C5
+    _toneShot(659.3, t + 0.05, 0.15, volume * 0.4);  // E5
+    _toneShot(784.0, t + 0.10, 0.20, volume * 0.5);  // G5
+
+    // Sparkle overtones
+    _toneShot(1046.5, t + 0.12, 0.18, volume * 0.2); // C6
+    _toneShot(1319.0, t + 0.15, 0.15, volume * 0.15);// E6
+
+    // Soft noise burst for impact
+    _noiseShot(0.25, 'bandpass', 800, 2.0, volume * 0.1, 0.01, 0.20);
+  }
+
+  function playDamage(volume = 0.5) {
+    if (!_ctx) return;
+    const t = _ctx.currentTime;
+
+    // Sharp damage sound with tension
+    _toneShot(220.0, t + 0.00, 0.12, volume * 0.4);  // A3 (tense)
+    _noiseShot(0.20, 'highpass', 1000, 1.0, volume * 0.3, 0.01, 0.15);
+  }
+
+  function playZoneWarning(volume = 0.3) {
+    if (!_ctx) return;
+    const t = _ctx.currentTime;
+
+    // Warning beep sequence
+    _toneShot(880.0, t + 0.00, 0.08, volume * 0.6);  // A5 - short beep
+    _toneShot(880.0, t + 0.12, 0.08, volume * 0.6);  // A5 - second beep
+
+    // Low warning rumble
+    _noiseShot(0.30, 'lowpass', 150, 0.5, volume * 0.2, 0.05, 0.25);
+  }
+
+  function playSpeedBoost(volume = 0.6) {
+    if (!_ctx) return;
+    const t = _ctx.currentTime;
+
+    // Rising pitch boost sound
+    _toneShot(440.0, t + 0.00, 0.10, volume * 0.3);  // A4
+    _toneShot(554.4, t + 0.05, 0.10, volume * 0.4);  // C#5
+    _toneShot(659.3, t + 0.10, 0.15, volume * 0.5);  // E5
+
+    // Whoosh effect
+    _noiseShot(0.25, 'bandpass', 600, 0.8, volume * 0.2, 0.02, 0.20);
+  }
+
+  // Convenience function to play ambient (better name)
+  function playAmbient() {
+    startAmbient();
+  }
+
   function destroy() {
     stopAmbient();
     setTimeout(() => {
@@ -303,6 +361,8 @@ const P1Audio = (() => {
     playCough, playHit, playMaskHit,
     playWin, playFail, setBreathPhase,
     setVolume, destroy,
+    // Enhanced audio (Chunk F)
+    playFusion, playDamage, playZoneWarning, playSpeedBoost, playAmbient,
   };
 
 })();

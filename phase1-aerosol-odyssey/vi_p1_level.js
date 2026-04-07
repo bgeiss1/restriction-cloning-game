@@ -51,6 +51,13 @@ const P1Level = (() => {
   let _advancedCurrents = [];
   let _currentScrollX = 0;
 
+  // Polish & effects (Chunk F)
+  let _effectsGroup = null;
+  let _fusionParticles = [];
+  let _trailParticles = null;
+  let _performanceMode = false;
+  let _lastFrameTime = 0;
+
   // Dispose tracking
   const _geos = [];
   const _mats = [];
@@ -73,6 +80,7 @@ const P1Level = (() => {
     _buildMovingObstacles();
     _buildCombinedHazards();
     _buildAdvancedCurrents();
+    _buildPolishEffects();
   }
 
   function _buildLevel() {
@@ -572,11 +580,115 @@ const P1Level = (() => {
     return particles;
   }
 
+  function _buildPolishEffects() {
+    _effectsGroup = new THREE.Group();
+    _scene.add(_effectsGroup);
+
+    // Enhanced lighting for better visual quality
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+    _scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    keyLight.position.set(10, 15, 5);
+    keyLight.castShadow = false; // Keep performance reasonable
+    _scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x88bbff, 0.3);
+    fillLight.position.set(-5, 10, -5);
+    _scene.add(fillLight);
+
+    // Build droplet trail particle system
+    _buildTrailParticles();
+
+    // Performance monitoring setup
+    _lastFrameTime = performance.now();
+  }
+
+  function _buildTrailParticles() {
+    const trailCount = P1_CFG.TRAIL_PARTICLE_COUNT_2D;
+    const positions = new Float32Array(trailCount * 3);
+    const alphas = new Float32Array(trailCount);
+
+    // Initialize all particles at origin
+    for (let i = 0; i < trailCount; i++) {
+      positions[i*3  ] = 0;
+      positions[i*3+1] = 0;
+      positions[i*3+2] = 1.6;
+      alphas[i] = 0;
+    }
+
+    const trailGeo = _geo(new THREE.BufferGeometry());
+    trailGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    trailGeo.setAttribute('alpha', new THREE.BufferAttribute(alphas, 1));
+
+    const trailMat = _mat(new THREE.PointsMaterial({
+      color: 0x66bbff,
+      size: 0.2,
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
+    }));
+
+    _trailParticles = new THREE.Points(trailGeo, trailMat);
+    _effectsGroup.add(_trailParticles);
+  }
+
+  function createFusionEffect(x, y) {
+    const fusionCount = P1_CFG.FUSION_PARTICLE_COUNT_2D;
+    const positions = new Float32Array(fusionCount * 3);
+    const velocities = new Float32Array(fusionCount * 3);
+
+    for (let i = 0; i < fusionCount; i++) {
+      positions[i*3  ] = x + (Math.random() - 0.5) * 0.8;
+      positions[i*3+1] = y + (Math.random() - 0.5) * 0.8;
+      positions[i*3+2] = 1.7 + Math.random() * 0.4;
+
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 2 + Math.random() * 3;
+      velocities[i*3  ] = Math.cos(angle) * speed;
+      velocities[i*3+1] = Math.sin(angle) * speed;
+      velocities[i*3+2] = 0;
+    }
+
+    const fusionGeo = _geo(new THREE.BufferGeometry());
+    fusionGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const fusionMat = _mat(new THREE.PointsMaterial({
+      color: 0x44ffaa,
+      size: 0.15,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+    }));
+
+    const fusionParticles = new THREE.Points(fusionGeo, fusionMat);
+    _effectsGroup.add(fusionParticles);
+
+    // Store for animation
+    _fusionParticles.push({
+      particles: fusionParticles,
+      velocities,
+      life: P1_CFG.FUSION_FLASH_DURATION_2D,
+      maxLife: P1_CFG.FUSION_FLASH_DURATION_2D
+    });
+
+    // Audio feedback hook
+    if (typeof P1Audio !== 'undefined' && P1Audio.playFusion) {
+      P1Audio.playFusion(P1_CFG.AUDIO_FUSION_VOLUME_2D);
+    }
+  }
+
   // ── Breathing cycle ────────────────────────────────────────────────────────
 
-  function tick(dt, scrollX) {
+  function tick(dt, scrollX, dropletPos) {
     _levelTime += dt;
     _currentScrollX = scrollX || 0;
+
+    // Performance monitoring (Chunk F)
+    const currentTime = performance.now();
+    const frameTime = currentTime - _lastFrameTime;
+    _performanceMode = frameTime > 33; // >30fps = performance mode
+    _lastFrameTime = currentTime;
 
     _updateBreathingCycle(dt);
     _updateBreathParticles(dt);
@@ -584,6 +696,7 @@ const P1Level = (() => {
     _updateCompanionDroplets(dt);
     _updateMovingObstacles(dt);
     _updateAdvancedCurrents(dt);
+    _updatePolishEffects(dt, dropletPos);
   }
 
   function _updateBreathingCycle(dt) {
@@ -795,6 +908,94 @@ const P1Level = (() => {
       }
 
       current.particles.geometry.attributes.position.needsUpdate = true;
+    });
+  }
+
+  function _updatePolishEffects(dt, dropletPos) {
+    // Update droplet trail particles
+    if (_trailParticles && dropletPos) {
+      const pos = _trailParticles.geometry.attributes.position.array;
+      const alphas = _trailParticles.geometry.attributes.alpha.array;
+      const count = P1_CFG.TRAIL_PARTICLE_COUNT_2D;
+
+      // Shift all particles back one position
+      for (let i = count - 1; i > 0; i--) {
+        pos[i*3  ] = pos[(i-1)*3  ];
+        pos[i*3+1] = pos[(i-1)*3+1];
+        pos[i*3+2] = pos[(i-1)*3+2];
+        alphas[i] = alphas[i-1] * P1_CFG.PARTICLE_ALPHA_FADE_2D;
+      }
+
+      // Set newest particle to droplet position
+      pos[0] = dropletPos.x;
+      pos[1] = dropletPos.y;
+      pos[2] = 1.6;
+      alphas[0] = 1.0;
+
+      _trailParticles.geometry.attributes.position.needsUpdate = true;
+      _trailParticles.geometry.attributes.alpha.needsUpdate = true;
+    }
+
+    // Update fusion effect particles
+    _fusionParticles = _fusionParticles.filter(effect => {
+      effect.life -= dt;
+
+      if (effect.life <= 0) {
+        // Remove expired effect
+        if (effect.particles.parent) effect.particles.parent.remove(effect.particles);
+        effect.particles.geometry.dispose();
+        effect.particles.material.dispose();
+        return false;
+      }
+
+      // Update particle positions
+      const pos = effect.particles.geometry.attributes.position.array;
+      const count = pos.length / 3;
+      const lifeFrac = effect.life / effect.maxLife;
+
+      for (let i = 0; i < count; i++) {
+        pos[i*3  ] += effect.velocities[i*3  ] * dt;
+        pos[i*3+1] += effect.velocities[i*3+1] * dt;
+
+        // Apply gravity and drag
+        effect.velocities[i*3+1] -= 3.0 * dt;
+        effect.velocities[i*3  ] *= Math.pow(0.95, dt * 60);
+        effect.velocities[i*3+1] *= Math.pow(0.95, dt * 60);
+      }
+
+      effect.particles.material.opacity = lifeFrac * 0.9;
+      effect.particles.geometry.attributes.position.needsUpdate = true;
+
+      return true;
+    });
+
+    // Performance optimizations
+    if (_performanceMode) {
+      _applyPerformanceOptimizations();
+    }
+  }
+
+  function _applyPerformanceOptimizations() {
+    // Reduce particle counts for zones far from current view
+    _hazardZones.forEach(zone => {
+      const zoneCenter = zone.x + zone.w / 2;
+      const distFromView = Math.abs(zoneCenter - _currentScrollX);
+
+      if (distFromView > P1_CFG.PARTICLE_LOD_DISTANCE_2D) {
+        // Reduce particle density for distant zones
+        // This would be implemented in particle system updates
+      }
+    });
+
+    // Reduce update frequency for distant companion droplets
+    _companions.forEach(companion => {
+      if (!companion.active) return;
+      const distFromView = Math.abs(companion.x - _currentScrollX);
+
+      if (distFromView > P1_CFG.PARTICLE_LOD_DISTANCE_2D && companion.mesh) {
+        // Reduce animation update frequency
+        companion.mesh.visible = distFromView < 25; // Cull very distant companions
+      }
     });
   }
 
@@ -1047,6 +1248,16 @@ const P1Level = (() => {
     if (_companionGroup && _companionGroup.parent) _companionGroup.parent.remove(_companionGroup);
     if (_movingObstacleGroup && _movingObstacleGroup.parent) _movingObstacleGroup.parent.remove(_movingObstacleGroup);
     if (_combinedHazardGroup && _combinedHazardGroup.parent) _combinedHazardGroup.parent.remove(_combinedHazardGroup);
+    if (_effectsGroup && _effectsGroup.parent) _effectsGroup.parent.remove(_effectsGroup);
+
+    // Clean up fusion particles
+    _fusionParticles.forEach(effect => {
+      if (effect.particles && effect.particles.parent) {
+        effect.particles.parent.remove(effect.particles);
+        effect.particles.geometry.dispose();
+        effect.particles.material.dispose();
+      }
+    });
 
     _levelGroup = null;
     _camGroup = null;
@@ -1066,6 +1277,11 @@ const P1Level = (() => {
     _combinedHazardGroup = null;
     _advancedCurrents = [];
     _currentScrollX = 0;
+    _effectsGroup = null;
+    _fusionParticles = [];
+    _trailParticles = null;
+    _performanceMode = false;
+    _lastFrameTime = 0;
 
     for (const g of _geos) g.dispose();
     for (const m of _mats) m.dispose();
@@ -1083,7 +1299,8 @@ const P1Level = (() => {
     destroy,
     checkPlatformHit,
     getBreathState,
-    checkCompanionFusion
+    checkCompanionFusion,
+    createFusionEffect
   };
 
 })();

@@ -43,6 +43,12 @@ const P1Droplet = (() => {
   let _won = false;
   let _failReason = '';
 
+  // Polish effects (Chunk F)
+  let _damageFlashTime = 0;
+  let _lastZoneName = null;
+  let _materialEnhanced = false;
+  let _localTime = 0;
+
   // Dispose tracking
   const _geos = [];
   const _mats = [];
@@ -60,7 +66,7 @@ const P1Droplet = (() => {
       color: 0x88ddff,
       transparent: true,
       opacity: 0.55,
-      shininess: 90,
+      shininess: P1_CFG.MATERIAL_SHININESS_ENHANCED_2D,
       depthWrite: false,
     }));
     _outerMesh = new THREE.Mesh(outerGeo, _outerMat);
@@ -138,6 +144,8 @@ const P1Droplet = (() => {
   function tick(dt, scrollX, scrollSpeed, viewW, keys, breathState) {
     if (!_alive || _won) return;
 
+    _localTime += dt;
+
     // ── Input forces ──────────────────────────────────────────────────────────
     let thrustX = 0;
     let thrustY = 0;
@@ -202,29 +210,41 @@ const P1Droplet = (() => {
     const fusedCompanions = P1Level.checkCompanionFusion(_worldX, _worldY, _radius);
     if (fusedCompanions.length > 0) {
       fusedCompanions.forEach(companion => {
-        // Size increase (visual radius)
-        const sizeBoost = P1_CFG.COMPANION_SIZE_BOOST_2D * companion.size;
+        // Size increase (visual radius) - Chunk F balanced
+        const sizeBoost = P1_CFG.COMPANION_SIZE_BALANCED_2D * companion.size;
         _radius = Math.min(_radius + sizeBoost, P1_CFG.DROPLET_RADIUS_2D * 1.5); // cap at 1.5x max
 
-        // Viability boost
-        const viabBoost = P1_CFG.COMPANION_VIAB_BOOST_2D * companion.viralContent / 20;
+        // Viability boost - Chunk F balanced
+        const viabBoost = P1_CFG.COMPANION_VIAB_BALANCED_2D * companion.viralContent / 20;
         _viralViability = Math.min(100, _viralViability + viabBoost);
 
         // Integrity boost (beneficial)
         const integrityBoost = P1_CFG.COMPANION_INTEGRITY_BOOST_2D * companion.size;
         _dropletIntegrity = Math.min(100, _dropletIntegrity + integrityBoost);
 
-        // Visual flash effect for successful fusion
+        // Enhanced visual effects (Chunk F)
         if (_outerMat) {
-          // Temporary brightness boost
-          _outerMat.emissive = new THREE.Color(0x004488);
+          // Temporary brightness boost with enhanced duration
+          _outerMat.emissive = new THREE.Color(0x0066aa);
+          _outerMat.emissiveIntensity = 0.4;
+
           setTimeout(() => {
-            if (_outerMat) _outerMat.emissive = new THREE.Color(0x000000);
-          }, 200);
+            if (_outerMat) {
+              _outerMat.emissive = new THREE.Color(0x000000);
+              _outerMat.emissiveIntensity = 0;
+            }
+          }, P1_CFG.FUSION_FLASH_DURATION_2D * 1000);
         }
 
-        // Audio feedback would be triggered here
-        // P1Audio.playFusion(); // TODO: Add in audio chunk
+        // Create fusion particle effect
+        if (typeof P1Level !== 'undefined' && P1Level.createFusionEffect) {
+          P1Level.createFusionEffect(companion.x, companion.y);
+        }
+
+        // Audio feedback (enhanced)
+        if (typeof P1Audio !== 'undefined' && P1Audio.playFusion) {
+          P1Audio.playFusion(P1_CFG.AUDIO_FUSION_VOLUME_2D);
+        }
       });
     }
 
@@ -233,15 +253,15 @@ const P1Droplet = (() => {
     const hazardEffects = (breathState && breathState.hazardEffects) ||
                          { evapMult: 1.0, viabMult: 1.0 };
 
-    // Evaporation with zone multipliers
-    const evapRate = P1_CFG.EVAP_RATE_2D * hazardEffects.evapMult;
+    // Evaporation with zone multipliers (Chunk F balanced)
+    const evapRate = P1_CFG.EVAP_RATE_BALANCED_2D * hazardEffects.evapMult;
     _dropletIntegrity -= evapRate * dt * 100;
     _dropletIntegrity = Math.max(0, _dropletIntegrity);
 
-    // Viral decay with zone and desiccation multipliers
+    // Viral decay with zone and desiccation multipliers (Chunk F balanced)
     const desiccated = _dropletIntegrity <= 0;
     const viabDecayMult = desiccated ? P1_CFG.VIAB_DESICCATED_MULT_2D : 1;
-    const totalViabDecay = P1_CFG.VIAB_DECAY_BASE_2D * viabDecayMult * hazardEffects.viabMult;
+    const totalViabDecay = P1_CFG.VIAB_DECAY_BALANCED_2D * viabDecayMult * hazardEffects.viabMult;
     _viralViability -= totalViabDecay * dt * 100;
     _viralViability = Math.max(0, _viralViability);
 
@@ -250,6 +270,9 @@ const P1Droplet = (() => {
       _failReason = 'The virus became inactive — no viable particles remain.';
       return;
     }
+
+    // Enhanced visual feedback (Chunk F)
+    _updatePolishEffects(dt, breathState);
 
     // ── Update visual radius ──────────────────────────────────────────────────
     const integrityFrac = _dropletIntegrity / 100;
@@ -273,6 +296,74 @@ const P1Droplet = (() => {
 
     // Update mesh position and effects
     _updateMeshPosition();
+  }
+
+  function _updatePolishEffects(dt, breathState) {
+    // Damage flash effect
+    if (_damageFlashTime > 0) {
+      _damageFlashTime -= dt;
+      if (_outerMat) {
+        const flashIntensity = _damageFlashTime / P1_CFG.DAMAGE_FLASH_DURATION_2D;
+        _outerMat.emissive = new THREE.Color(0x550000).multiplyScalar(flashIntensity * 0.8);
+
+        if (_damageFlashTime <= 0) {
+          _outerMat.emissive = new THREE.Color(0x000000);
+        }
+      }
+    }
+
+    // Zone transition effects
+    const currentZone = (breathState && breathState.zoneName) || 'AIRBORNE';
+    if (currentZone !== _lastZoneName) {
+      _lastZoneName = currentZone;
+
+      // Flash effect for entering dangerous zones
+      if (currentZone === 'UV EXPOSURE' || currentZone === 'EXTREME DANGER' ||
+          currentZone === 'SCORCHING WINDS') {
+        _triggerDamageFlash();
+
+        // Audio feedback for dangerous zone entry
+        if (typeof P1Audio !== 'undefined' && P1Audio.playZoneWarning) {
+          P1Audio.playZoneWarning(P1_CFG.AUDIO_ZONE_VOLUME_2D);
+        }
+      }
+    }
+
+    // Critical health warning
+    if (_dropletIntegrity < P1_CFG.CRITICAL_HEALTH_THRESHOLD_2D ||
+        _viralViability < P1_CFG.CRITICAL_HEALTH_THRESHOLD_2D) {
+
+      if (_outerMat && _damageFlashTime <= 0) {
+        // Subtle pulsing for critical health
+        const pulse = Math.sin(_localTime * P1_CFG.EMISSIVE_PULSE_SPEED_2D * 4) * 0.5 + 0.5;
+        _outerMat.emissive = new THREE.Color(0x330000).multiplyScalar(pulse * 0.3);
+      }
+    }
+
+    // Enhanced material effects based on health
+    if (_outerMat && !_materialEnhanced) {
+      _materialEnhanced = true;
+
+      // Enhanced reflectivity and visual quality
+      _outerMat.shininess = P1_CFG.MATERIAL_SHININESS_ENHANCED_2D;
+      _outerMat.reflectivity = 0.2;
+    }
+
+    // Enhance virus glow based on viral viability
+    if (_virusMesh && _virusMesh.material) {
+      const viabFrac = _viralViability / 100;
+      const glowIntensity = viabFrac * 0.4 + 0.1;
+      _virusMesh.material.emissiveIntensity = glowIntensity;
+    }
+  }
+
+  function _triggerDamageFlash() {
+    _damageFlashTime = P1_CFG.DAMAGE_FLASH_DURATION_2D;
+
+    // Audio feedback for damage
+    if (typeof P1Audio !== 'undefined' && P1Audio.playDamage) {
+      P1Audio.playDamage(P1_CFG.AUDIO_DAMAGE_VOLUME_2D);
+    }
   }
 
   function destroy() {

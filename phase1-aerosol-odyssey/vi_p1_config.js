@@ -358,4 +358,40 @@ const P1_CFG = Object.freeze({
     { x: 85, y: 2, w: 10, h: 8, type: 'TURBULENCE', strength: 1.8 },
   ],
 
+  // ── Polish & Visual Effects ────────────────────────────────────────────────
+  // Performance settings
+  PARTICLE_LOD_DISTANCE_2D: 15.0,    // Reduce particles beyond this scroll distance
+  PARTICLE_LOD_REDUCTION_2D: 0.6,    // Multiply particle count by this when far away
+  MAX_PARTICLES_PER_ZONE_2D: 50,     // Performance cap per hazard zone
+
+  // Enhanced visual effects
+  FUSION_FLASH_DURATION_2D: 0.3,     // Duration of fusion flash effect
+  FUSION_PARTICLE_COUNT_2D: 15,      // Particles spawned on fusion
+  HAZARD_ENTRY_FLASH_2D: 0.2,        // Flash duration when entering dangerous zones
+  SPEED_BOOST_EFFECT_2D: 0.4,        // Visual effect duration for scroll speed boosts
+
+  // Damage indication
+  DAMAGE_FLASH_DURATION_2D: 0.15,    // Red flash duration when taking damage
+  CRITICAL_HEALTH_THRESHOLD_2D: 25,  // Health % that triggers critical warnings
+
+  // Enhanced particle effects
+  TRAIL_PARTICLE_COUNT_2D: 8,        // Number of trail particles behind droplet
+  TRAIL_PARTICLE_LIFETIME_2D: 1.2,   // How long trail particles persist
+
+  // Audio feedback constants
+  AUDIO_FUSION_VOLUME_2D: 0.7,       // Volume for fusion sound
+  AUDIO_DAMAGE_VOLUME_2D: 0.5,       // Volume for damage sounds
+  AUDIO_ZONE_VOLUME_2D: 0.3,         // Volume for ambient zone sounds
+
+  // Balance refinements (Chunk F adjustments)
+  EVAP_RATE_BALANCED_2D: 0.006,      // Reduced from 0.008 (was too harsh)
+  VIAB_DECAY_BALANCED_2D: 0.3,       // Reduced from 0.4 (better progression)
+  COMPANION_SIZE_BALANCED_2D: 0.12,  // Reduced from 0.15 (less OP size growth)
+  COMPANION_VIAB_BALANCED_2D: 6.0,   // Reduced from 8.0 (balanced healing)
+
+  // Visual polish constants
+  MATERIAL_SHININESS_ENHANCED_2D: 100, // Enhanced shininess for water droplets
+  EMISSIVE_PULSE_SPEED_2D: 2.0,       // Speed of emissive pulsing effects
+  PARTICLE_ALPHA_FADE_2D: 0.95,       // Alpha decay rate for fading particles
+
 });
