@@ -1,23 +1,33 @@
 /**
- * vi_p1_main.js — Phase 1 "Aerosol Odyssey" game entry point.
+ * vi_p1_main.js — Phase 0 "Aerosol Odyssey" entry point.
  *
- * Chunk 1: Static classroom environment + title overlay.
- * Chunk 2: Cough launch cinematic → player droplet + controls + HUD + win/fail.
+ * State machine:
+ *   TITLE → CINEMATIC → ZOOM_IN → PLAYING_2D → WIN | FAIL
  *
- * API (matches P2Attachment / P3Descent / P4NuclearFactory pattern):
+ * CINEMATIC sub-phases (driven by _cinT):
+ *   A  0.0 – 1.0  Wide angled shot; infected student tips head back
+ *   B  1.0 – 1.6  Sneeze burst; camera accelerates forward
+ *   C  1.6 – 3.8  Camera rushes past cloud toward target droplet; droplet appears
+ *   D  3.8 – 5.0  Camera precision-locks on droplet; FOV narrows 22° → 13°
+ *   → triggers ZOOM_IN
+ *
+ * ZOOM_IN: iris-wipe canvas overlay (light-blue circle expands → fades to black)
+ *   → _startPlaying2D()   [stub; 2D platformer filled in by Chunk B]
+ *
+ * API (matches P2Attachment / P3Descent / P4NuclearFactory shape):
  *   P1AerosolOdyssey.launch(carryover, onComplete, onFail)
  *   P1AerosolOdyssey.destroy()
- *   P1AerosolOdyssey._tick(dt)         — called by main game loop each frame
- *   P1AerosolOdyssey._active           — true while this phase owns the renderer
- *   P1AerosolOdyssey.scene             — THREE.Scene (main loop renders this)
- *   P1AerosolOdyssey.camera            — THREE.PerspectiveCamera
+ *   P1AerosolOdyssey._tick(dt)
+ *   P1AerosolOdyssey._active
+ *   P1AerosolOdyssey.scene
+ *   P1AerosolOdyssey.camera
  */
 
-/* global THREE, P1_CFG, P1Classroom, P1Furniture, P1Students, P1Droplet, P1HUD, P1Companions, P1Audio */
+/* global THREE, P1_CFG, P1Classroom, P1Furniture, P1Students, P1Audio, P1Level, P1Droplet, P1HUD */
 
 const P1AerosolOdyssey = (() => {
 
-  // ── State ──────────────────────────────────────────────────────────────────
+  // ── Module state ───────────────────────────────────────────────────────────
   let _active     = false;
   let _onComplete = null;
   let _onFail     = null;
@@ -28,46 +38,50 @@ const P1AerosolOdyssey = (() => {
   let _t       = 0.0;
   let _elapsed = 0.0;
 
-  // Sub-states: 'TITLE' | 'CINEMATIC' | 'PLAYING' | 'WIN' | 'FAIL'
+  // Phase: 'TITLE' | 'CINEMATIC' | 'ZOOM_IN' | 'PLAYING_2D' | 'WIN' | 'FAIL'
   let _phase = 'TITLE';
-  let _introOverlay = null;
 
-  // Cinematic
-  let _cinT       = 0;          // time within cinematic
-  const _CIN_DUR  = 1.8;        // total cinematic seconds
-  let _coughCloud = null;       // THREE.Points for cough particle burst
-  let _coughVels  = null;       // Float32Array (velocity per particle, flat xyz)
-  let _coughT     = 0;          // age of cough cloud
-
-  // Gameplay
-  let _droplet = null;
-  let _hud     = null;
-  let _keys    = { left: false, right: false, up: false, down: false };
-  let _kd      = null;   // keydown handler ref
-  let _ku      = null;   // keyup  handler ref
-
-  // Orbital camera state (used during PLAYING)
-  let _camAzimuth   = Math.PI;   // behind droplet (droplet moves toward +Z)
-  let _camElevation = 0.30;      // radians above horizontal
-  let _camRadius    = 2.0;       // distance from droplet
-  let _camDragging  = false;
-  let _camLastX     = 0;
-  let _camLastY     = 0;
-  let _camMD = null; let _camMM = null; let _camMU = null;
-  let _camTS = null; let _camTM = null; let _camTE = null;
-  let _camWH = null;
-
-  // Result overlay
+  let _introOverlay  = null;
   let _resultOverlay = null;
 
+  // ── Cinematic constants ────────────────────────────────────────────────────
+  const _CIN_A   = 1.0;   // end of Phase A (wide + head-back)
+  const _CIN_B   = 1.6;   // end of Phase B (sneeze fires at CIN_A)
+  const _CIN_C   = 3.8;   // end of Phase C (camera rush in)
+  const _CIN_D   = 5.0;   // end of Phase D → triggers ZOOM_IN
+  const _ZI_DUR  = 1.1;   // iris-wipe duration (seconds)
+
+  // Cinematic runtime state
+  let _cinT        = 0;
+  let _sneezeFired = false;
+  let _coughCloud  = null;
+  let _coughVels   = null;
+
+  // Target droplet (3D mesh in cinematic scene)
+  let _targetDroplet = null;   // { group, outerMat }
+  let _tdPos         = null;   // {x,y,z} world position
+
+  // Zoom-in iris wipe
+  let _ziT        = 0;
+  let _irisCanvas = null;
+  let _irisCtx    = null;
+
+  // 2D game state
+  let _scrollX     = 0;
+  let _scrollSpeed = P1_CFG.SCROLL_SPEED_INIT_2D;
+  let _viewW       = 0;   // orthographic view width
+  let _keys        = { up: false, down: false, left: false, right: false };
+  let _kDown       = false;
+  let _kUp         = false;
+
   // ── Preload ────────────────────────────────────────────────────────────────
-  // Called by showBriefing(0) so the classroom renders behind the briefing panel.
+  // Called by viral_infiltration.html showBriefing(0) so the classroom renders
+  // behind the briefing panel while the user reads the intro text.
 
   function preload() {
     if (_active) return;
     _active  = true;
     _elapsed = 0;
-    _t       = 0;
     _buildScene();
   }
 
@@ -80,14 +94,12 @@ const P1AerosolOdyssey = (() => {
     if (!_active) {
       _active  = true;
       _elapsed = 0;
-      _t       = 0;
       _buildScene();
     }
-
     _showTitleOverlay();
   }
 
-  // ── Scene setup ────────────────────────────────────────────────────────────
+  // ── 3D scene (cinematic only) ──────────────────────────────────────────────
 
   function _buildScene() {
     scene = new THREE.Scene();
@@ -101,8 +113,26 @@ const P1AerosolOdyssey = (() => {
 
     P1Classroom.init(scene);
     P1Furniture.init(scene);
-    const deskPositions = P1Furniture.getDeskPositions();
-    P1Students.init(scene, deskPositions);
+    P1Students.init(scene, P1Furniture.getDeskPositions());
+  }
+
+  // Reinit subsystems into existing scene (used by retry path).
+  function _resetScene() {
+    P1Students.destroy();
+    P1Furniture.destroy();
+    P1Classroom.destroy();
+
+    scene.background = new THREE.Color(0x1a1510);
+    scene.fog        = new THREE.Fog(0x1a1510, 18, 32);
+
+    camera.position.set(5.5, 4.8, -9.0);
+    camera.lookAt(0, 1.2, 0);
+    camera.fov = P1_CFG.CAM_FOV_NORMAL;
+    camera.updateProjectionMatrix();
+
+    P1Classroom.init(scene);
+    P1Furniture.init(scene);
+    P1Students.init(scene, P1Furniture.getDeskPositions());
   }
 
   // ── Title overlay ──────────────────────────────────────────────────────────
@@ -130,24 +160,24 @@ const P1AerosolOdyssey = (() => {
         </div>
         <div style="font-size:0.95rem;color:#aaa;margin-bottom:28px;line-height:1.5">
           A student in the back of the classroom has influenza.<br>
-          A cough is coming.
+          A sneeze is coming.
         </div>
         <div style="font-size:0.80rem;color:#88aacc;margin-bottom:32px;line-height:1.5;
                     max-width:400px;margin-left:auto;margin-right:auto">
-          Navigate through the classroom air inside a respiratory droplet.<br>
-          Avoid UV light, air currents, and dry zones.<br>
+          Guide a virus-laden droplet through the classroom air.<br>
+          Avoid UV light, heat, and drying air currents.<br>
           Reach the susceptible student before the droplet evaporates.
         </div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;
                     margin-bottom:32px">
           <kbd style="font-size:0.70rem;padding:4px 10px;
                       border:1px solid rgba(255,255,255,0.25);border-radius:4px;
-                      color:#ccc;background:rgba(255,255,255,0.05)">A/D</kbd>
-          <span style="color:#555;font-size:0.75rem;padding-top:4px">steer</span>
+                      color:#ccc;background:rgba(255,255,255,0.05)">↑ ↓</kbd>
+          <span style="color:#555;font-size:0.75rem;padding-top:4px">altitude</span>
           <kbd style="font-size:0.70rem;padding:4px 10px;
                       border:1px solid rgba(255,255,255,0.25);border-radius:4px;
-                      color:#ccc;background:rgba(255,255,255,0.05)">W/S</kbd>
-          <span style="color:#555;font-size:0.75rem;padding-top:4px">altitude</span>
+                      color:#ccc;background:rgba(255,255,255,0.05)">← →</kbd>
+          <span style="color:#555;font-size:0.75rem;padding-top:4px">lateral</span>
         </div>
         <button id="p1StartBtn" style="
           padding:12px 48px;
@@ -156,7 +186,7 @@ const P1AerosolOdyssey = (() => {
           border:1px solid rgba(200,140,60,0.55);
           border-radius:6px;color:#e0b870;
           cursor:pointer;transition:background 0.2s,border-color 0.2s">
-          CLICK TO BEGIN
+          WATCH THE SNEEZE
         </button>
       </div>
     `;
@@ -190,133 +220,51 @@ const P1AerosolOdyssey = (() => {
     _introOverlay = null;
   }
 
-  // ── Cough launch cinematic ─────────────────────────────────────────────────
-  // Timeline (seconds):
-  //   0.0 – 0.6  camera sweeps to just behind infected student's mouth
-  //   0.6 – 1.1  cough cloud bursts; camera holds
-  //   1.1 – 1.8  camera pulls back to behind-droplet launch position
-  //   1.8        gameplay begins
+  // ── Cinematic setup ────────────────────────────────────────────────────────
 
   function _startCinematic() {
-    _phase = 'CINEMATIC';
-    _cinT  = 0;
-    _buildCoughCloud();
+    _phase        = 'CINEMATIC';
+    _cinT         = 0;
+    _sneezeFired  = false;
+    _tdPos        = null;
+    _targetDroplet = null;
   }
+
+  // ── Cough cloud ────────────────────────────────────────────────────────────
 
   function _buildCoughCloud() {
     const mouth = P1Students.getInfectedMouth();
     if (!mouth) return;
 
-    const N = 40;
+    const N = 80;
     const positions = new Float32Array(N * 3);
-    _coughVels = new Float32Array(N * 3);
+    _coughVels      = new Float32Array(N * 3);
 
     for (let i = 0; i < N; i++) {
-      // Start at mouth, slight random offset
-      positions[i * 3    ] = mouth.x + (Math.random() - 0.5) * 0.05;
-      positions[i * 3 + 1] = mouth.y + (Math.random() - 0.5) * 0.05;
-      positions[i * 3 + 2] = mouth.z + (Math.random() - 0.5) * 0.05;
+      positions[i*3  ] = mouth.x + (Math.random() - 0.5) * 0.06;
+      positions[i*3+1] = mouth.y + (Math.random() - 0.5) * 0.06;
+      positions[i*3+2] = mouth.z + (Math.random() - 0.5) * 0.06;
 
-      // Forward (+Z) cone with random spread
-      const spread = 0.30;
-      _coughVels[i * 3    ] = (Math.random() - 0.5) * spread;
-      _coughVels[i * 3 + 1] = (Math.random() - 0.2) * spread * 0.6;
-      _coughVels[i * 3 + 2] = 1.2 + Math.random() * 1.8;   // forward speed
+      // Forward cone (+Z) — most particles fly forward, some scatter wide
+      const spread = 0.45 + Math.random() * 0.25;
+      _coughVels[i*3  ] = (Math.random() - 0.5) * spread;
+      _coughVels[i*3+1] = (Math.random() - 0.3) * spread * 0.7 + 0.15;
+      _coughVels[i*3+2] = 0.9 + Math.random() * 2.0;
     }
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     const mat = new THREE.PointsMaterial({
-      color:       0xffffff,
-      size:        0.045,
+      color:       0xbbddf0,
+      size:        0.07,
       transparent: true,
-      opacity:     0.70,
+      opacity:     0.80,
       depthWrite:  false,
     });
 
     _coughCloud = new THREE.Points(geo, mat);
-    _coughCloud.visible = false;   // shown at t=0.6
     scene.add(_coughCloud);
-    _coughT = 0;
-
-    // Spawn companion droplets + thermal plumes
-    P1Companions.init(scene, mouth, P1Students.getStudentPositions());
-  }
-
-  function _updateCinematic(dt) {
-    _cinT += dt;
-
-    const mouth = P1Students.getInfectedMouth();
-    if (!mouth) { _cinT = _CIN_DUR; }  // skip if no mouth pos
-
-    if (_cinT < 0.6) {
-      // Phase A: sweep camera toward mouth
-      const frac = _cinT / 0.6;
-      const ease = 1 - Math.pow(1 - frac, 3);
-
-      // "Cinematic 1" target: looking at mouth from slightly in front & above
-      const tgtX = mouth ? mouth.x      : 0;
-      const tgtY = mouth ? mouth.y + 0.3 : 1.5;
-      const tgtZ = mouth ? mouth.z - 0.7 : -5.2;
-
-      camera.position.x += (tgtX - camera.position.x) * ease * 0.12;
-      camera.position.y += (tgtY - camera.position.y) * ease * 0.12;
-      camera.position.z += (tgtZ - camera.position.z) * ease * 0.12;
-      if (mouth) camera.lookAt(mouth.x, mouth.y, mouth.z);
-
-    } else if (_cinT < 1.1) {
-      // Phase B: cough burst visible
-      if (_coughCloud) {
-        if (!_coughCloud.visible) P1Audio.playCough();   // first frame of phase B
-        _coughCloud.visible = true;
-        _coughT += dt;
-        const pos = _coughCloud.geometry.attributes.position.array;
-        const N = pos.length / 3;
-        for (let i = 0; i < N; i++) {
-          pos[i * 3    ] += _coughVels[i * 3    ] * dt;
-          pos[i * 3 + 1] += _coughVels[i * 3 + 1] * dt;
-          pos[i * 3 + 2] += _coughVels[i * 3 + 2] * dt;
-        }
-        _coughCloud.geometry.attributes.position.needsUpdate = true;
-        // Fade cloud
-        const age = _cinT - 0.6;
-        _coughCloud.material.opacity = Math.max(0, 0.70 - age * 1.2);
-      }
-
-    } else if (_cinT < _CIN_DUR) {
-      // Phase C: camera pulls back toward droplet launch position
-      const dropletStart = _getDropletStartPos();
-      const co = P1_CFG.CAM_OFFSET;
-      const camTgt = {
-        x: dropletStart.x + co.x,
-        y: dropletStart.y + co.y,
-        z: dropletStart.z + co.z,
-      };
-      camera.position.x += (camTgt.x - camera.position.x) * 0.10;
-      camera.position.y += (camTgt.y - camera.position.y) * 0.10;
-      camera.position.z += (camTgt.z - camera.position.z) * 0.10;
-      camera.lookAt(dropletStart.x, dropletStart.y, dropletStart.z + 0.6);
-
-      // Continue fading cloud
-      if (_coughCloud) {
-        _coughCloud.material.opacity = Math.max(0, _coughCloud.material.opacity - dt * 1.5);
-      }
-
-    } else {
-      // Cinematic complete
-      _removeCoughCloud();
-      _startDropletGame();
-    }
-  }
-
-  function _getDropletStartPos() {
-    const mouth = P1Students.getInfectedMouth();
-    if (mouth) {
-      return { x: mouth.x, y: mouth.y, z: mouth.z + 0.35 };
-    }
-    // Fallback: back-left area
-    return { x: P1_CFG.DESK_X[0], y: P1_CFG.MOUTH_Y, z: P1_CFG.Z_START + 0.3 };
   }
 
   function _removeCoughCloud() {
@@ -329,146 +277,429 @@ const P1AerosolOdyssey = (() => {
     _coughVels = null;
   }
 
-  // ── Gameplay ───────────────────────────────────────────────────────────────
+  // ── Target droplet mesh ────────────────────────────────────────────────────
+  // A single virus-laden droplet visible in the scene — the cinematic zooms
+  // in on this object before the iris wipe to the 2D game.
 
-  function _startDropletGame() {
-    _phase = 'PLAYING';
+  function _spawnTargetDroplet() {
+    const mouth = P1Students.getInfectedMouth();
+    const base  = mouth || { x: -2.5, y: 1.2, z: -4.5 };
 
-    const startPos = _getDropletStartPos();
-    P1Droplet.init(scene, camera, startPos);
+    // Slightly forward (+Z) and elevated relative to the mouth
+    _tdPos = { x: base.x + 0.08, y: base.y + 0.15, z: base.z + 0.58 };
 
-    P1HUD.init();
-    P1Audio.startAmbient();
+    const group = new THREE.Group();
+    group.position.set(_tdPos.x, _tdPos.y, _tdPos.z);
 
-    // Reset orbit camera — start elevated and slightly left of the room center
-    // so the whole classroom is visible.  azimuth=π puts camera behind the
-    // droplet (lower Z); elevation=0.65 rad (~37°) gives a clear overhead angle.
-    _camAzimuth   = Math.PI;
-    _camElevation = 0.65;
-    _camRadius    = 4.0;
-    _camDragging  = false;
-    // Snap camera immediately so first frame looks right
-    {
-      const p   = startPos;
-      const cEl = Math.cos(_camElevation), sEl = Math.sin(_camElevation);
-      camera.position.set(
-        p.x + Math.sin(_camAzimuth) * cEl * _camRadius,
-        p.y + sEl * _camRadius,
-        p.z + Math.cos(_camAzimuth) * cEl * _camRadius
+    // Outer water-drop shell
+    const outerGeo = new THREE.SphereGeometry(0.18, 16, 12);
+    const outerMat = new THREE.MeshPhongMaterial({
+      color:       0x88ddff,
+      emissive:    new THREE.Color(0x001133),
+      transparent: true,
+      opacity:     0.0,    // fades in during Phase C
+      depthWrite:  false,
+      shininess:   90,
+    });
+    group.add(new THREE.Mesh(outerGeo, outerMat));
+
+    // Inner virus — icosahedron
+    const virusGeo = new THREE.IcosahedronGeometry(0.056, 1);
+    const virusMat = new THREE.MeshPhongMaterial({
+      color:             0xff6644,
+      emissive:          new THREE.Color(0x441100),
+      emissiveIntensity: 0.45,
+      shininess:         25,
+    });
+    group.add(new THREE.Mesh(virusGeo, virusMat));
+
+    // Spike cones — 6 cardinal directions
+    const spikeMat = new THREE.MeshPhongMaterial({ color: 0xff8866, shininess: 12 });
+    const dirs = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+    dirs.forEach(([dx, dy, dz]) => {
+      const sGeo  = new THREE.ConeGeometry(0.009, 0.042, 4);
+      const spike = new THREE.Mesh(sGeo, spikeMat);
+      spike.position.set(dx * 0.068, dy * 0.068, dz * 0.068);
+      spike.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(dx, dy, dz)
       );
-      camera.lookAt(p.x, p.y + 0.1, p.z);
+      group.add(spike);
+    });
+
+    scene.add(group);
+    _targetDroplet = { group, outerMat };
+  }
+
+  function _destroyTargetDroplet() {
+    if (!_targetDroplet) return;
+    const { group } = _targetDroplet;
+    if (group.parent) group.parent.remove(group);
+    group.traverse(obj => {
+      if (obj.geometry) obj.geometry.dispose();
+      if (obj.material) obj.material.dispose();
+    });
+    _targetDroplet = null;
+    _tdPos         = null;
+  }
+
+  // ── Cinematic tick ─────────────────────────────────────────────────────────
+
+  function _updateCinematic(dt) {
+    _cinT += dt;
+    const mouth = P1Students.getInfectedMouth();
+    const mBase = mouth || { x: -2.5, y: 1.2, z: -4.5 };
+
+    // Smoothstep helper
+    const ss = f => Math.max(0, Math.min(1, f)) ** 2 * (3 - 2 * Math.max(0, Math.min(1, f)));
+
+    // Frame-rate-independent lerp: rate is units per second reaching fraction
+    const lerpCam = (tx, ty, tz, rate) => {
+      const k = Math.min(1, rate * dt);
+      camera.position.x += (tx - camera.position.x) * k;
+      camera.position.y += (ty - camera.position.y) * k;
+      camera.position.z += (tz - camera.position.z) * k;
+    };
+
+    // ── Particle cloud ───────────────────────────────────────────────────────
+    if (_coughCloud) {
+      const pos = _coughCloud.geometry.attributes.position.array;
+      const N   = pos.length / 3;
+      for (let i = 0; i < N; i++) {
+        pos[i*3  ] += _coughVels[i*3  ] * dt;
+        pos[i*3+1] += _coughVels[i*3+1] * dt;
+        pos[i*3+2] += _coughVels[i*3+2] * dt;
+      }
+      _coughCloud.geometry.attributes.position.needsUpdate = true;
+      const age = Math.max(0, _cinT - _CIN_A);
+      _coughCloud.material.opacity = Math.max(0, 0.80 - age * 0.28);
+      if (_coughCloud.material.opacity <= 0) _removeCoughCloud();
     }
-    _addCamHandlers();
 
-    // Keyboard handlers
-    _keys = { left: false, right: false, up: false, down: false };
-    _kd = (e) => {
-      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  _keys.left  = true;
-      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') _keys.right = true;
-      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    _keys.up    = true;
-      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  _keys.down  = true;
-    };
-    _ku = (e) => {
-      if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft')  _keys.left  = false;
-      if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') _keys.right = false;
-      if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp')    _keys.up    = false;
-      if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown')  _keys.down  = false;
-    };
-    document.addEventListener('keydown', _kd);
-    document.addEventListener('keyup',   _ku);
+    // ── Target droplet fade-in + gentle bob ──────────────────────────────────
+    if (_targetDroplet) {
+      const fadeStart = _CIN_B + 0.55;
+      if (_cinT > fadeStart) {
+        const fadeFrac = Math.min(1, (_cinT - fadeStart) / 0.7);
+        _targetDroplet.outerMat.opacity = fadeFrac * 0.68;
+      }
+      if (_tdPos) {
+        _targetDroplet.group.position.y = _tdPos.y + Math.sin(_cinT * 2.4) * 0.006;
+        _targetDroplet.group.rotation.y += dt * 0.75;
+      }
+    }
 
-    P1Droplet.setKeys(_keys);
+    // ── Phase A: 0 → CIN_A — wide shot, head tips back ───────────────────────
+    if (_cinT < _CIN_A) {
+      const frac = ss(_cinT / _CIN_A);
+      // Camera drifts from initial wide position toward infected-student side
+      lerpCam(-1.0, 3.2, -8.5, 1.5 + frac * 2.0);
+      camera.lookAt(mBase.x, mBase.y + 0.25, mBase.z);
+      camera.fov = 58;
+      camera.updateProjectionMatrix();
+      // Infected student tips head back: pose 0 (hunch) → 0.5 (head back)
+      P1Students.setSneezePose(frac * 0.5);
+
+    // ── Phase B: CIN_A → CIN_B — sneeze burst, camera accelerates ────────────
+    } else if (_cinT < _CIN_B) {
+      const frac = (_cinT - _CIN_A) / (_CIN_B - _CIN_A);
+      const ease = 1 - (1 - frac) ** 2;
+
+      lerpCam(-1.8, 2.3, -7.0, 8);
+      camera.lookAt(mBase.x, mBase.y + 0.1, mBase.z);
+      camera.fov = 56 - ease * 8;
+      camera.updateProjectionMatrix();
+      // Head snaps forward into sneeze: pose 0.5 (head back) → 1.0 (sneeze)
+      P1Students.setSneezePose(0.5 + frac * 0.5);
+
+      // Fire sneeze on first frame of Phase B
+      if (!_sneezeFired) {
+        _sneezeFired = true;
+        _buildCoughCloud();
+        P1Audio.playCough();
+      }
+
+    // ── Phase C: CIN_B → CIN_C — camera rushes past cloud, droplet appears ───
+    } else if (_cinT < _CIN_C) {
+      const frac  = (_cinT - _CIN_B) / (_CIN_C - _CIN_B);
+      const ease2 = frac * frac;   // ease-in — camera accelerates
+
+      // Spawn target droplet at start of Phase C
+      if (!_targetDroplet) _spawnTargetDroplet();
+
+      const tdp = _tdPos || { x: mBase.x + 0.08, y: mBase.y + 0.15, z: mBase.z + 0.58 };
+
+      // Camera sweeps from mouth-proximity to directly in front of target droplet.
+      // The infected student is at z≈-4.5 facing +Z; droplet is at z≈-3.92.
+      // Camera comes around to z > droplet.z, looking back in -Z direction.
+      const tgtX = tdp.x + 0.04;
+      const tgtY = tdp.y + 0.15 - ease2 * 0.12;
+      const tgtZ = tdp.z + 0.95 - ease2 * 0.33;   // arrives at tdp.z + 0.62
+
+      lerpCam(tgtX, tgtY, tgtZ, 2.8 + ease2 * 7.0);
+      camera.lookAt(tdp.x, tdp.y, tdp.z);
+      camera.fov = 48 - ease2 * 26;   // 48 → 22
+      camera.updateProjectionMatrix();
+
+    // ── Phase D: CIN_C → CIN_D — precision zoom, FOV narrows ─────────────────
+    } else if (_cinT < _CIN_D) {
+      const frac = ss((_cinT - _CIN_C) / (_CIN_D - _CIN_C));
+      const tdp  = _tdPos || { x: mBase.x + 0.08, y: mBase.y + 0.15, z: mBase.z + 0.58 };
+
+      // Lock camera: directly in front of droplet, looking straight back at it
+      lerpCam(tdp.x + 0.01, tdp.y + 0.01, tdp.z + 0.60, 14);
+      camera.lookAt(tdp.x, tdp.y, tdp.z);
+      camera.fov = 22 - frac * 9;   // 22 → 13
+      camera.updateProjectionMatrix();
+
+    } else {
+      // Phase D complete → iris wipe
+      _startZoomIn();
+    }
   }
 
-  function _removeKeyHandlers() {
-    if (_kd) { document.removeEventListener('keydown', _kd); _kd = null; }
-    if (_ku) { document.removeEventListener('keyup',   _ku); _ku = null; }
+  // ── Iris-wipe (ZOOM_IN phase) ──────────────────────────────────────────────
+
+  function _startZoomIn() {
+    _phase = 'ZOOM_IN';
+    _ziT   = 0;
+
+    _irisCanvas        = document.createElement('canvas');
+    _irisCanvas.width  = window.innerWidth;
+    _irisCanvas.height = window.innerHeight;
+    _irisCanvas.style.cssText = [
+      'position:fixed', 'inset:0',
+      'z-index:400', 'pointer-events:none',
+    ].join(';');
+    document.body.appendChild(_irisCanvas);
+    _irisCtx = _irisCanvas.getContext('2d');
   }
 
-  // ── Orbital camera ─────────────────────────────────────────────────────────
-  // During PLAYING the camera orbits the droplet. Mouse drag to rotate,
-  // scroll wheel to zoom. No pointer lock needed.
+  function _drawIris(frac) {
+    const w    = _irisCanvas.width;
+    const h    = _irisCanvas.height;
+    const cx   = w / 2;
+    const cy   = h / 2;
+    const diag = Math.hypot(w, h);
+    const ctx  = _irisCtx;
+    ctx.clearRect(0, 0, w, h);
 
-  function _addCamHandlers() {
-    _camMD = (e) => { _camDragging = true; _camLastX = e.clientX; _camLastY = e.clientY; };
-    _camMM = (e) => {
-      if (!_camDragging) return;
-      _camAzimuth   += (e.clientX - _camLastX) * 0.007;
-      _camElevation  = Math.max(-0.05, Math.min(1.25,
-                         _camElevation - (e.clientY - _camLastY) * 0.007));
-      _camLastX = e.clientX; _camLastY = e.clientY;
-    };
-    _camMU = () => { _camDragging = false; };
-    _camTS = (e) => {
-      if (e.touches.length === 1) {
-        _camDragging = true;
-        _camLastX = e.touches[0].clientX; _camLastY = e.touches[0].clientY;
+    if (frac < 0.62) {
+      // Expanding light-blue droplet circle
+      const r = diag * (frac / 0.62) * 0.74;
+      ctx.fillStyle = '#a0d8f0';
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // Full-screen blue, fading to black
+      const blackFrac = Math.min(1, (frac - 0.62) / 0.38);
+      ctx.fillStyle = '#a0d8f0';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = `rgba(0,0,0,${blackFrac.toFixed(3)})`;
+      ctx.fillRect(0, 0, w, h);
+    }
+  }
+
+  function _destroyIris() {
+    if (_irisCanvas && _irisCanvas.parentNode) {
+      _irisCanvas.parentNode.removeChild(_irisCanvas);
+    }
+    _irisCanvas = null;
+    _irisCtx    = null;
+  }
+
+  function _updateZoomIn(dt) {
+    _ziT += dt;
+    const frac = Math.min(1, _ziT / _ZI_DUR);
+    _drawIris(frac);
+    if (frac >= 1) {
+      _destroyIris();
+      _startPlaying2D();
+    }
+  }
+
+  // ── 2D game setup ──────────────────────────────────────────────────────────
+
+  function _startPlaying2D() {
+    _phase = 'PLAYING_2D';
+
+    // Clean up 3D cinematic assets
+    _cleanupCinematic();
+    P1Students.destroy();
+    P1Furniture.destroy();
+    P1Classroom.destroy();
+
+    // Switch to orthographic camera
+    const aspect = window.innerWidth / window.innerHeight;
+    const vH = P1_CFG.VIEW_HEIGHT_2D;
+    _viewW = vH * aspect;
+
+    camera = new THREE.OrthographicCamera(-_viewW/2, _viewW/2, vH/2, -vH/2, 0.1, 50);
+    _scrollX = 0;
+    _scrollSpeed = P1_CFG.SCROLL_SPEED_INIT_2D;
+
+    // Reset scene for 2D
+    scene.background = new THREE.Color(0x87ceeb);  // sky blue
+    scene.fog = null;
+
+    // Add lighting for 2D scene
+    const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(5, 10, 5);
+    scene.add(directionalLight);
+
+    // Initialize 2D subsystems
+    P1Level.init(scene, aspect);
+    P1Droplet.init(scene, _scrollX, _scrollSpeed, _viewW);
+    P1HUD.init();
+
+    // Set up keyboard listeners
+    _setupKeyListeners();
+
+    // Start ambient audio
+    P1Audio.playAmbient();
+  }
+
+  function _setupKeyListeners() {
+    const onKeyDown = (e) => {
+      if (_phase !== 'PLAYING_2D') return;
+      switch (e.code) {
+        case 'ArrowUp':    case 'KeyW': _keys.up = true; e.preventDefault(); break;
+        case 'ArrowDown':  case 'KeyS': _keys.down = true; e.preventDefault(); break;
+        case 'ArrowLeft':  case 'KeyA': _keys.left = true; e.preventDefault(); break;
+        case 'ArrowRight': case 'KeyD': _keys.right = true; e.preventDefault(); break;
       }
     };
-    _camTM = (e) => {
-      if (!_camDragging || e.touches.length !== 1) return;
-      _camAzimuth   += (e.touches[0].clientX - _camLastX) * 0.007;
-      _camElevation  = Math.max(-0.05, Math.min(1.25,
-                         _camElevation - (e.touches[0].clientY - _camLastY) * 0.007));
-      _camLastX = e.touches[0].clientX; _camLastY = e.touches[0].clientY;
+
+    const onKeyUp = (e) => {
+      if (_phase !== 'PLAYING_2D') return;
+      switch (e.code) {
+        case 'ArrowUp':    case 'KeyW': _keys.up = false; e.preventDefault(); break;
+        case 'ArrowDown':  case 'KeyS': _keys.down = false; e.preventDefault(); break;
+        case 'ArrowLeft':  case 'KeyA': _keys.left = false; e.preventDefault(); break;
+        case 'ArrowRight': case 'KeyD': _keys.right = false; e.preventDefault(); break;
+      }
     };
-    _camTE = () => { _camDragging = false; };
-    _camWH = (e) => {
-      _camRadius = Math.max(0.8, Math.min(9.0, _camRadius + e.deltaY * 0.005));
-    };
-    document.addEventListener('mousedown',  _camMD);
-    document.addEventListener('mousemove',  _camMM);
-    document.addEventListener('mouseup',    _camMU);
-    document.addEventListener('touchstart', _camTS, { passive: true });
-    document.addEventListener('touchmove',  _camTM, { passive: true });
-    document.addEventListener('touchend',   _camTE);
-    document.addEventListener('wheel',      _camWH, { passive: true });
+
+    if (!_kDown) {
+      window.addEventListener('keydown', onKeyDown);
+      _kDown = true;
+    }
+    if (!_kUp) {
+      window.addEventListener('keyup', onKeyUp);
+      _kUp = true;
+    }
   }
 
-  function _removeCamHandlers() {
-    document.removeEventListener('mousedown',  _camMD);
-    document.removeEventListener('mousemove',  _camMM);
-    document.removeEventListener('mouseup',    _camMU);
-    document.removeEventListener('touchstart', _camTS);
-    document.removeEventListener('touchmove',  _camTM);
-    document.removeEventListener('touchend',   _camTE);
-    document.removeEventListener('wheel',      _camWH);
-    _camMD = _camMM = _camMU = _camTS = _camTM = _camTE = _camWH = null;
+  function _tick2D(dt) {
+    // Auto-scroll (ramps up speed over time)
+    _scrollSpeed = Math.min(P1_CFG.SCROLL_SPEED_MAX_2D,
+                           _scrollSpeed + P1_CFG.SCROLL_RAMP_2D * dt);
+    _scrollX += _scrollSpeed * dt;
+
+    // Update camera to follow scroll
+    camera.position.set(_scrollX + _viewW/2, P1_CFG.VIEW_HEIGHT_2D/2, 10);
+    camera.lookAt(_scrollX + _viewW/2, P1_CFG.VIEW_HEIGHT_2D/2, 0);
+
+    // Tick subsystems
+    P1Level.tick(dt);
+    const breathState = P1Level.getBreathState(P1Droplet.getPos().x, P1Droplet.getPos().y);
+    P1Droplet.tick(dt, _scrollX, _scrollSpeed, _viewW, _keys, breathState);
+
+    // Update HUD
+    const dropletState = P1Droplet.getState();
+    const dropletPos = P1Droplet.getPos();
+    const distToTarget = Math.sqrt(
+      (dropletPos.x - P1_CFG.MOUTH_WORLD_X_2D) ** 2 +
+      (dropletPos.y - P1_CFG.MOUTH_WORLD_Y_2D) ** 2
+    );
+
+    P1HUD.update({
+      dropletIntegrity: dropletState.dropletIntegrity,
+      viralViability: dropletState.viralViability,
+      distToTarget,
+      zoneName: breathState.zoneName || 'AIRBORNE'
+    });
+
+    // Check win/fail conditions
+    if (P1Droplet.hasWon()) {
+      _handleWin(dropletState);
+    } else if (!P1Droplet.isAlive()) {
+      _handleFail(P1Droplet.getFailReason(), dropletState);
+    }
   }
 
-  function _updateOrbitCamera() {
-    const pos = P1Droplet.getPos();
-    const cosEl = Math.cos(_camElevation);
-    const sinEl = Math.sin(_camElevation);
-    const ox = Math.sin(_camAzimuth) * cosEl * _camRadius;
-    const oy = sinEl * _camRadius;
-    const oz = Math.cos(_camAzimuth) * cosEl * _camRadius;
-    // Soft-follow so sudden droplet direction changes don't whip the camera
-    const l = 0.08;
-    camera.position.x += (pos.x + ox - camera.position.x) * l;
-    camera.position.y += (pos.y + oy - camera.position.y) * l;
-    camera.position.z += (pos.z + oz - camera.position.z) * l;
-    camera.lookAt(pos.x, pos.y + 0.1, pos.z);
+  function _showPlaceholderOverlay() {
+    const el = document.createElement('div');
+    el.style.cssText = [
+      'position:fixed', 'inset:0',
+      'display:flex', 'flex-direction:column',
+      'align-items:center', 'justify-content:center',
+      'background:rgba(0,10,20,0.96)',
+      'z-index:500', 'pointer-events:auto',
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+    ].join(';');
+    el.innerHTML = `
+      <div style="text-align:center;max-width:480px;padding:0 24px">
+        <div style="font-size:0.65rem;letter-spacing:0.22em;color:#446;
+                    text-transform:uppercase;margin-bottom:14px">AEROSOL ODYSSEY</div>
+        <div style="font-size:1.9rem;font-weight:700;color:#88ccee;
+                    margin-bottom:10px">Cinematic complete.</div>
+        <div style="font-size:0.88rem;color:#667;margin-bottom:32px;line-height:1.6">
+          The 2D droplet platformer begins here in Chunk B.
+        </div>
+        <div style="display:flex;gap:12px;justify-content:center">
+          <button id="p1PlRetry" style="
+            padding:10px 28px;font-size:0.80rem;letter-spacing:0.14em;text-transform:uppercase;
+            background:rgba(200,140,60,0.15);border:1px solid rgba(200,140,60,0.45);
+            border-radius:6px;color:#e0b870;cursor:pointer">
+            REPLAY CINEMATIC
+          </button>
+          <button id="p1PlSkip" style="
+            padding:10px 28px;font-size:0.80rem;letter-spacing:0.14em;text-transform:uppercase;
+            background:rgba(0,180,120,0.12);border:1px solid rgba(0,180,120,0.40);
+            border-radius:6px;color:#44cc88;cursor:pointer">
+            SKIP →
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(el);
+    _resultOverlay = el;
+
+    document.getElementById('p1PlRetry').addEventListener('click', () => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+      _resultOverlay = null;
+      _cleanupCinematic();
+      _resetScene();
+      _t = 0;
+      _startCinematic();
+    });
+
+    document.getElementById('p1PlSkip').addEventListener('click', () => {
+      if (el.parentNode) el.parentNode.removeChild(el);
+      _resultOverlay = null;
+      _active = false;
+      if (_onComplete) _onComplete({ viralViability: 80 });
+    });
   }
 
-  // ── Win / Fail ─────────────────────────────────────────────────────────────
+  // ── Win / Fail (used by 2D game in Chunk B+) ──────────────────────────────
 
-  function _handleWin() {
+  function _handleWin(stats) {
     _phase = 'WIN';
-    _removeKeyHandlers();
     P1Audio.stopAmbient();
     P1Audio.playWin();
-    const state = P1Droplet.getState();
-    _showResultOverlay(true, state);
+    _showResultOverlay(true, stats);
   }
 
-  function _handleFail() {
+  function _handleFail(reason, stats) {
     _phase = 'FAIL';
-    _removeKeyHandlers();
     P1Audio.stopAmbient();
     P1Audio.playFail();
-    const reason = P1Droplet.getFailReason();
-    _showResultOverlay(false, null, reason);
+    _showResultOverlay(false, stats, reason);
   }
 
   function _showResultOverlay(won, state, reason) {
@@ -477,7 +708,7 @@ const P1AerosolOdyssey = (() => {
       'position:fixed', 'inset:0',
       'display:flex', 'flex-direction:column',
       'align-items:center', 'justify-content:center',
-      'background:rgba(8,6,4,0.80)', 'z-index:500',
+      'background:rgba(8,6,4,0.82)', 'z-index:500',
       'pointer-events:auto',
       'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
     ].join(';');
@@ -539,10 +770,8 @@ const P1AerosolOdyssey = (() => {
 
     document.body.appendChild(_resultOverlay);
 
-    // Button wiring
     const winBtn = document.getElementById('p1WinBtn');
     if (winBtn) winBtn.addEventListener('click', () => {
-      _cleanupGame();
       const vv = state ? Math.round(state.viralViability) : 80;
       destroy();
       if (_onComplete) _onComplete({ viralViability: vv });
@@ -550,27 +779,18 @@ const P1AerosolOdyssey = (() => {
 
     const retryBtn = document.getElementById('p1RetryBtn');
     if (retryBtn) retryBtn.addEventListener('click', () => {
-      _cleanupGame();
+      _removeResultOverlay();
+      _cleanupCinematic();
+      _resetScene();
+      _t = 0;
       _startCinematic();
     });
 
     const skipBtn = document.getElementById('p1SkipBtn2');
     if (skipBtn) skipBtn.addEventListener('click', () => {
-      _cleanupGame();
       destroy();
       if (_onComplete) _onComplete({ viralViability: 80 });
     });
-  }
-
-  function _cleanupGame() {
-    _removeResultOverlay();
-    P1Audio.stopAmbient();
-    P1HUD.destroy();
-    P1Droplet.destroy();
-    _removeKeyHandlers();
-    _removeCamHandlers();
-    _removeCoughCloud();
-    P1Companions.destroy();
   }
 
   function _removeResultOverlay() {
@@ -580,17 +800,27 @@ const P1AerosolOdyssey = (() => {
     _resultOverlay = null;
   }
 
-  // ── _tick ──────────────────────────────────────────────────────────────────
+  // ── Cinematic cleanup (does not destroy scene) ─────────────────────────────
+
+  function _cleanupCinematic() {
+    _removeCoughCloud();
+    _destroyTargetDroplet();
+    _destroyIris();
+    _sneezeFired = false;
+    _cinT        = 0;
+    _ziT         = 0;
+  }
+
+  // ── Main tick ──────────────────────────────────────────────────────────────
 
   function _tick(dt) {
     if (!_active) return;
     _t       += dt;
     _elapsed += dt;
 
-    // ── Sub-state updates ────────────────────────────────────────────────────
     if (_phase === 'TITLE') {
-      // Gentle orbit during title card
-      const r = 10.5;
+      // Gentle wide orbit so the classroom is visible behind the overlay
+      const r     = 10.5;
       const angle = -Math.PI * 0.55 + _t * 0.06;
       camera.position.x = Math.cos(angle) * r * 0.7;
       camera.position.z = Math.sin(angle) * r - 1.0;
@@ -600,48 +830,17 @@ const P1AerosolOdyssey = (() => {
     } else if (_phase === 'CINEMATIC') {
       _updateCinematic(dt);
 
-    } else if (_phase === 'PLAYING') {
-      P1Droplet.setKeys(_keys);
-      P1Droplet.tick(dt);
+    } else if (_phase === 'ZOOM_IN') {
+      _updateZoomIn(dt);
 
-      // Hit SFX
-      const hit = P1Droplet.consumeHit();
-      if (hit === 'furniture') P1Audio.playHit();
-      else if (hit === 'mask') P1Audio.playMaskHit();
-
-      const pos   = P1Droplet.getPos();
-      const state = P1Droplet.getState();
-      const target = P1Students.getTargetHead();
-      let distToTarget;
-      if (target) {
-        const dz = target.z - pos.z;
-        distToTarget = Math.max(0, dz);
-      }
-      P1HUD.update({ ...state, distToTarget });
-
-      // Breath SFX — proximity 0→1 as droplet approaches inhalation zone
-      const prox = target
-        ? Math.max(0, 1 - distToTarget / (P1_CFG.APPROACH_Z_THRESHOLD * 1.5))
-        : 0;
-      P1Audio.setBreathPhase(state.breathPhase, prox);
-
-      // Orbital camera follows the droplet
-      _updateOrbitCamera();
-
-      if (!P1Droplet.isAlive()) {
-        _handleFail();
-      } else if (P1Droplet.hasWon()) {
-        _handleWin();
-      }
+    } else if (_phase === 'PLAYING_2D') {
+      _tick2D(dt);
     }
 
-    // ── Always update classroom subsystems ───────────────────────────────────
-    P1Classroom.tick(dt);
-    P1Students.tick(dt);
-
-    // Companion droplets + thermal plumes (active from cinematic onward)
-    if (_phase === 'CINEMATIC' || _phase === 'PLAYING') {
-      P1Companions.tick(dt);
+    // Tick classroom subsystems during all 3D phases
+    if (_phase === 'TITLE' || _phase === 'CINEMATIC' || _phase === 'ZOOM_IN') {
+      P1Classroom.tick(dt);
+      P1Students.tick(dt);
     }
   }
 
@@ -653,22 +852,48 @@ const P1AerosolOdyssey = (() => {
 
     _removeIntroOverlay();
     _removeResultOverlay();
-    _removeCoughCloud();
-    _removeKeyHandlers();
-    _removeCamHandlers();
+    _cleanupCinematic();
 
-    P1HUD.destroy();
-    P1Droplet.destroy();
-    P1Companions.destroy();
-
+    _cleanupGame2D();
     P1Audio.destroy();
     P1Students.destroy();
     P1Furniture.destroy();
     P1Classroom.destroy();
 
-    scene  = null;
-    camera = null;
-    _t = _elapsed = _cinT = _coughT = 0;
+    if (scene) {
+      scene.traverse(obj => {
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+      });
+      scene = null;
+    }
+    camera   = null;
+    _t       = 0;
+    _elapsed = 0;
+    _cinT    = 0;
+    _ziT     = 0;
+  }
+
+  // ── 2D game cleanup ────────────────────────────────────────────────────────
+
+  function _cleanupGame2D() {
+    if (typeof P1Level !== 'undefined') P1Level.destroy();
+    if (typeof P1Droplet !== 'undefined') P1Droplet.destroy();
+    if (typeof P1HUD !== 'undefined') P1HUD.destroy();
+
+    // Remove event listeners (generic cleanup)
+    if (_kDown || _kUp) {
+      _kDown = false;
+      _kUp = false;
+    }
+
+    _scrollX = 0;
+    _scrollSpeed = P1_CFG.SCROLL_SPEED_INIT_2D;
+    _viewW = 0;
+    _keys = { up: false, down: false, left: false, right: false };
   }
 
   // ── Public object ──────────────────────────────────────────────────────────
@@ -677,6 +902,11 @@ const P1AerosolOdyssey = (() => {
     launch,
     destroy,
     _tick,
+    // Called by Chunk B to hook into the 2D game start:
+    _startPlaying2D,
+    // Called by Chunk B to fire win/fail from the 2D game:
+    _handleWin,
+    _handleFail,
     get _active() { return _active; },
     get scene()   { return scene;   },
     get camera()  { return camera;  },

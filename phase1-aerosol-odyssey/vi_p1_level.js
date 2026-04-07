@@ -1,0 +1,612 @@
+/**
+ * vi_p1_level.js — Phase 1 2D side-scroller level geometry.
+ *
+ * Builds the 2D level: floor, ceiling, platform obstacles, and Cam the Ram face.
+ * Also manages breathing cycle particles and inhale/exhale forces.
+ *
+ * API:
+ *   P1Level.init(scene, aspect)
+ *   P1Level.tick(dt)
+ *   P1Level.destroy()
+ *   P1Level.getBreathState()     → {phase, force, zoneName}
+ *   P1Level.checkPlatformHit(x, y, radius) → bool
+ */
+
+/* global THREE, P1_CFG */
+
+const P1Level = (() => {
+
+  let _scene = null;
+  let _aspect = 1;
+
+  // World geometry
+  let _levelGroup = null;
+  let _platforms = [];
+
+  // Cam the Ram face parts
+  let _camGroup = null;
+  let _breathParticles = null;
+  let _breathVels = null;
+
+  // Breathing cycle
+  let _breathT = 0;
+  let _breathPhase = 'rest';  // 'rest' | 'inhale' | 'exhale'
+
+  // Hazard zones
+  let _hazardGroup = null;
+  let _hazardZones = [];
+  let _dryAirParticles = [];
+  let _dryAirVels = [];
+
+  // Dispose tracking
+  const _geos = [];
+  const _mats = [];
+  function _geo(g) { _geos.push(g); return g; }
+  function _mat(m) { _mats.push(m); return m; }
+
+  // ── Build Level ────────────────────────────────────────────────────────────
+
+  function init(scene, aspect) {
+    _scene = scene;
+    _aspect = aspect;
+    _breathT = 0;
+    _breathPhase = 'rest';
+
+    _buildLevel();
+    _buildCamTheRam();
+    _buildBreathParticles();
+    _buildHazardZones();
+  }
+
+  function _buildLevel() {
+    _levelGroup = new THREE.Group();
+    _scene.add(_levelGroup);
+
+    // Floor
+    const floorGeo = _geo(new THREE.PlaneGeometry(P1_CFG.WORLD_WIDTH_2D, 0.4));
+    const floorMat = _mat(new THREE.MeshPhongMaterial({ color: 0x2a2520 }));
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.position.set(P1_CFG.WORLD_WIDTH_2D / 2, P1_CFG.FLOOR_Y_2D - 0.2, 1.4);
+    floorMesh.rotation.x = -Math.PI / 2;
+    _levelGroup.add(floorMesh);
+
+    // Ceiling
+    const ceilGeo = _geo(new THREE.PlaneGeometry(P1_CFG.WORLD_WIDTH_2D, 0.4));
+    const ceilMat = _mat(new THREE.MeshPhongMaterial({ color: 0x1a1510 }));
+    const ceilMesh = new THREE.Mesh(ceilGeo, ceilMat);
+    ceilMesh.position.set(P1_CFG.WORLD_WIDTH_2D / 2, P1_CFG.CEIL_Y_2D + 0.2, 1.4);
+    ceilMesh.rotation.x = Math.PI / 2;
+    _levelGroup.add(ceilMesh);
+
+    // Platform obstacles
+    const platformMat = _mat(new THREE.MeshPhongMaterial({ color: 0x4a3828 }));
+    _platforms = [];
+
+    P1_CFG.PLATFORMS_2D.forEach(p => {
+      const geo = _geo(new THREE.BoxGeometry(p.w, p.h, 0.6));
+      const mesh = new THREE.Mesh(geo, platformMat);
+      mesh.position.set(p.x + p.w/2, p.y + p.h/2, 1.5);
+      _levelGroup.add(mesh);
+      _platforms.push({ ...p });
+    });
+  }
+
+  function _buildCamTheRam() {
+    _camGroup = new THREE.Group();
+    _scene.add(_camGroup);
+
+    const worldX = 93;
+    const worldY = 6;
+    const z = 1.5;
+
+    // Head (cream-colored sphere, flattened)
+    const headGeo = _geo(new THREE.SphereGeometry(2.2, 16, 12));
+    const headMat = _mat(new THREE.MeshPhongMaterial({ color: 0xe8d8b8 }));
+    const headMesh = new THREE.Mesh(headGeo, headMat);
+    headMesh.position.set(worldX, worldY, z);
+    headMesh.scale.z = 0.22;  // flatten to side view
+    _camGroup.add(headMesh);
+
+    // Horn (curved golden tube)
+    const hornCurve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(92, 8, z),
+      new THREE.Vector3(90.5, 11.5, z),
+      new THREE.Vector3(88, 11, z),
+      new THREE.Vector3(87.5, 8.2, z)
+    ]);
+    const hornGeo = _geo(new THREE.TubeGeometry(hornCurve, 16, 0.22, 8));
+    const hornMat = _mat(new THREE.MeshPhongMaterial({ color: 0xC8A951 })); // CSU gold
+    const hornMesh = new THREE.Mesh(hornGeo, hornMat);
+    _camGroup.add(hornMesh);
+
+    // Muzzle (cream box extending left from head)
+    const muzzleGeo = _geo(new THREE.BoxGeometry(4, 2, 0.4));
+    const muzzleMat = _mat(new THREE.MeshPhongMaterial({ color: 0xe8d8b8 }));
+    const muzzleMesh = new THREE.Mesh(muzzleGeo, muzzleMat);
+    muzzleMesh.position.set(90.5, 4.8, z);
+    _camGroup.add(muzzleMesh);
+
+    // Nostril (dark circle on muzzle)
+    const nostrilGeo = _geo(new THREE.CircleGeometry(0.22, 8));
+    const nostrilMat = _mat(new THREE.MeshBasicMaterial({ color: 0x220011 }));
+    const nostrilMesh = new THREE.Mesh(nostrilGeo, nostrilMat);
+    nostrilMesh.position.set(88.7, 4.9, z + 0.25);
+    _camGroup.add(nostrilMesh);
+
+    // Eye white
+    const eyeWhiteGeo = _geo(new THREE.CircleGeometry(0.38, 12));
+    const eyeWhiteMat = _mat(new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    const eyeWhiteMesh = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+    eyeWhiteMesh.position.set(91.8, 7.0, z + 0.25);
+    _camGroup.add(eyeWhiteMesh);
+
+    // Pupil
+    const pupilGeo = _geo(new THREE.CircleGeometry(0.18, 8));
+    const pupilMat = _mat(new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    const pupilMesh = new THREE.Mesh(pupilGeo, pupilMat);
+    pupilMesh.position.set(91.6, 7.0, z + 0.3);
+    _camGroup.add(pupilMesh);
+
+    // Ear (cone, tilted)
+    const earGeo = _geo(new THREE.ConeGeometry(0.5, 1.2, 8));
+    const earMat = _mat(new THREE.MeshPhongMaterial({ color: 0xe8d8b8 }));
+    const earMesh = new THREE.Mesh(earGeo, earMat);
+    earMesh.position.set(94.2, 8.2, z);
+    earMesh.rotation.z = 0.3;
+    _camGroup.add(earMesh);
+
+    // Mouth opening (dark circle - WIN TARGET)
+    const mouthGeo = _geo(new THREE.CircleGeometry(0.5, 12));
+    const mouthMat = _mat(new THREE.MeshBasicMaterial({ color: 0x331100 }));
+    const mouthMesh = new THREE.Mesh(mouthGeo, mouthMat);
+    mouthMesh.position.set(P1_CFG.MOUTH_WORLD_X_2D, P1_CFG.MOUTH_WORLD_Y_2D, z + 0.25);
+    _camGroup.add(mouthMesh);
+  }
+
+  function _buildBreathParticles() {
+    const N = 24;
+    const positions = new Float32Array(N * 3);
+    _breathVels = new Float32Array(N * 3);
+
+    // Start particles near mouth
+    for (let i = 0; i < N; i++) {
+      positions[i*3  ] = P1_CFG.MOUTH_WORLD_X_2D + (Math.random() - 0.5) * 0.8;
+      positions[i*3+1] = P1_CFG.MOUTH_WORLD_Y_2D + (Math.random() - 0.5) * 0.8;
+      positions[i*3+2] = 1.8 + Math.random() * 0.4;
+
+      _breathVels[i*3  ] = 0;
+      _breathVels[i*3+1] = 0;
+      _breathVels[i*3+2] = 0;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: 0xaaccff,
+      size: 0.15,
+      transparent: true,
+      opacity: 0.0,  // start invisible
+      depthWrite: false,
+    }));
+
+    _breathParticles = new THREE.Points(geo, mat);
+    _scene.add(_breathParticles);
+  }
+
+  function _buildHazardZones() {
+    _hazardGroup = new THREE.Group();
+    _scene.add(_hazardGroup);
+    _hazardZones = [];
+
+    P1_CFG.HAZARD_ZONES_2D.forEach(zone => {
+      _hazardZones.push({ ...zone });
+
+      // Visual representation based on zone type
+      const centerX = zone.x + zone.w / 2;
+      const centerY = zone.y + zone.h / 2;
+      const z = 0.8; // behind most geometry
+
+      if (zone.type === 'UV') {
+        // Bright yellow/white beam
+        const uvGeo = _geo(new THREE.PlaneGeometry(zone.w, zone.h));
+        const uvMat = _mat(new THREE.MeshBasicMaterial({
+          color: 0xffff88,
+          transparent: true,
+          opacity: 0.15 + zone.intensity * 0.1,
+          depthWrite: false,
+        }));
+        const uvMesh = new THREE.Mesh(uvGeo, uvMat);
+        uvMesh.position.set(centerX, centerY, z);
+        _hazardGroup.add(uvMesh);
+
+        // Animated edge particles
+        const edgeParticles = _createZoneEdgeParticles(zone, 0xffffaa, 16);
+        if (edgeParticles) _hazardGroup.add(edgeParticles);
+
+      } else if (zone.type === 'HEAT') {
+        // Orange/red heat zone
+        const heatGeo = _geo(new THREE.PlaneGeometry(zone.w, zone.h));
+        const heatMat = _mat(new THREE.MeshBasicMaterial({
+          color: 0xff6644,
+          transparent: true,
+          opacity: 0.12 + zone.intensity * 0.08,
+          depthWrite: false,
+        }));
+        const heatMesh = new THREE.Mesh(heatGeo, heatMat);
+        heatMesh.position.set(centerX, centerY, z);
+        _hazardGroup.add(heatMesh);
+
+        // Heat shimmer particles
+        const shimmerParticles = _createZoneEdgeParticles(zone, 0xff8866, 12);
+        if (shimmerParticles) _hazardGroup.add(shimmerParticles);
+
+      } else if (zone.type === 'DRY_AIR') {
+        // Moving air particles
+        const dryParticles = _createDryAirParticles(zone);
+        if (dryParticles) {
+          _hazardGroup.add(dryParticles);
+          _dryAirParticles.push(dryParticles);
+        }
+
+      } else if (zone.type === 'HUMID') {
+        // Beneficial misty blue zone
+        const humidGeo = _geo(new THREE.PlaneGeometry(zone.w, zone.h));
+        const humidMat = _mat(new THREE.MeshBasicMaterial({
+          color: 0x4488cc,
+          transparent: true,
+          opacity: 0.08 + zone.intensity * 0.06,
+          depthWrite: false,
+        }));
+        const humidMesh = new THREE.Mesh(humidGeo, humidMat);
+        humidMesh.position.set(centerX, centerY, z);
+        _hazardGroup.add(humidMesh);
+
+        // Gentle mist particles
+        const mistParticles = _createZoneEdgeParticles(zone, 0x88bbff, 8);
+        if (mistParticles) _hazardGroup.add(mistParticles);
+      }
+    });
+  }
+
+  function _createZoneEdgeParticles(zone, color, count) {
+    const positions = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      // Random positions around zone perimeter
+      const t = Math.random();
+      let x, y;
+      if (t < 0.25) { // bottom edge
+        x = zone.x + Math.random() * zone.w;
+        y = zone.y;
+      } else if (t < 0.5) { // right edge
+        x = zone.x + zone.w;
+        y = zone.y + Math.random() * zone.h;
+      } else if (t < 0.75) { // top edge
+        x = zone.x + Math.random() * zone.w;
+        y = zone.y + zone.h;
+      } else { // left edge
+        x = zone.x;
+        y = zone.y + Math.random() * zone.h;
+      }
+
+      positions[i*3  ] = x;
+      positions[i*3+1] = y;
+      positions[i*3+2] = 0.9 + Math.random() * 0.3;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color,
+      size: 0.08 + Math.random() * 0.04,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    }));
+
+    return new THREE.Points(geo, mat);
+  }
+
+  function _createDryAirParticles(zone) {
+    const count = Math.floor(zone.w * zone.h * 0.8);
+    const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      positions[i*3  ] = zone.x + Math.random() * zone.w;
+      positions[i*3+1] = zone.y + Math.random() * zone.h;
+      positions[i*3+2] = 1.0 + Math.random() * 0.2;
+
+      velocities[i*3  ] = (zone.windX || 0) * (0.8 + Math.random() * 0.4);
+      velocities[i*3+1] = (Math.random() - 0.5) * 0.5;
+      velocities[i*3+2] = 0;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: 0xccaa88,
+      size: 0.06,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false,
+    }));
+
+    const particles = new THREE.Points(geo, mat);
+    _dryAirVels.push(velocities);
+    return particles;
+  }
+
+  // ── Breathing cycle ────────────────────────────────────────────────────────
+
+  function tick(dt) {
+    _updateBreathingCycle(dt);
+    _updateBreathParticles(dt);
+    _updateHazardZones(dt);
+  }
+
+  function _updateBreathingCycle(dt) {
+    _breathT += dt;
+    const cycleFrac = (_breathT % P1_CFG.BREATH_CYCLE_2D) / P1_CFG.BREATH_CYCLE_2D;
+
+    if (cycleFrac < P1_CFG.INHALE_FRAC_2D) {
+      _breathPhase = 'inhale';
+    } else if (cycleFrac < P1_CFG.INHALE_FRAC_2D + P1_CFG.EXHALE_FRAC_2D) {
+      _breathPhase = 'exhale';
+    } else {
+      _breathPhase = 'rest';
+    }
+  }
+
+  function _updateBreathParticles(dt) {
+    if (!_breathParticles) return;
+
+    const pos = _breathParticles.geometry.attributes.position.array;
+    const N = pos.length / 3;
+    const mouthX = P1_CFG.MOUTH_WORLD_X_2D;
+    const mouthY = P1_CFG.MOUTH_WORLD_Y_2D;
+
+    for (let i = 0; i < N; i++) {
+      const px = pos[i*3  ];
+      const py = pos[i*3+1];
+
+      // Distance to mouth
+      const dx = px - mouthX;
+      const dy = py - mouthY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const ndx = dist > 0.01 ? dx / dist : 0;
+      const ndy = dist > 0.01 ? dy / dist : 0;
+
+      if (_breathPhase === 'inhale' && dist < P1_CFG.INHALE_PULL_RANGE_2D) {
+        // Pull particles toward mouth
+        const force = P1_CFG.INHALE_PULL_FORCE_2D * (1 - dist / P1_CFG.INHALE_PULL_RANGE_2D);
+        _breathVels[i*3  ] -= ndx * force * dt;
+        _breathVels[i*3+1] -= ndy * force * dt;
+      } else if (_breathPhase === 'exhale' && dist < 3.0) {
+        // Push particles away from mouth
+        const force = P1_CFG.EXHALE_PUSH_FORCE_2D;
+        _breathVels[i*3  ] += ndx * force * dt;
+        _breathVels[i*3+1] += ndy * force * dt;
+      }
+
+      // Apply velocity with drag
+      _breathVels[i*3  ] *= Math.pow(0.92, dt * 60);
+      _breathVels[i*3+1] *= Math.pow(0.92, dt * 60);
+
+      pos[i*3  ] += _breathVels[i*3  ] * dt;
+      pos[i*3+1] += _breathVels[i*3+1] * dt;
+
+      // Reset particles that drift too far
+      if (dist > 15.0) {
+        pos[i*3  ] = mouthX + (Math.random() - 0.5) * 0.8;
+        pos[i*3+1] = mouthY + (Math.random() - 0.5) * 0.8;
+        _breathVels[i*3  ] = 0;
+        _breathVels[i*3+1] = 0;
+      }
+    }
+
+    _breathParticles.geometry.attributes.position.needsUpdate = true;
+
+    // Particle visibility based on breath phase
+    let targetOpacity = 0;
+    if (_breathPhase === 'inhale') targetOpacity = 0.4;
+    if (_breathPhase === 'exhale') targetOpacity = 0.6;
+
+    const currentOpacity = _breathParticles.material.opacity;
+    _breathParticles.material.opacity += (targetOpacity - currentOpacity) * Math.min(1, dt * 3.0);
+  }
+
+  function _updateHazardZones(dt) {
+    // Animate dry air particles
+    _dryAirParticles.forEach((particles, index) => {
+      if (!particles || index >= _dryAirVels.length) return;
+
+      const pos = particles.geometry.attributes.position.array;
+      const vels = _dryAirVels[index];
+      const N = pos.length / 3;
+      const zone = _hazardZones.find(z => z.type === 'DRY_AIR');
+      if (!zone) return;
+
+      for (let i = 0; i < N; i++) {
+        // Apply velocity
+        pos[i*3  ] += vels[i*3  ] * dt;
+        pos[i*3+1] += vels[i*3+1] * dt;
+
+        // Wrap particles that exit the zone
+        if (pos[i*3] > zone.x + zone.w) {
+          pos[i*3] = zone.x;
+        } else if (pos[i*3] < zone.x) {
+          pos[i*3] = zone.x + zone.w;
+        }
+
+        // Keep particles within zone bounds vertically
+        if (pos[i*3+1] > zone.y + zone.h) {
+          pos[i*3+1] = zone.y + zone.h;
+          vels[i*3+1] = -Math.abs(vels[i*3+1]);
+        } else if (pos[i*3+1] < zone.y) {
+          pos[i*3+1] = zone.y;
+          vels[i*3+1] = Math.abs(vels[i*3+1]);
+        }
+      }
+
+      particles.geometry.attributes.position.needsUpdate = true;
+    });
+  }
+
+  // ── Collision detection ────────────────────────────────────────────────────
+
+  function checkPlatformHit(worldX, worldY, radius) {
+    for (const p of _platforms) {
+      // Circle-AABB collision
+      const closestX = Math.max(p.x, Math.min(p.x + p.w, worldX));
+      const closestY = Math.max(p.y, Math.min(p.y + p.h, worldY));
+      const distSq = (worldX - closestX) ** 2 + (worldY - closestY) ** 2;
+      if (distSq < radius ** 2) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // ── Breathing forces ───────────────────────────────────────────────────────
+
+  function getBreathState(dropletX, dropletY) {
+    const dx = dropletX - P1_CFG.MOUTH_WORLD_X_2D;
+    const dy = dropletY - P1_CFG.MOUTH_WORLD_Y_2D;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+
+    let force = { fx: 0, fy: 0 };
+    let zoneName = null;
+
+    // Breathing forces
+    if (_breathPhase === 'inhale' && dist < P1_CFG.INHALE_PULL_RANGE_2D) {
+      const strength = P1_CFG.INHALE_PULL_FORCE_2D * (1 - dist / P1_CFG.INHALE_PULL_RANGE_2D);
+      const ndx = dist > 0.01 ? dx / dist : 0;
+      const ndy = dist > 0.01 ? dy / dist : 0;
+      force.fx = -ndx * strength;
+      force.fy = -ndy * strength;
+      zoneName = 'INHALING';
+    } else if (_breathPhase === 'exhale' && dist < 6.0) {
+      const strength = P1_CFG.EXHALE_PUSH_FORCE_2D * (1 - dist / 6.0);
+      const ndx = dist > 0.01 ? dx / dist : 0;
+      const ndy = dist > 0.01 ? dy / dist : 0;
+      force.fx = ndx * strength;
+      force.fy = ndy * strength;
+      zoneName = 'EXHALING';
+    }
+
+    // Check hazard zones
+    const zoneEffects = getHazardZoneEffects(dropletX, dropletY);
+
+    // Add dry air wind forces
+    if (zoneEffects.windForce) {
+      force.fx += zoneEffects.windForce.fx;
+      force.fy += zoneEffects.windForce.fy;
+    }
+
+    // Override zone name if in a hazard zone
+    if (zoneEffects.zoneName) {
+      zoneName = zoneEffects.zoneName;
+    }
+
+    return {
+      phase: _breathPhase,
+      force,
+      zoneName,
+      distToMouth: dist,
+      hazardEffects: zoneEffects
+    };
+  }
+
+  // ── Hazard zone detection ──────────────────────────────────────────────────
+
+  function getHazardZoneEffects(dropletX, dropletY) {
+    let evapMult = 1.0;
+    let viabMult = 1.0;
+    let windForce = null;
+    let zoneName = null;
+    let zoneIntensity = 0;
+
+    // Check each hazard zone
+    for (const zone of _hazardZones) {
+      if (dropletX >= zone.x && dropletX <= zone.x + zone.w &&
+          dropletY >= zone.y && dropletY <= zone.y + zone.h) {
+
+        const intensity = zone.intensity || 1.0;
+
+        if (zone.type === 'UV') {
+          viabMult *= P1_CFG.ZONE_UV_VIAB_MULT_2D * intensity;
+          zoneName = 'UV EXPOSURE';
+          zoneIntensity = Math.max(zoneIntensity, intensity);
+
+        } else if (zone.type === 'HEAT') {
+          evapMult *= P1_CFG.ZONE_HEAT_EVAP_MULT_2D * intensity;
+          zoneName = 'HEAT ZONE';
+          zoneIntensity = Math.max(zoneIntensity, intensity);
+
+        } else if (zone.type === 'DRY_AIR') {
+          evapMult *= P1_CFG.ZONE_DRY_EVAP_MULT_2D * intensity;
+          // Add wind force
+          if (zone.windX) {
+            windForce = windForce || { fx: 0, fy: 0 };
+            windForce.fx += zone.windX * P1_CFG.DRY_AIR_WIND_SCALE_2D * intensity;
+          }
+          zoneName = 'DRY AIR';
+          zoneIntensity = Math.max(zoneIntensity, intensity);
+
+        } else if (zone.type === 'HUMID') {
+          evapMult *= P1_CFG.ZONE_HUMID_EVAP_MULT_2D / intensity; // beneficial
+          zoneName = 'HUMID AIR';
+          zoneIntensity = Math.max(zoneIntensity, intensity);
+        }
+      }
+    }
+
+    return {
+      evapMult,
+      viabMult,
+      windForce,
+      zoneName,
+      intensity: zoneIntensity
+    };
+  }
+
+  // ── Cleanup ─────────────────────────────────────────────────────────────────
+
+  function destroy() {
+    if (_levelGroup && _levelGroup.parent) _levelGroup.parent.remove(_levelGroup);
+    if (_camGroup && _camGroup.parent) _camGroup.parent.remove(_camGroup);
+    if (_breathParticles && _breathParticles.parent) _breathParticles.parent.remove(_breathParticles);
+    if (_hazardGroup && _hazardGroup.parent) _hazardGroup.parent.remove(_hazardGroup);
+
+    _levelGroup = null;
+    _camGroup = null;
+    _breathParticles = null;
+    _breathVels = null;
+    _platforms = [];
+    _hazardGroup = null;
+    _hazardZones = [];
+    _dryAirParticles = [];
+    _dryAirVels = [];
+
+    for (const g of _geos) g.dispose();
+    for (const m of _mats) m.dispose();
+    _geos.length = 0;
+    _mats.length = 0;
+
+    _scene = null;
+  }
+
+  // ── Public API ──────────────────────────────────────────────────────────────
+
+  return {
+    init,
+    tick,
+    destroy,
+    checkPlatformHit,
+    getBreathState
+  };
+
+})();

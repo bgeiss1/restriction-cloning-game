@@ -198,4 +198,84 @@ const P1_CFG = Object.freeze({
     VIRAL_DECAY:       'VIRAL_DECAY',
   },
 
+  // ── 2D Side-Scroller ────────────────────────────────────────────────────────
+  WORLD_HEIGHT_2D: 12,          // orthographic world height (meters)
+  WORLD_WIDTH_2D:  100,         // total level width (meters)
+  VIEW_HEIGHT_2D:  12,          // orthographic view height (= WORLD_HEIGHT_2D)
+
+  SCROLL_SPEED_INIT_2D: 3.5,    // initial auto-scroll speed (m/s)
+  SCROLL_SPEED_MAX_2D:  8.0,    // maximum auto-scroll speed (m/s)
+  SCROLL_RAMP_2D:       0.22,   // scroll acceleration rate (delta/s)
+
+  DROPLET_VIEW_FRAC_2D: 0.25,   // droplet x = scrollX + viewW × 0.25
+  FLOOR_Y_2D:           0.0,    // floor level (y coordinate)
+  CEIL_Y_2D:            12.0,   // ceiling level (y coordinate)
+
+  DROPLET_START_Y_2D:      7.5, // droplet spawn altitude (y coordinate)
+  DROPLET_RADIUS_2D:       0.55,// droplet visual radius (meters)
+  DROPLET_RADIUS_MIN_2D:   0.12,// minimum radius when desiccated
+
+  DROPLET_GRAVITY_2D:      3.0, // base gravity (m/s²)
+  DROPLET_GRAVITY_SIZE_2D: 1.5, // gravity multiplier = 1 + size²×this
+  DROPLET_THRUST_UP_2D:    7.5, // upward thrust force (m/s²)
+  DROPLET_THRUST_DOWN_2D:  4.0, // downward thrust force (m/s²)
+  DROPLET_THRUST_LR_2D:    2.5, // lateral nudge force (m/s²)
+  DROPLET_VY_MAX_2D:       6.0, // max vertical velocity (m/s)
+  DROPLET_VX_NUDGE_MAX_2D: 2.0, // max lateral nudge velocity (m/s)
+  DROPLET_DRAG_2D:         0.88,// velocity drag coefficient (per frame)
+
+  EVAP_RATE_2D:            0.008,// evaporation rate (%/s)
+  VIAB_DECAY_BASE_2D:      0.4, // viral viability base decay (%/s)
+  VIAB_DESICCATED_MULT_2D: 4.0, // viability decay multiplier when dry
+
+  MOUTH_WORLD_X_2D:        88.5,// Cam's mouth x-coordinate (world)
+  MOUTH_WORLD_Y_2D:        5.0, // Cam's mouth y-coordinate (world)
+  WIN_DIST_2D:             2.0, // win distance to mouth (meters)
+
+  BREATH_CYCLE_2D:         4.0, // breath cycle duration (seconds)
+  INHALE_FRAC_2D:          0.45,// fraction of cycle spent inhaling
+  EXHALE_FRAC_2D:          0.45,// fraction of cycle spent exhaling
+  INHALE_PULL_RANGE_2D:    10.0,// inhale effect range (meters)
+  INHALE_PULL_FORCE_2D:    4.0, // inhale pull force (m/s²)
+  EXHALE_PUSH_FORCE_2D:    2.5, // exhale push force (m/s²)
+
+  PLATFORMS_2D: [
+    { x:  8, y: 0,    w: 5, h: 2.2 },  // floor obstacle
+    { x: 30, y: 0,    w: 4, h: 3.5 },  // floor obstacle
+    { x: 55, y: 0,    w: 6, h: 2.8 },  // floor obstacle
+    { x: 78, y: 0,    w: 5, h: 5.0 },  // floor obstacle (paired)
+    { x: 18, y: 9.5,  w: 5, h: 2.5 },  // ceiling obstacle
+    { x: 42, y: 7.5,  w: 5, h: 4.5 },  // ceiling obstacle
+    { x: 68, y: 8.0,  w: 5, h: 4.0 },  // ceiling obstacle
+    { x: 78, y:10.0,  w: 5, h: 2.0 },  // ceiling obstacle (paired → narrow channel)
+  ],
+
+  // ── Hazard Zones ───────────────────────────────────────────────────────────
+  HAZARD_ZONES_2D: [
+    // UV Light zones (increase viral decay significantly)
+    { type: 'UV', x: 15, y: 8, w: 8, h: 4, intensity: 1.0 },
+    { type: 'UV', x: 45, y: 2, w: 6, h: 5, intensity: 0.8 },
+    { type: 'UV', x: 72, y: 6, w: 10, h: 6, intensity: 1.2 },
+
+    // Heat zones (increase evaporation rate)
+    { type: 'HEAT', x: 25, y: 0, w: 12, h: 8, intensity: 1.0 },
+    { type: 'HEAT', x: 60, y: 8, w: 8, h: 4, intensity: 0.7 },
+
+    // Dry Air zones (increase evaporation + lateral wind force)
+    { type: 'DRY_AIR', x: 35, y: 0, w: 15, h: 12, intensity: 1.0, windX: -2.0 },
+    { type: 'DRY_AIR', x: 85, y: 2, w: 8, h: 8, intensity: 0.8, windX: 1.5 },
+
+    // Humidity zones (BENEFICIAL - decrease evaporation)
+    { type: 'HUMID', x: 5, y: 4, w: 8, h: 6, intensity: 1.0 },
+    { type: 'HUMID', x: 52, y: 1, w: 6, h: 4, intensity: 0.6 },
+  ],
+
+  // Zone effect multipliers
+  ZONE_UV_VIAB_MULT_2D:     8.0,  // UV increases viral decay by 8x
+  ZONE_HEAT_EVAP_MULT_2D:   3.0,  // Heat increases evaporation by 3x
+  ZONE_DRY_EVAP_MULT_2D:    2.5,  // Dry air increases evaporation by 2.5x
+  ZONE_HUMID_EVAP_MULT_2D:  0.3,  // Humidity reduces evaporation to 30%
+
+  DRY_AIR_WIND_SCALE_2D:    1.0,  // Wind force scaling for dry air zones
+
 });

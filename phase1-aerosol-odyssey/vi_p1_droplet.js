@@ -1,71 +1,46 @@
 /**
- * vi_p1_droplet.js — Phase 1 player droplet entity.
+ * vi_p1_droplet.js — Phase 1 2D droplet entity.
  *
- * Manages the playable respiratory droplet: mesh, physics, evaporation,
- * viral viability, and camera-follow.  Environmental zone effects (UV, warm,
- * dry, humid) are stubbed for Chunk 3; only base rates apply here.
+ * Manages the playable respiratory droplet in 2D side-scroller mode:
+ * physics, evaporation, viral viability, platform collision, and breathing forces.
  *
  * API:
- *   P1Droplet.init(scene, camera, startPos)
- *   P1Droplet.tick(dt)
+ *   P1Droplet.init(scene, scrollX, scrollSpeed, viewW)
+ *   P1Droplet.tick(dt, scrollX, scrollSpeed, viewW, keys, breathState)
  *   P1Droplet.destroy()
- *   P1Droplet.getPos()       → {x,y,z}
+ *   P1Droplet.getPos()       → {x, y} (world coordinates)
  *   P1Droplet.getState()     → {dropletIntegrity, viralViability, radius}
- *   P1Droplet.setKeys(keys)  — live key state {left,right,up,down}
- *   P1Droplet.isAlive()      → bool  (false after floor hit or VV=0)
- *   P1Droplet.hasWon()       → bool  (reached inhalation zone)
+ *   P1Droplet.isAlive()      → bool
+ *   P1Droplet.hasWon()       → bool
  *   P1Droplet.getFailReason()→ string
  */
 
-/* global THREE, P1_CFG, P1Students, P1Zones, P1Furniture */
+/* global THREE, P1_CFG, P1Level */
 
 const P1Droplet = (() => {
 
-  let _scene  = null;
-  let _camera = null;
+  let _scene = null;
 
   // Groups / meshes
-  let _group     = null;
+  let _group = null;
   let _outerMesh = null;
-  let _outerMat  = null;
+  let _outerMat = null;
   let _virusMesh = null;
 
-  // Physics
-  let _pos   = { x: 0, y: 0, z: 0 };
-  let _velX  = 0;
-  let _velY  = 0;
+  // 2D Physics (world coordinates)
+  let _worldX = 0;   // world x position
+  let _worldY = P1_CFG.DROPLET_START_Y_2D;   // world y position
+  let _velX = 0;     // lateral nudge velocity
+  let _velY = 0;     // vertical velocity
 
   // Droplet state
   let _dropletIntegrity = 100;
-  let _viralViability   = 100;
-  let _currentRadius    = P1_CFG.DROPLET_START_RADIUS;
+  let _viralViability = 100;
+  let _radius = P1_CFG.DROPLET_RADIUS_2D;
 
-  // Keys
-  let _keys = { left: false, right: false, up: false, down: false };
-
-  // Zone state
-  let _zoneName = null;
-
-  // Breathing cycle (active near target student)
-  let _breathT       = 0;   // time within current cycle, modulo BREATH_CYCLE_S
-  let _breathActive  = false;
-  let _breathPhase   = null;   // 'inhale' | 'exhale' | null
-
-  // Collision cooldown — prevents multi-frame damage from one hit
-  let _hitCooldown  = 0;
-  let _maskCooldown = 0;
-
-  // Hit type flag — consumed by main each frame to trigger SFX
-  let _hitType = null;   // 'furniture' | 'mask' | null
-
-  // Pre-allocated vectors for collision (avoids per-frame GC)
-  const _posV    = new THREE.Vector3();
-  const _closest = new THREE.Vector3();
-  const _normalV = new THREE.Vector3();
-
-  // Result
-  let _alive      = true;
-  let _won        = false;
+  // Result flags
+  let _alive = true;
+  let _won = false;
   let _failReason = '';
 
   // Dispose tracking
@@ -74,376 +49,244 @@ const P1Droplet = (() => {
   function _geo(g) { _geos.push(g); return g; }
   function _mat(m) { _mats.push(m); return m; }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // ── Build droplet mesh ─────────────────────────────────────────────────────
 
-  function _build() {
+  function _buildDroplet() {
     _group = new THREE.Group();
 
-    // Outer water sphere
+    // Outer water sphere (unit radius, scaled by _radius)
+    const outerGeo = _geo(new THREE.SphereGeometry(1.0, 16, 12));
     _outerMat = _mat(new THREE.MeshPhongMaterial({
-      color:      P1_CFG.DROPLET_COLOR_FULL,
+      color: 0x88ddff,
       transparent: true,
-      opacity:    P1_CFG.DROPLET_OPACITY_FULL,
-      shininess:  90,
+      opacity: 0.55,
+      shininess: 90,
       depthWrite: false,
     }));
-    const outerGeo = _geo(new THREE.SphereGeometry(P1_CFG.DROPLET_START_RADIUS, 16, 12));
     _outerMesh = new THREE.Mesh(outerGeo, _outerMat);
+    _outerMesh.scale.z = 0.35;  // flatten for 2D side view
     _group.add(_outerMesh);
 
-    // Inner virus sphere
+    // Inner virus (icosahedron)
+    const virusGeo = _geo(new THREE.IcosahedronGeometry(0.32, 1));
     const virusMat = _mat(new THREE.MeshPhongMaterial({
-      color:    P1_CFG.VIRUS_COLOR,
-      emissive: new THREE.Color(P1_CFG.VIRUS_COLOR).multiplyScalar(0.25),
+      color: 0xff6644,
+      emissive: new THREE.Color(0x441100),
+      emissiveIntensity: 0.35,
       shininess: 25,
     }));
-    const virusGeo = _geo(new THREE.SphereGeometry(P1_CFG.VIRUS_RADIUS, 8, 6));
     _virusMesh = new THREE.Mesh(virusGeo, virusMat);
     _group.add(_virusMesh);
 
-    // HA spikes (golden-ratio distribution)
-    const spikeMat = _mat(new THREE.MeshPhongMaterial({ color: 0xff9966, shininess: 8 }));
-    const spikeGeo = _geo(new THREE.ConeGeometry(0.004, 0.020, 4));
-    const N = P1_CFG.VIRUS_SPIKE_COUNT;
-    const r = P1_CFG.VIRUS_RADIUS;
-    const up = new THREE.Vector3(0, 1, 0);
-    for (let i = 0; i < N; i++) {
-      const phi   = Math.acos(1 - 2 * (i + 0.5) / N);
-      const theta = Math.PI * (1 + Math.sqrt(5)) * i;
-      const nx = Math.sin(phi) * Math.cos(theta);
-      const ny = Math.cos(phi);
-      const nz = Math.sin(phi) * Math.sin(theta);
-      const sp = new THREE.Mesh(spikeGeo, spikeMat);
-      sp.position.set(nx * (r + 0.010), ny * (r + 0.010), nz * (r + 0.010));
-      sp.quaternion.setFromUnitVectors(up, new THREE.Vector3(nx, ny, nz));
-      _virusMesh.add(sp);
-    }
+    // Virus spikes (6 cardinal directions)
+    const spikeMat = _mat(new THREE.MeshPhongMaterial({ color: 0xff8866 }));
+    const dirs = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]];
+    dirs.forEach(([dx, dy, dz]) => {
+      const spikeGeo = _geo(new THREE.ConeGeometry(0.055, 0.24, 4));
+      const spike = new THREE.Mesh(spikeGeo, spikeMat);
+      spike.position.set(dx * 0.40, dy * 0.40, dz * 0.40);
+      spike.quaternion.setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(dx, dy, dz)
+      );
+      _virusMesh.add(spike);
+    });
 
-    _group.position.set(_pos.x, _pos.y, _pos.z);
     _scene.add(_group);
+    _updateMeshPosition();
   }
 
-  // ── Public API ─────────────────────────────────────────────────────────────
+  function _updateMeshPosition() {
+    if (!_group) return;
 
-  function init(scene, camera, startPos) {
-    _scene  = scene;
-    _camera = camera;
-    _pos    = { x: startPos.x, y: startPos.y, z: startPos.z };
-    _velX   = 0;
-    _velY   = 0;
-    _dropletIntegrity = 100;
-    _viralViability   = 100;
-    _currentRadius    = P1_CFG.DROPLET_START_RADIUS;
-    _zoneName     = null;
-    _breathT      = 0;
-    _breathActive = false;
-    _breathPhase  = null;
-    _hitCooldown  = 0;
-    _maskCooldown = 0;
-    _alive      = true;
-    _won        = false;
-    _failReason = '';
+    // Scale group by current radius
+    const scale = _radius / P1_CFG.DROPLET_RADIUS_2D;
+    _group.scale.setScalar(scale);
 
-    _build();
-  }
+    // Position in world coordinates
+    _group.position.set(_worldX, _worldY, 1.6);
 
-  function tick(dt) {
-    if (!_alive || _won) return;
-
-    // ── Zone detection (uses position at frame start) ─────────────────────────
-    const zone = P1Zones.getZoneState(_pos);
-    _zoneName = zone.zoneName;
-    _hitType  = null;   // reset each frame; set below if hit occurs
-    const airF = P1Zones.getAirForce(_pos);
-
-    // ── Input → velocity ─────────────────────────────────────────────────────
-    if (_keys.left)  _velX -= P1_CFG.LATERAL_ACCEL  * dt;
-    if (_keys.right) _velX += P1_CFG.LATERAL_ACCEL  * dt;
-    if (_keys.up)    _velY += P1_CFG.ALTITUDE_ACCEL * dt;
-    if (_keys.down)  _velY -= P1_CFG.ALTITUDE_ACCEL * dt;
-
-    _velX = Math.max(-P1_CFG.MAX_LATERAL_SPEED,  Math.min(P1_CFG.MAX_LATERAL_SPEED,  _velX));
-    _velY = Math.max(-P1_CFG.MAX_ALTITUDE_SPEED * 1.5, Math.min(P1_CFG.MAX_ALTITUDE_SPEED, _velY));
-
-    // Lateral drag (frame-rate independent)
-    _velX *= Math.pow(P1_CFG.LATERAL_DRAG, dt * 60);
-
-    // Gravity
-    _velY -= P1_CFG.GRAVITY * dt;
-
-    // Air currents
-    _velX += airF.fx * dt;
-    _velY += airF.fy * dt;
-
-    // ── Position update ──────────────────────────────────────────────────────
-    _pos.x += _velX * dt;
-    _pos.y += _velY * dt;
-    _pos.z += P1_CFG.BASE_FORWARD_SPEED * dt;
-
-    // ── Boundaries ───────────────────────────────────────────────────────────
-    // X walls — absorb velocity so player doesn't slide along wall
-    if (_pos.x < P1_CFG.X_MIN) { _pos.x = P1_CFG.X_MIN; if (_velX < 0) _velX = 0; }
-    if (_pos.x > P1_CFG.X_MAX) { _pos.x = P1_CFG.X_MAX; if (_velX > 0) _velX = 0; }
-
-    // Z walls — front and back of room
-    const Z_WALL_BACK  = -5.88;
-    const Z_WALL_FRONT =  5.88;
-    if (_pos.z < Z_WALL_BACK)  _pos.z = Z_WALL_BACK;
-    if (_pos.z > Z_WALL_FRONT) _pos.z = Z_WALL_FRONT;
-
-    if (_pos.y >= P1_CFG.Y_MAX) {
-      _pos.y = P1_CFG.Y_MAX;
-      _velY  = -Math.abs(_velY) * 0.35;   // ceiling bounce
-    }
-
-    if (_pos.y <= P1_CFG.Y_MIN) {
-      _alive      = false;
-      _failReason = 'The droplet fell — gravity won.';
-      return;
-    }
-
-    // ── Evaporation (zone-aware rate) ─────────────────────────────────────────
-    // zone.evapRate is %/sec; negative in humid zone = DI recovery.
-    _dropletIntegrity -= zone.evapRate * dt;
-    _dropletIntegrity  = Math.max(0, Math.min(100, _dropletIntegrity));
-
-    // ── Viral viability (base decay + zone extra) ─────────────────────────────
-    const desiccated   = _dropletIntegrity <= 0;
-    const totalViabDecay = P1_CFG.VIAB_BASE_DECAY
-                         * (desiccated ? P1_CFG.VIAB_DESICCATED_MULT : 1)
-                         + zone.viabExtraDecay;
-    _viralViability -= totalViabDecay * dt;
-    _viralViability  = Math.max(0, _viralViability);
-
-    if (_viralViability <= 0) {
-      _alive      = false;
-      _failReason = 'The virus desiccated — no viable particles remain.';
-      return;
-    }
-
-    // ── Furniture collision ───────────────────────────────────────────────────
-    if (_hitCooldown > 0) _hitCooldown -= dt;
-    _checkFurnitureCollision();
-
-    // ── Masked student ────────────────────────────────────────────────────────
-    if (_maskCooldown > 0) _maskCooldown -= dt;
-    _checkMaskedStudent();
-
-    // ── Breathing cycle (approach zone) ──────────────────────────────────────
-    _updateBreathing(dt);
-
-    // ── Visuals: shrink + recolor outer sphere ───────────────────────────────
-    const t = _dropletIntegrity / 100;
-    _currentRadius = P1_CFG.DROPLET_MIN_RADIUS
-                   + t * (P1_CFG.DROPLET_START_RADIUS - P1_CFG.DROPLET_MIN_RADIUS);
-    const s = _currentRadius / P1_CFG.DROPLET_START_RADIUS;
-    _outerMesh.scale.setScalar(s);
-    _outerMat.opacity = P1_CFG.DROPLET_OPACITY_DRY
-                      + t * (P1_CFG.DROPLET_OPACITY_FULL - P1_CFG.DROPLET_OPACITY_DRY);
-    _outerMat.color.lerpColors(
-      new THREE.Color(P1_CFG.DROPLET_COLOR_DRY),
-      new THREE.Color(P1_CFG.DROPLET_COLOR_FULL),
-      t
-    );
-    _outerMesh.visible = s > 0.28;   // hide fully desiccated shell
+    // Visual tilt based on lateral velocity
+    _group.rotation.z = -_velX * 0.3;
 
     // Virus slow spin
-    _virusMesh.rotation.y += dt * 0.45;
-
-    // Visual tilt when steering
-    _group.rotation.z = -_velX * (P1_CFG.MAX_TILT_DEG * Math.PI / 180)
-                        / P1_CFG.MAX_LATERAL_SPEED;
-
-    _group.position.set(_pos.x, _pos.y, _pos.z);
-
-    // ── Win check — must reach inhalation zone during inhale phase ───────────
-    const target = P1Students.getTargetHead();
-    if (target) {
-      const dx = _pos.x - target.x;
-      const dy = _pos.y - target.y;
-      const dz = _pos.z - target.z;
-      const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      // Win on inhale (or within 20% of cycle start for leniency).
-      // If breathing not yet active (far away), plain proximity wins.
-      const inInhale = !_breathActive || _breathPhase === 'inhale';
-      if (dist < P1_CFG.INHALATION_ZONE_RADIUS && inInhale) {
-        _won = true;
-      }
-    } else if (_pos.z >= P1_CFG.Z_END) {
-      _won = true;
-    }
+    if (_virusMesh) _virusMesh.rotation.y += 0.02;
   }
 
-  // ── Furniture collision ────────────────────────────────────────────────────
-  // Treats each desk/chair AABB as a solid box. On penetration: push droplet
-  // out along the shortest axis, partially reflect velocity, and apply damage.
+  // ── Lifecycle ───────────────────────────────────────────────────────────────
 
-  function _checkFurnitureCollision() {
-    const colliders = P1Furniture.getColliders();
-    _posV.set(_pos.x, _pos.y, _pos.z);
-    const r = _currentRadius + 0.01;   // small skin
+  function init(scene, scrollX, scrollSpeed, viewW) {
+    _scene = scene;
 
-    for (const box of colliders) {
-      box.clampPoint(_posV, _closest);
-      _normalV.subVectors(_posV, _closest);
-      const dist = _normalV.length();
-      if (dist < r) {
-        // Push out
-        const pen = r - dist;
-        if (dist > 0.001) {
-          _normalV.normalize();
-        } else {
-          _normalV.set(0, 1, 0);   // directly inside — push up
-        }
-        _pos.x += _normalV.x * pen;
-        _pos.y += _normalV.y * pen;
-        _pos.z += _normalV.z * pen;
+    // Start droplet at left side of view
+    _worldX = scrollX + viewW * P1_CFG.DROPLET_VIEW_FRAC_2D;
+    _worldY = P1_CFG.DROPLET_START_Y_2D;
+    _velX = 0;
+    _velY = 0;
 
-        // Partial velocity reflection off surface normal
-        const dot = _velX * _normalV.x + _velY * _normalV.y;
-        if (dot < 0) {   // only if moving into surface
-          _velX -= 2 * dot * _normalV.x * 0.45;
-          _velY -= 2 * dot * _normalV.y * 0.45;
-        }
+    _dropletIntegrity = 100;
+    _viralViability = 100;
+    _radius = P1_CFG.DROPLET_RADIUS_2D;
 
-        // Damage — gated by cooldown so one hit = one damage event
-        if (_hitCooldown <= 0) {
-          _dropletIntegrity -= P1_CFG.DROPLET_COLLISION_DAMAGE;
-          _viralViability   -= P1_CFG.VIAB_COLLISION_DAMAGE;
-          _dropletIntegrity  = Math.max(0, _dropletIntegrity);
-          _viralViability    = Math.max(0, _viralViability);
-          _hitCooldown = 0.6;   // 0.6s before next furniture hit can damage
-          _hitType = 'furniture';
-        }
+    _alive = true;
+    _won = false;
+    _failReason = '';
 
-        break;   // one collision resolved per frame is enough
-      }
-    }
+    _buildDroplet();
   }
 
-  // ── Masked student ─────────────────────────────────────────────────────────
-  // The surgical mask deflects the droplet with heavy DI damage.
+  function tick(dt, scrollX, scrollSpeed, viewW, keys, breathState) {
+    if (!_alive || _won) return;
 
-  function _checkMaskedStudent() {
-    if (_maskCooldown > 0) return;
-    const masked = P1Students.getMaskedStudent();
-    if (!masked) return;
+    // ── Input forces ──────────────────────────────────────────────────────────
+    let thrustX = 0;
+    let thrustY = 0;
 
-    const p = masked.pos;
-    const captureR = masked.headRadius + _currentRadius + 0.06;
-    const dx = _pos.x - p.x;
-    const dy = _pos.y - (P1_CFG.HEAD_Y);
-    const dz = _pos.z - p.z;
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (keys.up)    thrustY += P1_CFG.DROPLET_THRUST_UP_2D;
+    if (keys.down)  thrustY -= P1_CFG.DROPLET_THRUST_DOWN_2D;
+    if (keys.left)  thrustX -= P1_CFG.DROPLET_THRUST_LR_2D;
+    if (keys.right) thrustX += P1_CFG.DROPLET_THRUST_LR_2D;
 
-    if (dist < captureR) {
-      // Push droplet away from mask head
-      const nx = dist > 0.001 ? dx / dist : 0;
-      const ny = dist > 0.001 ? dy / dist : 1;
-      const nz = dist > 0.001 ? dz / dist : 0;
+    // ── Gravity (scaled by droplet size) ─────────────────────────────────────
+    const sizeRatio = _radius / P1_CFG.DROPLET_RADIUS_2D;
+    const gravityMult = 1 + (sizeRatio * sizeRatio) * P1_CFG.DROPLET_GRAVITY_SIZE_2D;
+    const gravity = P1_CFG.DROPLET_GRAVITY_2D * gravityMult;
+    thrustY -= gravity;
 
-      _pos.x += nx * (captureR - dist + 0.02);
-      _pos.y += ny * (captureR - dist + 0.02);
-      _pos.z += nz * (captureR - dist + 0.02);
-
-      // Deflect velocity
-      const dot = _velX * nx + _velY * ny;
-      if (dot < 0) {
-        _velX -= 2 * dot * nx * 0.6;
-        _velY -= 2 * dot * ny * 0.6;
-      }
-
-      // Damage from mask collision
-      _dropletIntegrity -= 12;
-      _viralViability   -= 5;
-      _dropletIntegrity  = Math.max(0, _dropletIntegrity);
-      _viralViability    = Math.max(0, _viralViability);
-      _zoneName = 'MASK BLOCKED';
-      _maskCooldown = 1.5;
-      _hitType = 'mask';
+    // ── Breathing forces ──────────────────────────────────────────────────────
+    if (breathState && breathState.force) {
+      thrustX += breathState.force.fx;
+      thrustY += breathState.force.fy;
     }
-  }
 
-  // ── Breathing cycle ────────────────────────────────────────────────────────
-  // Activates when the droplet enters the approach zone near the target student.
-  // Inhale phase: suction force scaled by proximity.
-  // Exhale phase: push force scaled by proximity.
+    // ── Apply forces to velocity ──────────────────────────────────────────────
+    _velX += thrustX * dt;
+    _velY += thrustY * dt;
 
-  function _updateBreathing(dt) {
-    const target = P1Students.getTargetHead();
-    if (!target) return;
+    // Velocity limits
+    _velX = Math.max(-P1_CFG.DROPLET_VX_NUDGE_MAX_2D, Math.min(P1_CFG.DROPLET_VX_NUDGE_MAX_2D, _velX));
+    _velY = Math.max(-P1_CFG.DROPLET_VY_MAX_2D, Math.min(P1_CFG.DROPLET_VY_MAX_2D, _velY));
 
-    const dx = _pos.x - target.x;
-    const dy = _pos.y - target.y;
-    const dz = _pos.z - target.z;
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const inApproach = dist < P1_CFG.APPROACH_Z_THRESHOLD * 1.5;
+    // Drag
+    const dragFactor = Math.pow(P1_CFG.DROPLET_DRAG_2D, dt * 60);
+    _velX *= dragFactor;
+    _velY *= dragFactor;
 
-    if (!inApproach) {
-      _breathActive = false;
-      _breathPhase  = null;
+    // ── Auto-scroll + lateral nudge ──────────────────────────────────────────
+    const targetX = scrollX + viewW * P1_CFG.DROPLET_VIEW_FRAC_2D;
+    _worldX = targetX + _velX;  // scroll + lateral offset
+    _worldY += _velY * dt;
+
+    // ── Boundaries ────────────────────────────────────────────────────────────
+    // Floor collision
+    if (_worldY - _radius <= P1_CFG.FLOOR_Y_2D) {
+      _alive = false;
+      _failReason = 'The droplet hit the floor and was absorbed.';
       return;
     }
 
-    _breathActive = true;
-    _breathT = (_breathT + dt) % P1_CFG.BREATH_CYCLE_S;
-    const halfCycle = P1_CFG.BREATH_CYCLE_S / 2;
-    const isInhale  = _breathT < halfCycle;
-    _breathPhase    = isInhale ? 'inhale' : 'exhale';
-
-    // Direction toward target nose
-    const invDist = dist > 0.001 ? 1 / dist : 0;
-    const ndx = -(dx * invDist);   // toward target
-    const ndy = -(dy * invDist);
-    const ndz = -(dz * invDist);
-
-    // Force magnitude: ramps linearly, max within INHALATION_ZONE_RADIUS
-    const proximity = Math.max(0, 1 - dist / (P1_CFG.APPROACH_Z_THRESHOLD * 1.5));
-
-    if (isInhale) {
-      // Suction toward nose
-      const force = P1_CFG.INHALE_SUCTION_FORCE
-                  + proximity * (P1_CFG.INHALE_SUCTION_MAX - P1_CFG.INHALE_SUCTION_FORCE);
-      _velX += ndx * force * dt;
-      _velY += ndy * force * dt;
-      // Override zone display
-      if (_maskCooldown <= 0) _zoneName = 'INHALING';
-    } else {
-      // Exhale push
-      const force = P1_CFG.EXHALE_PUSH_FORCE * proximity;
-      _velX -= ndx * force * dt;
-      _velY -= ndy * force * dt;
-      if (_maskCooldown <= 0) _zoneName = 'EXHALING';
+    // Ceiling soft bounce
+    if (_worldY + _radius >= P1_CFG.CEIL_Y_2D) {
+      _worldY = P1_CFG.CEIL_Y_2D - _radius;
+      _velY = -Math.abs(_velY) * 0.4;  // soft bounce
     }
+
+    // ── Platform collision ────────────────────────────────────────────────────
+    if (P1Level.checkPlatformHit(_worldX, _worldY, _radius)) {
+      _alive = false;
+      _failReason = 'The droplet hit an obstacle and was absorbed.';
+      return;
+    }
+
+    // ── Evaporation & viral decay ─────────────────────────────────────────────
+    // Apply hazard zone effects
+    const hazardEffects = (breathState && breathState.hazardEffects) ||
+                         { evapMult: 1.0, viabMult: 1.0 };
+
+    // Evaporation with zone multipliers
+    const evapRate = P1_CFG.EVAP_RATE_2D * hazardEffects.evapMult;
+    _dropletIntegrity -= evapRate * dt * 100;
+    _dropletIntegrity = Math.max(0, _dropletIntegrity);
+
+    // Viral decay with zone and desiccation multipliers
+    const desiccated = _dropletIntegrity <= 0;
+    const viabDecayMult = desiccated ? P1_CFG.VIAB_DESICCATED_MULT_2D : 1;
+    const totalViabDecay = P1_CFG.VIAB_DECAY_BASE_2D * viabDecayMult * hazardEffects.viabMult;
+    _viralViability -= totalViabDecay * dt * 100;
+    _viralViability = Math.max(0, _viralViability);
+
+    if (_viralViability <= 0) {
+      _alive = false;
+      _failReason = 'The virus became inactive — no viable particles remain.';
+      return;
+    }
+
+    // ── Update visual radius ──────────────────────────────────────────────────
+    const integrityFrac = _dropletIntegrity / 100;
+    _radius = P1_CFG.DROPLET_RADIUS_MIN_2D +
+              integrityFrac * (P1_CFG.DROPLET_RADIUS_2D - P1_CFG.DROPLET_RADIUS_MIN_2D);
+
+    // Update droplet opacity and color
+    if (_outerMat) {
+      _outerMat.opacity = 0.25 + integrityFrac * 0.30;
+      _outerMat.color.lerpColors(
+        new THREE.Color(0x4488aa),  // dry color
+        new THREE.Color(0x88ddff),  // full color
+        integrityFrac
+      );
+    }
+
+    // ── Win check ──────────────────────────────────────────────────────────────
+    if (breathState && breathState.distToMouth < P1_CFG.WIN_DIST_2D) {
+      _won = true;
+    }
+
+    // Update mesh position and effects
+    _updateMeshPosition();
   }
 
   function destroy() {
     if (_group && _group.parent) _group.parent.remove(_group);
     _group = null;
+    _outerMesh = null;
+    _outerMat = null;
+    _virusMesh = null;
+
     for (const g of _geos) g.dispose();
     for (const m of _mats) m.dispose();
     _geos.length = 0;
     _mats.length = 0;
-    _scene  = null;
-    _camera = null;
+
+    _scene = null;
   }
 
-  function getPos()       { return { ..._pos }; }
-  function getState()     {
+  // ── Public API ──────────────────────────────────────────────────────────────
+
+  function getPos() {
+    return { x: _worldX, y: _worldY };
+  }
+
+  function getState() {
     return {
       dropletIntegrity: _dropletIntegrity,
-      viralViability:   _viralViability,
-      radius:           _currentRadius,
-      zoneName:         _zoneName,
-      breathPhase:      _breathPhase,
+      viralViability: _viralViability,
+      radius: _radius
     };
   }
-  function setKeys(k)     { _keys = k; }
-  function isAlive()      { return _alive; }
-  function hasWon()       { return _won; }
-  function getFailReason(){ return _failReason; }
-  function consumeHit()   { const h = _hitType; _hitType = null; return h; }
 
-  return { init, tick, destroy, getPos, getState, setKeys, isAlive, hasWon, getFailReason, consumeHit };
+  function isAlive() { return _alive; }
+  function hasWon() { return _won; }
+  function getFailReason() { return _failReason; }
+
+  return {
+    init,
+    tick,
+    destroy,
+    getPos,
+    getState,
+    isAlive,
+    hasWon,
+    getFailReason
+  };
 
 })();
