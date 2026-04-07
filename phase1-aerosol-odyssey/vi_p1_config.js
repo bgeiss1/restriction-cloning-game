@@ -397,7 +397,7 @@ const P1_CFG = Object.freeze({
 
   // Balance refinements (Chunk F adjustments)
   EVAP_RATE_BALANCED_2D: 0.006,      // Reduced from 0.008 (was too harsh)
-  VIAB_DECAY_BALANCED_2D: 0.025,     // ~2.5%/sec - survives full level naturally
+  VIAB_DECAY_BALANCED_2D: 0.005,     // ~0.5%/sec - balanced for 1000m level length
   COMPANION_SIZE_BALANCED_2D: 0.12,  // Reduced from 0.15 (less OP size growth)
   COMPANION_VIAB_BALANCED_2D: 6.0,   // Reduced from 8.0 (balanced healing)
 
