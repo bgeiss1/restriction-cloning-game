@@ -84,96 +84,126 @@ const P1Droplet = (() => {
     _virusMesh = new THREE.Mesh(virusGeo, virusMat);
     _group.add(_virusMesh);
 
-    // Surface proteins - randomly distributed HA trimers and NA enzymes
+    // Surface proteins - evenly spaced HA trimers and NA enzymes
     const numHA = 8;  // HA trimers
     const numNA = 6;  // Neuraminidase enzymes
+    const minDistance = 0.5; // Minimum distance between proteins
 
-    // HA Trimers - randomly distributed
-    for (let i = 0; i < numHA; i++) {
-      // Random sphere surface distribution
+    // Generate evenly distributed positions for both protein types
+    const proteinPositions = [];
+    const maxAttempts = 500;
+
+    // Helper function to generate random sphere surface point
+    function randomSpherePoint() {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(1 - 2 * Math.random());
-      const dir = new THREE.Vector3(
+      return new THREE.Vector3(
         Math.sin(phi) * Math.cos(theta),
         Math.cos(phi),
         Math.sin(phi) * Math.sin(theta)
       );
-
-      const trimerGroup = new THREE.Group();
-      trimerGroup.position.copy(dir.clone().multiplyScalar(0.32)); // Contact virus surface
-      trimerGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-
-      // HA2 stem (stalk) - shortened
-      const stemGeo = _geo(new THREE.CylinderGeometry(0.018, 0.030, 0.08, 6));
-      const stemMat = _mat(new THREE.MeshPhongMaterial({
-        color: 0x6688dd,
-        emissive: 0x001133,
-        emissiveIntensity: 0.15
-      }));
-      const stem = new THREE.Mesh(stemGeo, stemMat);
-      stem.position.y = 0.04; // half height
-      trimerGroup.add(stem);
-
-      // Three HA1 head domains (120° apart)
-      for (let j = 0; j < 3; j++) {
-        const angle = (j / 3) * Math.PI * 2;
-        const headGeo = _geo(new THREE.SphereGeometry(0.038, 6, 5));
-        const headMat = _mat(new THREE.MeshPhongMaterial({
-          color: 0x88aaff,
-          emissive: 0x112244,
-          emissiveIntensity: 0.12
-        }));
-        const head = new THREE.Mesh(headGeo, headMat);
-        head.position.set(
-          Math.cos(angle) * 0.045,
-          0.10,
-          Math.sin(angle) * 0.045
-        );
-        trimerGroup.add(head);
-      }
-
-      _virusMesh.add(trimerGroup);
     }
 
-    // Neuraminidase (NA) enzymes - mushroom shaped, green
+    // Helper function to check minimum distance
+    function checkMinDistance(newPos, existingPositions, minDist) {
+      for (const pos of existingPositions) {
+        if (newPos.distanceTo(pos) < minDist) return false;
+      }
+      return true;
+    }
+
+    // Generate HA positions first
+    for (let i = 0; i < numHA; i++) {
+      let position = null;
+      let attempts = 0;
+
+      do {
+        position = randomSpherePoint();
+        attempts++;
+      } while (!checkMinDistance(position, proteinPositions, minDistance) && attempts < maxAttempts);
+
+      if (position) {
+        proteinPositions.push(position);
+
+        const trimerGroup = new THREE.Group();
+        trimerGroup.position.copy(position.clone().multiplyScalar(0.32));
+        trimerGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), position);
+
+        // HA2 stem (stalk) - shortened
+        const stemGeo = _geo(new THREE.CylinderGeometry(0.018, 0.030, 0.08, 6));
+        const stemMat = _mat(new THREE.MeshPhongMaterial({
+          color: 0x6688dd,
+          emissive: 0x001133,
+          emissiveIntensity: 0.15
+        }));
+        const stem = new THREE.Mesh(stemGeo, stemMat);
+        stem.position.y = 0.04; // half height
+        trimerGroup.add(stem);
+
+        // Three HA1 head domains (120° apart)
+        for (let j = 0; j < 3; j++) {
+          const angle = (j / 3) * Math.PI * 2;
+          const headGeo = _geo(new THREE.SphereGeometry(0.038, 6, 5));
+          const headMat = _mat(new THREE.MeshPhongMaterial({
+            color: 0x88aaff,
+            emissive: 0x112244,
+            emissiveIntensity: 0.12
+          }));
+          const head = new THREE.Mesh(headGeo, headMat);
+          head.position.set(
+            Math.cos(angle) * 0.045,
+            0.10,
+            Math.sin(angle) * 0.045
+          );
+          trimerGroup.add(head);
+        }
+
+        _virusMesh.add(trimerGroup);
+      }
+    }
+
+    // Generate NA positions with spacing from HA
     for (let i = 0; i < numNA; i++) {
-      // Random sphere surface distribution
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(1 - 2 * Math.random());
-      const dir = new THREE.Vector3(
-        Math.sin(phi) * Math.cos(theta),
-        Math.cos(phi),
-        Math.sin(phi) * Math.sin(theta)
-      );
+      let position = null;
+      let attempts = 0;
 
-      const naGroup = new THREE.Group();
-      naGroup.position.copy(dir.clone().multiplyScalar(0.32)); // Contact virus surface
-      naGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      do {
+        position = randomSpherePoint();
+        attempts++;
+      } while (!checkMinDistance(position, proteinPositions, minDistance) && attempts < maxAttempts);
 
-      // NA stalk - thin stem
-      const stalkGeo = _geo(new THREE.CylinderGeometry(0.012, 0.012, 0.06, 6));
-      const stalkMat = _mat(new THREE.MeshPhongMaterial({
-        color: 0x44cc66,
-        emissive: 0x002200,
-        emissiveIntensity: 0.15
-      }));
-      const stalk = new THREE.Mesh(stalkGeo, stalkMat);
-      stalk.position.y = 0.03; // half height
-      naGroup.add(stalk);
+      if (position) {
+        proteinPositions.push(position);
 
-      // NA head - mushroom cap (wider, flattened)
-      const headGeo = _geo(new THREE.SphereGeometry(0.042, 8, 6));
-      const headMat = _mat(new THREE.MeshPhongMaterial({
-        color: 0x66dd88,
-        emissive: 0x003322,
-        emissiveIntensity: 0.18
-      }));
-      const head = new THREE.Mesh(headGeo, headMat);
-      head.position.y = 0.075;
-      head.scale.y = 0.6; // flatten to mushroom shape
-      naGroup.add(head);
+        const naGroup = new THREE.Group();
+        naGroup.position.copy(position.clone().multiplyScalar(0.32));
+        naGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), position);
 
-      _virusMesh.add(naGroup);
+        // NA stalk - thin stem
+        const stalkGeo = _geo(new THREE.CylinderGeometry(0.012, 0.012, 0.06, 6));
+        const stalkMat = _mat(new THREE.MeshPhongMaterial({
+          color: 0x44cc66,
+          emissive: 0x002200,
+          emissiveIntensity: 0.15
+        }));
+        const stalk = new THREE.Mesh(stalkGeo, stalkMat);
+        stalk.position.y = 0.03; // half height
+        naGroup.add(stalk);
+
+        // NA head - mushroom cap (wider, flattened)
+        const headGeo = _geo(new THREE.SphereGeometry(0.042, 8, 6));
+        const headMat = _mat(new THREE.MeshPhongMaterial({
+          color: 0x66dd88,
+          emissive: 0x003322,
+          emissiveIntensity: 0.18
+        }));
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = 0.075;
+        head.scale.y = 0.6; // flatten to mushroom shape
+        naGroup.add(head);
+
+        _virusMesh.add(naGroup);
+      }
     }
 
     _scene.add(_group);

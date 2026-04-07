@@ -58,6 +58,10 @@ const P1Level = (() => {
   let _performanceMode = false;
   let _lastFrameTime = 0;
 
+  // Text label system
+  let _labelContainer = null;
+  let _labels = [];
+
   // Dispose tracking
   const _geos = [];
   const _mats = [];
@@ -602,6 +606,9 @@ const P1Level = (() => {
 
     // Performance monitoring setup
     _lastFrameTime = performance.now();
+
+    // Create text labels
+    _createTextLabels();
   }
 
   function _buildTrailParticles() {
@@ -631,6 +638,181 @@ const P1Level = (() => {
 
     _trailParticles = new THREE.Points(trailGeo, trailMat);
     _effectsGroup.add(_trailParticles);
+  }
+
+  // ── Text Label System ──────────────────────────────────────────────────────
+
+  function _createTextLabels() {
+    // Create label container
+    _labelContainer = document.createElement('div');
+    _labelContainer.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'width:100vw', 'height:100vh',
+      'pointer-events:none', 'z-index:200',
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',
+      'font-size:0.75rem', 'color:#ffffff', 'font-weight:500'
+    ].join(';');
+    document.body.appendChild(_labelContainer);
+
+    // Label platforms
+    P1_CFG.PLATFORMS_2D.forEach((platform, i) => {
+      _createLabel({
+        text: 'PLATFORM',
+        worldX: platform.x + platform.w/2,
+        worldY: platform.y + platform.h + 0.5,
+        color: '#8B7355',
+        background: 'rgba(0,0,0,0.7)'
+      });
+    });
+
+    // Label hazard zones
+    P1_CFG.HAZARD_ZONES_2D.forEach((zone, i) => {
+      let text = '';
+      let color = '#ffffff';
+
+      switch(zone.type) {
+        case 'UV':
+          text = 'UV LIGHT ZONE';
+          color = '#FFE135';
+          break;
+        case 'HEAT':
+          text = 'HEAT ZONE';
+          color = '#FF6B35';
+          break;
+        case 'DRY_AIR':
+          text = 'DRY AIR CURRENTS';
+          color = '#D4A574';
+          break;
+        case 'HUMID':
+          text = 'HUMIDITY ZONE (BENEFICIAL)';
+          color = '#35A8FF';
+          break;
+      }
+
+      _createLabel({
+        text: text,
+        worldX: zone.x + zone.w/2,
+        worldY: zone.y + zone.h/2,
+        color: color,
+        background: 'rgba(0,0,0,0.8)',
+        fontSize: '0.65rem'
+      });
+    });
+
+    // Label companion droplets
+    P1_CFG.COMPANION_DROPLETS_2D.forEach((companion, i) => {
+      _createLabel({
+        text: `COMPANION DROPLET\n${companion.benefit.toUpperCase()} BOOST`,
+        worldX: companion.x,
+        worldY: companion.y - 1.2,
+        color: '#88DDFF',
+        background: 'rgba(0,0,0,0.7)',
+        fontSize: '0.6rem',
+        textAlign: 'center'
+      });
+    });
+
+    // Label moving obstacles
+    P1_CFG.MOVING_OBSTACLES_2D.forEach((obstacle, i) => {
+      _createLabel({
+        text: 'MOVING PLATFORM',
+        worldX: obstacle.x + obstacle.w/2,
+        worldY: obstacle.startY - 0.8,
+        color: '#A68B5B',
+        background: 'rgba(0,0,0,0.7)',
+        fontSize: '0.65rem'
+      });
+    });
+
+    // Label combined hazards
+    P1_CFG.COMBINED_HAZARDS_2D.forEach((hazard, i) => {
+      let text = '';
+      if (hazard.types.includes('UV') && hazard.types.includes('HEAT')) {
+        text = 'EXTREME DANGER ZONE';
+      } else if (hazard.types.includes('DRY_AIR') && hazard.types.includes('HEAT')) {
+        text = 'SCORCHING WINDS';
+      }
+
+      _createLabel({
+        text: text,
+        worldX: hazard.x + hazard.w/2,
+        worldY: hazard.y + hazard.h/2,
+        color: '#FF3535',
+        background: 'rgba(0,0,0,0.9)',
+        fontSize: '0.7rem',
+        fontWeight: 'bold'
+      });
+    });
+
+    // Label Cam the Ram (target)
+    _createLabel({
+      text: 'CAM THE RAM\nTARGET MOUTH',
+      worldX: P1_CFG.MOUTH_WORLD_X_2D,
+      worldY: P1_CFG.MOUTH_WORLD_Y_2D + 2,
+      color: '#FFD700',
+      background: 'rgba(0,0,0,0.8)',
+      fontSize: '0.8rem',
+      fontWeight: 'bold',
+      textAlign: 'center'
+    });
+  }
+
+  function _createLabel(options) {
+    const label = document.createElement('div');
+    label.style.cssText = [
+      'position:absolute', 'white-space:pre-line',
+      `color:${options.color || '#ffffff'}`,
+      `background:${options.background || 'rgba(0,0,0,0.7)'}`,
+      `font-size:${options.fontSize || '0.75rem'}`,
+      `font-weight:${options.fontWeight || '500'}`,
+      `text-align:${options.textAlign || 'left'}`,
+      'padding:2px 6px', 'border-radius:3px',
+      'text-shadow:1px 1px 2px rgba(0,0,0,0.8)',
+      'transform:translate(-50%, -50%)'
+    ].join(';');
+
+    label.textContent = options.text;
+    label.userData = {
+      worldX: options.worldX,
+      worldY: options.worldY
+    };
+
+    _labelContainer.appendChild(label);
+    _labels.push(label);
+  }
+
+  function _updateLabels(scrollX, viewW) {
+    if (!_labelContainer) return;
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    _labels.forEach(label => {
+      const worldX = label.userData.worldX;
+      const worldY = label.userData.worldY;
+
+      // Convert world coordinates to screen position
+      const screenX = ((worldX - scrollX) / viewW) * viewportWidth;
+      const screenY = viewportHeight - ((worldY / P1_CFG.VIEW_HEIGHT_2D) * viewportHeight);
+
+      // Hide labels that are off-screen
+      const isVisible = screenX > -100 && screenX < viewportWidth + 100 &&
+                       screenY > -50 && screenY < viewportHeight + 50;
+
+      label.style.display = isVisible ? 'block' : 'none';
+
+      if (isVisible) {
+        label.style.left = `${screenX}px`;
+        label.style.top = `${screenY}px`;
+      }
+    });
+  }
+
+  function _destroyLabels() {
+    if (_labelContainer && _labelContainer.parentNode) {
+      _labelContainer.parentNode.removeChild(_labelContainer);
+    }
+    _labelContainer = null;
+    _labels = [];
   }
 
   function createFusionEffect(x, y) {
@@ -689,6 +871,11 @@ const P1Level = (() => {
     const frameTime = currentTime - _lastFrameTime;
     _performanceMode = frameTime > 33; // >30fps = performance mode
     _lastFrameTime = currentTime;
+
+    // Update text labels
+    const aspect = window.innerWidth / window.innerHeight;
+    const viewW = P1_CFG.VIEW_HEIGHT_2D * aspect;
+    _updateLabels(scrollX || 0, viewW);
 
     _updateBreathingCycle(dt);
     _updateBreathParticles(dt);
@@ -1282,6 +1469,9 @@ const P1Level = (() => {
     _trailParticles = null;
     _performanceMode = false;
     _lastFrameTime = 0;
+
+    // Clean up text labels
+    _destroyLabels();
 
     for (const g of _geos) g.dispose();
     for (const m of _mats) m.dispose();
