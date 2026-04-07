@@ -200,7 +200,7 @@ const P1_CFG = Object.freeze({
 
   // ── 2D Side-Scroller ────────────────────────────────────────────────────────
   WORLD_HEIGHT_2D: 12,          // orthographic world height (meters)
-  WORLD_WIDTH_2D:  100,         // total level width (meters)
+  WORLD_WIDTH_2D:  1000,        // total level width (meters) - 10x longer
   VIEW_HEIGHT_2D:  24,          // orthographic view height (2X zoom out)
 
   SCROLL_SPEED_INIT_2D: 3.5,    // initial auto-scroll speed (m/s)
@@ -228,7 +228,7 @@ const P1_CFG = Object.freeze({
   VIAB_DECAY_BASE_2D:      0.4, // viral viability base decay (%/s)
   VIAB_DESICCATED_MULT_2D: 4.0, // viability decay multiplier when dry
 
-  MOUTH_WORLD_X_2D:        88.5,// Cam's mouth x-coordinate (world)
+  MOUTH_WORLD_X_2D:        950.0,// Cam's mouth x-coordinate (world) - near end of 1000m level
   MOUTH_WORLD_Y_2D:        10.0, // Cam's mouth y-coordinate (world) - repositioned for 24m view
   WIN_DIST_2D:             2.0, // win distance to mouth (meters)
 
@@ -240,35 +240,46 @@ const P1_CFG = Object.freeze({
   EXHALE_PUSH_FORCE_2D:    2.5, // exhale push force (m/s²)
 
   PLATFORMS_2D: [
-    { x:  8, y: 0,    w: 5, h: 2.2 },  // floor obstacle
-    { x: 30, y: 0,    w: 4, h: 3.5 },  // floor obstacle
-    { x: 55, y: 0,    w: 6, h: 2.8 },  // floor obstacle
-    { x: 78, y: 0,    w: 5, h: 5.0 },  // floor obstacle (paired)
-    { x: 18, y: 19.0, w: 5, h: 2.5 },  // ceiling obstacle - moved to upper area
-    { x: 42, y: 15.0, w: 5, h: 4.5 },  // ceiling obstacle - moved to upper area
-    { x: 68, y: 16.0, w: 5, h: 4.0 },  // ceiling obstacle - moved to upper area
-    { x: 78, y: 20.0, w: 5, h: 2.0 },  // ceiling obstacle (paired → narrow channel)
+    // Floor obstacles (spread across 1000m)
+    { x:  80, y: 0,    w: 5, h: 2.2 },
+    { x: 180, y: 0,    w: 4, h: 3.5 },
+    { x: 280, y: 0,    w: 6, h: 2.8 },
+    { x: 380, y: 0,    w: 5, h: 4.0 },
+    { x: 480, y: 0,    w: 7, h: 3.2 },
+    { x: 580, y: 0,    w: 4, h: 2.8 },
+    { x: 680, y: 0,    w: 6, h: 3.8 },
+    { x: 780, y: 0,    w: 5, h: 5.0 },
+
+    // Ceiling obstacles (spread across 1000m)
+    { x: 120, y: 19.0, w: 5, h: 2.5 },
+    { x: 220, y: 15.0, w: 5, h: 4.5 },
+    { x: 320, y: 16.0, w: 5, h: 4.0 },
+    { x: 420, y: 18.0, w: 6, h: 3.0 },
+    { x: 520, y: 17.0, w: 4, h: 3.5 },
+    { x: 620, y: 19.5, w: 5, h: 2.5 },
+    { x: 720, y: 16.5, w: 5, h: 4.0 },
+    { x: 820, y: 20.0, w: 5, h: 2.0 },
   ],
 
   // ── Hazard Zones ───────────────────────────────────────────────────────────
   HAZARD_ZONES_2D: [
-    // UV Light zones (increase viral decay significantly)
-    { type: 'UV', x: 35, y: 8, w: 8, h: 4, intensity: 1.0 },
-    { type: 'UV', x: 45, y: 2, w: 6, h: 5, intensity: 0.8 },
-    { type: 'UV', x: 72, y: 6, w: 10, h: 6, intensity: 1.2 },
+    // UV Light zones (increase viral decay significantly) - scaled for 1000m level
+    { type: 'UV', x: 350, y: 8, w: 80, h: 4, intensity: 1.0 },
+    { type: 'UV', x: 450, y: 2, w: 60, h: 5, intensity: 0.8 },
+    { type: 'UV', x: 720, y: 6, w: 100, h: 6, intensity: 1.2 },
 
-    // Heat zones (increase evaporation rate)
-    { type: 'HEAT', x: 25, y: 0, w: 12, h: 8, intensity: 1.0 },
-    { type: 'HEAT', x: 60, y: 8, w: 8, h: 4, intensity: 0.7 },
+    // Heat zones (increase evaporation rate) - scaled for 1000m level
+    { type: 'HEAT', x: 250, y: 0, w: 120, h: 8, intensity: 1.0 },
+    { type: 'HEAT', x: 600, y: 8, w: 80, h: 4, intensity: 0.7 },
 
-    // Dry Air zones (increase evaporation + lateral wind force)
-    { type: 'DRY_AIR', x: 35, y: 0, w: 15, h: 12, intensity: 1.0, windX: -2.0 },
-    { type: 'DRY_AIR', x: 85, y: 2, w: 8, h: 8, intensity: 0.8, windX: 1.5 },
+    // Dry Air zones (increase evaporation + lateral wind force) - scaled for 1000m level
+    { type: 'DRY_AIR', x: 350, y: 0, w: 150, h: 12, intensity: 1.0, windX: -2.0 },
+    { type: 'DRY_AIR', x: 850, y: 2, w: 80, h: 8, intensity: 0.8, windX: 1.5 },
 
-    // Humidity zones (BENEFICIAL - decrease evaporation)
-    { type: 'HUMID', x: 2, y: 4, w: 6, h: 6, intensity: 0.8 },
-    { type: 'HUMID', x: 15, y: 6, w: 8, h: 4, intensity: 1.0 },
-    { type: 'HUMID', x: 52, y: 1, w: 6, h: 4, intensity: 0.6 },
+    // Humidity zones (BENEFICIAL - decrease evaporation) - scaled for 1000m level
+    { type: 'HUMID', x: 20, y: 4, w: 60, h: 6, intensity: 0.8 },
+    { type: 'HUMID', x: 150, y: 6, w: 80, h: 4, intensity: 1.0 },
+    { type: 'HUMID', x: 520, y: 1, w: 60, h: 4, intensity: 0.6 },
   ],
 
   // Zone effect multipliers
@@ -281,20 +292,20 @@ const P1_CFG = Object.freeze({
 
   // ── Companion Droplets ─────────────────────────────────────────────────────
   COMPANION_DROPLETS_2D: [
-    // Early game companions (smaller benefits)
-    { x: 12, y: 6.5, size: 0.35, viralContent: 15, benefit: 'size' },
-    { x: 28, y: 4.0, size: 0.40, viralContent: 20, benefit: 'viability' },
-    { x: 38, y: 8.5, size: 0.32, viralContent: 12, benefit: 'size' },
+    // Early game companions (smaller benefits) - scaled for 1000m level
+    { x: 120, y: 6.5, size: 0.35, viralContent: 15, benefit: 'size' },
+    { x: 280, y: 4.0, size: 0.40, viralContent: 20, benefit: 'viability' },
+    { x: 380, y: 8.5, size: 0.32, viralContent: 12, benefit: 'size' },
 
-    // Mid-game companions (moderate benefits)
-    { x: 48, y: 3.5, size: 0.45, viralContent: 25, benefit: 'both' },
-    { x: 58, y: 7.0, size: 0.38, viralContent: 18, benefit: 'viability' },
-    { x: 67, y: 5.5, size: 0.42, viralContent: 22, benefit: 'size' },
+    // Mid-game companions (moderate benefits) - scaled for 1000m level
+    { x: 480, y: 3.5, size: 0.45, viralContent: 25, benefit: 'both' },
+    { x: 580, y: 7.0, size: 0.38, viralContent: 18, benefit: 'viability' },
+    { x: 670, y: 5.5, size: 0.42, viralContent: 22, benefit: 'size' },
 
-    // Late game companions (larger benefits, riskier positions)
-    { x: 76, y: 9.0, size: 0.50, viralContent: 30, benefit: 'both' },
-    { x: 84, y: 2.5, size: 0.38, viralContent: 20, benefit: 'viability' },
-    { x: 91, y: 6.8, size: 0.45, viralContent: 28, benefit: 'both' },
+    // Late game companions (larger benefits, riskier positions) - scaled for 1000m level
+    { x: 760, y: 9.0, size: 0.50, viralContent: 30, benefit: 'both' },
+    { x: 840, y: 2.5, size: 0.38, viralContent: 20, benefit: 'viability' },
+    { x: 910, y: 6.8, size: 0.45, viralContent: 28, benefit: 'both' },
   ],
 
   COMPANION_FUSION_RANGE_2D:   1.2,   // Fusion trigger distance
@@ -308,28 +319,28 @@ const P1_CFG = Object.freeze({
 
   // ── Advanced Level Design ──────────────────────────────────────────────────
   MOVING_OBSTACLES_2D: [
-    // Early game - simple vertical movers
-    { id: 'early_1', x: 20, startY: 2, endY: 6, w: 3, h: 1.5, speed: 1.2, phase: 0 },
-    { id: 'early_2', x: 32, startY: 8, endY: 11, w: 4, h: 1.0, speed: 0.8, phase: Math.PI },
+    // Early game - simple vertical movers - scaled for 1000m level
+    { id: 'early_1', x: 200, startY: 2, endY: 6, w: 3, h: 1.5, speed: 1.2, phase: 0 },
+    { id: 'early_2', x: 320, startY: 8, endY: 11, w: 4, h: 1.0, speed: 0.8, phase: Math.PI },
 
-    // Mid game - faster, more complex patterns
-    { id: 'mid_1', x: 46, startY: 1, endY: 5, w: 2.5, h: 2.0, speed: 1.8, phase: Math.PI/2 },
-    { id: 'mid_2', x: 54, startY: 7, endY: 10.5, w: 3.5, h: 1.2, speed: 1.5, phase: 0 },
-    { id: 'mid_3', x: 62, startY: 3, endY: 8, w: 3, h: 1.8, speed: 2.0, phase: Math.PI/3 },
+    // Mid game - faster, more complex patterns - scaled for 1000m level
+    { id: 'mid_1', x: 460, startY: 1, endY: 5, w: 2.5, h: 2.0, speed: 1.8, phase: Math.PI/2 },
+    { id: 'mid_2', x: 540, startY: 7, endY: 10.5, w: 3.5, h: 1.2, speed: 1.5, phase: 0 },
+    { id: 'mid_3', x: 620, startY: 3, endY: 8, w: 3, h: 1.8, speed: 2.0, phase: Math.PI/3 },
 
-    // Late game - narrow gaps with synchronized movement
-    { id: 'late_1', x: 74, startY: 2, endY: 6, w: 2, h: 2.5, speed: 2.2, phase: 0 },
-    { id: 'late_2', x: 74, startY: 8, endY: 10, w: 2, h: 2.0, speed: 2.2, phase: Math.PI },
-    { id: 'late_3', x: 81, startY: 4, endY: 9, w: 2.5, h: 2.2, speed: 1.9, phase: Math.PI/4 },
+    // Late game - narrow gaps with synchronized movement - scaled for 1000m level
+    { id: 'late_1', x: 740, startY: 2, endY: 6, w: 2, h: 2.5, speed: 2.2, phase: 0 },
+    { id: 'late_2', x: 740, startY: 8, endY: 10, w: 2, h: 2.0, speed: 2.2, phase: Math.PI },
+    { id: 'late_3', x: 810, startY: 4, endY: 9, w: 2.5, h: 2.2, speed: 1.9, phase: Math.PI/4 },
   ],
 
   // Combined hazard zones (late game challenge areas)
   COMBINED_HAZARDS_2D: [
-    // UV + Heat combination (extreme viral decay + evaporation)
-    { x: 70, y: 4, w: 8, h: 6, types: ['UV', 'HEAT'], intensity: 1.2 },
+    // UV + Heat combination (extreme viral decay + evaporation) - scaled for 1000m level
+    { x: 700, y: 4, w: 80, h: 6, types: ['UV', 'HEAT'], intensity: 1.2 },
 
-    // Dry Air + Heat (extreme evaporation with wind)
-    { x: 87, y: 6, w: 6, h: 5, types: ['DRY_AIR', 'HEAT'], intensity: 1.0, windX: -2.5 },
+    // Dry Air + Heat (extreme evaporation with wind) - scaled for 1000m level
+    { x: 870, y: 6, w: 60, h: 5, types: ['DRY_AIR', 'HEAT'], intensity: 1.0, windX: -2.5 },
   ],
 
   // Difficulty progression multipliers (applied based on x position)
@@ -342,21 +353,21 @@ const P1_CFG = Object.freeze({
     evaporationStart: 0.8,        // 80% evaporation rate early
     evaporationEnd: 1.3,          // 130% evaporation rate late
 
-    // Scroll speed scaling points
-    speedBoostPoints: [25, 50, 75], // x positions where speed increases
-    speedBoostAmount: 0.5,          // m/s increase per boost point
+    // Scroll speed scaling points - scaled for 1000m level
+    speedBoostPoints: [250, 500, 750], // x positions where speed increases
+    speedBoostAmount: 0.5,              // m/s increase per boost point
   },
 
   // Advanced air currents (more complex patterns)
   ADVANCED_AIR_CURRENTS_2D: [
-    // Swirling current near start
-    { x: 15, y: 6, w: 8, h: 8, type: 'VORTEX', strength: 1.5, radius: 4 },
+    // Swirling current near start - scaled for 1000m level
+    { x: 150, y: 6, w: 80, h: 8, type: 'VORTEX', strength: 1.5, radius: 4 },
 
-    // Downdraft near middle
-    { x: 50, y: 8, w: 6, h: 4, type: 'DOWNDRAFT', strength: 2.0 },
+    // Downdraft near middle - scaled for 1000m level
+    { x: 500, y: 8, w: 60, h: 4, type: 'DOWNDRAFT', strength: 2.0 },
 
-    // Chaotic turbulence near end
-    { x: 85, y: 2, w: 10, h: 8, type: 'TURBULENCE', strength: 1.8 },
+    // Chaotic turbulence near end - scaled for 1000m level
+    { x: 850, y: 2, w: 100, h: 8, type: 'TURBULENCE', strength: 1.8 },
   ],
 
   // ── Polish & Visual Effects ────────────────────────────────────────────────

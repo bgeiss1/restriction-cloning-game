@@ -717,9 +717,21 @@ const P1AerosolOdyssey = (() => {
     document.getElementById('p1PlRetry').addEventListener('click', () => {
       if (el.parentNode) el.parentNode.removeChild(el);
       _resultOverlay = null;
+
+      // Complete cleanup of both 2D game and cinematic
+      _cleanupGame2D();
       _cleanupCinematic();
       _resetScene();
+
+      // Reset all state variables
+      _phase = 'TITLE';
       _t = 0;
+      _elapsed = 0;
+      _cinT = 0;
+      _ziT = 0;
+      _lastSpeedBoostX = -1;
+      _screenEffectTime = 0;
+
       _startCinematic();
     });
 
@@ -825,9 +837,21 @@ const P1AerosolOdyssey = (() => {
     const retryBtn = document.getElementById('p1RetryBtn');
     if (retryBtn) retryBtn.addEventListener('click', () => {
       _removeResultOverlay();
+
+      // Complete cleanup of both 2D game and cinematic
+      _cleanupGame2D();
       _cleanupCinematic();
       _resetScene();
+
+      // Reset all state variables
+      _phase = 'TITLE';
       _t = 0;
+      _elapsed = 0;
+      _cinT = 0;
+      _ziT = 0;
+      _lastSpeedBoostX = -1;
+      _screenEffectTime = 0;
+
       _startCinematic();
     });
 
