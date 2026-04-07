@@ -232,6 +232,12 @@ const P1AerosolOdyssey = (() => {
     _sneezeFired  = false;
     _tdPos        = null;
     _targetDroplet = null;
+
+    // Ensure camera starts from consistent position for repeatable cinematic
+    camera.position.set(5.5, 4.8, -9.0);
+    camera.lookAt(0, 1.2, 0);
+    camera.fov = P1_CFG.CAM_FOV_NORMAL;
+    camera.updateProjectionMatrix();
   }
 
   // ── Cough cloud ────────────────────────────────────────────────────────────
@@ -317,18 +323,47 @@ const P1AerosolOdyssey = (() => {
     });
     group.add(new THREE.Mesh(virusGeo, virusMat));
 
-    // Spike cones — 6 cardinal directions
-    const spikeMat = new THREE.MeshPhongMaterial({ color: 0xff8866, shininess: 12 });
+    // HA Trimers — 6 cardinal directions (replace spike cones with influenza HA trimers)
     const dirs = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
     dirs.forEach(([dx, dy, dz]) => {
-      const sGeo  = new THREE.ConeGeometry(0.009, 0.042, 4);
-      const spike = new THREE.Mesh(sGeo, spikeMat);
-      spike.position.set(dx * 0.068, dy * 0.068, dz * 0.068);
-      spike.quaternion.setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        new THREE.Vector3(dx, dy, dz)
-      );
-      group.add(spike);
+      const trimerGroup = new THREE.Group();
+      const trimerPos = new THREE.Vector3(dx, dy, dz).multiplyScalar(0.068);
+      trimerGroup.position.copy(trimerPos);
+
+      // Align trimer to point outward from virus center
+      const outward = new THREE.Vector3(dx, dy, dz);
+      trimerGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
+
+      // HA2 stem (stalk) - smaller scale for cinematic
+      const stemGeo = new THREE.CylinderGeometry(0.003, 0.006, 0.025, 6);
+      const stemMat = new THREE.MeshPhongMaterial({
+        color: 0xff6644,
+        emissive: 0x220000,
+        emissiveIntensity: 0.15
+      });
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.y = 0.0125; // half height to position base at origin
+      trimerGroup.add(stem);
+
+      // Three HA1 head domains (120° apart) - smaller scale for cinematic
+      for (let j = 0; j < 3; j++) {
+        const angle = (j / 3) * Math.PI * 2;
+        const headGeo = new THREE.SphereGeometry(0.008, 6, 5);
+        const headMat = new THREE.MeshPhongMaterial({
+          color: 0xff8866,
+          emissive: 0x331100,
+          emissiveIntensity: 0.12
+        });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.set(
+          Math.cos(angle) * 0.009,
+          0.030,
+          Math.sin(angle) * 0.009
+        );
+        trimerGroup.add(head);
+      }
+
+      group.add(trimerGroup);
     });
 
     scene.add(group);

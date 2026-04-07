@@ -84,18 +84,47 @@ const P1Droplet = (() => {
     _virusMesh = new THREE.Mesh(virusGeo, virusMat);
     _group.add(_virusMesh);
 
-    // Virus spikes (6 cardinal directions)
-    const spikeMat = _mat(new THREE.MeshPhongMaterial({ color: 0xff8866 }));
+    // HA Trimers (6 cardinal directions) - replace spikes with influenza HA trimers
     const dirs = [[1,0,0], [-1,0,0], [0,1,0], [0,-1,0], [0,0,1], [0,0,-1]];
     dirs.forEach(([dx, dy, dz]) => {
-      const spikeGeo = _geo(new THREE.ConeGeometry(0.055, 0.24, 4));
-      const spike = new THREE.Mesh(spikeGeo, spikeMat);
-      spike.position.set(dx * 0.40, dy * 0.40, dz * 0.40);
-      spike.quaternion.setFromUnitVectors(
-        new THREE.Vector3(0, 1, 0),
-        new THREE.Vector3(dx, dy, dz)
-      );
-      _virusMesh.add(spike);
+      const trimerGroup = new THREE.Group();
+      const trimerPos = new THREE.Vector3(dx, dy, dz).multiplyScalar(0.40);
+      trimerGroup.position.copy(trimerPos);
+
+      // Align trimer to point outward from virus center
+      const outward = new THREE.Vector3(dx, dy, dz);
+      trimerGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), outward);
+
+      // HA2 stem (stalk)
+      const stemGeo = _geo(new THREE.CylinderGeometry(0.02, 0.035, 0.15, 6));
+      const stemMat = _mat(new THREE.MeshPhongMaterial({
+        color: 0xff6644,
+        emissive: 0x220000,
+        emissiveIntensity: 0.15
+      }));
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.y = 0.075; // half height to position base at origin
+      trimerGroup.add(stem);
+
+      // Three HA1 head domains (120° apart)
+      for (let j = 0; j < 3; j++) {
+        const angle = (j / 3) * Math.PI * 2;
+        const headGeo = _geo(new THREE.SphereGeometry(0.045, 6, 5));
+        const headMat = _mat(new THREE.MeshPhongMaterial({
+          color: 0xff8866,
+          emissive: 0x331100,
+          emissiveIntensity: 0.12
+        }));
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.set(
+          Math.cos(angle) * 0.055,
+          0.18,
+          Math.sin(angle) * 0.055
+        );
+        trimerGroup.add(head);
+      }
+
+      _virusMesh.add(trimerGroup);
     });
 
     _scene.add(_group);
