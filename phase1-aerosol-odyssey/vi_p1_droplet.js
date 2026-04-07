@@ -42,6 +42,7 @@ const P1Droplet = (() => {
   let _alive = true;
   let _won = false;
   let _failReason = '';
+  let _scrollSpeedMultiplier = 1.0;
 
   // Polish effects (Chunk F)
   let _damageFlashTime = 0;
@@ -279,6 +280,22 @@ const P1Droplet = (() => {
     _velX += thrustX * dt;
     _velY += thrustY * dt;
 
+    // ── Wind gust speed multipliers ───────────────────────────────────────────
+    let scrollSpeedMult = 1.0;
+    if (breathState && breathState.hazardEffects && breathState.hazardEffects.windForce) {
+      const windForce = breathState.hazardEffects.windForce;
+
+      // Apply speed multiplier from wind gusts
+      if (windForce.speedMultiplier) {
+        scrollSpeedMult = windForce.speedMultiplier;
+      }
+
+      // Cold zone stabilization (reduce lateral velocity fluctuations)
+      if (windForce.stabilize) {
+        _velX *= (1 - windForce.stabilize);
+      }
+    }
+
     // Velocity limits
     _velX = Math.max(-P1_CFG.DROPLET_VX_NUDGE_MAX_2D, Math.min(P1_CFG.DROPLET_VX_NUDGE_MAX_2D, _velX));
     _velY = Math.max(-P1_CFG.DROPLET_VY_MAX_2D, Math.min(P1_CFG.DROPLET_VY_MAX_2D, _velY));
@@ -292,6 +309,9 @@ const P1Droplet = (() => {
     const targetX = scrollX + viewW * P1_CFG.DROPLET_VIEW_FRAC_2D;
     _worldX = targetX + _velX;  // scroll + lateral offset
     _worldY += _velY * dt;
+
+    // Store scroll speed multiplier for main game to use
+    _scrollSpeedMultiplier = scrollSpeedMult;
 
     // ── Boundaries ────────────────────────────────────────────────────────────
     // Floor collision
@@ -506,6 +526,7 @@ const P1Droplet = (() => {
   function isAlive() { return _alive; }
   function hasWon() { return _won; }
   function getFailReason() { return _failReason; }
+  function getScrollSpeedMultiplier() { return _scrollSpeedMultiplier; }
 
   return {
     init,
@@ -515,7 +536,8 @@ const P1Droplet = (() => {
     getState,
     isAlive,
     hasWon,
-    getFailReason
+    getFailReason,
+    getScrollSpeedMultiplier
   };
 
 })();

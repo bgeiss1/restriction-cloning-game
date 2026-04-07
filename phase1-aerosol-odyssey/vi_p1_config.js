@@ -263,14 +263,19 @@ const P1_CFG = Object.freeze({
 
   // ── Hazard Zones ───────────────────────────────────────────────────────────
   HAZARD_ZONES_2D: [
-    // UV Light zones (increase viral decay significantly) - scaled for 1000m level
-    { type: 'UV', x: 350, y: 8, w: 80, h: 4, intensity: 1.0 },
-    { type: 'UV', x: 450, y: 2, w: 60, h: 5, intensity: 0.8 },
-    { type: 'UV', x: 720, y: 6, w: 100, h: 6, intensity: 1.2 },
+    // UV Light zones (sunbeam from windows) - scaled for 1000m level
+    { type: 'UV', x: 350, y: 8, w: 80, h: 16, intensity: 1.0, sunbeam: true },
+    { type: 'UV', x: 450, y: 2, w: 60, h: 22, intensity: 0.8, sunbeam: true },
+    { type: 'UV', x: 720, y: 6, w: 100, h: 18, intensity: 1.2, sunbeam: true },
 
-    // Heat zones (increase evaporation rate) - scaled for 1000m level
-    { type: 'HEAT', x: 250, y: 0, w: 120, h: 8, intensity: 1.0 },
-    { type: 'HEAT', x: 600, y: 8, w: 80, h: 4, intensity: 0.7 },
+    // Heat zones (thermal updrafts) - scaled for 1000m level
+    { type: 'HEAT', x: 250, y: 0, w: 120, h: 8, intensity: 1.0, updraft: 2.5 },
+    { type: 'HEAT', x: 600, y: 8, w: 80, h: 16, intensity: 0.7, updraft: 1.8 },
+
+    // Cold zones (stabilizing but downward drift) - NEW
+    { type: 'COLD', x: 180, y: 10, w: 100, h: 14, intensity: 0.8, downdraft: 1.2 },
+    { type: 'COLD', x: 550, y: 16, w: 80, h: 8, intensity: 1.0, downdraft: 1.5 },
+    { type: 'COLD', x: 800, y: 12, w: 120, h: 12, intensity: 0.9, downdraft: 1.0 },
 
     // Dry Air zones (increase evaporation + lateral wind force) - scaled for 1000m level
     { type: 'DRY_AIR', x: 350, y: 0, w: 150, h: 12, intensity: 1.0, windX: -2.0 },
@@ -287,24 +292,44 @@ const P1_CFG = Object.freeze({
   ZONE_HEAT_EVAP_MULT_2D:   3.0,  // Heat increases evaporation by 3x
   ZONE_DRY_EVAP_MULT_2D:    2.5,  // Dry air increases evaporation by 2.5x
   ZONE_HUMID_EVAP_MULT_2D:  0.3,  // Humidity reduces evaporation to 30%
+  ZONE_COLD_STAB_MULT_2D:   0.5,  // Cold zones reduce velocity fluctuations
+
+  // Wind gust system
+  WIND_GUSTS_2D: [
+    { x: 200, y: 6, w: 40, h: 12, direction: 'forward', multiplier: 3.0, duration: 2.0 },
+    { x: 400, y: 3, w: 50, h: 18, direction: 'backward', multiplier: 0.33, duration: 3.0 },
+    { x: 650, y: 10, w: 45, h: 14, direction: 'forward', multiplier: 2.5, duration: 1.8 },
+    { x: 750, y: 2, w: 35, h: 20, direction: 'backward', multiplier: 0.4, duration: 2.5 },
+    { x: 900, y: 5, w: 60, h: 15, direction: 'forward', multiplier: 3.5, duration: 2.2 },
+  ],
 
   DRY_AIR_WIND_SCALE_2D:    1.0,  // Wind force scaling for dry air zones
 
   // ── Companion Droplets ─────────────────────────────────────────────────────
   COMPANION_DROPLETS_2D: [
-    // Early game companions (smaller benefits) - scaled for 1000m level
+    // Very early game companions (small but frequent)
+    { x: 80, y: 5.5, size: 0.30, viralContent: 12, benefit: 'viability' },
     { x: 120, y: 6.5, size: 0.35, viralContent: 15, benefit: 'size' },
+    { x: 180, y: 3.0, size: 0.28, viralContent: 10, benefit: 'viability' },
+    { x: 240, y: 8.0, size: 0.32, viralContent: 14, benefit: 'size' },
     { x: 280, y: 4.0, size: 0.40, viralContent: 20, benefit: 'viability' },
+    { x: 340, y: 7.5, size: 0.35, viralContent: 16, benefit: 'viability' },
     { x: 380, y: 8.5, size: 0.32, viralContent: 12, benefit: 'size' },
 
-    // Mid-game companions (moderate benefits) - scaled for 1000m level
+    // Mid-game companions (moderate benefits, more frequent)
+    { x: 420, y: 2.5, size: 0.42, viralContent: 22, benefit: 'viability' },
     { x: 480, y: 3.5, size: 0.45, viralContent: 25, benefit: 'both' },
+    { x: 520, y: 6.0, size: 0.38, viralContent: 18, benefit: 'viability' },
     { x: 580, y: 7.0, size: 0.38, viralContent: 18, benefit: 'viability' },
+    { x: 620, y: 4.5, size: 0.40, viralContent: 20, benefit: 'size' },
     { x: 670, y: 5.5, size: 0.42, viralContent: 22, benefit: 'size' },
+    { x: 720, y: 8.5, size: 0.44, viralContent: 24, benefit: 'both' },
 
-    // Late game companions (larger benefits, riskier positions) - scaled for 1000m level
+    // Late game companions (larger benefits, strategic positioning)
     { x: 760, y: 9.0, size: 0.50, viralContent: 30, benefit: 'both' },
+    { x: 800, y: 3.0, size: 0.46, viralContent: 26, benefit: 'viability' },
     { x: 840, y: 2.5, size: 0.38, viralContent: 20, benefit: 'viability' },
+    { x: 880, y: 7.5, size: 0.48, viralContent: 28, benefit: 'both' },
     { x: 910, y: 6.8, size: 0.45, viralContent: 28, benefit: 'both' },
   ],
 
@@ -375,6 +400,23 @@ const P1_CFG = Object.freeze({
   PARTICLE_LOD_DISTANCE_2D: 15.0,    // Reduce particles beyond this scroll distance
   PARTICLE_LOD_REDUCTION_2D: 0.6,    // Multiply particle count by this when far away
   MAX_PARTICLES_PER_ZONE_2D: 50,     // Performance cap per hazard zone
+
+  // Distant classroom background elements
+  BACKGROUND_CLASSROOM_2D: {
+    scale: 0.02,  // Very small scale since droplet perspective
+    depth: -50,   // Far behind droplet
+    elements: [
+      { type: 'desk', x: 100, y: 0, w: 80, h: 40 },
+      { type: 'desk', x: 300, y: 0, w: 80, h: 40 },
+      { type: 'desk', x: 500, y: 0, w: 80, h: 40 },
+      { type: 'desk', x: 700, y: 0, w: 80, h: 40 },
+      { type: 'window', x: 350, y: 35, w: 60, h: 20 },
+      { type: 'window', x: 450, y: 35, w: 60, h: 20 },
+      { type: 'window', x: 720, y: 35, w: 80, h: 20 },
+      { type: 'board', x: 0, y: 25, w: 150, h: 30 },
+      { type: 'wall', x: 0, y: 0, w: 1000, h: 60 }
+    ]
+  },
 
   // Enhanced visual effects
   FUSION_FLASH_DURATION_2D: 0.3,     // Duration of fusion flash effect

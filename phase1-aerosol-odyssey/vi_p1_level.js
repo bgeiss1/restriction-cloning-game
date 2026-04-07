@@ -62,6 +62,13 @@ const P1Level = (() => {
   let _labelContainer = null;
   let _labels = [];
 
+  // Wind gust system
+  let _windGusts = [];
+  let _windGustGroup = null;
+
+  // Distant classroom background
+  let _backgroundGroup = null;
+
   // Dispose tracking
   const _geos = [];
   const _mats = [];
@@ -237,24 +244,40 @@ const P1Level = (() => {
       const z = 0.8; // behind most geometry
 
       if (zone.type === 'UV') {
-        // Bright yellow/white beam
+        // Sunbeam from window - angled beam effect
         const uvGeo = _geo(new THREE.PlaneGeometry(zone.w, zone.h));
         const uvMat = _mat(new THREE.MeshBasicMaterial({
-          color: 0xffff88,
+          color: 0xffffdd,
           transparent: true,
-          opacity: 0.15 + zone.intensity * 0.1,
+          opacity: 0.2 + zone.intensity * 0.15,
           depthWrite: false,
         }));
         const uvMesh = new THREE.Mesh(uvGeo, uvMat);
         uvMesh.position.set(centerX, centerY, z);
+        // Slight rotation to show angled sunbeam
+        uvMesh.rotation.z = Math.PI * 0.1;
         _hazardGroup.add(uvMesh);
 
-        // Animated edge particles
-        const edgeParticles = _createZoneEdgeParticles(zone, 0xffffaa, 16);
-        if (edgeParticles) _hazardGroup.add(edgeParticles);
+        // Dust motes floating in sunbeam
+        const dustParticles = _createSunbeamDustParticles(zone);
+        if (dustParticles) _hazardGroup.add(dustParticles);
+
+        // Window frame in background (very small scale)
+        if (zone.sunbeam) {
+          const windowGeo = _geo(new THREE.PlaneGeometry(zone.w * 0.3, zone.h * 0.2));
+          const windowMat = _mat(new THREE.MeshBasicMaterial({
+            color: 0x4488aa,
+            transparent: true,
+            opacity: 0.3,
+            depthWrite: false,
+          }));
+          const windowMesh = new THREE.Mesh(windowGeo, windowMat);
+          windowMesh.position.set(centerX, centerY + zone.h * 0.8, -30);
+          _hazardGroup.add(windowMesh);
+        }
 
       } else if (zone.type === 'HEAT') {
-        // Orange/red heat zone
+        // Orange/red heat zone with thermal updraft visualization
         const heatGeo = _geo(new THREE.PlaneGeometry(zone.w, zone.h));
         const heatMat = _mat(new THREE.MeshBasicMaterial({
           color: 0xff6644,
@@ -266,9 +289,9 @@ const P1Level = (() => {
         heatMesh.position.set(centerX, centerY, z);
         _hazardGroup.add(heatMesh);
 
-        // Heat shimmer particles
-        const shimmerParticles = _createZoneEdgeParticles(zone, 0xff8866, 12);
-        if (shimmerParticles) _hazardGroup.add(shimmerParticles);
+        // Rising thermal updraft particles
+        const updraftParticles = _createUpdraftParticles(zone);
+        if (updraftParticles) _hazardGroup.add(updraftParticles);
 
       } else if (zone.type === 'DRY_AIR') {
         // Moving air particles
@@ -294,6 +317,23 @@ const P1Level = (() => {
         // Gentle mist particles
         const mistParticles = _createZoneEdgeParticles(zone, 0x88bbff, 8);
         if (mistParticles) _hazardGroup.add(mistParticles);
+
+      } else if (zone.type === 'COLD') {
+        // Cool blue-white zone with stabilization effect
+        const coldGeo = _geo(new THREE.PlaneGeometry(zone.w, zone.h));
+        const coldMat = _mat(new THREE.MeshBasicMaterial({
+          color: 0x88ccff,
+          transparent: true,
+          opacity: 0.1 + zone.intensity * 0.07,
+          depthWrite: false,
+        }));
+        const coldMesh = new THREE.Mesh(coldGeo, coldMat);
+        coldMesh.position.set(centerX, centerY, z);
+        _hazardGroup.add(coldMesh);
+
+        // Downward drifting cold air particles
+        const downdraftParticles = _createDowndraftParticles(zone);
+        if (downdraftParticles) _hazardGroup.add(downdraftParticles);
       }
     });
   }
@@ -364,6 +404,111 @@ const P1Level = (() => {
     }));
 
     const particles = new THREE.Points(geo, mat);
+    _dryAirVels.push(velocities);
+    return particles;
+  }
+
+  function _createSunbeamDustParticles(zone) {
+    const count = Math.min(20, P1_CFG.MAX_PARTICLES_PER_ZONE_2D);
+    const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      // Dust motes floating slowly in sunbeam
+      positions[i * 3] = zone.x + Math.random() * zone.w;
+      positions[i * 3 + 1] = zone.y + Math.random() * zone.h;
+      positions[i * 3 + 2] = 1.0;
+
+      velocities[i * 3] = (Math.random() - 0.5) * 0.2;
+      velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.1;
+      velocities[i * 3 + 2] = 0;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: 0xffffcc,
+      size: 0.03,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    }));
+
+    const particles = new THREE.Points(geo, mat);
+    particles.userData = { zone, velocities, type: 'sunbeam' };
+
+    _dryAirParticles.push(particles);
+    _dryAirVels.push(velocities);
+    return particles;
+  }
+
+  function _createUpdraftParticles(zone) {
+    const count = Math.min(18, P1_CFG.MAX_PARTICLES_PER_ZONE_2D);
+    const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      // Rising thermal particles
+      positions[i * 3] = zone.x + Math.random() * zone.w;
+      positions[i * 3 + 1] = zone.y + Math.random() * zone.h;
+      positions[i * 3 + 2] = 1.0;
+
+      velocities[i * 3] = (Math.random() - 0.5) * 0.3;
+      velocities[i * 3 + 1] = 1.5 + Math.random() * 1.0; // Upward motion
+      velocities[i * 3 + 2] = 0;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: 0xff8844,
+      size: 0.04,
+      transparent: true,
+      opacity: 0.5,
+      depthWrite: false,
+    }));
+
+    const particles = new THREE.Points(geo, mat);
+    particles.userData = { zone, velocities, type: 'updraft' };
+
+    _dryAirParticles.push(particles);
+    _dryAirVels.push(velocities);
+    return particles;
+  }
+
+  function _createDowndraftParticles(zone) {
+    const count = Math.min(15, P1_CFG.MAX_PARTICLES_PER_ZONE_2D);
+    const positions = new Float32Array(count * 3);
+    const velocities = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      // Slowly descending cold air particles
+      positions[i * 3] = zone.x + Math.random() * zone.w;
+      positions[i * 3 + 1] = zone.y + Math.random() * zone.h;
+      positions[i * 3 + 2] = 1.0;
+
+      velocities[i * 3] = (Math.random() - 0.5) * 0.1;
+      velocities[i * 3 + 1] = -0.5 - Math.random() * 0.5; // Downward motion
+      velocities[i * 3 + 2] = 0;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: 0xaaccff,
+      size: 0.035,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false,
+    }));
+
+    const particles = new THREE.Points(geo, mat);
+    particles.userData = { zone, velocities, type: 'downdraft' };
+
+    _dryAirParticles.push(particles);
     _dryAirVels.push(velocities);
     return particles;
   }
@@ -609,6 +754,12 @@ const P1Level = (() => {
 
     // Create text labels
     _createTextLabels();
+
+    // Build distant classroom background
+    _buildDistantClassroom();
+
+    // Build wind gust zones
+    _buildWindGusts();
   }
 
   function _buildTrailParticles() {
@@ -671,12 +822,16 @@ const P1Level = (() => {
 
       switch(zone.type) {
         case 'UV':
-          text = 'UV LIGHT ZONE';
+          text = 'UV SUNBEAM';
           color = '#FFE135';
           break;
         case 'HEAT':
-          text = 'HEAT ZONE';
+          text = 'THERMAL UPDRAFT';
           color = '#FF6B35';
+          break;
+        case 'COLD':
+          text = 'COLD AIR DOWNDRAFT';
+          color = '#88CCFF';
           break;
         case 'DRY_AIR':
           text = 'DRY AIR CURRENTS';
@@ -738,6 +893,22 @@ const P1Level = (() => {
         worldY: hazard.y + hazard.h/2,
         color: '#FF3535',
         background: 'rgba(0,0,0,0.9)',
+        fontSize: '0.7rem',
+        fontWeight: 'bold'
+      });
+    });
+
+    // Label wind gusts
+    P1_CFG.WIND_GUSTS_2D.forEach((gust, i) => {
+      const text = gust.direction === 'forward' ? 'TAILWIND BOOST' : 'HEADWIND DRAG';
+      const color = gust.direction === 'forward' ? '#44FF44' : '#FF4444';
+
+      _createLabel({
+        text: text,
+        worldX: gust.x + gust.w/2,
+        worldY: gust.y + gust.h/2,
+        color: color,
+        background: 'rgba(0,0,0,0.8)',
         fontSize: '0.7rem',
         fontWeight: 'bold'
       });
@@ -813,6 +984,117 @@ const P1Level = (() => {
     }
     _labelContainer = null;
     _labels = [];
+  }
+
+  // ── Distant Classroom Background ───────────────────────────────────────────
+
+  function _buildDistantClassroom() {
+    _backgroundGroup = new THREE.Group();
+    _scene.add(_backgroundGroup);
+
+    const config = P1_CFG.BACKGROUND_CLASSROOM_2D;
+
+    config.elements.forEach(element => {
+      let geometry, material, color;
+
+      switch(element.type) {
+        case 'desk':
+          color = 0x8B5A2B;
+          break;
+        case 'window':
+          color = 0x87CEEB;
+          break;
+        case 'board':
+          color = 0x2F4F2F;
+          break;
+        case 'wall':
+          color = 0xF5F5DC;
+          break;
+        default:
+          color = 0x888888;
+      }
+
+      geometry = _geo(new THREE.BoxGeometry(
+        element.w * config.scale,
+        element.h * config.scale,
+        0.5 * config.scale
+      ));
+
+      material = _mat(new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.3,
+        depthWrite: false,
+      }));
+
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(
+        (element.x + element.w/2) * config.scale,
+        (element.y + element.h/2) * config.scale,
+        config.depth
+      );
+
+      _backgroundGroup.add(mesh);
+    });
+  }
+
+  // ── Wind Gust System ───────────────────────────────────────────────────────
+
+  function _buildWindGusts() {
+    _windGustGroup = new THREE.Group();
+    _scene.add(_windGustGroup);
+    _windGusts = [];
+
+    P1_CFG.WIND_GUSTS_2D.forEach(gust => {
+      _windGusts.push({
+        ...gust,
+        active: false,
+        timeActive: 0
+      });
+
+      // Visual representation of wind gust zone
+      const gustGeo = _geo(new THREE.PlaneGeometry(gust.w, gust.h));
+      const gustMat = _mat(new THREE.MeshBasicMaterial({
+        color: gust.direction === 'forward' ? 0x44ff44 : 0xff4444,
+        transparent: true,
+        opacity: 0.05,
+        depthWrite: false,
+      }));
+
+      const gustMesh = new THREE.Mesh(gustGeo, gustMat);
+      gustMesh.position.set(gust.x + gust.w/2, gust.y + gust.h/2, 0.7);
+      _windGustGroup.add(gustMesh);
+
+      // Wind stream particles
+      const streamParticles = _createWindStreamParticles(gust);
+      if (streamParticles) _windGustGroup.add(streamParticles);
+    });
+  }
+
+  function _createWindStreamParticles(gust) {
+    const count = Math.min(25, P1_CFG.MAX_PARTICLES_PER_ZONE_2D);
+    const positions = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      positions[i * 3] = gust.x + Math.random() * gust.w;
+      positions[i * 3 + 1] = gust.y + Math.random() * gust.h;
+      positions[i * 3 + 2] = 1.1;
+    }
+
+    const geo = _geo(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    const mat = _mat(new THREE.PointsMaterial({
+      color: gust.direction === 'forward' ? 0x88ff88 : 0xff8888,
+      size: 0.025,
+      transparent: true,
+      opacity: 0.4,
+      depthWrite: false,
+    }));
+
+    const particles = new THREE.Points(geo, mat);
+    particles.userData = { gust, type: 'windstream' };
+    return particles;
   }
 
   function createFusionEffect(x, y) {
@@ -1358,6 +1640,11 @@ const P1Level = (() => {
 
           } else if (zone.type === 'HEAT') {
             evapMult *= P1_CFG.ZONE_HEAT_EVAP_MULT_2D * intensity;
+            // Add thermal updraft
+            if (zone.updraft) {
+              windForce = windForce || { fx: 0, fy: 0 };
+              windForce.fy += zone.updraft * intensity;
+            }
             zoneName = 'HEAT ZONE';
             zoneIntensity = Math.max(zoneIntensity, intensity);
 
@@ -1374,6 +1661,18 @@ const P1Level = (() => {
           } else if (zone.type === 'HUMID') {
             evapMult *= P1_CFG.ZONE_HUMID_EVAP_MULT_2D / intensity; // beneficial
             zoneName = 'HUMID AIR';
+            zoneIntensity = Math.max(zoneIntensity, intensity);
+
+          } else if (zone.type === 'COLD') {
+            // Cold zones stabilize but have downward drift
+            if (zone.downdraft) {
+              windForce = windForce || { fx: 0, fy: 0 };
+              windForce.fy -= zone.downdraft * intensity;
+            }
+            // Add stabilization effect (reduce lateral movement)
+            windForce = windForce || { fx: 0, fy: 0 };
+            windForce.stabilize = P1_CFG.ZONE_COLD_STAB_MULT_2D * intensity;
+            zoneName = 'COLD AIR';
             zoneIntensity = Math.max(zoneIntensity, intensity);
           }
         }
@@ -1415,6 +1714,21 @@ const P1Level = (() => {
       }
     }
 
+    // Check wind gusts for speed multipliers
+    for (const gust of _windGusts) {
+      if (dropletX >= gust.x && dropletX <= gust.x + gust.w &&
+          dropletY >= gust.y && dropletY <= gust.y + gust.h) {
+
+        windForce = windForce || { fx: 0, fy: 0 };
+        windForce.speedMultiplier = gust.multiplier;
+        windForce.gustDirection = gust.direction;
+
+        if (!zoneName) {
+          zoneName = gust.direction === 'forward' ? 'TAILWIND' : 'HEADWIND';
+        }
+      }
+    }
+
     return {
       evapMult,
       viabMult,
@@ -1436,6 +1750,8 @@ const P1Level = (() => {
     if (_movingObstacleGroup && _movingObstacleGroup.parent) _movingObstacleGroup.parent.remove(_movingObstacleGroup);
     if (_combinedHazardGroup && _combinedHazardGroup.parent) _combinedHazardGroup.parent.remove(_combinedHazardGroup);
     if (_effectsGroup && _effectsGroup.parent) _effectsGroup.parent.remove(_effectsGroup);
+    if (_windGustGroup && _windGustGroup.parent) _windGustGroup.parent.remove(_windGustGroup);
+    if (_backgroundGroup && _backgroundGroup.parent) _backgroundGroup.parent.remove(_backgroundGroup);
 
     // Clean up fusion particles
     _fusionParticles.forEach(effect => {
@@ -1469,6 +1785,11 @@ const P1Level = (() => {
     _trailParticles = null;
     _performanceMode = false;
     _lastFrameTime = 0;
+
+    // Clean up new systems
+    _windGusts = [];
+    _windGustGroup = null;
+    _backgroundGroup = null;
 
     // Clean up text labels
     _destroyLabels();

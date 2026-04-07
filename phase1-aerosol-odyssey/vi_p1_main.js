@@ -736,7 +736,11 @@ const P1AerosolOdyssey = (() => {
     // Natural ramp up to max speed
     targetSpeed = Math.min(P1_CFG.SCROLL_SPEED_MAX_2D, targetSpeed);
     _scrollSpeed = Math.min(targetSpeed, _scrollSpeed + P1_CFG.SCROLL_RAMP_2D * dt);
-    _scrollX += _scrollSpeed * dt;
+
+    // Apply wind gust speed multipliers
+    const speedMultiplier = P1Droplet.getScrollSpeedMultiplier();
+    const effectiveScrollSpeed = _scrollSpeed * speedMultiplier;
+    _scrollX += effectiveScrollSpeed * dt;
 
     // Update screen effects
     if (_screenEffectTime > 0) {
