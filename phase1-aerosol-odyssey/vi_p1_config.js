@@ -201,7 +201,7 @@ const P1_CFG = Object.freeze({
   // ── 2D Side-Scroller ────────────────────────────────────────────────────────
   WORLD_HEIGHT_2D: 12,          // orthographic world height (meters)
   WORLD_WIDTH_2D:  100,         // total level width (meters)
-  VIEW_HEIGHT_2D:  12,          // orthographic view height (= WORLD_HEIGHT_2D)
+  VIEW_HEIGHT_2D:  24,          // orthographic view height (2X zoom out)
 
   SCROLL_SPEED_INIT_2D: 3.5,    // initial auto-scroll speed (m/s)
   SCROLL_SPEED_MAX_2D:  8.0,    // maximum auto-scroll speed (m/s)
@@ -209,27 +209,27 @@ const P1_CFG = Object.freeze({
 
   DROPLET_VIEW_FRAC_2D: 0.25,   // droplet x = scrollX + viewW × 0.25
   FLOOR_Y_2D:           0.0,    // floor level (y coordinate)
-  CEIL_Y_2D:            12.0,   // ceiling level (y coordinate)
+  CEIL_Y_2D:            24.0,   // ceiling level (y coordinate) - matches new view height
 
-  DROPLET_START_Y_2D:      7.5, // droplet spawn altitude (y coordinate)
+  DROPLET_START_Y_2D:      12.0, // droplet spawn altitude (y coordinate) - centered in new view
   DROPLET_RADIUS_2D:       0.55,// droplet visual radius (meters)
   DROPLET_RADIUS_MIN_2D:   0.12,// minimum radius when desiccated
 
   DROPLET_GRAVITY_2D:      3.0, // base gravity (m/s²)
   DROPLET_GRAVITY_SIZE_2D: 1.5, // gravity multiplier = 1 + size²×this
-  DROPLET_THRUST_UP_2D:    7.5, // upward thrust force (m/s²)
-  DROPLET_THRUST_DOWN_2D:  4.0, // downward thrust force (m/s²)
-  DROPLET_THRUST_LR_2D:    2.5, // lateral nudge force (m/s²)
-  DROPLET_VY_MAX_2D:       6.0, // max vertical velocity (m/s)
-  DROPLET_VX_NUDGE_MAX_2D: 2.0, // max lateral nudge velocity (m/s)
-  DROPLET_DRAG_2D:         0.88,// velocity drag coefficient (per frame)
+  DROPLET_THRUST_UP_2D:    12.0, // upward thrust force (m/s²) - increased for responsiveness
+  DROPLET_THRUST_DOWN_2D:  10.0, // downward thrust force (m/s²) - balanced with up
+  DROPLET_THRUST_LR_2D:    4.0,  // lateral nudge force (m/s²) - increased
+  DROPLET_VY_MAX_2D:       9.0,  // max vertical velocity (m/s) - increased range
+  DROPLET_VX_NUDGE_MAX_2D: 3.0,  // max lateral nudge velocity (m/s) - increased
+  DROPLET_DRAG_2D:         0.94, // velocity drag coefficient - reduced drag for responsiveness
 
   EVAP_RATE_2D:            0.008,// evaporation rate (%/s)
   VIAB_DECAY_BASE_2D:      0.4, // viral viability base decay (%/s)
   VIAB_DESICCATED_MULT_2D: 4.0, // viability decay multiplier when dry
 
   MOUTH_WORLD_X_2D:        88.5,// Cam's mouth x-coordinate (world)
-  MOUTH_WORLD_Y_2D:        5.0, // Cam's mouth y-coordinate (world)
+  MOUTH_WORLD_Y_2D:        10.0, // Cam's mouth y-coordinate (world) - repositioned for 24m view
   WIN_DIST_2D:             2.0, // win distance to mouth (meters)
 
   BREATH_CYCLE_2D:         4.0, // breath cycle duration (seconds)
@@ -244,10 +244,10 @@ const P1_CFG = Object.freeze({
     { x: 30, y: 0,    w: 4, h: 3.5 },  // floor obstacle
     { x: 55, y: 0,    w: 6, h: 2.8 },  // floor obstacle
     { x: 78, y: 0,    w: 5, h: 5.0 },  // floor obstacle (paired)
-    { x: 18, y: 9.5,  w: 5, h: 2.5 },  // ceiling obstacle
-    { x: 42, y: 7.5,  w: 5, h: 4.5 },  // ceiling obstacle
-    { x: 68, y: 8.0,  w: 5, h: 4.0 },  // ceiling obstacle
-    { x: 78, y:10.0,  w: 5, h: 2.0 },  // ceiling obstacle (paired → narrow channel)
+    { x: 18, y: 19.0, w: 5, h: 2.5 },  // ceiling obstacle - moved to upper area
+    { x: 42, y: 15.0, w: 5, h: 4.5 },  // ceiling obstacle - moved to upper area
+    { x: 68, y: 16.0, w: 5, h: 4.0 },  // ceiling obstacle - moved to upper area
+    { x: 78, y: 20.0, w: 5, h: 2.0 },  // ceiling obstacle (paired → narrow channel)
   ],
 
   // ── Hazard Zones ───────────────────────────────────────────────────────────
