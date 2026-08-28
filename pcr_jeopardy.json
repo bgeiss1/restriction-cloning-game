@@ -29,12 +29,13 @@
       "name": "Reagents"
     },
     {
-      "id": "cat_calc",
-      "name": "Calculations "
-    },
-    {
       "id": "cat_trouble",
       "name": "Troubleshoot"
+    },
+    {
+      "id": "cat_gibson_assembly_mtdi5uza",
+      "name": "Gibson Assembly",
+      "color": "#1565C0"
     }
   ],
   "questions": [
@@ -243,7 +244,7 @@
     },
     {
       "id": "q16",
-      "category": "cat_calc",
+      "category": "",
       "value": 100,
       "clue": "After 10 PCR cycles starting from a single template copy, the theoretical number of copies produced.",
       "answer": "1024",
@@ -256,7 +257,7 @@
     },
     {
       "id": "q17",
-      "category": "cat_calc",
+      "category": "",
       "value": 200,
       "clue": "If PCR efficiency is 95%, each cycle multiplies copies by this decimal value.",
       "answer": "1.95",
@@ -268,7 +269,7 @@
     },
     {
       "id": "q18",
-      "category": "cat_calc",
+      "category": "",
       "value": 300,
       "clue": "Average molecular weight of one base pair in daltons, used in DNA copy number calculations.",
       "answer": "660",
@@ -282,7 +283,7 @@
     },
     {
       "id": "q19",
-      "category": "cat_calc",
+      "category": "",
       "value": 400,
       "clue": "A standard curve slope of −3.32 in qPCR corresponds to this PCR efficiency (in %).",
       "answer": "100",
@@ -296,7 +297,7 @@
     },
     {
       "id": "q20",
-      "category": "cat_calc",
+      "category": "",
       "value": 500,
       "clue": "In a serial dilution standard curve, each 10-fold dilution step should shift the Ct by approximately this many cycles at 100% efficiency.",
       "answer": "3.32",
@@ -375,6 +376,78 @@
       ],
       "exactMatch": false,
       "explain": "Carryover contamination is prevented by physical separation of pre/post-PCR areas, UV decontamination, and UNG treatment."
+    },
+    {
+      "id": "q_mtdi6cet",
+      "category": "cat_gibson_assembly_mtdi5uza",
+      "value": 100,
+      "clue": "When using Inverse PCR to linearize your vector, what must you treat your product with to avoid high background?",
+      "answer": "Dpn1",
+      "acceptedAnswers": [
+        "dpn1"
+      ],
+      "exactMatch": false,
+      "explain": "Dpn1 selectively cuts methylated DNA. An Inverse PCR reaction should be treated with Dpn1 to remove any remaining template plasmid from the product. Otherwise, the leftover template plasmid will show up as background in gel electrophoresis or sanger sequencing."
+    },
+    {
+      "id": "q_mtdi751x",
+      "category": "cat_gibson_assembly_mtdi5uza",
+      "value": 200,
+      "clue": "Name the three enzymes required for Gibson assembly <br>\n<b><i>(DO NOT</b> put commas in your answer!)</i>",
+      "answer": "DNA polymerase DNA ligase 5’-3’ exonuclease",
+      "acceptedAnswers": [
+        "dna polymerase dna ligase 5'-3' exonuclease",
+        "dna polymerase dna ligase 5-3' exonuclease",
+        "dna polymerase dna ligase 5'to 3' exonuclease",
+        "dna polymerase dna ligase 5 prime to 3 prime exonuclease"
+      ],
+      "exactMatch": false,
+      "explain": ""
+    },
+    {
+      "id": "q_mtdi97iv",
+      "category": "cat_gibson_assembly_mtdi5uza",
+      "value": 300,
+      "clue": "What ratio of insert DNA to plasmid is ideal to achieve efficient assembly of your desired plasmid?",
+      "answer": "2:1",
+      "acceptedAnswers": [
+        "2 to 1",
+        "double",
+        "twice as much"
+      ],
+      "exactMatch": false,
+      "explain": "Ideally, you want twice as much molar amount of insert to the amount of target vector in your Gibson assembly reaction. "
+    },
+    {
+      "id": "q_mtdi9wp4",
+      "category": "cat_gibson_assembly_mtdi5uza",
+      "value": 400,
+      "clue": "In what direction does T5 Exonuclease digest DNA?",
+      "answer": "5’ to 3’",
+      "acceptedAnswers": [
+        "5'-3'",
+        "5 prime to 3 prime",
+        "5-3'",
+        "5 to 3'",
+        "5' end to 3' end"
+      ],
+      "exactMatch": false,
+      "explain": "T5 Exonuclease digests one strand of DNA from the 5’ end in the 3’ direction. It leaves behind a single strand of DNA referred to as the 3’ overhang on the complimentary strand to the DNA strand it digested. "
+    },
+    {
+      "id": "q_mtdiaqxc",
+      "category": "cat_gibson_assembly_mtdi5uza",
+      "value": 500,
+      "clue": "What enzyme is used in the final step of Gibson assembly and what is its function? <i><b>(DO NOT</b> use commas in your answer!)</i>",
+      "answer": "DNA ligase seals nicks",
+      "acceptedAnswers": [
+        "dna ligase seals nicks",
+        "dna ligase fills gaps",
+        "dna ligase adds nucleotides to gaps",
+        "dna ligase fills nucleotides into gaps"
+      ],
+      "exactMatch": false,
+      "explain": "After the overlapping DNA fragments anneal together, DNA polymerase adds nucleotides to extend the 3’ ends of the overhangs. However, a gap will remain between the existing DNA and the portion added by the DNA polymerase. In the final step of Gibson assembly, DNA ligase will seal the nicks between the new and old DNA fragments, covalently linking all the DNA fragments together. "
     }
   ],
   "finalQuestion": {
