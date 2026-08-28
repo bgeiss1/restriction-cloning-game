@@ -61,35 +61,32 @@
         "3",
         "3 hydrogen bonds"
       ],
-      "exactMatch": false,
+      "exactMatch": true,
       "explain": "G-C pairs form 3 hydrogen bonds vs. 2 for A-T, making them more stable and raising Tm."
     },
     {
       "id": "q3",
       "category": "cat_primers",
       "value": 300,
-      "clue": "A hairpin forms when a primer has complementary sequences at its 5' and 3' ends, folding back on itself into this structure.",
-      "answer": "stem loop",
-      "acceptedAnswers": [
-        "hairpin",
-        "stem-loop"
-      ],
+      "clue": "When annealing primers to your template strand, what matters more: The amount of time the annealing step takes, or the temperature during the annealing step?",
+      "answer": "temperature",
+      "acceptedAnswers": [],
       "exactMatch": false,
-      "explain": "Stem-loop structures reduce primer availability and can inhibit PCR or cause mispriming."
+      "explain": "The temperature needed to anneal your primers to the template is critical, and varies based on primer length and GC content. Annealing time is typically short, only 15-30 seconds, and the length of this step usually doesn’t impact generation of the PCR product. "
     },
     {
       "id": "q4",
       "category": "cat_primers",
       "value": 400,
-      "clue": "Primer pairs with Tm values differing by more than 5°C may cause this outcome at a shared annealing temperature.",
-      "answer": "unequal amplification",
+      "clue": "Besides percent G-C content, another aspect of ideal primer design is to include at least this many G-C nucleotides in last 5 bases at the 3' end of your primer",
+      "answer": "3",
       "acceptedAnswers": [
-        "poor amplification",
-        "one primer anneals poorly",
-        "asymmetric amplification"
+        "three",
+        "3 nucleotides",
+        "three nucleotides"
       ],
-      "exactMatch": false,
-      "explain": "When Tm values differ >5°C, the lower-Tm primer may not bind well at the higher annealing temperature."
+      "exactMatch": true,
+      "explain": "If there’s less than 3 G-C nucleotides in the last 5 bases at the 3’ end of primers, this may cause the 3’ end of the primer to bind poorly to the target strand, decreasing annealing efficiency. It may also cause the DNA polymerase to fall off (transiently detach) during the extension step. Both of these outcomes would impair the amount of PCR product you generate! "
     },
     {
       "id": "q5",
@@ -148,14 +145,15 @@
       "category": "cat_steps",
       "value": 400,
       "clue": "Typical number of PCR cycles for routine amplification from genomic DNA.",
-      "answer": "30",
+      "answer": "25-35",
       "acceptedAnswers": [
         "30 cycles",
+        "30",
         "25 to 35",
         "25-35"
       ],
       "exactMatch": false,
-      "explain": "25–35 cycles amplify a single copy ~10⁷–10¹⁰ fold; exceeding 35 cycles increases non-specific bands."
+      "explain": "25–35 cycles amplify a single copy ~10⁷–10¹⁰ fold; exceeding 35 cycles increases non-specific bands. (However, if you're trying to amplify a difficult DNA template, you may go up to 40 cycles! ... And end up with a lot of primer dimer in your PCR product!) "
     },
     {
       "id": "q10",
@@ -174,7 +172,7 @@
       "id": "q11",
       "category": "cat_reagents",
       "value": 100,
-      "clue": "The four nucleotide building blocks incorporated by DNA polymerase during PCR extension.",
+      "clue": "These four nucleotides included a PCR reaction mix are the building blocks incorporated by DNA polymerase during PCR extension.",
       "answer": "dNTPs",
       "acceptedAnswers": [
         "dntp",
@@ -182,13 +180,13 @@
         "deoxynucleotide triphosphates"
       ],
       "exactMatch": false,
-      "explain": "dNTPs (dATP, dCTP, dGTP, dTTP) provide the nucleotides for new strand synthesis."
+      "explain": "dNTPs (dATP, dCTP, dGTP, dTTP) provide the nucleotides for new strand synthesis. "
     },
     {
       "id": "q12",
       "category": "cat_reagents",
       "value": 200,
-      "clue": "Thermostable DNA polymerase originally isolated from Thermus aquaticus, the workhorse of PCR.",
+      "clue": "What is the thermostable DNA polymerase originally isolated from Thermus aquaticus, used in many PCR reactions?",
       "answer": "Taq polymerase",
       "acceptedAnswers": [
         "taq",
@@ -198,49 +196,16 @@
       "explain": "Taq survives repeated 95°C denaturation; it lacks 3'→5' proofreading and adds A-overhangs."
     },
     {
-      "id": "q13",
-      "category": "cat_reagents",
-      "value": 300,
-      "clue": "The divalent cation cofactor required by all thermostable polymerases; typical concentration in PCR is 1.5–2.5 mM.",
-      "answer": "magnesium",
-      "acceptedAnswers": [
-        "mg2+",
-        "mg",
-        "magnesium ions",
-        "mgcl2",
-        "magnesium chloride"
-      ],
-      "exactMatch": false,
-      "explain": "Mg²⁺ is essential for polymerase catalysis and primer annealing; too much or too little reduces specificity."
-    },
-    {
       "id": "q14",
       "category": "cat_reagents",
-      "value": 400,
-      "clue": "Typical concentration of each dNTP in a standard PCR reaction.",
-      "answer": "200 micromolar",
+      "value": 300,
+      "clue": "When should enzymes be added to your PCR reaction mix?",
+      "answer": "Last",
       "acceptedAnswers": [
-        "200 uM",
-        "200µM",
-        "0.2 mM",
-        "200 μM"
+        "at the end"
       ],
       "exactMatch": false,
-      "explain": "200 µM per dNTP is standard; higher concentrations can inhibit Taq by chelating Mg²⁺."
-    },
-    {
-      "id": "q15",
-      "category": "cat_reagents",
-      "value": 500,
-      "clue": "These reagents — antibodies, aptamers, or chemical modifications — block polymerase activity below ~60°C to improve specificity.",
-      "answer": "hot start reagents",
-      "acceptedAnswers": [
-        "hot start",
-        "hot start antibody",
-        "hot-start"
-      ],
-      "exactMatch": false,
-      "explain": "Hot-start strategies prevent extension at room temperature, reducing primer dimers and non-specific bands."
+      "explain": "Enzymes like Taq polymerase need optimal buffer conditions to maintain their enzymatic activity. Additionally, adding your enzymes last prevents the PCR reaction from starting prematurely. "
     },
     {
       "id": "q16",
@@ -328,27 +293,29 @@
       "id": "q22",
       "category": "cat_trouble",
       "value": 200,
-      "clue": "A smear on an agarose gel rather than a distinct band usually indicates too many of these.",
-      "answer": "cycles",
+      "clue": "Where does primer dimer appear on a gel relative to other DNA bands?",
+      "answer": "lower",
       "acceptedAnswers": [
-        "too many cycles",
-        "pcr cycles"
+        "low",
+        "low on gel",
+        "small",
+        "small product"
       ],
       "exactMatch": false,
-      "explain": "Over-cycling causes re-amplification of non-specific products, creating a continuous smear."
+      "explain": "Primer dimer is when your primer anneals to itself. Because it is formed by the binding of short-length primers to itself, it’s small size means will migrate faster and lower on an electrophoretic gel than your larger (longer) PCR products. Therefore, it frequently appears as a band on the lower portion of your gel. "
     },
     {
       "id": "q23",
       "category": "cat_trouble",
       "value": 300,
-      "clue": "Heme in whole blood inhibits Taq polymerase; a common fix is to add BSA or dilute the sample. The underlying problem is called PCR ____.",
-      "answer": "inhibition",
+      "clue": "On a gel, what would you include to determine your reaction worked properly and produced the desired PCR product?",
+      "answer": "positive and negative controls",
       "acceptedAnswers": [
-        "pcr inhibition",
-        "taq inhibition"
+        "positive control and negative control",
+        "positive control lane negative control lane"
       ],
       "exactMatch": false,
-      "explain": "Blood, soil, and clinical samples often contain PCR inhibitors; dilution, BSA, or specialized extraction kits help."
+      "explain": "Without proper controls, you have no way of known if the PCR product you just made is actually your target, or a random off-target product that happens to be around the same size. By including a known positive control lane, you can be more confident that the bands generated by your PCR reaction are your genuine target. Negative controls are essential to ensure your bands aren’t the result of some off-target or unexpected target amplifying. Plus, it’s an empirical test that gives you confidence in your primer’s specificity. "
     },
     {
       "id": "q24",
@@ -367,7 +334,7 @@
       "id": "q25",
       "category": "cat_trouble",
       "value": 500,
-      "clue": "Amplicon contamination producing false positives in subsequent runs is called this type of contamination.",
+      "clue": "Amplicon contamination that produces false positives in subsequent runs is called this type of contamination.",
       "answer": "carryover",
       "acceptedAnswers": [
         "carryover contamination",
@@ -375,7 +342,7 @@
         "carry-over"
       ],
       "exactMatch": false,
-      "explain": "Carryover contamination is prevented by physical separation of pre/post-PCR areas, UV decontamination, and UNG treatment."
+      "explain": "Carryover contamination is prevented by physical separation of pre/post-PCR areas, use of a PCR clean hood to prepare reactions, UV decontamination between runs, and thorough cleaning of workspaces with a DNA denaturing solution. "
     },
     {
       "id": "q_mtdi6cet",
@@ -393,7 +360,7 @@
       "id": "q_mtdi751x",
       "category": "cat_gibson_assembly_mtdi5uza",
       "value": 200,
-      "clue": "Name the three enzymes required for Gibson assembly <br>\n<b><i>(DO NOT</b> put commas in your answer!)</i>",
+      "clue": "Name the three enzymes required for Gibson assembly <br>\n<b><i>(DO NOT</b> include commas in your answer!)</i>",
       "answer": "DNA polymerase DNA ligase 5’-3’ exonuclease",
       "acceptedAnswers": [
         "dna polymerase dna ligase 5'-3' exonuclease",
@@ -448,6 +415,37 @@
       ],
       "exactMatch": false,
       "explain": "After the overlapping DNA fragments anneal together, DNA polymerase adds nucleotides to extend the 3’ ends of the overhangs. However, a gap will remain between the existing DNA and the portion added by the DNA polymerase. In the final step of Gibson assembly, DNA ligase will seal the nicks between the new and old DNA fragments, covalently linking all the DNA fragments together. "
+    },
+    {
+      "id": "q_mtdixv8l",
+      "category": "cat_reagents",
+      "value": 400,
+      "clue": "What’s the optimal amount of low-complexity plasmid DNA to add to your PCR reaction?",
+      "answer": "0.1-1ng",
+      "acceptedAnswers": [
+        "0.1 to 1ng",
+        "0.1-1 ng",
+        "0.1 to 1 ng",
+        "0.1 to 1 nanogram"
+      ],
+      "exactMatch": false,
+      "explain": "Amplifying a complex DNA template, such as whole genomic DNA, may require more input DNA to be added to your reaction for adequate replication. "
+    },
+    {
+      "id": "q_mtdj1j9m",
+      "category": "cat_reagents",
+      "value": 500,
+      "clue": "The divalent cation cofactor required by all thermostable polymerases; typical concentration in PCR is 1.5–2.5 mM.",
+      "answer": "magnesium",
+      "acceptedAnswers": [
+        "mg2+",
+        "mg",
+        "magnesium ions",
+        "mgcl2",
+        "magnesium chloride"
+      ],
+      "exactMatch": false,
+      "explain": "Mg²⁺ is essential for polymerase catalysis and primer annealing; too much or too little reduces specificity."
     }
   ],
   "finalQuestion": {
