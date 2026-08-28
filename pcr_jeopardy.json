@@ -450,17 +450,13 @@
   ],
   "finalQuestion": {
     "category": "The Reaction",
-    "clue": "In real-time PCR, this value — the cycle number at which fluorescence crosses the threshold — is used to quantify starting template amount.",
-    "answer": "Ct",
+    "clue": "All plasmids that are used for cloning contain what three features?",
+    "answer": "Origin of replication antibiotic resistance gene and multiple cloning site",
     "acceptedAnswers": [
-      "Cq",
-      "cycle threshold",
-      "threshold cycle",
-      "crossing threshold",
-      "Ct value",
-      "Cq value"
+      "ORI antibiotic resistance MCS",
+      "Origin of replication antibiotic resistance gene and polylinker"
     ],
     "exactMatch": false,
-    "explain": "Ct (or Cq) is inversely proportional to log₂(initial template); a Ct difference of ~3.32 represents a 10-fold difference in starting quantity."
+    "explain": "The origin of replication (ORI) site is where initiation proteins bind to start DNA replication in bacteria. Antibiotic resistance genes are used to select for bacteria successfully transformed with your plasmid on antibiotic containing agar plates. Finally, the multiple cloning site (MCS, or polylinker) is the region that contains multiple DNA sequences that can be targeted different restriction enzymes to allow the addition of your desired DNA insert. "
   }
 }
